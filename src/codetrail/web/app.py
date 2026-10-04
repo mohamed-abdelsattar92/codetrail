@@ -6,13 +6,15 @@ and guide content is marked as English.
 
 from __future__ import annotations
 
+import threading
 import time
+from collections.abc import Callable
 from importlib.resources import files
 from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, PlainTextResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from pydantic import BaseModel, ConfigDict, Field
@@ -22,9 +24,13 @@ from codetrail.config import GlobalConfig, Paths
 from codetrail.database import connect
 from codetrail.errors import CodetrailError
 from codetrail.facts import EntityKind
+from codetrail.generate.scope import sources_changed
+from codetrail.guide import PAGE_ID, GuideRepository
 from codetrail.repo.signal import Signal, behind
+from codetrail.update import run_update
 from codetrail.web.diagrams import dependencies_diagram, imports_diagram
 from codetrail.web.i18n import Language, installed_languages
+from codetrail.web.render import render_body
 from codetrail.web.security import SESSION_COOKIE, SecurityMiddleware, SessionState, login_response
 from codetrail.web.target_view import TargetView
 
@@ -37,11 +43,21 @@ class LanguageChoice(BaseModel):
 
 
 def create_app(
-    paths: Paths, name: str, session: SessionState, settings: GlobalConfig, locales: Path | None = None
+    paths: Paths,
+    name: str,
+    session: SessionState,
+    settings: GlobalConfig,
+    locales: Path | None = None,
+    updater: Callable[[], object] | None = None,
 ) -> ASGIApp:
-    """The page, wrapped in the security middleware outside everything, so every response passes through it."""
+    """The page, wrapped in the security middleware outside everything, so every response passes through it.
+
+    `updater` runs one update; the Update button runs it in a background thread (tests pass a fake one).
+    """
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
     view = TargetView(paths, name)
+    guide = GuideRepository(paths.target_data(name) / "guide")
+    job = UpdateJob(updater or (lambda: run_update(paths, name)))
     languages = installed_languages(locales)
     templates = str(files("codetrail.web").joinpath("templates"))
     environments = {code: _environment(templates, language) for code, language in languages.items()}
@@ -97,7 +113,34 @@ def create_app(
                 for entity in store.entities():
                     kinds[str(entity.kind)] = kinds.get(str(entity.kind), 0) + 1
                 counts = sorted(kinds.items())
-        return render("home.html", signal=current_signal(), areas=view.areas(), counts=counts, snapshot=snapshot)
+        guide_pages = [page for page in guide.pages() if page.kind in ("area", "concept")]
+        digests = sorted(guide.pages("digest"), key=lambda page: str(page.meta.get("written_at", "")))
+        return render(
+            "home.html", signal=current_signal(), areas=view.areas(), counts=counts, snapshot=snapshot,
+            guide_pages=guide_pages, latest_digest=digests[-1] if digests else None,
+        )  # fmt: skip
+
+    @app.get("/pages/{page_id:path}", response_class=HTMLResponse)
+    def guide_page(page_id: str) -> HTMLResponse:
+        if not PAGE_ID.fullmatch(page_id) or not (view.data / "codetrail.db").exists():
+            return not_found()
+        page = guide.read_page(page_id)
+        if page is None:
+            return not_found()
+        manifest = view.manifest()
+        changed = manifest is not None and page.kind != "digest" and sources_changed(page, manifest)
+        with view.store() as store:
+            segments = render_body(page.body, store, settings.diagrams.max_nodes)
+        return render("page.html", page=page, segments=segments, sources_changed=changed)
+
+    @app.post("/update")
+    def start_update() -> Response:
+        started = job.start()
+        return JSONResponse(job.status(), status_code=202 if started else 409)
+
+    @app.get("/update/status")
+    def update_status() -> Response:
+        return JSONResponse(job.status())
 
     @app.get("/areas/{scope:path}", response_class=HTMLResponse)
     def area(scope: str) -> HTMLResponse:
@@ -187,3 +230,35 @@ def _environment(templates: str, language: Language) -> Environment:
     )
     environment.install_gettext_translations(language.translations, newstyle=True)  # type: ignore[attr-defined]
     return environment
+
+
+class UpdateJob:
+    """One update at a time, run in a background thread; the target's lock also refuses one from the command line."""
+
+    def __init__(self, run: Callable[[], object]) -> None:
+        self._run = run
+        self._lock = threading.Lock()
+        self.state = "idle"
+        self.message = ""
+
+    def start(self) -> bool:
+        """Starts the update unless one is running; True when this call started it."""
+        with self._lock:
+            if self.state == "running":
+                return False
+            self.state, self.message = "running", ""
+        threading.Thread(target=self._work, daemon=True).start()
+        return True
+
+    def _work(self) -> None:
+        try:
+            self._run()
+        except CodetrailError as error:
+            self.state, self.message = "failed", str(error)
+        except Exception as error:  # the page shows a generic message; details stay out of the response
+            self.state, self.message = "failed", f"The update failed ({type(error).__name__})."
+        else:
+            self.state, self.message = "done", ""
+
+    def status(self) -> dict[str, str]:
+        return {"state": self.state, "message": self.message}

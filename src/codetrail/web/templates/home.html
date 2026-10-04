@@ -24,6 +24,25 @@
   {% endif %}
 </section>
 
+<section class="update">
+  <button type="button" data-update-button>{{ _("Update the guide") }}</button>
+  <span class="muted" data-update-status></span>
+</section>
+
+{% if guide_pages %}
+<section>
+  <h2>{{ _("The guide") }}</h2>
+  {% if latest_digest %}<p>{{ _("Latest digest:") }} <a href="/pages/{{ latest_digest.id }}" lang="en" dir="ltr">{{ latest_digest.title }}</a></p>{% endif %}
+  {% for kind, heading in [("area", _("Areas")), ("concept", _("Concepts"))] %}
+  {% set listed = guide_pages | selectattr("kind", "equalto", kind) | list %}
+  {% if listed %}
+  <h3>{{ heading }}</h3>
+  <ul lang="en" dir="ltr">{% for page in listed %}<li><a href="/pages/{{ page.id }}">{{ page.title }}</a></li>{% endfor %}</ul>
+  {% endif %}
+  {% endfor %}
+</section>
+{% endif %}
+
 {% if counts %}
 <section>
   <h2>{{ _("Facts") }}</h2>
@@ -35,7 +54,7 @@
 {% endif %}
 
 <section>
-  <h2>{{ _("Areas") }}</h2>
+  <h2>{{ _("Folders") }}</h2>
   {% if areas %}
   <ul class="areas">
     {% for area, files in areas %}

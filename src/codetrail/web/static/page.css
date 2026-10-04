@@ -34,3 +34,12 @@ pre.diagram { font-size: 0.75rem; color: var(--muted); }
 .diagram-svg svg { max-width: 100%; height: auto; }
 figure { margin: 0; }
 details { margin-block-start: 0.5rem; font-size: 0.9rem; }
+.notice { padding: 0.5rem 0.75rem; border-inline-start: 4px solid var(--warn); background: var(--soft); }
+.rationale { margin: 1rem 0; padding: 0.6rem 0.9rem; border-inline-start: 4px solid var(--line); background: var(--soft); border-radius: 0.25rem; }
+.rationale.documented { border-inline-start-color: var(--ok); }
+.rationale.inferred { border-inline-start-color: var(--warn); }
+.rationale-label { margin: 0 0 0.25rem; font-size: 0.85rem; color: var(--muted); }
+.rationale p:last-child { margin-bottom: 0; }
+.guide-page table { margin: 1rem 0; }
+.update { display: flex; gap: 1rem; align-items: center; }
+button { font: inherit; padding: 0.4rem 0.9rem; border-radius: 0.4rem; border: 1px solid var(--line); background: var(--soft); color: var(--text); cursor: pointer; }
