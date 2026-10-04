@@ -7,8 +7,8 @@ shift
 root=$(git rev-parse --show-toplevel)
 
 if [ ! -f "$root/lefthook.yml" ]; then
-  echo "$hook: this checkout predates lefthook.yml, so its checks are skipped." >&2
-  exit 0
+  echo "$hook: lefthook.yml is missing, so the checks can't run; restore it before committing or pushing." >&2
+  exit 1
 fi
 
 if command -v mise >/dev/null 2>&1; then

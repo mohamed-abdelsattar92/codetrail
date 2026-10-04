@@ -111,6 +111,20 @@ UNREADABLE = 'a command the guard cannot read'
 BRACES = re.compile(r'\{[^{}]*(,|\.\.)[^{}]*\}')
 REF_MOVE = 'moving git refs by hand'
 VERIFYING_COMMANDS = {'commit', 'merge', 'cherry-pick', 'revert', 'am', 'rebase', 'pull'}
+HISTORY = 'rewriting history, deleting branches or tags, or releasing'
+# Configuration that can turn a command into a push, reach credentials or move remotes (AGENTS.md, rules 1 and 2).
+RISKY_CONFIG = ('alias.', 'credential', 'remote.', 'url.', 'pushurl', 'core.sshcommand', 'core.hookspath', 'include.',
+                'includeif.')
+# Environment variables that configure or redirect git (security review of Phase 0, finding 1).
+RISKY_GIT_ENV = re.compile(r'^(GIT_CONFIG\w*|GIT_DIR|GIT_WORK_TREE|GIT_EXEC_PATH|GIT_SSH\w*|GIT_ASKPASS|GIT_NAMESPACE)$')
+# Programs that write to a file named in their arguments; with a path in .git/ they could move refs or hooks.
+WRITERS = {'cp', 'mv', 'tee', 'ln', 'rm', 'install', 'truncate', 'dd', 'touch', 'sed', 'perl', 'python3', 'python',
+           'chmod', 'rsync'}
+TAG_READ_OPTIONS = {'-l', '--list', '-n', '--contains', '--no-contains', '--points-at', '--merged', '--no-merged',
+                    '--sort', '--format', '--column', '--no-column', '-i', '--ignore-case'}
+BRANCH_WRITE_OPTIONS = {'-d', '-D', '--delete', '-f', '--force', '-m', '-M', '--move', '-c', '-C', '--copy',
+                        '--set-upstream-to', '-u', '--unset-upstream', '--edit-description'}
+PROTECTED_BRANCHES = {'main'}
 COMMIT_VALUE_OPTS = {'-m', '-F', '-C', '-c', '-t', '--message', '--file', '--template', '--author', '--date'}
 
 def skips_hooks_env(assignments):
@@ -119,6 +133,19 @@ def skips_hooks_env(assignments):
         if name == 'LEFTHOOK' and value.strip('\'"').lower() in ('0', 'false', 'no', 'off'): return True
         if name == 'LEFTHOOK_EXCLUDE': return True
     return False
+
+
+def in_git_folder(token):
+    path = re.sub(r'^\d*[<>]+&?', '', token).strip('\'"')
+    return bool(re.search(r'(^|/)\.git(/|$)', path))
+
+
+def writes_into_git_folder(seg, prog):
+    """A redirection into .git/, or a writing program given a path there (security review of Phase 0, finding 2)."""
+    for i, tok in enumerate(seg):
+        if re.match(r'^\d*>{1,2}', tok) and (in_git_folder(tok) or (i + 1 < len(seg) and in_git_folder(seg[i + 1]))):
+            return True
+    return prog in WRITERS and any(in_git_folder(t) for t in seg[1:])
 
 
 def check_flow(args):
@@ -140,12 +167,27 @@ def check_git(args):
     i = 0
     while i < len(args) and args[i].startswith('-'):
         opt = args[i].split('=', 1)[0]
-        if opt == '-c' and i + 1 < len(args) and args[i + 1].lower().startswith('core.hookspath'):
+        value = args[i].split('=', 1)[1] if '=' in args[i] else (args[i + 1] if i + 1 < len(args) else '')
+        if opt == '-c' and value.lower().startswith('core.hookspath'):
             return f'{HOOK_SKIP}: core.hooksPath'
+        if opt == '-c' and value.lower().startswith(RISKY_CONFIG):
+            return f'git -c {value.split("=", 1)[0]}'
+        if opt == '--config-env':
+            return 'git --config-env'
         i += 2 if (opt in GIT_OPTS_WITH_VALUE and '=' not in args[i]) else 1
     if i >= len(args): return None
     sub, rest = args[i], args[i + 1:]
+    if '--no-verify' in rest: return f'{HOOK_SKIP}: git {sub} --no-verify'
     if sub in ('push', 'send-pack'): return f'git {sub}'
+    if sub == 'symbolic-ref' and len([a for a in rest if not a.startswith('-')]) > 1: return f'{REF_MOVE}: git symbolic-ref'
+    if sub in ('filter-branch', 'filter-repo', 'rebase', 'replace'): return f'{HISTORY}: git {sub}'
+    if sub == 'reset' and any(a in ('--hard', '--merge', '--keep') for a in rest): return f'{HISTORY}: git reset --hard'
+    if sub == 'tag' and any(not (a.split('=', 1)[0] in TAG_READ_OPTIONS or a.startswith('-n')) for a in rest if a.startswith('-')):
+        return f'{HISTORY}: git tag {next(a for a in rest if a.startswith("-"))}'
+    if sub == 'tag' and rest and not any(a.split('=', 1)[0] in TAG_READ_OPTIONS for a in rest): return f'{HISTORY}: git tag (creating a tag)'
+    if sub == 'branch' and any(a.split('=', 1)[0] in BRANCH_WRITE_OPTIONS for a in rest): return f'{HISTORY}: git branch with {next(a for a in rest if a.split("=", 1)[0] in BRANCH_WRITE_OPTIONS)}'
+    if sub in ('checkout', 'switch') and any(a in PROTECTED_BRANCHES for a in rest): return f'{HISTORY}: checking out main'
+    if sub == 'merge' and any(a in PROTECTED_BRANCHES for a in rest): return f'{HISTORY}: merging into main'
     if sub == 'subtree' and 'push' in rest: return 'git subtree push'
     if sub == 'credential': return 'git credential'
     if sub == 'update-ref': return f'{REF_MOVE}: git update-ref'
@@ -160,11 +202,12 @@ def check_git(args):
                     return f'{HOOK_SKIP}: git commit -n'
                 prev = t
     if sub == 'remote' and rest and rest[0] in ('add', 'set-url', 'rename', 'remove', 'rm'): return f'git remote {rest[0]}'
-    if sub == 'config' and any(t.startswith(('alias.', 'credential', 'remote.', 'url.', 'pushurl', 'core.sshcommand', 'core.hookspath')) or 'pushurl' in t.lower() for t in rest):
+    reads_config = sub == 'config' and any(a in ('--get', '--get-all', '--get-regexp', '-l', '--list') for a in rest)
+    if sub == 'config' and not reads_config and any(t.lower().startswith(RISKY_CONFIG) or 'pushurl' in t.lower() for t in rest):
         return 'git config change to aliases, remotes, credentials or hooks'
-    if sub == 'config' and any(t.lower().startswith('core.hookspath') for t in rest):
+    if sub == 'config' and not reads_config and any(t.lower().startswith('core.hookspath') for t in rest):
         return f'{HOOK_SKIP}: core.hooksPath'
-    if sub == 'config' and any(re.match(r'^gitflow\..*(push|keep|deleteremote)', t, re.I) for t in rest):
+    if sub == 'config' and not reads_config and any(re.match(r'^gitflow\..*(push|keep|deleteremote)', t, re.I) for t in rest):
         return 'git config change to git-flow push or branch-keeping settings'
     return None
 
@@ -184,7 +227,7 @@ def check_gh(args):
     return None
 
 def check(cmd, depth=0):
-    if depth > 4: return None
+    if depth > 4: return UNREADABLE
     try:
         cmd, bodies = strip_heredocs(cmd)
         segs = list(segments(cmd))
@@ -209,6 +252,9 @@ def check(cmd, depth=0):
         prog = os.path.basename(toks[0])
         if prog == 'export' and skips_hooks_env(toks[1:]): return f'{HOOK_SKIP}: exported LEFTHOOK setting'
         if prog in ('git', 'git-flow') and skips_hooks_env(assigns): return f'{HOOK_SKIP}: LEFTHOOK setting'
+        exported = [a for a in (toks[1:] if prog == 'export' else []) + assigns if RISKY_GIT_ENV.match(a.split('=', 1)[0])]
+        if exported: return f'git configured through {exported[0].split("=", 1)[0]}'
+        if writes_into_git_folder(seg, prog): return f'{REF_MOVE}: writing into .git/'
         if prog == 'git':
             r = check_git(toks[1:])
         elif prog == 'git-flow':
@@ -233,7 +279,8 @@ def main():
     try:
         data = json.load(sys.stdin)
     except Exception:
-        return 0
+        print('Blocked: the push guard could not read its input, so it refuses the call.', file=sys.stderr)
+        return 2
     if data.get('tool_name') != 'Bash': return 0
     reason = check((data.get('tool_input') or {}).get('command') or '')
     if reason == UNREADABLE:
@@ -243,6 +290,11 @@ def main():
     if reason and reason.startswith(REF_MOVE):
         print(f'Blocked: {reason}. Coding agents never move refs directly in codetrail: origin/develop must stay '
               f'what the founder pushed, because the security review trusts it (AGENTS.md, Workflow).', file=sys.stderr)
+        return 2
+    if reason and reason.startswith(HISTORY):
+        print(f'Blocked: {reason}. Coding agents never rewrite history, delete branches or tags, touch main, or '
+              f'release in codetrail (AGENTS.md, Never do, rules 3 and 4). Finish features with git flow and stop; '
+              f'the founder releases. Do not try another form of the same command.', file=sys.stderr)
         return 2
     if reason and reason.startswith(HOOK_SKIP):
         print(f'Blocked: {reason}. Coding agents never skip the git hooks in codetrail '
@@ -257,4 +309,8 @@ def main():
     return 0
 
 if __name__ == '__main__':
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except Exception as error:  # fail closed: an error in the guard must block (security review of Phase 0, finding 4)
+        print(f'Blocked: the push guard failed ({type(error).__name__}), so it refuses the call.', file=sys.stderr)
+        sys.exit(2)

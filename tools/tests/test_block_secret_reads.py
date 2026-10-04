@@ -51,6 +51,11 @@ BLOCKED = [
     "cat infra/envs/dev/terraform.tfvars",
     "cat prod.auto.tfvars.json",
     "cat ~/.pypirc",
+    "cat certs/server.key",
+    "cat backup.pfx",
+    "cat putty.ppk",
+    "cat id_rsa",
+    "eval eval eval eval eval cat .env",
 ]
 
 ALLOWED = [
@@ -77,6 +82,11 @@ def test_blocks_reading_secrets(command: str) -> None:
 @pytest.mark.parametrize("command", ALLOWED)
 def test_allows_everyday_commands(command: str) -> None:
     assert run_hook(command) == 0
+
+
+def test_fails_closed_on_unreadable_input() -> None:
+    result = subprocess.run([sys.executable, str(HOOK)], input="not json", capture_output=True, text=True)
+    assert result.returncode == 2
 
 
 def test_ignores_other_tools() -> None:

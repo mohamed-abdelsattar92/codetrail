@@ -57,3 +57,12 @@ def test_pre_push_refuses_agents_before_any_lefthook_setting(marker: dict[str, s
 def test_pre_push_runs_the_guard_first() -> None:
     lines = [line for line in (HOOKS / "pre-push").read_text().splitlines() if line and not line.startswith("#")]
     assert "agent-push-guard" in lines[0]
+
+
+def test_hooks_fail_when_lefthook_yml_is_missing(tmp_path: pathlib.Path) -> None:
+    # Security review of Phase 0, finding 6: deleting lefthook.yml must not silently turn the checks off.
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    result = subprocess.run(["sh", str(HOOKS / "run-lefthook"), "pre-commit"], cwd=tmp_path, env=clean_env(),
+                            capture_output=True, text=True)
+    assert result.returncode == 1
+    assert "lefthook.yml" in result.stderr

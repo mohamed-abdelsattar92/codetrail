@@ -88,6 +88,55 @@ BLOCKED = [
     "git update-ref refs/remotes/origin/develop develop",
     "git fetch . develop:refs/remotes/origin/develop",
     "git fetch origin +refs/heads/develop:refs/remotes/origin/develop2",
+    # security review of Phase 0, finding 1: aliases, config and nesting that hid a push
+    "git -c alias.p=push p --no-verify origin develop",
+    "git -c Alias.p=push p origin develop",
+    "git -c credential.helper=store fetch",
+    "git -c url.git@x:.insteadOf=https://x/ fetch",
+    "git -c remote.origin.pushurl=x fetch",
+    "git --config-env=alias.p=PUSH p",
+    "git config Alias.p push",
+    "git config Credential.helper store",
+    "git config Url.git@x:.insteadOf https://x/",
+    "git config --global alias.p push",
+    "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=alias.p GIT_CONFIG_VALUE_0=push git p",
+    "GIT_CONFIG_PARAMETERS=\"'alias.p=push'\" git p",
+    "GIT_DIR=/tmp/x git log",
+    "export GIT_CONFIG_COUNT=1",
+    "git p --no-verify origin develop",
+    "git anything --no-verify",
+    "eval eval eval eval eval git push --no-verify origin develop",
+    "bash -c \"bash -c \\\"bash -c 'bash -c \\\\\\\"bash -c git-status\\\\\\\"'\\\"\"",
+    # finding 2: moving the review's trust anchor by hand
+    "git symbolic-ref refs/remotes/origin/develop refs/heads/feature/x",
+    "echo abc > .git/refs/remotes/origin/develop",
+    "printf x >> .git/packed-refs",
+    "cp /tmp/x .git/refs/remotes/origin/develop",
+    "tee .git/config < /tmp/x",
+    "mv /tmp/hook .git/hooks/pre-push",
+    "rm .git/hooks/pre-push",
+    "ln -sf /tmp/x .git/hooks/pre-push",
+    "sed -i '' s/a/b/ .git/config",
+    # finding 3: rewriting history, deleting branches and tags, releasing (rules 3 and 4)
+    "git reset --hard HEAD~1",
+    "git reset --hard origin/develop",
+    "git rebase develop",
+    "git rebase -i HEAD~3",
+    "git filter-branch --tree-filter x HEAD",
+    "git filter-repo --path x",
+    "git branch -D feature/x",
+    "git branch -d feature/x",
+    "git branch --delete feature/x",
+    "git branch -f develop HEAD~1",
+    "git branch -M main",
+    "git tag v1.0",
+    "git tag -a v1.0 -m x",
+    "git tag -d v1.0",
+    "git tag -f v1.0",
+    "git checkout main",
+    "git switch main",
+    "git merge --no-ff develop main",
+    "git push origin :feature/x",
 ]
 
 ALLOWED = [
@@ -95,7 +144,6 @@ ALLOWED = [
     "git log --oneline -5",
     "git commit -m 'docs: x'",
     "git fetch --prune -q origin",
-    "git branch -d feature/x",
     "git merge --no-ff feature/x",
     "git config --get-regexp gitflow",
     "git flow feature start x",
@@ -120,6 +168,25 @@ ALLOWED = [
     "git fetch origin",
     "git fetch --prune origin develop",
     "grep -c '<<' notes.txt",
+    "git tag",
+    "git tag -l 'v*'",
+    "git tag --list",
+    "git tag --contains HEAD",
+    "git branch",
+    "git branch --show-current",
+    "git branch -a",
+    "git reset HEAD -- file.txt",
+    "git reset --soft HEAD~1",
+    "git config --get core.hooksPath",
+    "git config user.name",
+    "git symbolic-ref --short HEAD",
+    "git switch -c feature/x develop",
+    "git switch develop",
+    "git checkout -b feature/x develop",
+    "cat .git/HEAD",
+    "ls .git/hooks",
+    "git log --format=%H -n 1 > /tmp/out.txt",
+    "GIT_PAGER=cat git log -1",
 ]
 
 
@@ -131,6 +198,11 @@ def test_blocks_push_forms(command: str) -> None:
 @pytest.mark.parametrize("command", ALLOWED)
 def test_allows_everyday_commands(command: str) -> None:
     assert run_hook(command) == 0
+
+
+def test_fails_closed_on_unreadable_input() -> None:
+    result = subprocess.run([sys.executable, str(HOOK)], input="not json", capture_output=True, text=True)
+    assert result.returncode == 2
 
 
 def test_ignores_other_tools() -> None:
