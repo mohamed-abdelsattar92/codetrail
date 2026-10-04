@@ -5,10 +5,14 @@ description = "Turn a git repository into a local learning guide that keeps up w
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+    "fastapi==0.142.2",
+    "jinja2==3.1.6",
+    "markdown-it-py==4.2.0",
     "pathspec==1.1.1",
     "pydantic==2.13.5",
     "tree-sitter==0.26.0",
     "tree-sitter-python==0.25.0",
+    "uvicorn==0.54.0",
 ]
 
 [project.scripts]
@@ -54,6 +58,8 @@ addopts = "-m 'not live'"
 
 [dependency-groups]
 dev = [
+    "babel==2.18.0",
+    "httpx==0.28.1",
     "mypy==2.4.0",
     "pytest==9.1.1",
     "ruff==0.16.10",
