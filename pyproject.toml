@@ -4,7 +4,10 @@ version = "0.1.0"
 description = "Turn a git repository into a local learning guide that keeps up with it."
 readme = "README.md"
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "pathspec==1.1.1",
+    "pydantic==2.13.5",
+]
 
 [project.scripts]
 codetrail = "codetrail.cli:main"
