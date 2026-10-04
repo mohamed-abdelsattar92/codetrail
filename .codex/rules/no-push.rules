@@ -1,0 +1,80 @@
+# Codex rules for codetrail: coding agents never push (AGENTS.md, Never do, rule 1).
+# Codex loads project rules once the project is trusted. The strictest matching rule wins.
+# Codex treats compound shell commands (for example "cd x && git push") as one call that prefix
+# rules may not match, so the git pre-push hook (tools/git-hooks/pre-push) is the backstop.
+
+prefix_rule(
+    pattern = ["git", "push"],
+    decision = "forbidden",
+    justification = "Agents never push in codetrail. Commit and finish features locally, then stop; the founder pushes.",
+    match = ["git push", "git push origin develop", "git push --force origin main"],
+    not_match = ["git status", "git commit -m x"],
+)
+
+prefix_rule(
+    pattern = ["git", ["send-pack", "credential"]],
+    decision = "forbidden",
+    justification = "Agents never push or touch git credentials in codetrail.",
+)
+
+prefix_rule(
+    pattern = ["git", "subtree", "push"],
+    decision = "forbidden",
+    justification = "Agents never push in codetrail.",
+)
+
+prefix_rule(
+    pattern = ["git", "remote", ["add", "set-url", "rename", "remove", "rm"]],
+    decision = "forbidden",
+    justification = "Agents never change git remotes in codetrail.",
+)
+
+prefix_rule(
+    pattern = ["gh", "pr", ["create", "merge", "close", "reopen", "edit", "comment", "review", "ready"]],
+    decision = "forbidden",
+    justification = "Agents never open, merge or change pull requests; the founder does.",
+)
+
+prefix_rule(
+    pattern = ["gh", "repo", ["sync", "create", "delete", "edit", "rename", "archive", "fork"]],
+    decision = "forbidden",
+    justification = "Agents never change GitHub repositories.",
+)
+
+prefix_rule(
+    pattern = ["gh", "auth", ["token", "git-credential", "setup-git", "login", "logout", "refresh"]],
+    decision = "forbidden",
+    justification = "Agents never read or change GitHub credentials.",
+)
+
+prefix_rule(
+    pattern = ["git", "flow", ["feature", "bugfix", "release", "hotfix", "support"], ["publish", "delete"]],
+    decision = "forbidden",
+    justification = "Agents never publish git-flow branches (that pushes) or delete them; git flow feature finish removes a finished branch.",
+    match = ["git flow feature publish x", "git flow feature delete x"],
+    not_match = ["git flow feature finish x --no-ff --no-push --keepremote --no-fetch"],
+)
+
+prefix_rule(
+    pattern = ["git-flow", ["feature", "bugfix", "release", "hotfix", "support"], ["publish", "delete"]],
+    decision = "forbidden",
+    justification = "Agents never publish git-flow branches (that pushes) or delete them.",
+)
+
+prefix_rule(
+    pattern = ["git", "flow", ["release", "hotfix"], "finish"],
+    decision = "forbidden",
+    justification = "Agents never finish releases or hotfixes, which merge into main; the founder does.",
+)
+
+prefix_rule(
+    pattern = ["git", ["commit", "merge"], ["--no-verify", "-n"]],
+    decision = "forbidden",
+    justification = "Agents never skip the git hooks (AGENTS.md, Never do, rule 8). Fix what the hook reports.",
+)
+
+prefix_rule(
+    pattern = ["gh", "api"],
+    decision = "prompt",
+    justification = "Read-only GitHub API calls only; any write to GitHub is forbidden for agents.",
+)
