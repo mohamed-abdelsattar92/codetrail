@@ -143,3 +143,25 @@ def test_static_files_are_served_with_the_policy(client: TestClient) -> None:
     assert response.status_code == 200
     assert "script-src 'self'" in response.headers["content-security-policy"]
     assert client.get("/static/vendor/mermaid.js").status_code == 200
+
+
+@pytest.mark.parametrize("path", ["/static/nope.js", "/static/../x", "/nowhere"])
+def test_no_unauthenticated_response_carries_the_token(
+    paths: Paths, session: SessionState, locales: Path, path: str
+) -> None:
+    app = create_app(paths, "t", session, GlobalConfig(), locales)
+    anonymous = TestClient(app, base_url=ORIGIN, follow_redirects=False)
+    response = anonymous.get(path)
+    assert session.token not in response.text
+    assert "content-security-policy" in response.headers
+
+
+def test_errors_carry_the_security_headers(paths: Paths, session: SessionState, locales: Path) -> None:
+    (paths.target_data("t") / "source.json").write_text("{ broken")
+    app = create_app(paths, "t", session, GlobalConfig(), locales)
+    client = TestClient(app, base_url=ORIGIN, follow_redirects=False, raise_server_exceptions=False)
+    assert client.get(f"/login?code={session.issue_login_code()}").status_code == 303
+    response = client.get("/areas/services")
+    assert response.status_code == 500
+    assert response.headers["x-frame-options"] == "DENY"
+    assert "Traceback" not in response.text

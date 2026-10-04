@@ -161,3 +161,10 @@ def test_tokens_are_long_and_random() -> None:
     first, second = SessionState(60), SessionState(60)
     assert first.token != second.token
     assert len(first.token) >= 43  # 32 random bytes
+
+
+def test_a_session_ends_after_its_lifetime(clock: Clock) -> None:
+    session = SessionState(60, clock=clock, session_minutes=10)
+    assert session.is_session(session.session_id)
+    clock.now += 10 * 60 + 1
+    assert not session.is_session(session.session_id)
