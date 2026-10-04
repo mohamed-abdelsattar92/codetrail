@@ -104,3 +104,13 @@ def _flagged_indexes(texts: Sequence[str], scanner: SecretScanner) -> set[int]:
         index = max(i for i, first in enumerate(first_lines) if first <= finding.line)
         flagged.add(index)
     return flagged
+
+
+def commit_count(mirror: Path, start: str, end: str) -> int:
+    return int(run_git(["rev-list", "--count", f"{start}..{end}"], git_dir=mirror))
+
+
+def changed_paths(mirror: Path, start: str, end: str) -> list[str]:
+    """Paths changed between two commits; only names, which callers filter before showing."""
+    output = run_git(["diff", "--name-only", "--no-renames", "-z", start, end], git_dir=mirror)
+    return [name for name in output.decode("utf-8", "surrogateescape").split("\0") if name]

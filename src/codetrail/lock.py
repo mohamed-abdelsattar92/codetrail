@@ -10,6 +10,10 @@ from codetrail.config import Paths
 from codetrail.errors import CodetrailError
 
 
+class TargetBusy(CodetrailError):
+    """Another update holds the target's lock."""
+
+
 @contextmanager
 def target_lock(paths: Paths, name: str) -> Iterator[None]:
     folder = paths.target_data(name)
@@ -18,7 +22,7 @@ def target_lock(paths: Paths, name: str) -> Iterator[None]:
         try:
             fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as error:
-            raise CodetrailError(f"Target {name!r} is already updating; try again when that finishes.") from error
+            raise TargetBusy(f"Target {name!r} is already updating; try again when that finishes.") from error
         try:
             yield
         finally:
