@@ -55,6 +55,8 @@ A generic "chat with the repo" (RAG over the code) is not worth building: Claude
 
 ## Open questions for the design
 
+All answered on 5 October 2026 in [the design](2026-10-05-codetrail-design.md), section 14; the Agent SDK sign-in question is settled by a spike at the start of Phase 4.
+
 - Default home of a target's knowledge base: Codetrail's data folder, or a private git repository per target?
 - Does the Claude Agent SDK run under the founder's Claude Code login, or does it need an API key? `claude -p` uses the existing login. Check before choosing.
 - The fact model: what a fact is, how it names its source files, and how a page records the facts it was built from.
@@ -66,4 +68,4 @@ A generic "chat with the repo" (RAG over the code) is not worth building: Claude
 
 ## Where to pick up
 
-The brainstorm has finished asking questions and choosing an approach. The `develop` branch exists; git-flow, the hooks and the tooling arrive with Phase 0. Next: present the design section by section (architecture and data flow, the fact model, extractors, generation, the page and bridge with their security model, learning state, error handling, testing, phases), get the founder's approval on each, then write the spec in `docs/design/`, then the implementation plan.
+The design was presented section by section and approved on 5 October 2026, and written as [2026-10-05-codetrail-design.md](2026-10-05-codetrail-design.md), with five proposed ADRs in `docs/adr/`. Next: the founder reviews the spec and the ADRs; then the implementation plan for Phase 0, one plan per phase.
