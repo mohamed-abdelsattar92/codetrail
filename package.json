@@ -1,0 +1,10 @@
+{
+  "name": "codetrail-tooling",
+  "private": true,
+  "description": "Repository tooling for codetrail (commit message checks). Codetrail itself is Python.",
+  "packageManager": "pnpm@12.6.0",
+  "devDependencies": {
+    "@commitlint/cli": "21.2.3",
+    "@commitlint/config-conventional": "21.2.3"
+  }
+}

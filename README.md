@@ -5,7 +5,7 @@
 Codetrail is for the person responsible for a repository that changes faster than they can follow. It tells you what changed and why it matters, and teaches the architecture, design patterns and tools behind the code: concept pages tied to the real code, guided paths through it, checks on your understanding, and progress that notices when what you learned has gone stale. You read it as a local web page, and you can ask Claude questions from any page.
 
 > [!NOTE]
-> **Status: design approved, implementation starting.** Nothing runs yet. The [design](docs/design/2026-10-05-codetrail-design.md) and its five [ADRs](docs/adr/README.md) were approved on 5 October 2026; Phase 0 (the engineering setup) is next. Commands and screens below describe the planned tool.
+> **Status: in development.** The [design](docs/design/2026-10-05-codetrail-design.md) and its five [ADRs](docs/adr/README.md) were approved on 5 October 2026, and Phase 0 (the engineering setup) has landed. The roadmap below shows which features run yet; the rest describes the planned tool.
 
 The first repository it teaches is `hamesh-monorepo`; it is built to work on any repository.
 
@@ -235,7 +235,7 @@ Each phase is usable on its own.
 
 ```mermaid
 flowchart LR
-    P0["0 · Engineering setup"]:::next --> P1["1 · Targets and exclusions"]
+    P0["0 · Engineering setup ✓"] --> P1["1 · Targets and exclusions"]:::next
     P1 --> P2["2 · Facts"]
     P2 --> P3["3 · The page, without Claude"]
     P3 --> P4["4 · Generation"]
@@ -247,7 +247,7 @@ flowchart LR
 
 | Phase | What you can do at the end | Status |
 |---|---|---|
-| 0. Engineering setup | `just ci` passes; the agent rules are enforced by hooks and permissions | Next |
+| 0. Engineering setup | `just ci` passes; the agent rules are enforced by hooks and permissions | Done |
 | 1. Targets and exclusions | Check on Hamesh that secrets and ignored files are gone, before any Claude call exists | Planned |
 | 2. Facts | Hamesh's modules, packages and decisions as facts | Planned |
 | 3. The page, without Claude | A grounded map of Hamesh that says when it's behind, at no Claude cost | Planned |
@@ -263,7 +263,14 @@ Python with uv, FastAPI, SQLite, tree-sitter and the Claude Agent SDK. The engin
 - **Test first.** Every behaviour starts as a failing test, including what must be refused: excluded files, rejected requests, tools Claude may not use.
 - **Coding agents never push**, never touch credentials and never write to a target repository. The founder reviews and pushes every change. The full rules are in [AGENTS.md](AGENTS.md).
 
-Planned recipes, from Phase 0: `just setup`, `just ci`, `just lint`, `just format`, `just typecheck`, `just test`, `just test-quick`, `just test-live`.
+Once per clone:
+
+```bash
+mise trust && mise install
+just setup
+```
+
+Then `just ci` runs every check CI runs; `just lint`, `just format`, `just typecheck`, `just test`, `just test-quick` (run by the pre-push hook) and `just test-live` (real Claude, local only) run one kind each. Each phase's implementation plan is in [docs/design/plans/](docs/design/plans/).
 
 ## Documentation
 

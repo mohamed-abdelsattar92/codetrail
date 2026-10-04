@@ -1,0 +1,29 @@
+# Dependabot, security updates only: it opens a pull request when a dependency has a known vulnerability, and never
+# proposes routine version bumps. open-pull-requests-limit: 0 turns those off; security updates ignore the limit.
+# The founder reviews and merges the pull requests; agents never merge them (AGENTS.md, Never do, rule 1).
+version: 2
+updates:
+  - package-ecosystem: uv # Codetrail itself
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    commit-message:
+      prefix: build
+      include: scope
+  - package-ecosystem: npm # the commit-message tooling
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    commit-message:
+      prefix: build
+      include: scope
+  - package-ecosystem: github-actions # the actions CI pins to commit SHAs
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+    commit-message:
+      prefix: ci
+      include: scope

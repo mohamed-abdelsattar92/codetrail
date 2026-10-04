@@ -1,0 +1,3 @@
+#!/bin/sh
+# git commit-msg hook for codetrail; `just setup` installs it. The checks live in lefthook.yml.
+exec "$(dirname "$0")/run-lefthook" commit-msg "$@"

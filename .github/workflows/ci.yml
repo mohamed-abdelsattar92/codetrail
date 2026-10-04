@@ -1,0 +1,47 @@
+# CI for codetrail (decision 11): one Linux job running `just ci`, as Hamesh's CI does for its areas.
+# Third-party actions are pinned to full commit SHAs. Agents read runs with `gh run list` and never trigger them.
+name: ci
+
+on:
+  push:
+    branches: [develop, main]
+  # Dependabot's security updates. A pull request runs every check, with no secret.
+  pull_request:
+    branches: [develop]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  MISE_VERSION: "2026.9.13"
+
+jobs:
+  ci:
+    name: just ci
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # gitleaks scans the whole history
+          persist-credentials: false
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          version: ${{ env.MISE_VERSION }}
+          install_args: gitleaks just python uv node pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: uv sync --locked
+      - run: just ci
+      # Only develop's pushes: every commit reaches main through develop in the same push.
+      - name: Commit messages in this push
+        if: github.event_name == 'push' && github.ref == 'refs/heads/develop' && github.event.before != '0000000000000000000000000000000000000000'
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        # CI's rules also accept Dependabot's commits, merged on GitHub; the local hook doesn't.
+        run: just check-commits "$BEFORE" "$AFTER" commitlint.ci.config.mjs
