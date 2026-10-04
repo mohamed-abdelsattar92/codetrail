@@ -45,12 +45,12 @@ class FactStore:
             snapshot = Snapshot(int(cursor.lastrowid or 0), commit, taken_at)
             previous = self.previous_snapshot(snapshot)
             closing = previous.id if previous else None
-            entity_rows = {
+            entity_rows: dict[tuple[str, ...], tuple[str, dict[str, Any]]] = {
                 (entity.id,): (entity.hash, {"kind": str(entity.kind), "attributes": _json(entity.attributes),
                                              "sources": _sources_json(entity.sources)})
                 for entity in entities
             }  # fmt: skip
-            relation_rows = {
+            relation_rows: dict[tuple[str, ...], tuple[str, dict[str, Any]]] = {
                 relation.key: (relation.hash, {"attributes": _json(relation.attributes),
                                                "sources": _sources_json(relation.sources)})
                 for relation in relations
