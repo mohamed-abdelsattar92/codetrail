@@ -101,11 +101,26 @@ class AdrSettings(Settings):
     paths: list[str] = ["docs/adr/*.md"]
 
 
+class GenerationSettings(Settings):
+    max_pages_per_update: int = Field(default=20, ge=0)
+    concurrency: int = Field(default=2, gt=0, le=8)
+    max_turns: int = Field(default=30, gt=0)
+    max_budget_usd_per_call: float = Field(default=1.0, gt=0)
+
+
+class ModelSettings(Settings):
+    plan: str = "claude-opus-5-5"
+    write: str = "claude-sonnet-5-5"
+    digest: str = "claude-sonnet-5-5"
+
+
 class TargetConfig(Settings):
     repository: Path
     branch: str
     extractors: list[Literal["python", "adr"]] = ["python", "adr"]
     adr: AdrSettings = AdrSettings()
+    generation: GenerationSettings = GenerationSettings()
+    models: ModelSettings = ModelSettings()
 
     @field_validator("repository")
     @classmethod
