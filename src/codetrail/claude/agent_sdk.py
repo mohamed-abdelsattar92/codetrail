@@ -115,8 +115,11 @@ class AgentSdkClaude:
 
     @staticmethod
     async def _query(prompt: str, options: ClaudeAgentOptions) -> ResultMessage:
+        result: ResultMessage | None = None
         with anyio.fail_after(CALL_TIMEOUT_SECONDS):
-            async for message in query(prompt=prompt, options=options):
+            async for message in query(prompt=prompt, options=options):  # read to the end, so the SDK can clean up
                 if isinstance(message, ResultMessage):
-                    return message
-        raise ClaudeError("Claude ended without a result.")
+                    result = message
+        if result is None:
+            raise ClaudeError("Claude ended without a result.")
+        return result

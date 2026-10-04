@@ -118,6 +118,7 @@ class ModelSettings(Settings):
     plan: str = "claude-opus-5-5"
     write: str = "claude-sonnet-5-5"
     digest: str = "claude-sonnet-5-5"
+    answer: str = "claude-sonnet-5-5"
 
 
 class TargetConfig(Settings):

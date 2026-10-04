@@ -26,6 +26,7 @@ def source(tmp_path: Path) -> Path:
         ("Grep", {"pattern": "x", "path": "app"}),
         ("Glob", {"pattern": "**/*.py"}),
         ("Glob", {"pattern": "*.py", "path": "{root}/app"}),
+        ("StructuredOutput", {"answer": "anything"}),
     ],
 )
 def test_allows_reading_inside_source(source: Path, tool: str, arguments: dict[str, str]) -> None:

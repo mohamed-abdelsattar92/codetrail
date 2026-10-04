@@ -11,6 +11,8 @@ from pathlib import Path
 from typing import Any
 
 ALLOWED_TOOLS = ("Read", "Grep", "Glob")
+# The channel structured answers come back through; it reads nothing and takes no path.
+ANSWER_TOOL = "StructuredOutput"
 
 
 class ToolGuard:
@@ -20,6 +22,8 @@ class ToolGuard:
 
     def decide(self, tool: str, arguments: Mapping[str, Any]) -> str | None:
         """None to allow the call, or the reason it is refused."""
+        if tool == ANSWER_TOOL:
+            return None
         if tool not in ALLOWED_TOOLS:
             return f"{tool} isn't available; only Read, Grep and Glob inside the repository are."
         if tool == "Read":
