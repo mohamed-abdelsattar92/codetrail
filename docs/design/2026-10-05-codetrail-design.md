@@ -109,8 +109,8 @@ grade = "claude-sonnet-5-5"
 Unknown keys are refused. Model names and every limit live here or in the global file, never in code.
 
 ### 3.2 Mirror and materialized sources
-- `mirror.git` is a bare clone of the founder's checkout. A clone from a local path hardlinks git's objects, so history isn't copied. Each refresh fetches the configured branch; fetching only reads the checkout. A `git worktree` is not used, because it writes metadata into the target's `.git`.
-- `source/` holds only the allowed files (section 3.3) at the snapshot commit, written from git objects. It has no `.git` directory. A refresh builds `source.next/` (hardlinking unchanged files from `source/`, writing new and changed blobs), scans it (section 3.4) and renames it into place, so a failed refresh leaves the previous `source/` intact. A marker file names the commit `source/` was built from; a missing or mismatched marker triggers a full rebuild.
+- `mirror.git` is a bare clone of the founder's checkout, made with `--no-local` over the `file://` transport and refreshed by fetching the configured branch the same way. Only git's `upload-pack` reads the checkout: no command runs inside it, and no file of it is hardlinked (a plain local clone would hardlink its objects). A `git worktree` is not used, because it writes metadata into the target's `.git`. A test snapshots every file under a checkout, `.git` included (size, times, inode, link count, hash), and proves it unchanged.
+- `source/` holds only the allowed files (section 3.3) at the snapshot commit, written from git objects. It has no `.git` directory. Each refresh rebuilds it in full into `source.next/`, scans it (section 3.4) and renames it into place, so a failed refresh leaves the previous `source/` intact. `source.json`, beside it, records the commit, every file with its blob, and every exclusion with its reason. At large scale, reusing unchanged files and scanning only changed ones would make this incremental.
 - Symlinks and submodules are never materialized.
 - Extractors, Claude's tools and the page's source views read only `source/`. Only `repo` reads `mirror.git`.
 
@@ -133,13 +133,13 @@ Patterns are matched with `pathspec`'s `GitIgnoreSpec` ([ADR 0001](../adr/0001-p
 An excluded file is as if it were not in the repository: it isn't materialized, extracted, readable by Claude, shown in source views, or present in logs, diffs, digests or the "you're behind" counts. A commit that touched only excluded files still appears, with no files listed.
 
 ### 3.4 Content scanning
-Every refresh runs gitleaks over the new and changed files in `source.next/`, with values redacted ([ADR 0002](../adr/0002-gitleaks-on-every-update.md)). A flagged file is removed from `source.next/`, and its blob hash is recorded in the database so it stays excluded while unchanged. The update summary lists flagged files by path and rule, never by value. If gitleaks is missing or fails, the refresh fails.
+Every refresh runs gitleaks over `source.next/`, with values redacted ([ADR 0002](../adr/0002-gitleaks-on-every-update.md)). gitleaks always runs with Codetrail's own configuration (`--config`, extending the defaults), `--ignore-gitleaks-allow` and `--gitleaks-ignore-path /dev/null`, with any `GITLEAKS_*` variable removed: a probe showed that a target's own `.gitleaks.toml` otherwise hides its secrets from the scan entirely. A flagged file is removed from `source.next/` and listed in `source.json`. Commit messages and diffs are scanned as text too (section 3.3's history filtering): a flagged message is withheld, and so is a file's patch that holds a finding, which catches a secret that a commit removed from a file that is clean now. Output lists flagged files by path and rule, never by value. If gitleaks is missing or fails, the refresh fails. Its executable is `[tools] gitleaks` in the global configuration.
 
 ### 3.5 Changing the rules
 The next refresh applies new rules. Facts from newly excluded files close, and pages built from them are rewritten. The guide's own git history keeps earlier page text: if a secret ever reached a page, scrubbing it is a deliberate manual step on that local repository.
 
-### 3.6 Known limitation
-Commit messages are not scanned. A secret written into a commit message would reach digests and Claude. Revisit if that happens in practice.
+### 3.6 Commit messages
+Commit messages are scanned with gitleaks before they reach digests or Claude (section 3.4).
 
 ## 4. Fact model
 
@@ -408,6 +408,9 @@ cache_seconds = 60
 
 [diagrams]
 max_nodes = 60
+
+[tools]
+gitleaks = "gitleaks"
 
 [log]
 level = "INFO"
