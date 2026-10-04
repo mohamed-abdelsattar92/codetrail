@@ -4,6 +4,8 @@ Codetrail turns a git repository into a local learning guide for the person resp
 
 Diagrams are drawn from facts extracted from the code, so they can't show connections that aren't there. Explanations come from Claude, and rationale is marked as documented (quoted from a decision record or commit) or inferred.
 
+The interface is in English and can switch to other languages, which are added over time as translation files; Claude answers questions in the language you choose.
+
 The first repository it teaches is `hamesh-monorepo`; it is built to work on any repository.
 
 ## Status
