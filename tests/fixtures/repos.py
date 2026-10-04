@@ -96,5 +96,6 @@ def snapshot_tree(root: Path) -> dict[str, tuple[int, int, int, int, str]]:
 def fake_github_token(seed: int = 7) -> str:
     """A string shaped like a GitHub token, assembled at runtime so no secret is ever committed."""
     alphabet = string.ascii_letters + string.digits
-    rest = "".join(random.Random(seed).choice(alphabet) for _ in range(36))  # noqa: S311 - not cryptographic
+    generator = random.Random(seed)  # noqa: S311 - a test value, not a secret
+    rest = "".join(generator.choice(alphabet) for _ in range(36))
     return "gh" + "p_" + rest

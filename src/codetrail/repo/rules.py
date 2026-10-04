@@ -44,6 +44,8 @@ class Reason(StrEnum):
     SECRET_PATTERN = "secret pattern"  # noqa: S105 - a reason label, not a password
     IGNORED = "ignore rules"
     GITLEAKS = "gitleaks"
+    NOT_A_FILE = "symlink or submodule"
+    UNSAFE_PATH = "unsafe path"
 
 
 class ExclusionRules:

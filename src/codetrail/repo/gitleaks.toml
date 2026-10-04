@@ -1,0 +1,6 @@
+# Codetrail's gitleaks configuration (ADR 0002). It is always passed with --config, so a target's own .gitleaks.toml,
+# a GITLEAKS_CONFIG setting or a .gitleaksignore can't change what is found.
+title = "codetrail"
+
+[extend]
+useDefault = true

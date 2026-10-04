@@ -6,6 +6,7 @@ from hardlinking the target's object files.
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -85,3 +86,19 @@ def read_file_at(mirror: Path, commit: str, path: str) -> bytes | None:
         return run_git(["cat-file", "blob", f"{commit}:{path}"], git_dir=mirror)
     except CodetrailError:
         return None
+
+
+def read_blobs(mirror: Path, blobs: list[str]) -> Iterator[tuple[str, bytes]]:
+    """Each blob's content, in order, read with one `git cat-file --batch`."""
+    if not blobs:
+        return
+    output = run_git(["cat-file", "--batch"], git_dir=mirror, input="".join(f"{blob}\n" for blob in blobs).encode())
+    position = 0
+    for blob in blobs:
+        header_end = output.index(b"\n", position)
+        name, kind, size = output[position:header_end].decode().split(" ")
+        if name != blob or kind != "blob":
+            raise CodetrailError(f"git cat-file returned {kind} {name} for blob {blob}")
+        start = header_end + 1
+        yield blob, output[start : start + int(size)]
+        position = start + int(size) + 1
