@@ -14,6 +14,7 @@ def run_git(
     arguments: Sequence[str],
     *,
     git_dir: Path | None = None,
+    work_tree: Path | None = None,
     input: bytes | None = None,
     allowed_exit_codes: Sequence[int] = (0,),
 ) -> bytes:
@@ -21,6 +22,8 @@ def run_git(
     command = ["git"]
     if git_dir is not None:
         command.append(f"--git-dir={git_dir}")
+    if work_tree is not None:
+        command.append(f"--work-tree={work_tree}")
     command.extend(arguments)
     environment = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
     environment["GIT_TERMINAL_PROMPT"] = "0"
