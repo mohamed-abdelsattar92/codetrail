@@ -86,3 +86,11 @@ def test_target_add_refuses_a_missing_branch(
 ) -> None:
     assert main(["target", "add", "hostile", str(hostile), "--branch", "main"]) == 1
     assert "no branch 'main'" in capsys.readouterr().err
+
+
+def test_names_with_separators_or_undecodable_bytes_are_quoted() -> None:
+    from codetrail.cli import printable
+
+    assert printable("a\u2028b.md") == repr("a\u2028b.md")
+    assert printable("bad\udc9b.md") == repr("bad\udc9b.md")
+    assert printable("plain.md") == "plain.md"

@@ -11,9 +11,11 @@ from pathlib import Path
 from codetrail import __version__
 from codetrail.config import Paths, validate_target_name, write_target
 from codetrail.errors import CodetrailError
+from codetrail.facts import FactDiff
 from codetrail.repo.mirror import check_branch
 from codetrail.repo.refresh import refresh_source
 from codetrail.repo.rules import Reason
+from codetrail.update import run_update
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -30,6 +32,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     files = commands.add_parser("files", help="refresh a target's sources and list exactly what Codetrail can see")
     files.add_argument("name")
+
+    update = commands.add_parser("update", help="refresh a target's sources and facts")
+    update.add_argument("name")
     return parser
 
 
@@ -43,6 +48,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if arguments.command == "target":
             return add_target(paths, arguments.name, arguments.path, arguments.branch)
+        if arguments.command == "update":
+            return update_target(paths, arguments.name)
         return list_files(paths, arguments.name)
     except CodetrailError as error:
         print(f"codetrail: {error}", file=sys.stderr)
@@ -63,7 +70,7 @@ def add_target(paths: Paths, name: str, path: Path, branch: str) -> int:
 
 def printable(path: str) -> str:
     """A path from a target, quoted with escapes if it holds characters a terminal would act on."""
-    if any(unicodedata.category(character) in ("Cc", "Cf") for character in path):
+    if any(unicodedata.category(character) in ("Cc", "Cf", "Cs", "Zl", "Zp") for character in path):
         return repr(path)
     return path
 
@@ -83,3 +90,32 @@ def list_files(paths: Paths, name: str) -> int:
         f"commit {manifest.commit[:12]}"
     )
     return 0
+
+
+def update_target(paths: Paths, name: str) -> int:
+    result = run_update(paths, name)
+    extraction, diff = result.extraction, result.diff
+    print(f"Updated {name} at commit {result.manifest.commit[:12]} (snapshot {result.snapshot.id}).")
+    print(f"Facts: {len(extraction.entities)} entities, {len(extraction.relations)} relations.")
+    if diff.is_empty:
+        print("No changes since the last update.")
+    else:
+        print("Changes (+ added, ~ changed, - removed):")
+        for kind, counts in sorted(_change_counts(diff).items()):
+            print(f"  {kind}: +{counts[0]} ~{counts[1]} -{counts[2]}")
+    for extractor, count in sorted(extraction.unresolved.items()):
+        print(f"Unresolved references ({extractor}): {count}")
+    for warning in extraction.warnings:
+        print(f"Warning: {printable(warning)}")
+    return 0
+
+
+def _change_counts(diff: FactDiff) -> dict[str, list[int]]:
+    counts: dict[str, list[int]] = {}
+    for position, ids in enumerate((diff.added_entities, diff.changed_entities, diff.removed_entities)):
+        for entity_id in ids:
+            counts.setdefault(entity_id.split(":", 1)[0], [0, 0, 0])[position] += 1
+    for position, keys in enumerate((diff.added_relations, diff.changed_relations, diff.removed_relations)):
+        for key in keys:
+            counts.setdefault(key[1], [0, 0, 0])[position] += 1
+    return counts

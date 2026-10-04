@@ -13,9 +13,9 @@ import tomllib
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 from codetrail.errors import CodetrailError
 
@@ -66,13 +66,24 @@ class ToolsSettings(Settings):
     gitleaks: str = "gitleaks"
 
 
+class ExtractSettings(Settings):
+    max_file_bytes: int = Field(default=1_000_000, gt=0)
+
+
 class GlobalConfig(Settings):
     tools: ToolsSettings = ToolsSettings()
+    extract: ExtractSettings = ExtractSettings()
+
+
+class AdrSettings(Settings):
+    paths: list[str] = ["docs/adr/*.md"]
 
 
 class TargetConfig(Settings):
     repository: Path
     branch: str
+    extractors: list[Literal["python", "adr"]] = ["python", "adr"]
+    adr: AdrSettings = AdrSettings()
 
     @field_validator("repository")
     @classmethod
