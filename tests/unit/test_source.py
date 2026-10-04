@@ -123,3 +123,12 @@ def test_names_that_collide_on_disk_are_all_excluded(tmp_path: Path) -> None:
     assert list(manifest.files) == ["ok.md"]
     unsafe = sorted(item.path for item in manifest.excluded if item.reason is Reason.UNSAFE_PATH)
     assert unsafe == sorted(["A.txt", "a.txt", "caf\u00e9.md", "cafe\u0301.md"])
+
+
+def test_folders_that_collide_on_disk_are_excluded_without_failing(tmp_path: Path) -> None:
+    checkout = make_repository(tmp_path / "target", [{"ok.md": "fine\n"}])
+    commit_entries(checkout, {"Docs/a.md": "a\n", "docs/b.md": "b\n", "Notes": "file\n", "notes/x.md": "x\n"})
+    manifest = build(checkout, tmp_path)
+    assert list(manifest.files) == ["ok.md"]
+    unsafe = sorted(item.path for item in manifest.excluded if item.reason is Reason.UNSAFE_PATH)
+    assert unsafe == ["Docs/a.md", "Notes", "docs/b.md", "notes/x.md"]

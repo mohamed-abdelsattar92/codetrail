@@ -17,6 +17,7 @@ from importlib.resources import as_file, files
 from pathlib import Path
 
 from codetrail.errors import CodetrailError
+from codetrail.repo.rules import on_disk_key
 
 COMMON_FLAGS = (
     "--report-format", "json", "--redact", "--no-banner", "--exit-code", "0", "--ignore-gitleaks-allow",
@@ -37,7 +38,7 @@ class SecretScanner:
 
     def scan_directory(self, root: Path) -> list[Finding]:
         """Every finding under `root`, with paths relative to it."""
-        if any(child.name.lower() == ".gitleaksignore" for child in root.iterdir()):
+        if any(on_disk_key(child.name) == ".gitleaksignore" for child in root.iterdir()):
             raise CodetrailError(f"{root} holds a .gitleaksignore, which gitleaks would obey; refusing to scan it.")
         findings = self._run(["dir", str(root)], None)
         resolved = root.resolve()

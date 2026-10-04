@@ -9,22 +9,14 @@ from __future__ import annotations
 
 import json
 import shutil
-import unicodedata
 from dataclasses import asdict, dataclass, field
 from pathlib import Path, PurePosixPath
 
 from codetrail.repo.mirror import list_tree, read_blobs
-from codetrail.repo.rules import ExclusionRules, Reason
+from codetrail.repo.rules import ExclusionRules, Reason, on_disk_key
 from codetrail.repo.secrets import SecretScanner
 
 REGULAR_FILE_MODES = {"100644", "100755"}
-# Code points HFS+ ignores in names, so ".g\u200cit" lands as ".git" (git's is_hfs_dotgit checks the same ones).
-IGNORED_IN_NAMES = dict.fromkeys([*range(0x200C, 0x2010), *range(0x202A, 0x202F), *range(0x206A, 0x2070), 0xFEFF])
-
-
-def on_disk_key(path: str) -> str:
-    """The name a case-insensitive, normalizing file system (APFS, HFS+) sees for a path."""
-    return unicodedata.normalize("NFC", path.translate(IGNORED_IN_NAMES)).casefold()
 
 
 @dataclass(frozen=True)
@@ -73,10 +65,7 @@ def build_source(
         files: dict[str, str] = {}
         excluded: list[Excluded] = []
         entries = list_tree(mirror, commit)
-        on_disk: dict[str, list[str]] = {}
-        for entry in entries:
-            on_disk.setdefault(on_disk_key(entry.path), []).append(entry.path)
-        colliding = {path for paths in on_disk.values() if len(paths) > 1 for path in paths}
+        colliding = _colliding_paths([entry.path for entry in entries])
         for entry in entries:
             reason = Reason.UNSAFE_PATH if entry.path in colliding else _reason(entry.mode, entry.path, rules)
             if reason is None:
@@ -107,6 +96,27 @@ def build_source(
     except BaseException:
         shutil.rmtree(next_source, ignore_errors=True)
         raise
+
+
+def _colliding_paths(paths: list[str]) -> set[str]:
+    """Paths that would share a file or folder on a case-insensitive, normalizing file system.
+
+    Each path and each of its parent folders is a name on disk; two different spellings of one name collide, and
+    every path under either spelling is excluded (A.txt with a.txt, Docs/a.md with docs/b.md, Notes with notes/x).
+    """
+    spellings: dict[str, set[str]] = {}
+    for path in paths:
+        parts = path.split("/")
+        for end in range(1, len(parts) + 1):
+            prefix = "/".join(parts[:end])
+            spellings.setdefault(on_disk_key(prefix), set()).add(prefix)
+    clashing = {key for key, names in spellings.items() if len(names) > 1}
+    colliding = set()
+    for path in paths:
+        parts = path.split("/")
+        if any(on_disk_key("/".join(parts[:end])) in clashing for end in range(1, len(parts) + 1)):
+            colliding.add(path)
+    return colliding
 
 
 def _reason(mode: str, path: str, rules: ExclusionRules) -> Reason | None:

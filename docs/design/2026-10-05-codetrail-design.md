@@ -209,10 +209,12 @@ class Extractor(Protocol):
     version: int  # bumped when its output changes
 
     def handles(self, path: str) -> bool: ...
+    def prepare(self, paths: Sequence[str]) -> None: ...   # the handled paths, once, before extraction
     def extract(self, path: str, content: bytes) -> FileFacts: ...
     def resolve(self, files: Iterable[FileFacts], known: EntityIndex) -> list[Relation]: ...
 ```
 
+- `prepare` receives the list of files the extractor handles, once; a Python module's name depends on the nearest `pyproject.toml`, which one file alone can't show.
 - `extract` sees one file and returns entities plus unresolved references (such as `import app.db`).
 - `resolve` turns references into relations against every entity known from all extractors. A reference to external code becomes an edge to a `package:` entity if one exists; otherwise it is dropped and counted in the update summary.
 - A file that fails to parse produces a warning with its path; the update continues.

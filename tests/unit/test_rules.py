@@ -90,3 +90,8 @@ def test_built_in_patterns_ignore_case(path: str) -> None:
 @pytest.mark.parametrize("path", [".gitleaksignore", ".gitleaks.toml", "sub/.gitleaksignore", ".GITLEAKSIGNORE"])
 def test_scanner_settings_never_reach_the_scan(path: str) -> None:
     assert ExclusionRules(["!.gitleaksignore"]).reason(path) is Reason.SCANNER_SETTINGS
+
+
+def test_ignore_lines_match_in_any_case() -> None:
+    # git on macOS matches .gitignore without regard to case; Codetrail's ignore files do the same.
+    assert ExclusionRules(["docs/private/"]).reason("Docs/Private/notes.md") is Reason.IGNORED

@@ -13,7 +13,7 @@ import tomllib
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, ValidationError, field_validator
 
@@ -70,9 +70,15 @@ class GlobalConfig(Settings):
     tools: ToolsSettings = ToolsSettings()
 
 
+class AdrSettings(Settings):
+    paths: list[str] = ["docs/adr/*.md"]
+
+
 class TargetConfig(Settings):
     repository: Path
     branch: str
+    extractors: list[Literal["python", "adr"]] = ["python", "adr"]
+    adr: AdrSettings = AdrSettings()
 
     @field_validator("repository")
     @classmethod
