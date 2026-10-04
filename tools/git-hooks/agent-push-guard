@@ -1,0 +1,27 @@
+#!/bin/sh
+# Refuses pushes and releases from coding-agent sessions (AGENTS.md, Never do, rules 1 and 4). The pre-push hook
+# runs it before anything else, so no lefthook setting can skip it; the release script runs it with "Release".
+# Exit 1 refuses, exit 0 allows. The optional argument names the action in the message.
+
+action="${1:-Push}"
+
+agent=""
+if [ -n "${CLAUDECODE:-}" ] || [ -n "${CLAUDE_CODE_ENTRYPOINT:-}" ]; then
+  agent="a Claude Code session"
+elif env | grep -q '^CODEX_'; then
+  agent="a Codex session"
+elif [ -n "${CODETRAIL_AGENT:-}" ]; then
+  agent="an agent session (${CODETRAIL_AGENT})"
+elif [ ! -t 2 ]; then
+  agent="a session without a terminal"
+fi
+
+if [ -n "$agent" ]; then
+  cat >&2 <<MSG
+$action refused: it comes from $agent.
+Coding agents never push or release in codetrail (AGENTS.md, Never do, rules 1 and 4).
+Commit and finish features locally, then stop; the founder pushes and releases from their own terminal.
+MSG
+  exit 1
+fi
+exit 0

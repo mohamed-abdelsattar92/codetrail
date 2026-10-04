@@ -1,0 +1,6 @@
+#!/bin/sh
+# git pre-push hook for codetrail; `just setup` installs it.
+# First it refuses pushes from coding-agent sessions (AGENTS.md, Never do, rule 1); the founder pushes
+# from their own terminal. Then it runs the pre-push checks in lefthook.yml.
+"$(dirname "$0")/agent-push-guard" || exit 1
+exec "$(dirname "$0")/run-lefthook" pre-push "$@"

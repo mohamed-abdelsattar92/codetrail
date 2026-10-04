@@ -1,0 +1,28 @@
+# Git hook checks for codetrail (decision 11), adapted from hamesh-monorepo's. The git hooks themselves are the small
+# scripts in tools/git-hooks/, installed by `just setup`; they call `lefthook run`.
+no_auto_install: true
+min_version: 2.1.14
+
+pre-commit:
+  parallel: true
+  jobs:
+    - name: secrets
+      run: gitleaks git --pre-commit --staged --redact --no-banner
+    - name: file size
+      run: python3 tools/hooks/check_files.py {staged_files}
+    - name: justfile format
+      glob: "justfile"
+      run: just --fmt --check --unstable
+    - name: python lint
+      glob: "*.py"
+      run: just lint-python
+
+commit-msg:
+  jobs:
+    - name: commitlint
+      run: pnpm exec commitlint --edit {1}
+
+pre-push:
+  jobs:
+    - name: quick tests
+      run: just test-quick
