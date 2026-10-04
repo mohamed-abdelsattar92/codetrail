@@ -168,6 +168,35 @@ BLOCKED = [
     "mise exec git@2 -- git push",
     "pnpm exec git push",
     "mise exec -- git commit --no-verify -m x",
+    # third review of Phase 0: persistent config, global config, globs, pull, rewinding develop, mise spellings
+    "git config core.fsmonitor 'git push --no-verify origin develop'",
+    "git config core.editor 'x; true'",
+    "git config sequence.editor x",
+    "git config diff.external x",
+    "git config gpg.program x",
+    "git config core.askpass x",
+    "git config core.pager x",
+    "git config --local core.fsmonitor x",
+    "git config set core.fsmonitor x",
+    "printf x >> ~/.gitconfig",
+    "tee -a ~/.config/git/config < /tmp/x",
+    "printf x >> .gi?/config",
+    "cp x .gi?/hooks/pre-push",
+    "rm .gi*/refs/remotes/origin/develop",
+    "pushd .git && printf x >> config",
+    "git pull /tmp/repo +feature/x:remotes/origin/develop",
+    "git pull origin develop:develop",
+    "git checkout -B develop HEAD~3",
+    "git switch -C develop abc123",
+    "git switch -C main",
+    "git checkout -",
+    "git switch -",
+    "git checkout @{-1}",
+    "mise exec -c 'git push --no-verify origin develop'",
+    "mise x -- git push origin develop",
+    "mise --verbose exec -- git push",
+    "mise exec",
+    "pnpm --dir . exec git push --no-verify",
 ]
 
 ALLOWED = [
@@ -201,6 +230,13 @@ ALLOWED = [
     "mise exec -- uv run pytest -q",
     "mise exec -- git flow feature finish x --no-ff --no-push --keepremote --no-fetch",
     "pnpm exec commitlint --edit .git/COMMIT_EDITMSG",
+    "git config user.name 'Test Author'",
+    "git config user.email author@example.com",
+    "git config gitflow.branch.feature.prefix feature/",
+    "git pull origin develop",
+    "git switch -c feature/y",
+    "mise x -- just ci",
+    "mise exec -c 'just ci'",
     "git fetch --prune origin develop",
     "grep -c '<<' notes.txt",
     "git tag",
@@ -211,13 +247,13 @@ ALLOWED = [
     "git branch --show-current",
     "git branch -a",
     "git reset HEAD -- file.txt",
-    "git reset --soft HEAD~1",
     "git config --get core.hooksPath",
     "git config --get-regexp gitflow",
     "git worktree list",
     "git worktree add ../w feature/x",
     "git fetch origin",
     "git config user.name",
+    "git config --get-regexp gitflow",
     "git symbolic-ref --short HEAD",
     "git switch -c feature/x develop",
     "git switch develop",
@@ -246,4 +282,23 @@ def test_fails_closed_on_unreadable_input() -> None:
 def test_ignores_other_tools() -> None:
     payload = json.dumps({"tool_name": "Read", "tool_input": {"file_path": "x"}})
     result = subprocess.run([sys.executable, str(HOOK)], input=payload, capture_output=True, text=True)
+    assert result.returncode == 0
+
+
+@pytest.mark.parametrize("command", ["git commit --amend -m 'docs: x'", "git reset --soft HEAD~1", "git reset HEAD~1"])
+@pytest.mark.parametrize("branch", ["develop", "main"])
+def test_blocks_rewinding_protected_branches(tmp_path: pathlib.Path, branch: str, command: str) -> None:
+    subprocess.run(["git", "init", "-q", "-b", branch, str(tmp_path)], check=True)
+    payload = json.dumps({"tool_name": "Bash", "tool_input": {"command": command}})
+    env = {**__import__("os").environ, "CLAUDE_PROJECT_DIR": str(tmp_path)}
+    result = subprocess.run([sys.executable, str(HOOK)], input=payload, capture_output=True, text=True, env=env, cwd=tmp_path)
+    assert result.returncode == 2
+
+
+@pytest.mark.parametrize("command", ["git commit --amend -m 'docs: x'", "git reset --soft HEAD~1"])
+def test_allows_rewinding_a_feature_branch(tmp_path: pathlib.Path, command: str) -> None:
+    subprocess.run(["git", "init", "-q", "-b", "feature/x", str(tmp_path)], check=True)
+    payload = json.dumps({"tool_name": "Bash", "tool_input": {"command": command}})
+    env = {**__import__("os").environ, "CLAUDE_PROJECT_DIR": str(tmp_path)}
+    result = subprocess.run([sys.executable, str(HOOK)], input=payload, capture_output=True, text=True, env=env, cwd=tmp_path)
     assert result.returncode == 0

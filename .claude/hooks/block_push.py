@@ -135,6 +135,11 @@ TAG_LONG_OPTIONS = ('--list', '--contains', '--no-contains', '--points-at', '--m
                     '--message', '--file', '--ignore-case', '--create-reflog', '--local-user', '--cleanup', '--edit')
 # Options under which git tag only lists (git's documentation: they imply --list).
 TAG_LIST_OPTIONS = {'-l', '--list', '-n', '--contains', '--no-contains', '--points-at', '--merged', '--no-merged'}
+PROTECTED_REFS = {'develop', 'main'}
+# git config may write only these keys (third review of Phase 0): any other key could make git run a program
+# (core.fsmonitor, core.editor, diff.external...), push, or reach credentials.
+CONFIG_WRITABLE = re.compile(r'^(user\.[a-z]+|gitflow\.(?!.*(push|keep|deleteremote)).+)$', re.I)
+CONFIG_SUBCOMMANDS = {'set', 'unset', 'rename-section', 'remove-section', 'edit', 'get', 'list'}
 CONFIG_WRITE_WORDS = {'--add', '--replace-all', '--unset', '--unset-all', '--rename-section', '--remove-section', '-e',
                       '--edit', 'set', 'unset', 'rename-section', 'remove-section', 'edit'}
 
@@ -163,25 +168,35 @@ def skips_hooks_env(assignments):
 
 
 def in_git_folder(token):
+    """A path in .git/ or in git's own configuration files (~/.gitconfig, ~/.config/git/)."""
     path = re.sub(r'^\d*[<>]+&?', '', token).strip('\'"')
-    return bool(re.search(r'(^|/)\.git(/|$)', path))
+    return bool(re.search(r'(^|/)\.git(/|$)|(^|/)\.gitconfig$|(^|/)\.config/git(/|$)', path))
 
 
 def unclear_target(target):
-    return in_git_folder(target) or '$' in target or '`' in target
+    """A protected path, or one only the shell can work out: an expansion, or a glob that could reach a dot folder."""
+    glob = re.search(r'[*?\[]', target) and (target.startswith(('.', '~')) or '/.' in target)
+    return in_git_folder(target) or '$' in target or '`' in target or bool(glob)
 
 
 def writes_into_git_folder(seg, prog):
     """A redirection into .git/ (or to a target only the shell can work out), a writing program given a path there,
     or a cd into .git, after which any relative write lands there (security reviews of Phase 0)."""
-    if prog == 'cd' and any(in_git_folder(t) for t in seg[1:]):
+    if prog in ('cd', 'pushd') and any(unclear_target(t) for t in seg[1:]):
         return True
     for i, tok in enumerate(seg):
         if '>' not in tok: continue
         target = tok.rsplit('>', 1)[1].lstrip('&|')
         if not target and i + 1 < len(seg): target = seg[i + 1]
         if unclear_target(target): return True
-    return prog in WRITERS and any(in_git_folder(t) for t in seg[1:])
+    return prog in WRITERS and any(unclear_target(t) for t in seg[1:])
+
+
+def current_branch():
+    """The branch checked out where the hook runs, or None."""
+    import subprocess
+    result = subprocess.run(['git', 'symbolic-ref', '--short', '-q', 'HEAD'], capture_output=True, text=True)
+    return result.stdout.strip() or None
 
 
 def check_flow(args):
@@ -224,8 +239,17 @@ def check_git(args):
     if sub == 'branch' and set(expand_options(rest, BRANCH_LONG_OPTIONS)) & BRANCH_WRITE_OPTIONS:
         return f'{HISTORY}: git branch deleting, moving or forcing a branch'
     if sub in ('checkout', 'switch') and any(a in PROTECTED_BRANCHES for a in rest): return f'{HISTORY}: checking out main'
+    if sub in ('checkout', 'switch') and any(a in ('-B', '-C', '--force-create') for a in rest) and any(a in PROTECTED_REFS for a in rest):
+        return f'{HISTORY}: resetting develop or main with {sub}'
+    if sub in ('checkout', 'switch') and any(a == '-' or re.fullmatch(r'@\{-\d+\}', a) for a in rest):
+        return f'{HISTORY}: checking out the previous branch (it could be main)'
+    if sub in ('commit', 'reset') and current_branch() in PROTECTED_REFS:
+        before_paths = rest[:rest.index('--')] if '--' in rest else rest
+        moves = [a for a in before_paths if not a.startswith('-') and a != 'HEAD']
+        if (sub == 'commit' and '--amend' in rest) or (sub == 'reset' and moves):
+            return f'{HISTORY}: git {sub} {"--amend" if sub == "commit" else moves[0]} on {current_branch()}'
     if sub == 'worktree' and rest[:1] == ['add'] and any(a in PROTECTED_BRANCHES for a in rest): return f'{HISTORY}: a worktree on main'
-    if sub == 'fetch':
+    if sub in ('fetch', 'pull'):
         sources = [a for a in rest if not a.startswith('-')]
         if sources and not re.fullmatch(r'[A-Za-z0-9_-]+', sources[0]): return f'{REF_MOVE}: git fetch from {sources[0]}'
         if any(':' in a for a in sources[1:]): return f'{REF_MOVE}: git fetch into a named ref'
@@ -247,6 +271,12 @@ def check_git(args):
     operands = [a for a in rest if not a.startswith('-')]
     reads_config = (sub == 'config' and any(a in ('--get', '--get-all', '--get-regexp', '-l', '--list') for a in rest)
                     and not any(a in CONFIG_WRITE_WORDS for a in rest) and len(operands) <= 2)
+    if sub == 'config' and not reads_config:
+        keys = operands[1:] if operands[:1] and operands[0] in CONFIG_SUBCOMMANDS else operands
+        writes = any(a in CONFIG_WRITE_WORDS for a in rest) or len(keys) >= 2
+        if writes and keys and keys[0].lower().startswith('core.hookspath'): return f'{HOOK_SKIP}: core.hooksPath'
+        if writes and not (keys and CONFIG_WRITABLE.match(keys[0])):
+            return f'git config writing {keys[0] if keys else "settings"} (agents may set only user.* and git-flow settings)'
     if sub == 'config' and not reads_config and any(t.lower().startswith(RISKY_CONFIG) or 'pushurl' in t.lower() for t in rest):
         return 'git config change to aliases, remotes, credentials or hooks'
     if sub == 'config' and not reads_config and any(t.lower().startswith('core.hookspath') for t in rest):
@@ -290,10 +320,18 @@ def check(cmd, depth=0):
                 t = toks.pop(0)
                 if '=' in t and not t.startswith('-'): assigns.append(t)
         # Tool runners run the command after them: mise exec [options] -- <command>, pnpm exec <command>.
-        if toks[:2] == ['mise', 'exec']:
-            toks = toks[toks.index('--') + 1:] if '--' in toks else []
-        elif toks[:2] == ['pnpm', 'exec']:
-            toks = toks[2:]
+        if toks[:1] == ['mise'] and ('exec' in toks or 'x' in toks):
+            rest_of_mise = toks[toks.index('exec' if 'exec' in toks else 'x') + 1:]
+            command_flag = next((i for i, a in enumerate(rest_of_mise) if a in ('-c', '--command')), None)
+            if command_flag is not None:
+                if command_flag + 1 >= len(rest_of_mise): return UNREADABLE
+                r = check(rest_of_mise[command_flag + 1], depth + 1)
+                if r: return r
+                continue
+            if '--' not in rest_of_mise: return UNREADABLE
+            toks = rest_of_mise[rest_of_mise.index('--') + 1:]
+        elif toks[:1] == ['pnpm'] and 'exec' in toks:
+            toks = toks[toks.index('exec') + 1:]
         if not toks: continue
         # The shell expands {a,b} and {1..3} after this guard reads the words: git {push,--no-verify} is git push.
         if any(BRACES.search(t) for t in toks) and any(re.search(r'\b(git|gh|git-flow)\b', t) for t in toks):
