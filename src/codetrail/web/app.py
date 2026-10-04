@@ -12,10 +12,11 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import HTMLResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from pydantic import BaseModel, ConfigDict, Field
+from starlette.types import ASGIApp
 
 from codetrail.config import GlobalConfig, Paths
 from codetrail.database import connect
@@ -24,7 +25,7 @@ from codetrail.facts import EntityKind
 from codetrail.repo.signal import Signal, behind
 from codetrail.web.diagrams import dependencies_diagram, imports_diagram
 from codetrail.web.i18n import Language, installed_languages
-from codetrail.web.security import SecurityMiddleware, SessionState, login_response
+from codetrail.web.security import SESSION_COOKIE, SecurityMiddleware, SessionState, login_response
 from codetrail.web.target_view import TargetView
 
 LANGUAGE_SETTING = "language"
@@ -37,7 +38,8 @@ class LanguageChoice(BaseModel):
 
 def create_app(
     paths: Paths, name: str, session: SessionState, settings: GlobalConfig, locales: Path | None = None
-) -> FastAPI:
+) -> ASGIApp:
+    """The page, wrapped in the security middleware outside everything, so every response passes through it."""
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
     view = TargetView(paths, name)
     languages = installed_languages(locales)
@@ -167,12 +169,14 @@ def create_app(
         return Response(status_code=204)
 
     @app.exception_handler(404)
-    def missing(request: Request, error: Exception) -> HTMLResponse:
+    def missing(request: Request, error: Exception) -> Response:
+        # A page with the token goes only to a signed-in reader; /static/ is open, so its 404s stay plain.
+        if request.url.path.startswith("/static/") or not session.is_session(request.cookies.get(SESSION_COOKIE)):
+            return PlainTextResponse("Not found.", status_code=404)
         return not_found()
 
     app.mount("/static", StaticFiles(directory=str(files("codetrail.web").joinpath("static"))), name="static")
-    app.add_middleware(SecurityMiddleware, session=session, port=settings.server.port)
-    return app
+    return SecurityMiddleware(app, session=session, port=settings.server.port)
 
 
 def _environment(templates: str, language: Language) -> Environment:

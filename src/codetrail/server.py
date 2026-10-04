@@ -6,7 +6,7 @@ import webbrowser
 from dataclasses import dataclass
 
 import uvicorn
-from fastapi import FastAPI
+from starlette.types import ASGIApp
 
 from codetrail.config import Paths, check_containment, load_global, load_target
 from codetrail.web.app import create_app
@@ -17,7 +17,7 @@ HOST = "127.0.0.1"  # never configurable
 
 @dataclass(frozen=True)
 class Server:
-    app: FastAPI
+    app: ASGIApp
     host: str
     port: int
     url: str
@@ -27,7 +27,7 @@ def prepare_server(paths: Paths, name: str) -> Server:
     target = load_target(paths, name)
     check_containment(paths, target.repository)
     settings = load_global(paths)
-    session = SessionState(settings.server.login_code_ttl_seconds)
+    session = SessionState(settings.server.login_code_ttl_seconds, session_minutes=settings.server.session_minutes)
     app = create_app(paths, name, session, settings)
     port = settings.server.port
     return Server(app, HOST, port, f"http://{HOST}:{port}/login?code={session.issue_login_code()}")

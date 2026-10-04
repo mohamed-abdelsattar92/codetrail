@@ -39,9 +39,13 @@ OPEN_PATHS = ("/login", "/static/")
 class SessionState:
     """The one reader's session: a single-use login code, the session cookie's value and the write token."""
 
-    def __init__(self, login_code_ttl_seconds: int, clock: Callable[[], float] = time.monotonic) -> None:
+    def __init__(
+        self, login_code_ttl_seconds: int, clock: Callable[[], float] = time.monotonic, session_minutes: int = 480
+    ) -> None:
         self._ttl = login_code_ttl_seconds
         self._clock = clock
+        # Browsers send a cookie to every port of a host, so a session must not outlive its use (design 7.4).
+        self._session_expires = clock() + session_minutes * 60
         self._code: str | None = None
         self._code_expires = 0.0
         self.session_id = secrets.token_urlsafe(32)
@@ -61,7 +65,7 @@ class SessionState:
         return self._clock() <= self._code_expires
 
     def is_session(self, cookie: str | None) -> bool:
-        return cookie is not None and _equal(cookie, self.session_id)
+        return cookie is not None and _equal(cookie, self.session_id) and self._clock() <= self._session_expires
 
     def is_token(self, token: str | None) -> bool:
         return token is not None and _equal(token, self.token)

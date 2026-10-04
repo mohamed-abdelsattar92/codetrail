@@ -74,6 +74,7 @@ class ServerSettings(Settings):
     # The host is always 127.0.0.1 and can't be configured (design section 7.4).
     port: int = Field(default=8765, ge=1024, le=65535)
     login_code_ttl_seconds: int = Field(default=60, gt=0)
+    session_minutes: int = Field(default=480, gt=0)
 
 
 class InterfaceSettings(Settings):
