@@ -35,8 +35,8 @@ def prepare_server(paths: Paths, name: str) -> Server:
 
 def serve(paths: Paths, name: str, open_browser: bool) -> None:
     server = prepare_server(paths, name)
-    print(f"Codetrail is serving {name} at http://{server.host}:{server.port}/")
-    print(f"Sign in (this link works once, for a short time): {server.url}")
+    print(f"Codetrail is serving {name} at http://{server.host}:{server.port}/", flush=True)
+    print(f"Sign in (this link works once, for a short time): {server.url}", flush=True)
     if open_browser:
         webbrowser.open(server.url)
     # No access log: the sign-in link's code would be written to it.

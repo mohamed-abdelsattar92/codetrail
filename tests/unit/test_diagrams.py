@@ -77,3 +77,10 @@ def test_a_projects_dependencies(store: FactStore) -> None:
     diagram = dependencies_diagram(store, project.id)
     assert sorted(node.label for node in diagram.nodes) == ["api", "fastapi", "httpx"]
     assert '-->|"dev"|' in diagram.mermaid
+
+
+def test_rolled_up_folders_link_to_their_area(store: FactStore) -> None:
+    modules = [module(f"app/{folder}/m{index}.py") for folder in ("x", "y") for index in range(3)]
+    store.record("c", modules, [])
+    diagram = imports_diagram(store, "app", max_nodes=2)
+    assert sorted(node.link for node in diagram.nodes) == ["/areas/app/x", "/areas/app/y"]

@@ -65,7 +65,7 @@ def imports_diagram(store: FactStore, scope: str, max_nodes: int) -> Diagram:
         depth -= 1
     group = {module_id: str(_truncate(path, depth)) for module_id, path in paths.items()}
     labels = {folder: f"{folder}/" for folder in group.values()}
-    links = {folder: f"/folders/{folder}" for folder in group.values()}
+    links = {folder: f"/areas/{folder}" for folder in group.values()}
     folder_edges = Counter((group[source], group[target]) for source, target in edges if group[source] != group[target])
     return _render(group, labels, links, folder_edges, rolled_up=True, counted=True)
 

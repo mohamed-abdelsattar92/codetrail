@@ -314,12 +314,12 @@ Server-rendered with FastAPI and Jinja2, served by uvicorn; Markdown rendered on
 
 | Route | Shows or does |
 |---|---|
-| `GET /` | The "you're behind" signal, unread digests, the current path, stale learned pages |
+| `GET /` | The "you're behind" signal, unread digests, the current path, stale learned pages; until the outline exists (Phase 4), the areas are the top-level folders |
 | `GET /areas/{id}`, `/concepts/{id}`, `/digests/{id}`, `/paths/{id}`, `/answers/{id}` | Guide content, with diagrams, rationale blocks and the page's status |
 | `GET /facts/{id}` | A fact, its relations and its source text |
 | `GET /source/{path}` | A file from `source/`, through the exclusion rules; or a link built from `source_url_template` |
 | `POST /update`, `GET /update/status` | Starts the background update; streams its progress |
-| `POST /settings/language` | Sets the interface language |
+| `POST /settings/language` | Sets the interface language (a JSON body, so no form parser is needed and no other site's form can send it) |
 | `POST /learn/...` | Marks pages and digests read (section 8) |
 | `GET /login` | Exchanges the one-time code for the session (section 7.4) |
 
