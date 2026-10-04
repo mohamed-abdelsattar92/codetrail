@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from codetrail.repo.history import commits_between, diff_between, merges_between
+from codetrail.repo.history import commits_between, diff_between, merges_between, recent_commits
 from codetrail.repo.mirror import refresh_mirror
 from codetrail.repo.rules import ExclusionRules
 from codetrail.repo.secrets import SecretScanner
@@ -117,3 +117,13 @@ def test_separator_characters_in_a_message_cannot_forge_commits(tmp_path: Path, 
     assert [commit.subject for commit in commits] == ["feat: real"]
     assert commits[0].sha == end
     assert commits[0].files == ["b.md"]
+
+
+def test_recent_commits_for_a_scope(tmp_path: Path, scanner: SecretScanner) -> None:
+    checkout = make_repository(tmp_path / "t", [{"app/a.py": "1\n", "docs/x.md": "x\n"}])
+    add_commit(checkout, {"app/a.py": "2\n"}, "fix(app): two")
+    add_commit(checkout, {"docs/x.md": "y\n"}, "docs: y")
+    add_commit(checkout, {"app/a.py": "3\n"}, "fix(app): three")
+    mirror, end = mirror_of(checkout, tmp_path)
+    commits = recent_commits(mirror, end, ["app"], 2, visible, scanner)
+    assert [commit.subject for commit in commits] == ["fix(app): two", "fix(app): three"]

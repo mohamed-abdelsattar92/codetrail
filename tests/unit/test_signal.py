@@ -37,13 +37,13 @@ def test_before_any_update(paths: Paths, checkout: Path) -> None:
 
 
 def test_up_to_date_after_an_update(paths: Paths, checkout: Path) -> None:
-    run_update(paths, "t")
+    run_update(paths, "t", facts_only=True)
     signal = behind(paths, "t")
     assert (signal.merges, signal.commits, signal.areas) == (0, 0, [])
 
 
 def test_counts_merges_and_visible_areas(paths: Paths, checkout: Path) -> None:
-    run_update(paths, "t")
+    run_update(paths, "t", facts_only=True)
     merge_feature(checkout, "one", {"services/api/orders.py": "y = 2\n"})
     merge_feature(checkout, "two", {".env": "SECRET=1\n", "infra/prod.tfvars": "a = 1\n"})
     before = snapshot_tree(checkout)
@@ -55,7 +55,7 @@ def test_counts_merges_and_visible_areas(paths: Paths, checkout: Path) -> None:
 
 
 def test_reports_an_update_in_progress_without_fetching(paths: Paths, checkout: Path) -> None:
-    run_update(paths, "t")
+    run_update(paths, "t", facts_only=True)
     with target_lock(paths, "t"):
         signal = behind(paths, "t")
     assert signal.updating

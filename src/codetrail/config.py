@@ -66,6 +66,10 @@ class ToolsSettings(Settings):
     gitleaks: str = "gitleaks"
 
 
+class ClaudeSettings(Settings):
+    retry_attempts: int = Field(default=2, ge=0, le=5)
+
+
 class ExtractSettings(Settings):
     max_file_bytes: int = Field(default=1_000_000, gt=0)
 
@@ -91,6 +95,7 @@ class DiagramSettings(Settings):
 
 class GlobalConfig(Settings):
     tools: ToolsSettings = ToolsSettings()
+    claude: ClaudeSettings = ClaudeSettings()
     extract: ExtractSettings = ExtractSettings()
     server: ServerSettings = ServerSettings()
     ui: InterfaceSettings = InterfaceSettings()
