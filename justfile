@@ -1,0 +1,73 @@
+# codetrail task runner (decision 11). Run `just` to list the recipes.
+# First run on a new clone: `mise trust && mise install`, then `just setup`.
+
+set shell := ["bash", "-euo", "pipefail", "-c"]
+
+# List every recipe
+default:
+    @just --list --unsorted
+
+# Install the pinned tools, the Python and commit-message tooling, the git hooks and the git-flow config
+setup:
+    mise install
+    uv sync
+    pnpm install --frozen-lockfile
+    just _install-hooks
+    git flow config sync
+    @echo "Setup complete."
+
+# Run every check CI runs
+ci: check-repo lint typecheck test
+
+# Repository-wide checks: secrets anywhere in the history, and the file rules on every tracked file
+check-repo:
+    gitleaks git --redact --no-banner
+    git ls-files -z | xargs -0 python3 tools/hooks/check_files.py
+
+# Check the commit messages between two commits; CI passes commitlint.ci.config.mjs, which accepts Dependabot's too
+check-commits from to="HEAD" config="commitlint.config.mjs":
+    pnpm exec commitlint --config {{ config }} --from {{ from }} --to {{ to }} --verbose
+
+# Check formatting and lint everything
+lint: lint-just lint-python
+
+# Check the justfile's formatting
+lint-just:
+    just --fmt --check --unstable
+
+# Lint and check the formatting of the Python code
+lint-python:
+    uv run ruff check
+    uv run ruff format --check
+
+# Apply every formatter
+format:
+    just --fmt --unstable
+    uv run ruff check --fix
+    uv run ruff format
+
+# Type-check the package and its tests (mypy strict)
+typecheck:
+    uv run mypy
+
+# Run every test except the live ones, which call the real Claude
+test:
+    uv run pytest -q
+
+# Run the quick tests, as the pre-push hook does
+test-quick:
+    uv run pytest -q -m "not slow and not live"
+
+# Run the live tests against the real Claude (local only; CI has no Claude sign-in)
+test-live:
+    uv run pytest -q -m live --override-ini addopts=
+
+_install-hooks:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    hooks=$(git rev-parse --git-path hooks)
+    mkdir -p "$hooks"
+    for f in agent-push-guard run-lefthook pre-commit commit-msg pre-push; do
+        install -m 755 "tools/git-hooks/$f" "$hooks/$f"
+    done
+    echo "Git hooks installed in $hooks."

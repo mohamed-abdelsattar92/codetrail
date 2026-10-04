@@ -1,0 +1,13 @@
+# Pinned tools for codetrail (decision 11). Once per clone: `mise trust && mise install`, then `just setup`.
+# The versions match hamesh-monorepo's, so both repositories run on the same tools.
+
+[tools]
+python = "3.14.7"
+uv = "0.12.18"
+just = "1.58.0"
+lefthook = "2.1.14"
+gitleaks = "8.30.1"
+# commitlint runs on Node (the commit-msg hook); Codetrail itself is Python only.
+node = "24.21.0"
+pnpm = "12.6.0"
+"github:gittower/git-flow-next" = "2.0.0"
