@@ -197,6 +197,23 @@ BLOCKED = [
     "mise --verbose exec -- git push",
     "mise exec",
     "pnpm --dir . exec git push --no-verify",
+    # final review of Phase 0: expansions hiding the subcommand, config sections, git's own file writers, pnpm -c
+    "C=push F=--no-verify; git $C $F origin develop",
+    "git push $F",
+    "git \"$X\" origin develop",
+    "git `echo push` origin develop",
+    "U=update-ref; git $U refs/remotes/origin/develop abc",
+    "git config gitflow.x.p 'push --no-verify'",
+    "git config --rename-section gitflow.x alias",
+    "git config rename-section gitflow.x alias",
+    "git config --remove-section user",
+    "git log -1 --format=x --output=.git/config",
+    "git --work-tree=.git checkout HEAD -- config",
+    "git --git-dir=/tmp/x log",
+    "git checkout-index -f --prefix=.git/ config",
+    "pnpm exec -c 'git push --no-verify origin develop'",
+    "pnpm -c exec 'git push --no-verify origin develop'",
+    "pnpm --shell-mode exec 'git push'",
 ]
 
 ALLOWED = [
@@ -233,6 +250,9 @@ ALLOWED = [
     "git config user.name 'Test Author'",
     "git config user.email author@example.com",
     "git config gitflow.branch.feature.prefix feature/",
+    "git config gitflow.branch.feature.startpoint develop",
+    "git commit -m \"$(cat <<'EOF'\ndocs: x\n\nWhy: y\nEOF\n)\"",
+    "pnpm exec -c 'just ci'",
     "git pull origin develop",
     "git switch -c feature/y",
     "mise x -- just ci",

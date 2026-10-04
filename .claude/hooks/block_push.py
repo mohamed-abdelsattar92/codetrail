@@ -138,7 +138,12 @@ TAG_LIST_OPTIONS = {'-l', '--list', '-n', '--contains', '--no-contains', '--poin
 PROTECTED_REFS = {'develop', 'main'}
 # git config may write only these keys (third review of Phase 0): any other key could make git run a program
 # (core.fsmonitor, core.editor, diff.external...), push, or reach credentials.
-CONFIG_WRITABLE = re.compile(r'^(user\.[a-z]+|gitflow\.(?!.*(push|keep|deleteremote)).+)$', re.I)
+CONFIG_WRITABLE = re.compile(
+    r'^(user\.(name|email)|gitflow\.(version|initialized'
+    r'|branch\.[a-z]+\.(type|parent|startpoint|prefix|upstreamstrategy|downstreamstrategy|autoupdate|tag)))$', re.I)
+# Values after these options are messages, not commands; a $(...) in them is still checked as a subshell.
+MESSAGE_OPTIONS = {'-m', '-M', '-F', '--message', '--file'}
+CONFIG_SECTION_WORDS = {'--rename-section', '--remove-section', 'rename-section', 'remove-section'}
 CONFIG_SUBCOMMANDS = {'set', 'unset', 'rename-section', 'remove-section', 'edit', 'get', 'list'}
 CONFIG_WRITE_WORDS = {'--add', '--replace-all', '--unset', '--unset-all', '--rename-section', '--remove-section', '-e',
                       '--edit', 'set', 'unset', 'rename-section', 'remove-section', 'edit'}
@@ -225,10 +230,15 @@ def check_git(args):
             return f'git -c {value.split("=", 1)[0]} (configuration on the command line)'
         if opt == '--config-env':
             return 'git --config-env'
+        if opt in ('--work-tree', '--git-dir'):
+            return f'git {opt} (another repository or working tree)'
         i += 2 if (opt in GIT_OPTS_WITH_VALUE and '=' not in args[i]) else 1
     if i >= len(args): return None
     sub, rest = args[i], args[i + 1:]
     if '--no-verify' in rest: return f'{HOOK_SKIP}: git {sub} --no-verify'
+    if any(a.startswith('--output') for a in rest): return f'{REF_MOVE}: git {sub} --output (git writing a file)'
+    if sub == 'checkout-index': return f'{REF_MOVE}: git checkout-index (git writing files)'
+    if sub == 'config' and any(a in CONFIG_SECTION_WORDS for a in rest): return 'git config renaming or removing a section'
     if sub in ('push', 'send-pack'): return f'git {sub}'
     if sub == 'symbolic-ref' and len([a for a in rest if not a.startswith('-')]) > 1: return f'{REF_MOVE}: git symbolic-ref'
     if sub in ('filter-branch', 'filter-repo', 'rebase', 'replace'): return f'{HISTORY}: git {sub}'
@@ -331,12 +341,23 @@ def check(cmd, depth=0):
             if '--' not in rest_of_mise: return UNREADABLE
             toks = rest_of_mise[rest_of_mise.index('--') + 1:]
         elif toks[:1] == ['pnpm'] and 'exec' in toks:
-            toks = toks[toks.index('exec') + 1:]
+            shell_mode = any(a in ('-c', '--shell-mode') for a in toks)
+            rest_of_pnpm = [a for a in toks[toks.index('exec') + 1:] if a not in ('-c', '--shell-mode')]
+            if shell_mode:
+                r = check(' '.join(rest_of_pnpm), depth + 1)
+                if r: return r
+                continue
+            toks = rest_of_pnpm
         if not toks: continue
         # The shell expands {a,b} and {1..3} after this guard reads the words: git {push,--no-verify} is git push.
         if any(BRACES.search(t) for t in toks) and any(re.search(r'\b(git|gh|git-flow)\b', t) for t in toks):
             return f'{UNREADABLE}: a brace expansion beside git'
         prog = os.path.basename(toks[0])
+        if prog in ('git', 'git-flow', 'gh'):
+            for j, word in enumerate(toks[1:], start=1):
+                is_message = toks[j - 1] in MESSAGE_OPTIONS or word.split('=', 1)[0] in ('--message', '--file')
+                if ('$' in word or '`' in word) and not is_message:
+                    return f'{UNREADABLE}: a shell expansion ({word}) beside {prog}'
         if prog == 'export' and skips_hooks_env(toks[1:]): return f'{HOOK_SKIP}: exported LEFTHOOK setting'
         if prog in ('git', 'git-flow') and skips_hooks_env(assigns): return f'{HOOK_SKIP}: LEFTHOOK setting'
         exported = [a for a in (toks[1:] if prog == 'export' else []) + assigns if RISKY_GIT_ENV.match(a.split('=', 1)[0])]
