@@ -32,6 +32,8 @@ known-first-party = ["codetrail", "tests"]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["S603", "S607"]
+# The store builds SQL from its own table and column constants only; values are always parameters.
+"src/codetrail/facts/store.py" = ["S608"]
 
 [tool.mypy]
 strict = true
