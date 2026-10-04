@@ -8,7 +8,7 @@ The first repository it teaches is `hamesh-monorepo`; it is built to work on any
 
 ## Status
 
-Design in progress. Nothing is built yet.
+Design in progress. Nothing is built yet. The first phase sets up the same engineering tooling as `hamesh-monorepo`: mise, `just`, uv, lefthook git hooks, commitlint, git-flow, ruff, mypy, pytest and test-driven development.
 
 - Decisions so far, and why: [docs/design/brainstorm-decisions.md](docs/design/brainstorm-decisions.md)
 - Instructions for coding agents: [AGENTS.md](AGENTS.md)
