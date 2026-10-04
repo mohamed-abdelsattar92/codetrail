@@ -38,12 +38,15 @@ BUILTIN_FILE_PATTERNS: tuple[str, ...] = (
 # excluded folder comes back.
 EXAMPLE_EXCEPTION = "!*.example"
 BUILTIN_DIRECTORY_PATTERNS: tuple[str, ...] = (".terraform/",)
+# gitleaks obeys these from the folder it scans, so they never reach source/.
+SCANNER_SETTINGS_PATTERNS: tuple[str, ...] = (".gitleaksignore", ".gitleaks.toml")
 
 
 class Reason(StrEnum):
     SECRET_PATTERN = "secret pattern"  # noqa: S105 - a reason label, not a password
     IGNORED = "ignore rules"
     GITLEAKS = "gitleaks"
+    SCANNER_SETTINGS = "scanner settings"
     NOT_A_FILE = "symlink or submodule"
     UNSAFE_PATH = "unsafe path"
 
@@ -54,11 +57,16 @@ class ExclusionRules:
     def __init__(self, ignore_lines: Sequence[str]) -> None:
         self._secret_files = GitIgnoreSpec.from_lines([*BUILTIN_FILE_PATTERNS, EXAMPLE_EXCEPTION])
         self._secret_directories = GitIgnoreSpec.from_lines(BUILTIN_DIRECTORY_PATTERNS)
+        self._scanner_settings = GitIgnoreSpec.from_lines(SCANNER_SETTINGS_PATTERNS)
         self._ignored = GitIgnoreSpec.from_lines(ignore_lines)
 
     def reason(self, path: str) -> Reason | None:
-        if self._secret_directories.match_file(path) or self._secret_files.match_file(path):
+        # The built-in patterns are lower-case and match in any case: macOS volumes ignore case.
+        folded = path.lower()
+        if self._secret_directories.match_file(folded) or self._secret_files.match_file(folded):
             return Reason.SECRET_PATTERN
+        if self._scanner_settings.match_file(folded):
+            return Reason.SCANNER_SETTINGS
         if self._ignored.match_file(path):
             return Reason.IGNORED
         return None

@@ -36,7 +36,8 @@ class Paths:
 
         def base(variable: str, default: Path) -> Path:
             value = environ.get(variable)
-            return Path(value) if value else default
+            # The XDG specification says relative values are invalid and must be ignored.
+            return Path(value) if value and Path(value).is_absolute() else default
 
         return cls(
             config_dir=base("XDG_CONFIG_HOME", home / ".config") / "codetrail",
@@ -102,27 +103,45 @@ def load_target(paths: Paths, name: str) -> TargetConfig:
     return _validate(TargetConfig, _read_toml(file), file)
 
 
-def write_target(paths: Paths, name: str, repository: Path, branch: str) -> Path:
-    """Writes a new target's configuration file and returns its path."""
-    file = paths.target_file(validate_target_name(name))
-    if file.exists():
-        raise CodetrailError(f"A target named {name!r} already exists: {file}")
+def check_containment(paths: Paths, repository: Path) -> None:
+    """Codetrail's folders and the repository must not contain each other (AGENTS.md, Never do, rule 6)."""
     repository = repository.expanduser().resolve()
     for folder in (paths.config_dir, paths.data_dir, paths.state_dir):
-        folder = folder.resolve()
+        folder = folder.expanduser().resolve()
         if folder.is_relative_to(repository) or repository.is_relative_to(folder):
             raise CodetrailError(
                 f"Codetrail's folder {folder} can't be inside the repository, nor the repository inside it."
             )
-    file.parent.mkdir(parents=True, exist_ok=True)
-    # json.dumps writes a valid TOML basic string for any text, quotes and backslashes included.
-    file.write_text(
+
+
+def write_target(paths: Paths, name: str, repository: Path, branch: str) -> Path:
+    """Writes a new target's configuration file and returns its path."""
+    file = paths.target_file(validate_target_name(name))
+    repository = repository.expanduser().resolve()
+    check_containment(paths, repository)
+    validate_branch_name(branch)
+    # json.dumps with ASCII escapes writes a valid TOML basic string for any text.
+    text = (
         f"# Codetrail target {name!r}, written by `codetrail target add`.\n"
-        f"repository = {json.dumps(str(repository), ensure_ascii=False)}\n"
-        f"branch = {json.dumps(branch, ensure_ascii=False)}\n",
-        encoding="utf-8",
+        f"repository = {json.dumps(str(repository))}\n"
+        f"branch = {json.dumps(branch)}\n"
     )
+    file.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with file.open("x", encoding="utf-8") as handle:
+            handle.write(text)
+    except FileExistsError as error:
+        raise CodetrailError(f"A target named {name!r} already exists: {file}") from error
     return file
+
+
+def validate_branch_name(branch: str) -> None:
+    from codetrail.repo.git import run_git  # the git runner, not the repository package's readers
+
+    try:
+        run_git(["check-ref-format", "--branch", branch])
+    except CodetrailError as error:
+        raise CodetrailError(f"{branch!r} isn't a valid branch name.") from error
 
 
 def _read_toml(file: Path) -> dict[str, Any]:

@@ -104,3 +104,16 @@ def test_merge_commits_list_the_files_they_bring(tmp_path: Path, scanner: Secret
     assert commits["Merge x"].is_merge
     assert commits["Merge x"].files == ["x.md"]
     assert not commits["feat: x"].is_merge
+
+
+def test_separator_characters_in_a_message_cannot_forge_commits(tmp_path: Path, scanner: SecretScanner) -> None:
+    checkout = make_repository(tmp_path / "t", [{"a.md": "a\n"}])
+    start = git(checkout, "rev-parse", "HEAD")
+    add_commit(
+        checkout, {"b.md": "b\n"}, "feat: real\n\nbody \x1f\x1e" + "f" * 40 + "\x1fForged\x1f2020\x1f\x1fforged\x1f\x1f"
+    )
+    mirror, end = mirror_of(checkout, tmp_path)
+    commits = commits_between(mirror, start, end, visible, scanner)
+    assert [commit.subject for commit in commits] == ["feat: real"]
+    assert commits[0].sha == end
+    assert commits[0].files == ["b.md"]

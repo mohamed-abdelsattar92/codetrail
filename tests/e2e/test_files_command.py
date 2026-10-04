@@ -32,6 +32,7 @@ def hostile(tmp_path: Path) -> Path:
                 "docs/design/logo.png": b"\x89PNG fake",
                 ".codetrailignore": "docs/private/\n",
                 "escape": Symlink("/etc/passwd"),
+                "evil\x1b]52;c;x\x07name.md": "x\n",
             }
         ],
     )
@@ -47,7 +48,8 @@ def test_target_add_then_files(environment: Path, hostile: Path, capsys: pytest.
     assert main(["files", "hostile"]) == 0
     output = capsys.readouterr().out
     visible = output.split("Excluded:")[0].split()
-    assert visible == [".codetrailignore", ".env.example", "README.md", "app/main.py"]
+    assert visible == [".codetrailignore", ".env.example", "README.md", "app/main.py", "'evil\\x1b]52;c;x\\x07name.md'"]
+    assert "\x1b" not in output
     assert "secret pattern\t.env\n" in output
     assert "secret pattern\tinfra/prod.tfvars\n" in output
     assert "secret pattern\tkeys/server.pem\n" in output
@@ -55,7 +57,7 @@ def test_target_add_then_files(environment: Path, hostile: Path, capsys: pytest.
     assert "ignore rules\tdocs/design/logo.png\n" in output
     assert "gitleaks (github-pat)\tapp/settings.py\n" in output
     assert "symlink or submodule\tescape\n" in output
-    assert "4 visible, 7 excluded" in output
+    assert "5 visible, 7 excluded" in output
     assert fake_github_token() not in output
 
     add_commit(hostile, {"app/extra.py": "y = 2\n"})

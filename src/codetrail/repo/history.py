@@ -14,7 +14,6 @@ from codetrail.repo.git import run_git
 from codetrail.repo.secrets import SecretScanner
 
 WITHHELD_MESSAGE = "[withheld: gitleaks flagged this message]"
-RECORD, FIELD = "\x1e", "\x1f"
 
 
 @dataclass(frozen=True)
@@ -38,19 +37,25 @@ class FileDiff:
 def commits_between(
     mirror: Path, start: str | None, end: str, visible: Callable[[str], bool], scanner: SecretScanner
 ) -> list[Commit]:
-    """The commits after `start` up to `end`, oldest first; merges list the files they bring to the first parent."""
-    output = run_git(
-        ["-c", "core.quotePath=false", "log", "--reverse", "--diff-merges=first-parent", "--name-only",
-         f"--format={RECORD}%H{FIELD}%an{FIELD}%aI{FIELD}%P{FIELD}%s{FIELD}%b{FIELD}",
-         end if start is None else f"{start}..{end}"],
-        git_dir=mirror,
-    ).decode("utf-8", "replace")  # fmt: skip
-    commits = []
-    for record in output.split(RECORD)[1:]:
-        sha, author, date, parents, subject, body, names = record.split(FIELD)
-        files = [name for name in names.strip().splitlines() if name and not name.startswith('"') and visible(name)]
-        commits.append(Commit(sha, author, date, subject, body.strip(), files, len(parents.split()) > 1))
+    """The commits after `start` up to `end`, oldest first; merges list the files they bring to the first parent.
+
+    Each commit is read on its own, with NUL between fields (git messages can't hold NUL), so no text in a message
+    can forge or break a record.
+    """
+    revisions = run_git(["rev-list", "--reverse", end if start is None else f"{start}..{end}"], git_dir=mirror)
+    commits = [_read_commit(mirror, sha, visible) for sha in revisions.decode().split()]
     return _withhold_flagged_messages(commits, scanner)
+
+
+def _read_commit(mirror: Path, sha: str, visible: Callable[[str], bool]) -> Commit:
+    header = run_git(["show", "-s", "--format=%H%x00%an%x00%aI%x00%P%x00%s%x00%b", sha], git_dir=mirror)
+    commit_sha, author, date, parents, subject, body = header.decode("utf-8", "replace").split("\0", 5)
+    parent_list = parents.split()
+    changed = ["diff-tree", "--no-commit-id", "-r", "-z", "--name-only"]
+    changed += [parent_list[0], sha] if parent_list else ["--root", sha]
+    names = run_git(changed, git_dir=mirror).decode("utf-8", "surrogateescape").split("\0")
+    files = [name for name in names if name and visible(name)]
+    return Commit(commit_sha, author, date, subject, body.strip(), files, len(parent_list) > 1)
 
 
 def merges_between(mirror: Path, start: str, end: str) -> int:

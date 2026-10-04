@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from codetrail.config import Paths, load_global, load_target
+from codetrail.config import Paths, check_containment, load_global, load_target
 from codetrail.lock import target_lock
 from codetrail.repo.mirror import read_file_at, refresh_mirror
 from codetrail.repo.rules import ExclusionRules
@@ -23,6 +23,7 @@ def ignore_lines(paths: Paths, name: str, target_file: bytes | None) -> list[str
 
 def refresh_source(paths: Paths, name: str) -> SourceManifest:
     target = load_target(paths, name)
+    check_containment(paths, target.repository)
     scanner = SecretScanner(load_global(paths).tools.gitleaks)
     data = paths.target_data(name)
     with target_lock(paths, name):
