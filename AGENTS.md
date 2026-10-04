@@ -55,7 +55,6 @@ Since Phase 0, these rules are also enforced by tools: permission rules and hook
   EOF
   )"
   ```
-  Before Phase 0 installs git-flow, use `git merge --no-ff feature/<name>` on `develop` with the same message, then `git branch -d feature/<name>`.
 - **Then stop.** Report what landed on `develop` and what the founder should check. The founder pushes.
 - **Definition of done:** tests pass (written first); lint, format and strict type checks pass; the security review passes; no new hard-coded values; docs updated.
 

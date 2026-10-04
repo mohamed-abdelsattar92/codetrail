@@ -16,7 +16,11 @@ Exit code 2 blocks the call and shows the reason to the agent.
 import json, os, re, sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from block_push import SHELLS, WRAPPERS, segments, strip_heredocs, subshells  # noqa: E402
+try:
+    from block_push import SHELLS, WRAPPERS, segments, strip_heredocs, subshells  # noqa: E402
+    IMPORT_FAILED = False
+except Exception:  # fail closed below: a guard that can't load must block (second review, finding 4)
+    IMPORT_FAILED = True
 
 SECRET_NAME = re.compile(
     r'^(\.env|\.env\.(?!example).+|\.dev\.vars|.+\.(p8|p12|pem|keystore|jks|key|pfx|ppk)|id_rsa.*|id_ed25519.*|.+\.tfstate(\.backup)?|.+\.tfvars(\.json)?)$', re.I)
@@ -70,6 +74,9 @@ def check(cmd, depth=0):
 
 
 def main():
+    if IMPORT_FAILED:
+        print('Blocked: the secrets guard could not load block_push.py, so it refuses the call.', file=sys.stderr)
+        return 2
     try:
         data = json.load(sys.stdin)
     except Exception:

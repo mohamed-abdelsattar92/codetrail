@@ -116,7 +116,8 @@ HISTORY = 'rewriting history, deleting branches or tags, or releasing'
 RISKY_CONFIG = ('alias.', 'credential', 'remote.', 'url.', 'pushurl', 'core.sshcommand', 'core.hookspath', 'include.',
                 'includeif.')
 # Environment variables that configure or redirect git (security review of Phase 0, finding 1).
-RISKY_GIT_ENV = re.compile(r'^(GIT_CONFIG\w*|GIT_DIR|GIT_WORK_TREE|GIT_EXEC_PATH|GIT_SSH\w*|GIT_ASKPASS|GIT_NAMESPACE)$')
+# Any GIT_* variable, or an editor or pager, could configure git or make it run a program (second review, finding 1).
+RISKY_GIT_ENV = re.compile(r'^(GIT_\w+|EDITOR|VISUAL|PAGER)$')
 # Programs that write to a file named in their arguments; with a path in .git/ they could move refs or hooks.
 WRITERS = {'cp', 'mv', 'tee', 'ln', 'rm', 'install', 'truncate', 'dd', 'touch', 'sed', 'perl', 'python3', 'python',
            'chmod', 'rsync'}
@@ -125,6 +126,32 @@ TAG_READ_OPTIONS = {'-l', '--list', '-n', '--contains', '--no-contains', '--poin
 BRANCH_WRITE_OPTIONS = {'-d', '-D', '--delete', '-f', '--force', '-m', '-M', '--move', '-c', '-C', '--copy',
                         '--set-upstream-to', '-u', '--unset-upstream', '--edit-description'}
 PROTECTED_BRANCHES = {'main'}
+BRANCH_LONG_OPTIONS = ('--delete', '--force', '--move', '--copy', '--set-upstream-to', '--unset-upstream',
+                       '--edit-description', '--remotes', '--all', '--list', '--show-current', '--verbose', '--contains',
+                       '--merged', '--no-merged', '--sort', '--format', '--color', '--no-color', '--track', '--no-track')
+RESET_LONG_OPTIONS = ('--hard', '--merge', '--keep', '--soft', '--mixed', '--quiet', '--patch')
+TAG_LONG_OPTIONS = ('--list', '--contains', '--no-contains', '--points-at', '--merged', '--no-merged', '--sort',
+                    '--format', '--column', '--no-column', '--annotate', '--sign', '--force', '--delete', '--verify',
+                    '--message', '--file', '--ignore-case', '--create-reflog', '--local-user', '--cleanup', '--edit')
+# Options under which git tag only lists (git's documentation: they imply --list).
+TAG_LIST_OPTIONS = {'-l', '--list', '-n', '--contains', '--no-contains', '--points-at', '--merged', '--no-merged'}
+CONFIG_WRITE_WORDS = {'--add', '--replace-all', '--unset', '--unset-all', '--rename-section', '--remove-section', '-e',
+                      '--edit', 'set', 'unset', 'rename-section', 'remove-section', 'edit'}
+
+
+def expand_options(args, long_options):
+    """Options as git reads them: bundled short options split (-df is -d -f), long ones expanded from a prefix."""
+    expanded = []
+    for arg in args:
+        if arg == '--': break
+        name = arg.split('=', 1)[0]
+        if name.startswith('--'):
+            matches = [option for option in long_options if option.startswith(name)]
+            expanded.extend(matches or [name])
+        elif name.startswith('-') and len(name) > 1:
+            if name[1:].isdigit(): expanded.append(name)
+            else: expanded.extend(f'-{letter}' for letter in name[1:])
+    return expanded
 COMMIT_VALUE_OPTS = {'-m', '-F', '-C', '-c', '-t', '--message', '--file', '--template', '--author', '--date'}
 
 def skips_hooks_env(assignments):
@@ -140,11 +167,20 @@ def in_git_folder(token):
     return bool(re.search(r'(^|/)\.git(/|$)', path))
 
 
+def unclear_target(target):
+    return in_git_folder(target) or '$' in target or '`' in target
+
+
 def writes_into_git_folder(seg, prog):
-    """A redirection into .git/, or a writing program given a path there (security review of Phase 0, finding 2)."""
+    """A redirection into .git/ (or to a target only the shell can work out), a writing program given a path there,
+    or a cd into .git, after which any relative write lands there (security reviews of Phase 0)."""
+    if prog == 'cd' and any(in_git_folder(t) for t in seg[1:]):
+        return True
     for i, tok in enumerate(seg):
-        if re.match(r'^\d*>{1,2}', tok) and (in_git_folder(tok) or (i + 1 < len(seg) and in_git_folder(seg[i + 1]))):
-            return True
+        if '>' not in tok: continue
+        target = tok.rsplit('>', 1)[1].lstrip('&|')
+        if not target and i + 1 < len(seg): target = seg[i + 1]
+        if unclear_target(target): return True
     return prog in WRITERS and any(in_git_folder(t) for t in seg[1:])
 
 
@@ -170,8 +206,8 @@ def check_git(args):
         value = args[i].split('=', 1)[1] if '=' in args[i] else (args[i + 1] if i + 1 < len(args) else '')
         if opt == '-c' and value.lower().startswith('core.hookspath'):
             return f'{HOOK_SKIP}: core.hooksPath'
-        if opt == '-c' and value.lower().startswith(RISKY_CONFIG):
-            return f'git -c {value.split("=", 1)[0]}'
+        if opt == '-c':
+            return f'git -c {value.split("=", 1)[0]} (configuration on the command line)'
         if opt == '--config-env':
             return 'git --config-env'
         i += 2 if (opt in GIT_OPTS_WITH_VALUE and '=' not in args[i]) else 1
@@ -181,12 +217,18 @@ def check_git(args):
     if sub in ('push', 'send-pack'): return f'git {sub}'
     if sub == 'symbolic-ref' and len([a for a in rest if not a.startswith('-')]) > 1: return f'{REF_MOVE}: git symbolic-ref'
     if sub in ('filter-branch', 'filter-repo', 'rebase', 'replace'): return f'{HISTORY}: git {sub}'
-    if sub == 'reset' and any(a in ('--hard', '--merge', '--keep') for a in rest): return f'{HISTORY}: git reset --hard'
-    if sub == 'tag' and any(not (a.split('=', 1)[0] in TAG_READ_OPTIONS or a.startswith('-n')) for a in rest if a.startswith('-')):
-        return f'{HISTORY}: git tag {next(a for a in rest if a.startswith("-"))}'
-    if sub == 'tag' and rest and not any(a.split('=', 1)[0] in TAG_READ_OPTIONS for a in rest): return f'{HISTORY}: git tag (creating a tag)'
-    if sub == 'branch' and any(a.split('=', 1)[0] in BRANCH_WRITE_OPTIONS for a in rest): return f'{HISTORY}: git branch with {next(a for a in rest if a.split("=", 1)[0] in BRANCH_WRITE_OPTIONS)}'
+    if sub == 'reset' and set(expand_options(rest, RESET_LONG_OPTIONS)) & {'--hard', '--merge', '--keep'}:
+        return f'{HISTORY}: git reset --hard'
+    if sub == 'tag' and rest and not (set(expand_options(rest, TAG_LONG_OPTIONS)) & TAG_LIST_OPTIONS):
+        return f'{HISTORY}: git tag (creating, moving or deleting a tag)'
+    if sub == 'branch' and set(expand_options(rest, BRANCH_LONG_OPTIONS)) & BRANCH_WRITE_OPTIONS:
+        return f'{HISTORY}: git branch deleting, moving or forcing a branch'
     if sub in ('checkout', 'switch') and any(a in PROTECTED_BRANCHES for a in rest): return f'{HISTORY}: checking out main'
+    if sub == 'worktree' and rest[:1] == ['add'] and any(a in PROTECTED_BRANCHES for a in rest): return f'{HISTORY}: a worktree on main'
+    if sub == 'fetch':
+        sources = [a for a in rest if not a.startswith('-')]
+        if sources and not re.fullmatch(r'[A-Za-z0-9_-]+', sources[0]): return f'{REF_MOVE}: git fetch from {sources[0]}'
+        if any(':' in a for a in sources[1:]): return f'{REF_MOVE}: git fetch into a named ref'
     if sub == 'merge' and any(a in PROTECTED_BRANCHES for a in rest): return f'{HISTORY}: merging into main'
     if sub == 'subtree' and 'push' in rest: return 'git subtree push'
     if sub == 'credential': return 'git credential'
@@ -202,7 +244,9 @@ def check_git(args):
                     return f'{HOOK_SKIP}: git commit -n'
                 prev = t
     if sub == 'remote' and rest and rest[0] in ('add', 'set-url', 'rename', 'remove', 'rm'): return f'git remote {rest[0]}'
-    reads_config = sub == 'config' and any(a in ('--get', '--get-all', '--get-regexp', '-l', '--list') for a in rest)
+    operands = [a for a in rest if not a.startswith('-')]
+    reads_config = (sub == 'config' and any(a in ('--get', '--get-all', '--get-regexp', '-l', '--list') for a in rest)
+                    and not any(a in CONFIG_WRITE_WORDS for a in rest) and len(operands) <= 2)
     if sub == 'config' and not reads_config and any(t.lower().startswith(RISKY_CONFIG) or 'pushurl' in t.lower() for t in rest):
         return 'git config change to aliases, remotes, credentials or hooks'
     if sub == 'config' and not reads_config and any(t.lower().startswith('core.hookspath') for t in rest):
@@ -245,6 +289,11 @@ def check(cmd, depth=0):
             while toks and (toks[0].startswith('-') or re.match(r'^[A-Za-z_][A-Za-z0-9_]*=', toks[0]) or re.match(r'^\d+[smhd]?$', toks[0])):
                 t = toks.pop(0)
                 if '=' in t and not t.startswith('-'): assigns.append(t)
+        # Tool runners run the command after them: mise exec [options] -- <command>, pnpm exec <command>.
+        if toks[:2] == ['mise', 'exec']:
+            toks = toks[toks.index('--') + 1:] if '--' in toks else []
+        elif toks[:2] == ['pnpm', 'exec']:
+            toks = toks[2:]
         if not toks: continue
         # The shell expands {a,b} and {1..3} after this guard reads the words: git {push,--no-verify} is git push.
         if any(BRACES.search(t) for t in toks) and any(re.search(r'\b(git|gh|git-flow)\b', t) for t in toks):
