@@ -1,9 +1,9 @@
 # Codetrail design
 
-- Status: written, awaiting the founder's review
+- Status: approved by the founder, 5 October 2026
 - Date: 2026-10-05
 - Built on: [brainstorm-decisions.md](brainstorm-decisions.md) (decisions 1 to 12) and the design sessions of 5 October 2026
-- Proposed ADRs: [0001](../adr/0001-pathspec-for-exclusion-rules.md) to [0005](../adr/0005-babel-for-interface-catalogs.md)
+- Accepted ADRs: [0001](../adr/0001-pathspec-for-exclusion-rules.md) to [0005](../adr/0005-babel-for-interface-catalogs.md)
 
 This spec describes the whole system. It is built in phases (section 13), each with its own implementation plan.
 
@@ -467,7 +467,7 @@ ADR 0003 records a storage decision and adds no dependency.
 
 ## 13. Phases
 
-Each phase is usable on its own, has its own implementation plan, and ends with a security review and a merge into `develop`. A phase that needs a proposed ADR starts once the founder has accepted it.
+Each phase is usable on its own, has its own implementation plan, and ends with a security review and a merge into `develop`. The ADRs these phases need were accepted on 5 October 2026.
 
 | Phase | Builds | Usable result | Needs |
 |---|---|---|---|
