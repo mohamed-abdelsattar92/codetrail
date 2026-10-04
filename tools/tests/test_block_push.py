@@ -88,6 +88,132 @@ BLOCKED = [
     "git update-ref refs/remotes/origin/develop develop",
     "git fetch . develop:refs/remotes/origin/develop",
     "git fetch origin +refs/heads/develop:refs/remotes/origin/develop2",
+    # security review of Phase 0, finding 1: aliases, config and nesting that hid a push
+    "git -c alias.p=push p --no-verify origin develop",
+    "git -c Alias.p=push p origin develop",
+    "git -c credential.helper=store fetch",
+    "git -c url.git@x:.insteadOf=https://x/ fetch",
+    "git -c remote.origin.pushurl=x fetch",
+    "git --config-env=alias.p=PUSH p",
+    "git config Alias.p push",
+    "git config Credential.helper store",
+    "git config Url.git@x:.insteadOf https://x/",
+    "git config --global alias.p push",
+    "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=alias.p GIT_CONFIG_VALUE_0=push git p",
+    "GIT_CONFIG_PARAMETERS=\"'alias.p=push'\" git p",
+    "GIT_DIR=/tmp/x git log",
+    "export GIT_CONFIG_COUNT=1",
+    "git p --no-verify origin develop",
+    "git anything --no-verify",
+    "eval eval eval eval eval git push --no-verify origin develop",
+    "bash -c \"bash -c \\\"bash -c 'bash -c \\\\\\\"bash -c git-status\\\\\\\"'\\\"\"",
+    # finding 2: moving the review's trust anchor by hand
+    "git symbolic-ref refs/remotes/origin/develop refs/heads/feature/x",
+    "echo abc > .git/refs/remotes/origin/develop",
+    "printf x >> .git/packed-refs",
+    "cp /tmp/x .git/refs/remotes/origin/develop",
+    "tee .git/config < /tmp/x",
+    "mv /tmp/hook .git/hooks/pre-push",
+    "rm .git/hooks/pre-push",
+    "ln -sf /tmp/x .git/hooks/pre-push",
+    "sed -i '' s/a/b/ .git/config",
+    # finding 3: rewriting history, deleting branches and tags, releasing (rules 3 and 4)
+    "git reset --hard HEAD~1",
+    "git reset --hard origin/develop",
+    "git rebase develop",
+    "git rebase -i HEAD~3",
+    "git filter-branch --tree-filter x HEAD",
+    "git filter-repo --path x",
+    "git branch -D feature/x",
+    "git branch -d feature/x",
+    "git branch --delete feature/x",
+    "git branch -f develop HEAD~1",
+    "git branch -M main",
+    "git tag v1.0",
+    "git tag -a v1.0 -m x",
+    "git tag -d v1.0",
+    "git tag -f v1.0",
+    "git checkout main",
+    "git switch main",
+    "git merge --no-ff develop main",
+    "git push origin :feature/x",
+    # second review of Phase 0: more ways to write config, run a program, or move refs
+    "cd .git && printf x >> config",
+    "cd repo/.git",
+    "printf '[alias]'>>.git/config",
+    "printf x >> \"$(git rev-parse --git-dir)/config\"",
+    "git -c core.editor='git push --no-verify origin develop; true' commit --allow-empty",
+    "git -c core.fsmonitor=x status",
+    "git -c user.name=x commit -m 'docs: x'",
+    "GIT_EDITOR='git push' git commit",
+    "GIT_SEQUENCE_EDITOR=x git rebase -i HEAD~1",
+    "EDITOR=x git commit",
+    "VISUAL=x git commit",
+    "GIT_EXTERNAL_DIFF=x git diff",
+    "GIT_PAGER=x git log",
+    "git config --replace-all alias.p 'push --no-verify' --get",
+    "git fetch /tmp/repo +feature/x:remotes/origin/develop",
+    "git fetch ./ feature/x:remotes/origin/develop",
+    "git fetch file:///tmp/repo develop",
+    "git fetch origin develop:develop",
+    "git branch -dr origin/develop",
+    "git branch -df x",
+    "git branch --del x",
+    "git branch --forc main HEAD",
+    "git reset --har HEAD~1",
+    "git worktree add ../w main",
+    "git tag -i v1.0.0",
+    "git tag --sort=refname v1.0.0",
+    "mise exec -- git push origin develop",
+    "mise exec git@2 -- git push",
+    "pnpm exec git push",
+    "mise exec -- git commit --no-verify -m x",
+    # third review of Phase 0: persistent config, global config, globs, pull, rewinding develop, mise spellings
+    "git config core.fsmonitor 'git push --no-verify origin develop'",
+    "git config core.editor 'x; true'",
+    "git config sequence.editor x",
+    "git config diff.external x",
+    "git config gpg.program x",
+    "git config core.askpass x",
+    "git config core.pager x",
+    "git config --local core.fsmonitor x",
+    "git config set core.fsmonitor x",
+    "printf x >> ~/.gitconfig",
+    "tee -a ~/.config/git/config < /tmp/x",
+    "printf x >> .gi?/config",
+    "cp x .gi?/hooks/pre-push",
+    "rm .gi*/refs/remotes/origin/develop",
+    "pushd .git && printf x >> config",
+    "git pull /tmp/repo +feature/x:remotes/origin/develop",
+    "git pull origin develop:develop",
+    "git checkout -B develop HEAD~3",
+    "git switch -C develop abc123",
+    "git switch -C main",
+    "git checkout -",
+    "git switch -",
+    "git checkout @{-1}",
+    "mise exec -c 'git push --no-verify origin develop'",
+    "mise x -- git push origin develop",
+    "mise --verbose exec -- git push",
+    "mise exec",
+    "pnpm --dir . exec git push --no-verify",
+    # final review of Phase 0: expansions hiding the subcommand, config sections, git's own file writers, pnpm -c
+    "C=push F=--no-verify; git $C $F origin develop",
+    "git push $F",
+    "git \"$X\" origin develop",
+    "git `echo push` origin develop",
+    "U=update-ref; git $U refs/remotes/origin/develop abc",
+    "git config gitflow.x.p 'push --no-verify'",
+    "git config --rename-section gitflow.x alias",
+    "git config rename-section gitflow.x alias",
+    "git config --remove-section user",
+    "git log -1 --format=x --output=.git/config",
+    "git --work-tree=.git checkout HEAD -- config",
+    "git --git-dir=/tmp/x log",
+    "git checkout-index -f --prefix=.git/ config",
+    "pnpm exec -c 'git push --no-verify origin develop'",
+    "pnpm -c exec 'git push --no-verify origin develop'",
+    "pnpm --shell-mode exec 'git push'",
 ]
 
 ALLOWED = [
@@ -95,7 +221,6 @@ ALLOWED = [
     "git log --oneline -5",
     "git commit -m 'docs: x'",
     "git fetch --prune -q origin",
-    "git branch -d feature/x",
     "git merge --no-ff feature/x",
     "git config --get-regexp gitflow",
     "git flow feature start x",
@@ -118,8 +243,44 @@ ALLOWED = [
     "cat <<-'EOF'\n\tindented body with git push in prose\n\tEOF",
     "cat <<EOF\nplain text $HOME\nEOF",
     "git fetch origin",
+    "mise exec -- just ci",
+    "mise exec -- uv run pytest -q",
+    "mise exec -- git flow feature finish x --no-ff --no-push --keepremote --no-fetch",
+    "pnpm exec commitlint --edit .git/COMMIT_EDITMSG",
+    "git config user.name 'Test Author'",
+    "git config user.email author@example.com",
+    "git config gitflow.branch.feature.prefix feature/",
+    "git config gitflow.branch.feature.startpoint develop",
+    "git commit -m \"$(cat <<'EOF'\ndocs: x\n\nWhy: y\nEOF\n)\"",
+    "pnpm exec -c 'just ci'",
+    "git pull origin develop",
+    "git switch -c feature/y",
+    "mise x -- just ci",
+    "mise exec -c 'just ci'",
     "git fetch --prune origin develop",
     "grep -c '<<' notes.txt",
+    "git tag",
+    "git tag -l 'v*'",
+    "git tag --list",
+    "git tag --contains HEAD",
+    "git branch",
+    "git branch --show-current",
+    "git branch -a",
+    "git reset HEAD -- file.txt",
+    "git config --get core.hooksPath",
+    "git config --get-regexp gitflow",
+    "git worktree list",
+    "git worktree add ../w feature/x",
+    "git fetch origin",
+    "git config user.name",
+    "git config --get-regexp gitflow",
+    "git symbolic-ref --short HEAD",
+    "git switch -c feature/x develop",
+    "git switch develop",
+    "git checkout -b feature/x develop",
+    "cat .git/HEAD",
+    "ls .git/hooks",
+    "git log --format=%H -n 1 > /tmp/out.txt",
 ]
 
 
@@ -133,7 +294,31 @@ def test_allows_everyday_commands(command: str) -> None:
     assert run_hook(command) == 0
 
 
+def test_fails_closed_on_unreadable_input() -> None:
+    result = subprocess.run([sys.executable, str(HOOK)], input="not json", capture_output=True, text=True)
+    assert result.returncode == 2
+
+
 def test_ignores_other_tools() -> None:
     payload = json.dumps({"tool_name": "Read", "tool_input": {"file_path": "x"}})
     result = subprocess.run([sys.executable, str(HOOK)], input=payload, capture_output=True, text=True)
+    assert result.returncode == 0
+
+
+@pytest.mark.parametrize("command", ["git commit --amend -m 'docs: x'", "git reset --soft HEAD~1", "git reset HEAD~1"])
+@pytest.mark.parametrize("branch", ["develop", "main"])
+def test_blocks_rewinding_protected_branches(tmp_path: pathlib.Path, branch: str, command: str) -> None:
+    subprocess.run(["git", "init", "-q", "-b", branch, str(tmp_path)], check=True)
+    payload = json.dumps({"tool_name": "Bash", "tool_input": {"command": command}})
+    env = {**__import__("os").environ, "CLAUDE_PROJECT_DIR": str(tmp_path)}
+    result = subprocess.run([sys.executable, str(HOOK)], input=payload, capture_output=True, text=True, env=env, cwd=tmp_path)
+    assert result.returncode == 2
+
+
+@pytest.mark.parametrize("command", ["git commit --amend -m 'docs: x'", "git reset --soft HEAD~1"])
+def test_allows_rewinding_a_feature_branch(tmp_path: pathlib.Path, command: str) -> None:
+    subprocess.run(["git", "init", "-q", "-b", "feature/x", str(tmp_path)], check=True)
+    payload = json.dumps({"tool_name": "Bash", "tool_input": {"command": command}})
+    env = {**__import__("os").environ, "CLAUDE_PROJECT_DIR": str(tmp_path)}
+    result = subprocess.run([sys.executable, str(HOOK)], input=payload, capture_output=True, text=True, env=env, cwd=tmp_path)
     assert result.returncode == 0

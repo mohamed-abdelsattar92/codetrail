@@ -4,7 +4,7 @@
 The permission rules in .claude/settings.json keep the Read tool away from secret files, but not Bash, so this hook
 refuses Bash commands that name one:
 - env files other than examples (.env, .env.local, .dev.vars), private keys and certificates (.p8, .p12, .pem,
-  .keystore, .jks), Terraform state (.tfstate) and variables (.tfvars);
+  .keystore, .jks, .key, .pfx, .ppk, id_rsa, id_ed25519), Terraform state (.tfstate) and variables (.tfvars);
 - credential stores in the home folder: ~/.ssh, gh's configuration, gcloud, wrangler, .netrc, .npmrc, .git-credentials,
   Terraform's credentials, Docker and AWS, named with or without a trailing slash;
 - the Keychain (security find-*-password, dump-keychain, export) and `gcloud secrets versions access`.
@@ -16,10 +16,14 @@ Exit code 2 blocks the call and shows the reason to the agent.
 import json, os, re, sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from block_push import SHELLS, WRAPPERS, segments, strip_heredocs, subshells  # noqa: E402
+try:
+    from block_push import SHELLS, WRAPPERS, segments, strip_heredocs, subshells  # noqa: E402
+    IMPORT_FAILED = False
+except Exception:  # fail closed below: a guard that can't load must block (second review, finding 4)
+    IMPORT_FAILED = True
 
 SECRET_NAME = re.compile(
-    r'^(\.env|\.env\.(?!example).+|\.dev\.vars|.+\.(p8|p12|pem|keystore|jks)|.+\.tfstate(\.backup)?|.+\.tfvars(\.json)?)$', re.I)
+    r'^(\.env|\.env\.(?!example).+|\.dev\.vars|.+\.(p8|p12|pem|keystore|jks|key|pfx|ppk)|id_rsa.*|id_ed25519.*|.+\.tfstate(\.backup)?|.+\.tfvars(\.json)?)$', re.I)
 SECRET_PATH = re.compile(
     r'(^|/)\.ssh(/|$)|\.config/gh(/|$)|\.config/gcloud(/|$)|\.wrangler/config|Preferences/\.wrangler'
     r'|(^|/)\.netrc$|(^|/)\.npmrc$|(^|/)\.git-credentials$|\.terraform\.d/credentials|\.docker/config\.json'
@@ -39,7 +43,7 @@ def secret_in(token):
 
 
 def check(cmd, depth=0):
-    if depth > 4: return None
+    if depth > 4: return 'a command nested too deeply to read'
     try:
         cmd, bodies = strip_heredocs(cmd)
         segs = list(segments(cmd))
@@ -70,10 +74,14 @@ def check(cmd, depth=0):
 
 
 def main():
+    if IMPORT_FAILED:
+        print('Blocked: the secrets guard could not load block_push.py, so it refuses the call.', file=sys.stderr)
+        return 2
     try:
         data = json.load(sys.stdin)
     except Exception:
-        return 0
+        print('Blocked: the secrets guard could not read its input, so it refuses the call.', file=sys.stderr)
+        return 2
     if data.get('tool_name') != 'Bash': return 0
     found = check((data.get('tool_input') or {}).get('command') or '')
     if found:
@@ -85,4 +93,8 @@ def main():
 
 
 if __name__ == '__main__':
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except Exception as error:  # fail closed: an error in the guard must block (security review of Phase 0, finding 4)
+        print(f'Blocked: the secrets guard failed ({type(error).__name__}), so it refuses the call.', file=sys.stderr)
+        sys.exit(2)
