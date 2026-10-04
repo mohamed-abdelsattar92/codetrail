@@ -187,7 +187,7 @@ When a page you learned is rewritten, it shows a diff of what changed since you 
 ## Using it
 
 > [!IMPORTANT]
-> Planned commands; they arrive with the phases below.
+> `target add` and `files` work today; `update` and `serve` arrive with the phases below.
 
 ```bash
 # Install from this repository (needs uv; gitleaks on your PATH)
@@ -235,8 +235,8 @@ Each phase is usable on its own.
 
 ```mermaid
 flowchart LR
-    P0["0 · Engineering setup ✓"] --> P1["1 · Targets and exclusions"]:::next
-    P1 --> P2["2 · Facts"]
+    P0["0 · Engineering setup ✓"] --> P1["1 · Targets and exclusions ✓"]
+    P1 --> P2["2 · Facts"]:::next
     P2 --> P3["3 · The page, without Claude"]
     P3 --> P4["4 · Generation"]
     P4 --> P5["5 · Bridge"]
@@ -248,7 +248,7 @@ flowchart LR
 | Phase | What you can do at the end | Status |
 |---|---|---|
 | 0. Engineering setup | `just ci` passes; the agent rules are enforced by hooks and permissions | Done |
-| 1. Targets and exclusions | Check on Hamesh that secrets and ignored files are gone, before any Claude call exists | Planned |
+| 1. Targets and exclusions | Check on Hamesh that secrets and ignored files are gone, before any Claude call exists | Done |
 | 2. Facts | Hamesh's modules, packages and decisions as facts | Planned |
 | 3. The page, without Claude | A grounded map of Hamesh that says when it's behind, at no Claude cost | Planned |
 | 4. Generation | The guide: digests, area and concept pages | Planned |
