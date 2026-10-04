@@ -16,7 +16,8 @@ from pathspec import GitIgnoreSpec
 from codetrail.extract import FileFacts, Reference, Resolution
 from codetrail.facts import Entity, EntityKind, Relation, RelationKind, Source
 
-HEADING = re.compile(r"^#\s+(?:ADR[- ]?)?(\d+)[.:]?\s+(.+?)\s*$", re.IGNORECASE)
+# Lines are right-stripped before matching, so no lazy group meets trailing whitespace (no quadratic backtracking).
+HEADING = re.compile(r"^#\s+(?:ADR[- ]?)?(\d+)[.:]?\s+(.+)$", re.IGNORECASE)
 FILE_NUMBER = re.compile(r"^(\d+)[-_]")
 STATUS_LINE = re.compile(r"^(?:[-*]\s*)?\**status\**\s*:\s*\**\s*(.+)$", re.IGNORECASE)
 DATE_LINE = re.compile(r"^(?:[-*]\s*)?\**date\**\s*:\s*\**\s*(\d{4}-\d{2}-\d{2})", re.IGNORECASE)
@@ -41,7 +42,7 @@ class AdrExtractor:
         return None
 
     def extract(self, path: str, content: bytes) -> FileFacts:
-        lines = content.decode("utf-8", "replace").splitlines()
+        lines = [line.rstrip() for line in content.decode("utf-8", "replace").splitlines()]
         number, title = None, None
         for line in lines:
             heading = HEADING.match(line)

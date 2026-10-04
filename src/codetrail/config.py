@@ -66,6 +66,10 @@ class ToolsSettings(Settings):
     gitleaks: str = "gitleaks"
 
 
+class ExtractSettings(Settings):
+    max_file_bytes: int = Field(default=1_000_000, gt=0)
+
+
 class ServerSettings(Settings):
     # The host is always 127.0.0.1 and can't be configured (design section 7.4).
     port: int = Field(default=8765, ge=1024, le=65535)
@@ -86,6 +90,7 @@ class DiagramSettings(Settings):
 
 class GlobalConfig(Settings):
     tools: ToolsSettings = ToolsSettings()
+    extract: ExtractSettings = ExtractSettings()
     server: ServerSettings = ServerSettings()
     ui: InterfaceSettings = InterfaceSettings()
     signal: SignalSettings = SignalSettings()

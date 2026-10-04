@@ -66,3 +66,17 @@ def test_unknown_extractors_are_refused(environment: Path, capsys: pytest.Captur
     capsys.readouterr()
     assert main(["update", "api"]) == 1
     assert "extractors" in capsys.readouterr().err
+
+
+def test_nothing_is_created_when_the_data_folder_would_sit_inside_the_target(
+    environment: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    checkout = make_repository(environment / "target", [{"README.md": "x\n"}])
+    assert main(["target", "add", "api", str(checkout)]) == 0
+    file = environment / "config" / "codetrail" / "targets" / "api.toml"
+    file.write_text(file.read_text().replace(str(checkout), str(environment)))  # the repository now holds data/
+    before = sorted(path.name for path in (environment / "data").glob("*")) if (environment / "data").exists() else []
+    assert main(["update", "api"]) == 1
+    assert "inside" in capsys.readouterr().err
+    after = sorted(path.name for path in (environment / "data").glob("*")) if (environment / "data").exists() else []
+    assert after == before

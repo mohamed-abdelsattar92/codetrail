@@ -22,7 +22,8 @@ def ignore_lines(paths: Paths, name: str, target_file: bytes | None) -> list[str
 
 
 def refresh_source(paths: Paths, name: str) -> SourceManifest:
-    """Refreshes the target's sources under its lock."""
+    """Refreshes the target's sources under its lock, after checking no folder would be made inside the target."""
+    check_containment(paths, load_target(paths, name).repository)
     with target_lock(paths, name):
         return refresh_while_locked(paths, name)
 

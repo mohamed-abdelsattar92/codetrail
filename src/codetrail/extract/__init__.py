@@ -7,6 +7,7 @@ Per-file extraction keeps a later cache keyed by blob and extractor version poss
 
 from __future__ import annotations
 
+import json
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
@@ -60,8 +61,17 @@ class Extraction:
     unresolved: dict[str, int]
 
 
-def run_extractors(source: Path, paths: Iterable[str], extractors: Sequence[Extractor]) -> Extraction:
-    """Runs every extractor over the listed files of `source`; nothing outside the list is read."""
+DEFAULT_MAX_FILE_BYTES = 1_000_000
+
+
+def run_extractors(
+    source: Path, paths: Iterable[str], extractors: Sequence[Extractor], max_file_bytes: int = DEFAULT_MAX_FILE_BYTES
+) -> Extraction:
+    """Runs every extractor over the listed files of `source`; nothing outside the list is read.
+
+    Files over `max_file_bytes` are skipped with a warning, and facts whose attributes aren't plain JSON become a
+    warning for their file, so no file can stall or break an update.
+    """
     listed = sorted(paths)
     warnings: list[str] = []
     entities: dict[str, Entity] = {}
@@ -71,8 +81,16 @@ def run_extractors(source: Path, paths: Iterable[str], extractors: Sequence[Extr
         extractor.prepare(handled)
         found[extractor.name] = []
         for path in handled:
+            file = source / PurePosixPath(path)
+            if file.stat().st_size > max_file_bytes:
+                warnings.append(f"{extractor.name}: {path}: skipped, larger than {max_file_bytes} bytes")
+                continue
             try:
-                facts = extractor.extract(path, (source / PurePosixPath(path)).read_bytes())
+                facts = extractor.extract(path, file.read_bytes())
+                for attributes in [entity.attributes for entity in facts.entities] + [
+                    reference.attributes for reference in facts.references
+                ]:
+                    json.dumps(dict(attributes))
             except Exception as error:
                 warnings.append(f"{extractor.name}: {path}: could not be read ({type(error).__name__})")
                 continue
