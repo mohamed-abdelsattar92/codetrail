@@ -10,7 +10,7 @@ from codetrail.repo.mirror import TreeEntry, refresh_mirror
 from codetrail.repo.rules import ExclusionRules, Reason
 from codetrail.repo.secrets import SecretScanner
 from codetrail.repo.source import SourceManifest, build_source, safe_path
-from tests.fixtures.repos import Symlink, fake_github_token, make_repository
+from tests.fixtures.repos import Symlink, commit_entries, fake_github_token, make_repository
 
 
 @pytest.fixture
@@ -107,3 +107,19 @@ def test_source_is_inside_the_data_folder_only(hostile: Path, tmp_path: Path) ->
     shutil.rmtree(tmp_path / "data" / "source")
     build(hostile, tmp_path)
     assert (tmp_path / "data" / "source" / "README.md").exists()
+
+
+@pytest.mark.parametrize("path", [".g\u200cit/config", "a/.\u200dgit/hooks/x", ".git\ufeff/config"])
+def test_spellings_that_fold_to_git_are_refused(path: str) -> None:
+    assert not safe_path(path)
+
+
+def test_names_that_collide_on_disk_are_all_excluded(tmp_path: Path) -> None:
+    checkout = make_repository(tmp_path / "target", [{"ok.md": "fine\n"}])
+    commit_entries(
+        checkout, {"A.txt": "upper\n", "a.txt": "lower\n", "caf\u00e9.md": "nfc\n", "cafe\u0301.md": "nfd\n"}
+    )
+    manifest = build(checkout, tmp_path)
+    assert list(manifest.files) == ["ok.md"]
+    unsafe = sorted(item.path for item in manifest.excluded if item.reason is Reason.UNSAFE_PATH)
+    assert unsafe == sorted(["A.txt", "a.txt", "caf\u00e9.md", "cafe\u0301.md"])

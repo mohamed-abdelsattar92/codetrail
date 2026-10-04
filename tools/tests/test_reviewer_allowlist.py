@@ -48,6 +48,8 @@ ALLOWED = [
     "git --no-replace-objects show refs/remotes/origin/develop:.claude/agents/security-reviewer.md",
     f"git -C {ROOT} --no-pager log -5",
     "git for-each-ref refs/replace",
+    "git for-each-ref '--format=%(symref)' refs/remotes/origin/develop",
+    "git rev-parse refs/remotes/origin/develop",
     "git ls-tree -r --name-only feature/x | grep worker | wc -l",
     "git show feature/x:justfile | grep -n -e wrangler | head -n 20",
     "git log --format='%h %an' develop..feature/x | cut -d ' ' -f 2 | sort | uniq -c",

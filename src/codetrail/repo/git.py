@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import tempfile
 from collections.abc import Sequence
 from pathlib import Path
 
@@ -24,7 +25,10 @@ def run_git(
     command.extend(arguments)
     environment = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
     environment["GIT_TERMINAL_PROMPT"] = "0"
-    result = subprocess.run(command, input=input, capture_output=True, env=environment, check=False)  # noqa: S603
+    # A neutral working directory: git never discovers a repository (a target's, perhaps) from where the user stands.
+    result = subprocess.run(  # noqa: S603
+        command, input=input, capture_output=True, env=environment, check=False, cwd=tempfile.gettempdir()
+    )
     if result.returncode not in allowed_exit_codes:
         message = result.stderr.decode("utf-8", "replace").strip() or f"exit code {result.returncode}"
         raise CodetrailError(f"git {arguments[0]} failed: {message}")

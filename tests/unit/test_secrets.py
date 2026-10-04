@@ -30,8 +30,24 @@ def test_a_target_cannot_switch_the_scan_off(scanner: SecretScanner, tmp_path: P
     token = fake_github_token()
     (tmp_path / "settings.py").write_text(f'TOKEN = "{token}"  # gitleaks:allow\n')
     (tmp_path / ".gitleaks.toml").write_text('[allowlist]\npaths = [".*"]\n')
-    (tmp_path / ".gitleaksignore").write_text("settings.py:github-pat:1\n")
     assert [finding.path for finding in scanner.scan_directory(tmp_path)] == ["settings.py"]
+
+
+def test_a_tree_carrying_an_ignore_file_is_refused(scanner: SecretScanner, tmp_path: Path) -> None:
+    # gitleaks always loads <scanned folder>/.gitleaksignore; source/ never holds one, and the scanner fails closed.
+    (tmp_path / "settings.py").write_text(f'TOKEN = "{fake_github_token()}"\n')
+    fingerprint = f"{(tmp_path / 'settings.py').resolve()}:github-pat:1"
+    (tmp_path / ".gitleaksignore").write_text(fingerprint + "\n")
+    with pytest.raises(CodetrailError, match=r"\.gitleaksignore"):
+        scanner.scan_directory(tmp_path)
+
+
+def test_an_ignore_file_in_the_working_directory_has_no_effect(
+    scanner: SecretScanner, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / ".gitleaksignore").write_text("".join(f":github-pat:{line}\n" for line in range(1, 10)))
+    monkeypatch.chdir(tmp_path)
+    assert len(scanner.scan_text(f"x\nTOKEN = '{fake_github_token()}'\n")) == 1
 
 
 def test_an_environment_setting_cannot_switch_the_scan_off(

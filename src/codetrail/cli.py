@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import unicodedata
 from collections import Counter
 from pathlib import Path
 
@@ -60,14 +61,21 @@ def add_target(paths: Paths, name: str, path: Path, branch: str) -> int:
     return 0
 
 
+def printable(path: str) -> str:
+    """A path from a target, quoted with escapes if it holds characters a terminal would act on."""
+    if any(unicodedata.category(character) in ("Cc", "Cf") for character in path):
+        return repr(path)
+    return path
+
+
 def list_files(paths: Paths, name: str) -> int:
     manifest = refresh_source(paths, name)
     for path in manifest.files:
-        print(path)
+        print(printable(path))
     print("Excluded:")
     for item in manifest.excluded:
         reason = f"{item.reason} ({item.rule})" if item.rule else str(item.reason)
-        print(f"{reason}\t{item.path}")
+        print(f"{reason}\t{printable(item.path)}")
     counts = Counter(item.reason for item in manifest.excluded)
     breakdown = ", ".join(f"{counts[reason]} {reason}" for reason in Reason if counts[reason])
     print(

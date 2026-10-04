@@ -37,6 +37,8 @@ class SecretScanner:
 
     def scan_directory(self, root: Path) -> list[Finding]:
         """Every finding under `root`, with paths relative to it."""
+        if any(child.name.lower() == ".gitleaksignore" for child in root.iterdir()):
+            raise CodetrailError(f"{root} holds a .gitleaksignore, which gitleaks would obey; refusing to scan it.")
         findings = self._run(["dir", str(root)], None)
         resolved = root.resolve()
         return [
@@ -59,7 +61,10 @@ class SecretScanner:
         with as_file(files("codetrail.repo") / "gitleaks.toml") as config, tempfile.TemporaryDirectory() as folder:
             report = Path(folder) / "report.json"
             command = [executable, *arguments, "--config", str(config), *COMMON_FLAGS, "--report-path", str(report)]
-            result = subprocess.run(command, input=input, capture_output=True, env=environment, check=False)  # noqa: S603
+            # An empty working directory: `gitleaks stdin` would load ./.gitleaksignore from wherever it runs.
+            result = subprocess.run(  # noqa: S603
+                command, input=input, capture_output=True, env=environment, check=False, cwd=folder
+            )
             if result.returncode != 0 or not report.exists():
                 raise CodetrailError(f"gitleaks failed (exit code {result.returncode}); the scan didn't complete.")
             items = json.loads(report.read_text() or "[]")

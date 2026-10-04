@@ -99,3 +99,22 @@ def fake_github_token(seed: int = 7) -> str:
     generator = random.Random(seed)  # noqa: S311 - a test value, not a secret
     rest = "".join(generator.choice(alphabet) for _ in range(36))
     return "gh" + "p_" + rest
+
+
+def commit_entries(repository: Path, files: dict[str, str], message: str = "Plumbing commit") -> str:
+    """Commits paths through git's index alone, so names the file system would merge (A.txt, a.txt) both exist."""
+    git(repository, "config", "core.precomposeunicode", "false")  # keep NFD names apart from NFC ones on macOS
+    for path, content in files.items():
+        environment = {**os.environ, **GIT_ENVIRONMENT}
+        blob = subprocess.run(
+            ["git", "-C", str(repository), "hash-object", "-w", "--stdin"],
+            input=content,
+            env=environment,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout.strip()
+        git(repository, "update-index", "--add", "--cacheinfo", f"100644,{blob},{path}")
+    count = int(git(repository, "rev-list", "--count", "HEAD"))
+    git(repository, "commit", "-q", "-m", message, date=count)
+    return git(repository, "rev-parse", "HEAD")

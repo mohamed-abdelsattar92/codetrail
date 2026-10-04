@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import shutil
+import unicodedata
 from dataclasses import asdict, dataclass, field
 from pathlib import Path, PurePosixPath
 
@@ -17,6 +18,13 @@ from codetrail.repo.rules import ExclusionRules, Reason
 from codetrail.repo.secrets import SecretScanner
 
 REGULAR_FILE_MODES = {"100644", "100755"}
+# Code points HFS+ ignores in names, so ".g\u200cit" lands as ".git" (git's is_hfs_dotgit checks the same ones).
+IGNORED_IN_NAMES = dict.fromkeys([*range(0x200C, 0x2010), *range(0x202A, 0x202F), *range(0x206A, 0x2070), 0xFEFF])
+
+
+def on_disk_key(path: str) -> str:
+    """The name a case-insensitive, normalizing file system (APFS, HFS+) sees for a path."""
+    return unicodedata.normalize("NFC", path.translate(IGNORED_IN_NAMES)).casefold()
 
 
 @dataclass(frozen=True)
@@ -52,7 +60,7 @@ def safe_path(path: str) -> bool:
     if not path or path.startswith("/") or "\\" in path:
         return False
     parts = path.split("/")
-    return all(part and part not in (".", "..") and part.lower() != ".git" for part in parts)
+    return all(part and part not in (".", "..") and on_disk_key(part) != ".git" for part in parts)
 
 
 def build_source(
@@ -64,8 +72,13 @@ def build_source(
     try:
         files: dict[str, str] = {}
         excluded: list[Excluded] = []
-        for entry in list_tree(mirror, commit):
-            reason = _reason(entry.mode, entry.path, rules)
+        entries = list_tree(mirror, commit)
+        on_disk: dict[str, list[str]] = {}
+        for entry in entries:
+            on_disk.setdefault(on_disk_key(entry.path), []).append(entry.path)
+        colliding = {path for paths in on_disk.values() if len(paths) > 1 for path in paths}
+        for entry in entries:
+            reason = Reason.UNSAFE_PATH if entry.path in colliding else _reason(entry.mode, entry.path, rules)
             if reason is None:
                 files[entry.path] = entry.blob
             else:

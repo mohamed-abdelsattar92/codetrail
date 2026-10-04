@@ -79,3 +79,14 @@ def test_ordinary_files_are_visible(path: str) -> None:
 def test_ignore_lines_follow_gitignore(lines: list[str], path: str, excluded: bool) -> None:
     expected = Reason.IGNORED if excluded else None
     assert ExclusionRules(lines).reason(path) is expected
+
+
+@pytest.mark.parametrize("path", [".ENV", ".Env.local", "infra/prod.TFVARS", "keys/KEY.PEM", "ID_RSA", ".TERRAFORM/x"])
+def test_built_in_patterns_ignore_case(path: str) -> None:
+    # macOS volumes are case-insensitive: .ENV is the file a dotenv loader opens as .env.
+    assert ExclusionRules([]).reason(path) is Reason.SECRET_PATTERN
+
+
+@pytest.mark.parametrize("path", [".gitleaksignore", ".gitleaks.toml", "sub/.gitleaksignore", ".GITLEAKSIGNORE"])
+def test_scanner_settings_never_reach_the_scan(path: str) -> None:
+    assert ExclusionRules(["!.gitleaksignore"]).reason(path) is Reason.SCANNER_SETTINGS

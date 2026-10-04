@@ -4,7 +4,14 @@ from pathlib import Path
 
 import pytest
 
-from codetrail.config import Paths, load_global, load_target, validate_target_name, write_target
+from codetrail.config import (
+    Paths,
+    check_containment,
+    load_global,
+    load_target,
+    validate_target_name,
+    write_target,
+)
 from codetrail.errors import CodetrailError
 
 
@@ -100,3 +107,28 @@ def test_home_is_expanded_in_the_repository_path(paths: Paths, tmp_path: Path, m
     paths.target_file("hamesh").parent.mkdir(parents=True)
     paths.target_file("hamesh").write_text('repository = "~/repo"\nbranch = "develop"\n')
     assert load_target(paths, "hamesh").repository == tmp_path / "home" / "repo"
+
+
+def test_relative_xdg_values_are_ignored(tmp_path: Path) -> None:
+    paths = Paths.from_environment({"HOME": str(tmp_path), "XDG_DATA_HOME": ".cache", "XDG_CONFIG_HOME": "rel"})
+    assert paths.data_dir == tmp_path / ".local" / "share" / "codetrail"
+    assert paths.config_dir == tmp_path / ".config" / "codetrail"
+
+
+def test_containment_is_checked_again_after_the_target_was_added(paths: Paths, tmp_path: Path) -> None:
+    write_target(paths, "hamesh", tmp_path / "repo", "develop")
+    moved = Paths(config_dir=paths.config_dir, data_dir=tmp_path / "repo" / ".cache", state_dir=paths.state_dir)
+    with pytest.raises(CodetrailError, match="inside"):
+        check_containment(moved, load_target(paths, "hamesh").repository)
+
+
+def test_control_characters_survive_the_toml_round_trip(paths: Paths, tmp_path: Path) -> None:
+    repository = tmp_path / "odd\x7fname"
+    write_target(paths, "hamesh", repository, "develop")
+    assert load_target(paths, "hamesh").repository == repository
+
+
+def test_invalid_branch_names_are_refused(paths: Paths, tmp_path: Path) -> None:
+    with pytest.raises(CodetrailError, match="branch"):
+        write_target(paths, "hamesh", tmp_path / "repo", "bad..name")
+    assert not paths.target_file("hamesh").exists()
