@@ -20,7 +20,7 @@ From Phase 0 on, these rules are also enforced by tools: permission rules and ho
 
 ## Read first
 - `docs/design/brainstorm-decisions.md`: what Codetrail is for, every decision so far and why, and the open questions.
-- The spec and the implementation plan in `docs/design/`, once written.
+- The spec, `docs/design/2026-10-05-codetrail-design.md`, and each phase's implementation plan in `docs/design/`, once written.
 - Decisions: the ADRs in `docs/adr/`, once there are any. Accepted ADRs override the design documents where they conflict.
 
 ## Non-negotiables

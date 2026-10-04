@@ -10,7 +10,9 @@ The first repository it teaches is `hamesh-monorepo`; it is built to work on any
 
 ## Status
 
-Design in progress. Nothing is built yet. The first phase sets up the same engineering tooling as `hamesh-monorepo`: mise, `just`, uv, lefthook git hooks, commitlint, git-flow, ruff, mypy, pytest and test-driven development.
+Design written, awaiting the founder's review. Nothing is built yet. It is built in eight phases; the first, Phase 0, sets up the same engineering tooling as `hamesh-monorepo`: mise, `just`, uv, lefthook git hooks, commitlint, git-flow, ruff, mypy, pytest and test-driven development.
 
-- Decisions so far, and why: [docs/design/brainstorm-decisions.md](docs/design/brainstorm-decisions.md)
+- The design: [docs/design/2026-10-05-codetrail-design.md](docs/design/2026-10-05-codetrail-design.md)
+- Decisions from the brainstorm, and why: [docs/design/brainstorm-decisions.md](docs/design/brainstorm-decisions.md)
+- Architecture decision records, five of them proposed: [docs/adr/](docs/adr/README.md)
 - Instructions for coding agents: [AGENTS.md](AGENTS.md)
