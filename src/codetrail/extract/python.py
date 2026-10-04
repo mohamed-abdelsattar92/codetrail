@@ -75,7 +75,7 @@ class PythonExtractor:
         attributes = {
             key: value
             for key, value in (("name", table.get("name")), ("requires_python", table.get("requires-python")))
-            if value
+            if isinstance(value, str) and value
         }
         entities = [Entity(project, EntityKind.PROJECT, attributes, (Source(path),))]
         references = []

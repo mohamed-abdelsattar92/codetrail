@@ -97,3 +97,24 @@ def test_only_listed_paths_are_read(tmp_path: Path) -> None:
 def test_the_fake_satisfies_the_protocol() -> None:
     extractor: Extractor = Words()
     assert extractor.name == "words"
+
+
+def test_files_over_the_size_limit_are_skipped_with_a_warning(tmp_path: Path) -> None:
+    paths = write(tmp_path, {"a.txt": "red", "big.txt": "red " * 100})
+    extraction = run_extractors(tmp_path, paths, [Words()], max_file_bytes=50)
+    assert extraction.warnings == ["words: big.txt: skipped, larger than 50 bytes"]
+    assert "module:big.txt" not in {entity.id for entity in extraction.entities}
+
+
+class Dates(Words):
+    def extract(self, path: str, content: bytes) -> FileFacts:
+        import datetime
+
+        return FileFacts(path, (Entity(f"module:{path}", EntityKind.MODULE, {"when": datetime.date(2026, 1, 1)}),))
+
+
+def test_attributes_that_are_not_json_become_a_warning(tmp_path: Path) -> None:
+    paths = write(tmp_path, {"a.txt": "red"})
+    extraction = run_extractors(tmp_path, paths, [Dates()])
+    assert extraction.entities == []
+    assert extraction.warnings == ["words: a.txt: could not be read (TypeError)"]

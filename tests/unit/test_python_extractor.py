@@ -119,3 +119,9 @@ def test_files_outside_any_project_are_ignored(tmp_path: Path) -> None:
 def test_a_broken_pyproject_is_a_warning(tmp_path: Path) -> None:
     extraction = extract(tmp_path, {"pyproject.toml": "[project\n"})
     assert extraction.warnings == ["python: pyproject.toml: could not be read (TOMLDecodeError)"]
+
+
+def test_non_text_project_values_are_ignored(tmp_path: Path) -> None:
+    extraction = extract(tmp_path, {"pyproject.toml": "[project]\nname = 2026-01-01\nrequires-python = 3\n"})
+    [project] = [entity for entity in extraction.entities if entity.kind is EntityKind.PROJECT]
+    assert dict(project.attributes) == {}

@@ -83,3 +83,12 @@ def test_files_without_a_number_are_skipped(tmp_path: Path) -> None:
 def test_only_configured_paths_are_read(tmp_path: Path) -> None:
     extraction = run(tmp_path, {"docs/other/0001-x.md": HAMESH_STYLE})
     assert extraction.entities == []
+
+
+def test_a_long_heading_line_is_read_in_linear_time(tmp_path: Path) -> None:
+    import time
+
+    hostile = "# 1 x" + " " * 200_000 + "y\n"
+    started = time.perf_counter()
+    run(tmp_path, {"docs/adr/0001-x.md": hostile})
+    assert time.perf_counter() - started < 2
