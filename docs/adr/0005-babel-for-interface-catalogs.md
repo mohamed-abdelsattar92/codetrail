@@ -1,6 +1,6 @@
 # 0005. Use Babel at development time to extract and compile the interface's gettext catalogs
 
-- Status: proposed
+- Status: accepted (by the founder, 5 October 2026)
 - Date: 2026-10-05
 - Deciders: KoGy
 - Proposed by: Claude Code, from the design session of 5 October 2026
@@ -42,3 +42,4 @@ Option A. Babel is a development dependency. `just` recipes extract strings to `
 - [ ] `pyproject.toml`: Babel in the development dependency group (Phase 3).
 - [ ] `justfile`: recipes to extract, update and compile catalogs (Phase 3).
 - [ ] `.gitignore`: `*.mo` (Phase 3).
+- [x] The founder accepted this ADR on 5 October 2026.

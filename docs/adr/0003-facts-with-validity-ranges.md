@@ -1,6 +1,6 @@
 # 0003. Store each fact once with a validity range over snapshots
 
-- Status: proposed
+- Status: accepted (by the founder, 5 October 2026)
 - Date: 2026-10-05
 - Deciders: KoGy
 - Proposed by: Claude Code, from the design session of 5 October 2026
@@ -42,3 +42,4 @@ Option A. Entities and relations each have `first_seen` and `last_seen` snapshot
 
 ## Changes required
 - [ ] `facts`: the schema as the first migration, with tests for added, changed and removed facts (Phase 2).
+- [x] The founder accepted this ADR on 5 October 2026.

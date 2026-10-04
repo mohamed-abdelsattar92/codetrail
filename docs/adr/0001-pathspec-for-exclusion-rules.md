@@ -1,6 +1,6 @@
 # 0001. Match exclusion rules with pathspec, in gitignore syntax
 
-- Status: proposed
+- Status: accepted (by the founder, 5 October 2026)
 - Date: 2026-10-05
 - Deciders: KoGy
 - Proposed by: Claude Code, from the design session of 5 October 2026
@@ -42,3 +42,4 @@ Option A. `repo` matches the ignore files with `pathspec.GitIgnoreSpec`; the bui
 ## Changes required
 - [ ] `pyproject.toml`: `pathspec` in the runtime dependencies (Phase 1).
 - [ ] Tests for the gitignore cases in design section 11, written before the matcher.
+- [x] The founder accepted this ADR on 5 October 2026.

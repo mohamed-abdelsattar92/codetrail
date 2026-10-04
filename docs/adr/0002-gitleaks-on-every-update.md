@@ -1,6 +1,6 @@
 # 0002. Scan the materialized sources with gitleaks on every update, and exclude what it flags
 
-- Status: proposed
+- Status: accepted (by the founder, 5 October 2026)
 - Date: 2026-10-05
 - Deciders: KoGy
 - Proposed by: Claude Code, from the design session of 5 October 2026
@@ -43,3 +43,4 @@ Option A. Each refresh runs `gitleaks dir` over the new and changed files in `so
 ## Changes required
 - [ ] `README.md`: gitleaks listed as a requirement for running Codetrail (Phase 1).
 - [ ] `repo`: the scan, with tests for flagged, unflagged and missing-gitleaks cases (Phase 1).
+- [x] The founder accepted this ADR on 5 October 2026.

@@ -24,8 +24,8 @@ Everything smaller is explained in the commit body, not in an ADR.
 ## Index
 | Number | Title | Status | Date |
 |---|---|---|---|
-| [0001](0001-pathspec-for-exclusion-rules.md) | Match exclusion rules with pathspec, in gitignore syntax | proposed | 2026-10-05 |
-| [0002](0002-gitleaks-on-every-update.md) | Scan the materialized sources with gitleaks on every update, and exclude what it flags | proposed | 2026-10-05 |
-| [0003](0003-facts-with-validity-ranges.md) | Store each fact once with a validity range over snapshots | proposed | 2026-10-05 |
-| [0004](0004-server-rendered-page-stack.md) | Render the page on the server with Jinja2 and markdown-it-py, keep front matter in YAML, serve with uvicorn, and vendor Mermaid | proposed | 2026-10-05 |
-| [0005](0005-babel-for-interface-catalogs.md) | Use Babel at development time to extract and compile the interface's gettext catalogs | proposed | 2026-10-05 |
+| [0001](0001-pathspec-for-exclusion-rules.md) | Match exclusion rules with pathspec, in gitignore syntax | accepted | 2026-10-05 |
+| [0002](0002-gitleaks-on-every-update.md) | Scan the materialized sources with gitleaks on every update, and exclude what it flags | accepted | 2026-10-05 |
+| [0003](0003-facts-with-validity-ranges.md) | Store each fact once with a validity range over snapshots | accepted | 2026-10-05 |
+| [0004](0004-server-rendered-page-stack.md) | Render the page on the server with Jinja2 and markdown-it-py, keep front matter in YAML, serve with uvicorn, and vendor Mermaid | accepted | 2026-10-05 |
+| [0005](0005-babel-for-interface-catalogs.md) | Use Babel at development time to extract and compile the interface's gettext catalogs | accepted | 2026-10-05 |

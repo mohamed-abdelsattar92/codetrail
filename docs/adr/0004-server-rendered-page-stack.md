@@ -1,6 +1,6 @@
 # 0004. Render the page on the server with Jinja2 and markdown-it-py, keep front matter in YAML, serve with uvicorn, and vendor Mermaid
 
-- Status: proposed
+- Status: accepted (by the founder, 5 October 2026)
 - Date: 2026-10-05
 - Deciders: KoGy
 - Proposed by: Claude Code, from the design session of 5 October 2026
@@ -46,3 +46,4 @@ Option A. The page is rendered on the server by FastAPI with Jinja2 templates; M
 ## Changes required
 - [ ] `pyproject.toml`: Jinja2, markdown-it-py, PyYAML and uvicorn in the runtime dependencies (Phase 3; PyYAML is also used by `guide` in Phase 4).
 - [ ] `src/codetrail/web/static/vendor/`: Mermaid with a `VERSION` and `LICENSE` file (Phase 3).
+- [x] The founder accepted this ADR on 5 October 2026.
