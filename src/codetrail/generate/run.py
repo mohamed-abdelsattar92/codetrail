@@ -166,7 +166,7 @@ def _write_paths(context: GenerationContext, entries: Sequence[OutlineEntry], pa
     titles = {entry.id: entry.title for entry in entries}
     wanted = {path.id for path in paths}
     for page in context.guide.pages("path"):
-        if page.id not in wanted:
+        if page.id.startswith("paths/") and page.id not in wanted:
             context.guide.path_of(page.id).unlink()
     for path in paths:
         meta = {"id": path.id, "kind": "path", "title": path.title, "generated": True, "goal": path.goal,

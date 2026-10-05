@@ -72,6 +72,11 @@ class BridgeSettings(Settings):
     max_budget_usd: float = Field(default=1.0, gt=0)
 
 
+class LearnSettings(Settings):
+    grading_cooldown_seconds: int = Field(default=10, ge=0)
+    max_budget_usd: float = Field(default=0.25, gt=0)
+
+
 class ClaudeSettings(Settings):
     retry_attempts: int = Field(default=2, ge=0, le=5)
 
@@ -104,6 +109,7 @@ class GlobalConfig(Settings):
     tools: ToolsSettings = ToolsSettings()
     claude: ClaudeSettings = ClaudeSettings()
     bridge: BridgeSettings = BridgeSettings()
+    learn: LearnSettings = LearnSettings()
     extract: ExtractSettings = ExtractSettings()
     server: ServerSettings = ServerSettings()
     ui: InterfaceSettings = InterfaceSettings()

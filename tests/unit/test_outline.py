@@ -111,3 +111,11 @@ def test_uncovered_facts_are_those_no_page_covers(store: FactStore) -> None:
         "decision:ADR-0007",
         "module:services/api/app/b.py",
     ]
+
+
+def test_stored_paths_must_live_under_paths() -> None:
+    from codetrail.generate.outline import outline_paths
+
+    stored = {"paths": [{"id": "areas/api", "title": "x", "goal": "", "steps": ["areas/api"]},
+                        {"id": "paths/ok", "title": "y", "goal": "", "steps": ["areas/api"]}]}  # fmt: skip
+    assert [path.id for path in outline_paths(stored, {"areas/api"})] == ["paths/ok"]

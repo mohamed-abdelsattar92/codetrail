@@ -82,12 +82,14 @@ class AgentSdkClaude:
         limits: GenerationSettings,
         retries: int = 2,
         answer_limits: tuple[int, float] = (20, 1.0),
+        grade_budget_usd: float = 0.25,
     ) -> None:
         self.root = source_root
         self.models = models
         self.limits = limits
         self.retries = retries
         self.answer_limits = answer_limits  # max turns and budget of one bridge answer
+        self.grade_budget_usd = grade_budget_usd
 
     def options(
         self,
@@ -148,7 +150,12 @@ class AgentSdkClaude:
     async def grade(self, request: GradeRequest) -> Verdict:
         """Grades with no tools at all: only the check, the rubric, the page and the answer (design section 8.2)."""
         data, _files, cost = await self._run(
-            grade_prompt(request), self.models.grade, GRADE_SCHEMA, GRADE_RULES, tools=[]
+            grade_prompt(request),
+            self.models.grade,
+            GRADE_SCHEMA,
+            GRADE_RULES,
+            tools=[],
+            budget_usd=self.grade_budget_usd,
         )
         return Verdict(str(data.get("verdict", "")), [str(item) for item in data.get("missed", [])],
                        str(data.get("feedback", "")), cost)  # fmt: skip
@@ -160,13 +167,21 @@ class AgentSdkClaude:
         return DigestDraft(str(data.get("title", "")), str(data.get("body", "")), files_read, cost)
 
     async def _run(
-        self, prompt: str, model: str, schema: dict[str, Any], system_prompt: str, tools: list[str] | None = None
+        self,
+        prompt: str,
+        model: str,
+        schema: dict[str, Any],
+        system_prompt: str,
+        tools: list[str] | None = None,
+        budget_usd: float | None = None,
     ) -> tuple[dict[str, Any], list[str], float]:
         last_error: Exception | None = None
         for _attempt in range(self.retries + 1):
             guard = ToolGuard(self.root)
             try:
                 options = self.options(guard, model, schema, system_prompt, tools)
+                if budget_usd is not None:
+                    options = replace(options, max_budget_usd=budget_usd)
                 result = await self._query(neutralize(prompt), options)
             except ClaudeError:
                 raise

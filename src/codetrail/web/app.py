@@ -79,7 +79,7 @@ def create_app(
         target = load_target(paths, name)
         return AgentSdkClaude(
             paths.target_data(name) / "source", target.models, target.generation, settings.claude.retry_attempts,
-            (settings.bridge.max_turns, settings.bridge.max_budget_usd),
+            (settings.bridge.max_turns, settings.bridge.max_budget_usd), settings.learn.max_budget_usd,
         )  # fmt: skip
 
     languages = installed_languages(locales)
@@ -287,7 +287,12 @@ def create_app(
     )
     app.include_router(
         learning_router(
-            paths, name, claude_for or real_claude, lambda: language().code, settings.bridge.max_question_chars
+            paths,
+            name,
+            claude_for or real_claude,
+            lambda: language().code,
+            settings.bridge.max_question_chars,
+            settings.learn.grading_cooldown_seconds,
         )
     )
     app.mount("/static", StaticFiles(directory=str(files("codetrail.web").joinpath("static"))), name="static")
