@@ -15,6 +15,7 @@ from codetrail.facts import FactDiff
 from codetrail.repo.mirror import check_branch
 from codetrail.repo.refresh import refresh_source
 from codetrail.repo.rules import Reason
+from codetrail.server import serve
 from codetrail.update import run_update
 
 
@@ -35,6 +36,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     update = commands.add_parser("update", help="refresh a target's sources and facts")
     update.add_argument("name")
+
+    serve_command = commands.add_parser("serve", help="serve the guide's page on 127.0.0.1")
+    serve_command.add_argument("name")
+    serve_command.add_argument("--no-browser", action="store_true", help="print the sign-in link without opening it")
     return parser
 
 
@@ -50,6 +55,9 @@ def main(argv: list[str] | None = None) -> int:
             return add_target(paths, arguments.name, arguments.path, arguments.branch)
         if arguments.command == "update":
             return update_target(paths, arguments.name)
+        if arguments.command == "serve":
+            serve(paths, arguments.name, open_browser=not arguments.no_browser)
+            return 0
         return list_files(paths, arguments.name)
     except CodetrailError as error:
         print(f"codetrail: {error}", file=sys.stderr)

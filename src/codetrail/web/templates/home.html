@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block content %}
+<h1 lang="en" dir="ltr">{{ target }}</h1>
+
+<section class="signal">
+  <h2>{{ _("Since the last update") }}</h2>
+  {% if signal is none %}
+    <p>{{ _("Couldn't check for new commits just now.") }}</p>
+  {% elif signal.updating %}
+    <p>{{ _("An update is running.") }}</p>
+  {% elif signal.updated_commit is none %}
+    <p>{% trans name=target %}No update yet. Run <code>codetrail update {{ name }}</code> to read the repository.{% endtrans %}</p>
+  {% elif signal.commits == 0 %}
+    <p class="ok">{{ _("Up to date with the branch.") }}</p>
+  {% else %}
+    <p class="behind">
+      {% trans count=signal.merges %}{{ count }} merge landed since the last update{% pluralize %}{{ count }} merges landed since the last update{% endtrans %}
+      ({% trans count=signal.commits %}{{ count }} commit{% pluralize %}{{ count }} commits{% endtrans %}).
+    </p>
+    {% if signal.areas %}
+      <p>{{ _("Areas touched:") }}
+      {% for area in signal.areas %}<a href="/areas/{{ area }}" lang="en" dir="ltr">{{ area }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</p>
+    {% endif %}
+  {% endif %}
+</section>
+
+{% if counts %}
+<section>
+  <h2>{{ _("Facts") }}</h2>
+  <ul class="counts">
+    {% for kind, count in counts %}<li><span lang="en" dir="ltr">{{ kind }}</span>: {{ count }}</li>{% endfor %}
+  </ul>
+  {% if snapshot %}<p class="muted">{% trans commit=snapshot.commit[:12], when=snapshot.taken_at %}Last update: commit {{ commit }}, {{ when }}.{% endtrans %}</p>{% endif %}
+</section>
+{% endif %}
+
+<section>
+  <h2>{{ _("Areas") }}</h2>
+  {% if areas %}
+  <ul class="areas">
+    {% for area, files in areas %}
+    <li><a href="/areas/{{ area }}" lang="en" dir="ltr">{{ area }}/</a> <span class="muted">{% trans count=files %}{{ count }} file{% pluralize %}{{ count }} files{% endtrans %}</span></li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p>{{ _("Nothing to show yet.") }}</p>
+  {% endif %}
+</section>
+{% endblock %}

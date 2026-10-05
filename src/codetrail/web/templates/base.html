@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="{{ language.code }}" dir="{{ language.direction }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="codetrail-token" content="{{ token }}">
+  <title>{% block title %}{{ target }}{% endblock %} · Codetrail</title>
+  <link rel="stylesheet" href="/static/page.css">
+  <script src="/static/vendor/mermaid.js" defer></script>
+  <script src="/static/page.js" defer></script>
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="/">Codetrail · <span lang="en" dir="ltr">{{ target }}</span></a>
+    <nav>
+      <a href="/">{{ _("Home") }}</a>
+      <a href="/decisions">{{ _("Decisions") }}</a>
+    </nav>
+    <form class="language" data-language-form>
+      <label>{{ _("Language") }}
+        <select name="language">
+          {% for option in languages %}
+          <option value="{{ option.code }}" {% if option.code == language.code %}selected{% endif %}>{{ option.name }}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </form>
+  </header>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

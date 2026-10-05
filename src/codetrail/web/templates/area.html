@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}{{ scope }}{% endblock %}
+{% block content %}
+<h1 lang="en" dir="ltr">{{ scope }}/</h1>
+<p class="muted">{% trans count=files|length %}{{ count }} visible file{% pluralize %}{{ count }} visible files{% endtrans %}</p>
+
+{% for project, diagram in projects %}
+<section>
+  <h2>{{ _("Dependencies of") }} <a href="/facts/{{ project.id }}" lang="en" dir="ltr">{{ project.attributes.get("name", project.id) }}</a></h2>
+  {% with diagram=diagram %}{% include "diagram.html" %}{% endwith %}
+</section>
+{% endfor %}
+
+{% if imports.nodes %}
+<section>
+  <h2>{{ _("Imports") }}</h2>
+  {% if imports.rolled_up %}<p class="muted">{{ _("Too many modules to show one by one: folders are shown, with the number of imports on each arrow.") }}</p>{% endif %}
+  {% with diagram=imports %}{% include "diagram.html" %}{% endwith %}
+</section>
+{% endif %}
+
+{% if decisions %}
+<section>
+  <h2>{{ _("Decisions") }}</h2>
+  <ul lang="en" dir="ltr">{% for decision in decisions %}<li><a href="/facts/{{ decision.id }}">{{ decision.attributes.number }}. {{ decision.attributes.title }}</a></li>{% endfor %}</ul>
+</section>
+{% endif %}
+
+<section>
+  <h2>{{ _("Files") }}</h2>
+  <ul class="files" lang="en" dir="ltr">{% for path in files %}<li><a href="/source/{{ path }}">{{ path }}</a></li>{% endfor %}</ul>
+</section>
+{% endblock %}

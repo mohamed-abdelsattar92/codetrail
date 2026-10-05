@@ -1,0 +1,36 @@
+/* Codetrail's page styles. Logical properties (inline-start/end) keep right-to-left languages correct. */
+:root {
+  --text: #1d1f23; --muted: #5d636e; --line: #d9dde3; --accent: #2457c5; --soft: #f4f6f9; --ok: #1d7a46; --warn: #a15c00;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --text: #e6e8ec; --muted: #a2a8b3; --line: #343a44; --accent: #8fb0ff; --soft: #1a1e25; --ok: #6fd39b; --warn: #f2b155; }
+  body { background: #111418; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--text); }
+a { color: var(--accent); }
+.top { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; padding: 0.75rem 1.25rem; border-block-end: 1px solid var(--line); }
+.top nav { display: flex; gap: 1rem; flex: 1; }
+.brand { font-weight: 600; text-decoration: none; color: var(--text); }
+main { max-width: 64rem; margin: 0 auto; padding: 1.25rem; }
+h1 { font-size: 1.6rem; margin-block: 0.5rem 1rem; overflow-wrap: anywhere; }
+h2 { font-size: 1.15rem; margin-block-start: 2rem; }
+section { margin-block-end: 1.5rem; }
+.muted { color: var(--muted); }
+.ok { color: var(--ok); }
+.behind { color: var(--warn); font-weight: 600; }
+.signal { padding: 0.75rem 1rem; background: var(--soft); border-radius: 0.5rem; }
+.counts, .areas { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: 0.5rem 1.5rem; }
+.files { columns: 2 20rem; font-family: ui-monospace, monospace; font-size: 0.85rem; }
+table { border-collapse: collapse; width: 100%; }
+th, td { text-align: start; padding: 0.35rem 0.6rem; border-block-end: 1px solid var(--line); vertical-align: top; }
+pre { overflow-x: auto; }
+pre.source { font: 0.85rem/1.5 ui-monospace, monospace; background: var(--soft); padding: 0.75rem; border-radius: 0.5rem; }
+pre.source a.line { display: inline-block; width: 3.5rem; color: var(--muted); text-decoration: none; user-select: none; }
+pre.source span:target { background: color-mix(in srgb, var(--accent) 18%, transparent); }
+pre.diagram { font-size: 0.75rem; color: var(--muted); }
+.diagram-svg { overflow-x: auto; background: var(--soft); border-radius: 0.5rem; padding: 0.75rem; }
+.diagram-svg svg { max-width: 100%; height: auto; }
+figure { margin: 0; }
+details { margin-block-start: 0.5rem; font-size: 0.9rem; }
