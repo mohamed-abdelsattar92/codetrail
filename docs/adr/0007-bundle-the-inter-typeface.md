@@ -1,6 +1,6 @@
 # 0007. Bundle the Inter typeface with the page
 
-- Status: proposed
+- Status: accepted (by the founder, 2026-10-05; recorded by Claude Code at the founder's request)
 - Date: 2026-10-05
 - Deciders: KoGy
 - Proposed by: Claude Code (Claude Opus 5.5), after the founder chose "indigo and Inter" in the design session of 2026-10-05
@@ -44,5 +44,5 @@ Option A. Codetrail bundles Inter's upright and italic variable WOFF2 files, wit
 
 ## Changes required
 - [x] Design: sections 12 and 16.2 (done in the design change that proposes this ADR).
-- [ ] Code: the font files, licence and `VERSION` in `static/vendor/inter/`; `@font-face` in `static/css/tokens.css` (Phase 11).
-- [ ] README: credit Inter and its licence (Phase 11).
+- [x] Code: the font files, licence and `VERSION` in `static/vendor/inter/`; `@font-face` in `static/css/tokens.css` (Phase 11).
+- [x] README: credit Inter and its licence (Phase 11).

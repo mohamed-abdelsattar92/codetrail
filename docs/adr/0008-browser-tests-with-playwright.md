@@ -1,6 +1,6 @@
 # 0008. Test the page in a real browser with Playwright for Python, and check accessibility with axe-core
 
-- Status: proposed
+- Status: accepted (by the founder, 2026-10-05; recorded by Claude Code at the founder's request)
 - Date: 2026-10-05
 - Deciders: KoGy
 - Proposed by: Claude Code (Claude Opus 5.5), after the founder approved the page's redesign in the design session of 2026-10-05

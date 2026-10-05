@@ -3,7 +3,7 @@
 - Status: approved by the founder, 5 October 2026
 - Date: 2026-10-05
 - Built on: [brainstorm-decisions.md](brainstorm-decisions.md) (decisions 1 to 12) and the design sessions of 5 October 2026
-- Accepted ADRs: [0001](../adr/0001-pathspec-for-exclusion-rules.md) to [0005](../adr/0005-babel-for-interface-catalogs.md)
+- Accepted ADRs: [0001](../adr/0001-pathspec-for-exclusion-rules.md) to [0005](../adr/0005-babel-for-interface-catalogs.md), [0007](../adr/0007-bundle-the-inter-typeface.md) and [0008](../adr/0008-browser-tests-with-playwright.md)
 
 This spec describes the whole system. It is built in phases (section 13), each with its own implementation plan.
 
