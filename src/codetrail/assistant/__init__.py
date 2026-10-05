@@ -28,7 +28,10 @@ class PlanWindow:
 
 @dataclass(frozen=True)
 class Usage:
-    """What one call used: tokens, and its cost in dollars when known (the provider's figure, or tokens x prices)."""
+    """What one call used: tokens, and its cost in dollars when known (the provider's figure, or tokens x prices).
+
+    `input_tokens` counts input not read from a cache; `cached_input_tokens` counts input read from one.
+    """
 
     provider: str = ""
     model: str = ""

@@ -88,6 +88,13 @@ class ClaudeCodeSettings(Settings):
     hook_timeout_seconds: int = Field(default=30, gt=0)
 
 
+class CodexSettings(Settings):
+    command: str = "codex"
+    auth: Literal["subscription", "api_key"] = "subscription"
+    max_tokens_per_call: int = Field(default=400_000, gt=0)
+    timeout_seconds: int = Field(default=900, gt=0)
+
+
 class ExtractSettings(Settings):
     max_file_bytes: int = Field(default=1_000_000, gt=0)
     max_attribute_chars: int = Field(default=300, ge=10)
