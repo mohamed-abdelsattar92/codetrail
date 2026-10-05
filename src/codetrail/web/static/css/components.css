@@ -200,27 +200,27 @@
 }
 
 .nav-path .bar {
-  margin-block-start: 5px;
-}
-
-.nav-empty {
-  padding: 4px var(--space-3);
-  color: var(--text-faint);
-  font-size: 0.82rem;
-}
-
-/* Progress bars and status pills. */
-.bar {
   display: block;
+  inline-size: 100%;
   block-size: 6px;
   overflow: hidden;
+  border: 0;
+  border-radius: 3px;
+  background: var(--line);
+  appearance: none;
+}
+
+.bar::-webkit-progress-bar {
   border-radius: 3px;
   background: var(--line);
 }
 
-.bar > span {
-  display: block;
-  block-size: 100%;
+.bar::-webkit-progress-value {
+  border-radius: 3px;
+  background: var(--accent);
+}
+
+.bar::-moz-progress-bar {
   border-radius: 3px;
   background: var(--accent);
 }

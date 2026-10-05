@@ -80,7 +80,7 @@ class Scripts(HTMLParser):
         self._in_script = False
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        self.handlers += [name for name, _ in attrs if name.startswith("on")]
+        self.handlers += [name for name, _ in attrs if name.startswith("on") or name == "style"]
         if tag == "script":
             self.scripts.append(dict(attrs))
             self._in_script = True
@@ -228,3 +228,16 @@ PHYSICAL = re.compile(
 def test_stylesheets_use_logical_properties_only(sheet: str) -> None:
     text = re.sub(r"/\*.*?\*/", "", (STATIC / "css" / sheet).read_text(), flags=re.S)
     assert PHYSICAL.findall(text) == []
+
+
+def test_a_path_links_only_steps_that_exist(paths: Paths) -> None:
+    guide = GuideRepository(paths.target_data("t") / "guide")
+    path = guide.read_page("paths/start")
+    assert path is not None
+    meta = {**path.meta, "steps": ["areas/app", "../source/app/main.py", "concepts/missing"]}
+    guide.write_page(Page("paths/start", meta, path.body))
+    guide.commit("Odd steps")
+    client, _ = signed_in(paths)
+    page = client.get("/pages/paths/start").text.split("<main", 1)[1]
+    assert 'href="/pages/areas/app?path=paths/start"' in page
+    assert "../source" not in page and "concepts/missing" not in page

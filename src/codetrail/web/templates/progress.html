@@ -20,7 +20,7 @@
     <h2 id="path-{{ loop.index }}" lang="en" dir="ltr"><a href="/pages/{{ path.id }}">{{ path.title }}</a></h2>
     <span class="faint">{% trans learned=learned, total=total %}{{ learned }} of {{ total }} learned{% endtrans %}</span>
   </div>
-  <span class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="{{ total }}" aria-valuenow="{{ learned }}" aria-labelledby="path-{{ loop.index }}"><span style="inline-size: {{ ((learned / total * 100) if total else 0) | round | int }}%"></span></span>
+  <progress class="bar" max="{{ total or 1 }}" value="{{ learned }}" aria-labelledby="path-{{ loop.index }}"></progress>
   <ol class="list spaced" lang="en" dir="ltr">
     {% for step in steps %}
     {% set state = nav.statuses.get(step.id, "unread") %}

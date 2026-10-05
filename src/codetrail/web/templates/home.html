@@ -41,7 +41,7 @@
   <p class="card-label" id="continue-title">{{ _("Continue where you left off") }}</p>
   <p class="card-title" lang="en" dir="ltr">{{ path.title }} · {{ step.title }}</p>
   <div class="card-row">
-    <span class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="{{ steps_total }}" aria-valuenow="{{ steps_learned }}" aria-label="{{ _('Steps learned') }}"><span style="inline-size: {{ ((steps_learned / steps_total * 100) if steps_total else 0) | round | int }}%"></span></span>
+    <progress class="bar" max="{{ steps_total or 1 }}" value="{{ steps_learned }}" aria-label="{{ _('Steps learned') }}"></progress>
     <span class="faint">{% trans learned=steps_learned, total=steps_total %}{{ learned }} of {{ total }} learned{% endtrans %}</span>
     <a class="button primary" href="/pages/{{ step.id }}?path={{ path.id }}">{{ _("Continue") }} {{ icon("arrow") }}</a>
   </div>

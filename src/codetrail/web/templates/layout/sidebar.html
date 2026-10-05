@@ -10,7 +10,7 @@
   <ul class="nav-list" lang="en" dir="ltr">
     {% for path, learned, total in nav.paths %}
     <li><a class="nav-link nav-path" href="/pages/{{ path.id }}" {% if active == path.id %}aria-current="page"{% endif %}>
-      <span class="label">{{ path.title }}<span class="bar" role="presentation"><span style="inline-size: {{ ((learned / total * 100) if total else 0) | round | int }}%"></span></span></span>
+      <span class="label">{{ path.title }}<progress class="bar" max="{{ total or 1 }}" value="{{ learned }}" aria-hidden="true"></progress></span>
       <span class="count">{{ learned }}/{{ total }}</span></a></li>
     {% endfor %}
   </ul>
