@@ -66,8 +66,8 @@ def test_the_gitleaks_timeout_defaults_to_ten_minutes_and_can_be_set(paths: Path
     assert load_global(paths).tools.gitleaks_timeout_seconds == 1800
 
 
-@pytest.mark.parametrize("timeout", ["0", "-5"])
-def test_a_gitleaks_timeout_that_isnt_positive_is_refused(paths: Paths, timeout: str) -> None:
+@pytest.mark.parametrize("timeout", ["0", "-5", "86_401", "inf"])
+def test_a_gitleaks_timeout_outside_a_day_is_refused(paths: Paths, timeout: str) -> None:
     paths.config_dir.mkdir(parents=True)
     (paths.config_dir / "config.toml").write_text(f"[tools]\ngitleaks_timeout_seconds = {timeout}\n")
     with pytest.raises(CodetrailError, match="gitleaks_timeout_seconds"):
