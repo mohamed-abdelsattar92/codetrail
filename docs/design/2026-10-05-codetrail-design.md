@@ -288,7 +288,7 @@ Each update writes one digest from the filtered log and diffs and the fact diff:
 Affected pages are ranked by how many of their facts changed, with pages the founder has learned first. At most `max_pages_per_update` are written, `concurrency` at a time, each within `max_turns`. The rest stay affected for the next update.
 
 ### 6.8 All or nothing
-Pages are written into the guide's working tree and committed once, at the end of the update, after which the snapshot becomes current. If the update is interrupted, crashes or loses Claude's sign-in, the uncommitted changes are discarded and the snapshot isn't advanced. An update refuses to start while the guide has uncommitted changes.
+Facts are recorded first: they are true whatever happens to the guide. Pages are written into the guide's working tree and committed once, at the end of the update. If the update is interrupted, crashes or loses Claude's sign-in, the uncommitted changes are discarded; pages not written stay affected, because that is derived from their front matter, and the digest covers the commits since the last digest's `to_commit`, not since the last snapshot. An update refuses to start while the guide has uncommitted changes. `codetrail update --facts-only` refreshes the facts without calling Claude.
 
 ### 6.9 The Claude interface
 ```python
@@ -305,7 +305,7 @@ The Agent SDK adapter is the only code that imports the SDK. The fake replays sc
 
 **Tool guard:** denies by default; allows only the listed tools; resolves each path to its real location and refuses anything outside `source/` or matching the exclusion rules; logs every allowed read.
 
-**Open item:** whether the Agent SDK runs under the founder's Claude Code sign-in or needs an API key. Phase 4 starts with a spike to find out. If the SDK can't use the sign-in, the adapter wraps `claude -p` instead; nothing outside the adapter changes.
+**Settled by the Phase 4 spike:** the Agent SDK runs under the founder's Claude Code sign-in with no API key. The guard runs as a PreToolUse hook, because hooks see every call, read-only ones included, while a permission callback can be skipped for them. Structured answers come back through the SDK's `StructuredOutput` tool, which the guard allows: it reads nothing and takes no path. Codetrail's own system prompt replaces Claude Code's, and each call has `max_turns` and a cost limit (`max_budget_usd_per_call`).
 
 ## 7. The page and the bridge
 
