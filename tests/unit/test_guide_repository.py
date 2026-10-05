@@ -85,7 +85,7 @@ def test_checking_for_uncommitted_changes_never_takes_the_index_lock(
     from codetrail import guide as guide_module
 
     calls: list[list[str]] = []
-    real = guide_module.run_git
+    real = guide_module.run_git  # type: ignore[attr-defined]
 
     def recording(arguments: list[str], **options: object) -> bytes:
         calls.append(arguments)
