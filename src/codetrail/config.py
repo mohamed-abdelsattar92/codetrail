@@ -66,6 +66,12 @@ class ToolsSettings(Settings):
     gitleaks: str = "gitleaks"
 
 
+class BridgeSettings(Settings):
+    max_question_chars: int = Field(default=4000, gt=0, le=20_000)
+    max_turns: int = Field(default=20, gt=0)
+    max_budget_usd: float = Field(default=1.0, gt=0)
+
+
 class ClaudeSettings(Settings):
     retry_attempts: int = Field(default=2, ge=0, le=5)
 
@@ -91,12 +97,13 @@ class SignalSettings(Settings):
 
 
 class DiagramSettings(Settings):
-    max_nodes: int = Field(default=60, gt=0)
+    max_nodes: int = Field(default=25, gt=0)
 
 
 class GlobalConfig(Settings):
     tools: ToolsSettings = ToolsSettings()
     claude: ClaudeSettings = ClaudeSettings()
+    bridge: BridgeSettings = BridgeSettings()
     extract: ExtractSettings = ExtractSettings()
     server: ServerSettings = ServerSettings()
     ui: InterfaceSettings = InterfaceSettings()

@@ -29,5 +29,15 @@
   <main>
     {% block content %}{% endblock %}
   </main>
+  <section class="ask" data-ask {% if page is defined and page.id %}data-page-id="{{ page.id }}"{% endif %}>
+    <h2>{{ _("Ask Claude about the code") }}</h2>
+    <form data-ask-form>
+      <textarea name="question" rows="3" maxlength="4000" required placeholder="{{ _('For example: how does a request reach the database?') }}"></textarea>
+      <button type="submit">{{ _("Ask") }}</button>
+    </form>
+    <p class="muted" data-ask-status></p>
+    <div class="answer" data-answer lang="{{ language.code }}" dir="auto"></div>
+    <button type="button" data-save-answer hidden>{{ _("Save to guide") }}</button>
+  </section>
 </body>
 </html>

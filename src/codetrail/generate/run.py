@@ -196,6 +196,8 @@ async def _write_digest(
         return
     request = DigestRequest(context.target, commits_text(commits), fact_changes_text(context.diff), result.written)
     try:
+        if result.cost_usd >= context.max_budget_usd:
+            raise ClaudeError("the update's budget is spent")
         draft = await claude.write_digest(request)
         result.cost_usd += draft.cost_usd
         if validate_page(draft.body, None, validation):
