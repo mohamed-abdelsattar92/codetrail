@@ -74,3 +74,18 @@ def test_the_system_reader_refuses_unlisted_and_oversized_files(tmp_path: Path) 
     assert read("a/big.txt") is None
     assert read("a/unlisted.txt") is None
     assert read("../outside") is None
+
+
+def test_the_system_reader_refuses_symlinks_and_escapes(tmp_path: Path) -> None:
+    from codetrail.update import system_reader
+
+    source = tmp_path / "source"
+    (source / "a").mkdir(parents=True)
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "secret.txt").write_text("secret")
+    (source / "a/link.txt").symlink_to(outside / "secret.txt")
+    (source / "linked").symlink_to(outside)
+    read = system_reader(source, {"a/link.txt": "b1", "linked/secret.txt": "b2"}, max_bytes=100)
+    assert read("a/link.txt") is None  # a listed path that is a symlink
+    assert read("linked/secret.txt") is None  # a listed path under a folder that leads outside source/

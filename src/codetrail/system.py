@@ -63,10 +63,8 @@ NAMED_SERVICES = {
     "azurerm_container_app",
 }
 CONFIG_NAMES = {"package.json", "Package.swift", "Makefile", "justfile", "pyproject.toml"}
-# Both patterns are matched from one position only (after the last "generator", at the line's start), so a hostile
-# name or line costs linear time.
+# Matched once, after the last "generator" in a name, so a hostile name costs linear time.
 GENERATOR_TAIL = re.compile(r"[-_.a-z]*\.ya?ml|[-_.a-z]*")
-PBXPROJ_PACKAGE = re.compile(r'\s*relativePath\s*=\s*"?([^";]+)"?;')
 WORD = re.compile(r"[a-z0-9]+")
 TOKEN_SPLIT = re.compile(r"[\s\"'`=,;:()<>\[\]{}]+")
 
@@ -92,10 +90,6 @@ class Part:
 def _location(fact_id: str) -> str:
     location = fact_id.split(":", 1)[1]
     return "" if location == "." else location
-
-
-def _inside(path: str, folder: str) -> bool:
-    return not folder or path == folder or path.startswith(folder + "/")
 
 
 def _normal(folder: str, relative: str) -> str | None:
@@ -162,7 +156,7 @@ class _System:
                 folder = _location(entity.id)
                 self.add_part(
                     Part(
-                        f"part:{folder}",
+                        f"part:{folder or '.'}",
                         "infrastructure",
                         folder,
                         folder,
@@ -211,13 +205,14 @@ class _System:
 
     def owner(self, path: str) -> Part | None:
         """The innermost code or infrastructure part whose folder holds `path`."""
-        best: Part | None = None
-        for part in self.parts.values():
-            if part.kind in ("contract", "platform"):
-                continue
-            if _inside(path, part.folder) and (best is None or len(part.folder) > len(best.folder)):
-                best = part
-        return best
+        folder = path
+        while True:  # one lookup per folder level, so no repository's size makes this slow
+            part = self.parts.get(f"part:{folder or '.'}")
+            if part is not None and part.kind not in ("contract", "platform") and part.folder == folder:
+                return part
+            if not folder:
+                return None
+            folder = folder.rpartition("/")[0]
 
     # Connections --------------------------------------------------------------------------------------------------
     def connect(
@@ -256,13 +251,13 @@ class _System:
         for path in self.files:
             if not path.endswith(".xcodeproj/project.pbxproj"):
                 continue
-            app = self.parts.get(f"part:{_folder(str(PurePosixPath(path).parent.parent))}")
+            app = self.parts.get(f"part:{_folder(str(PurePosixPath(path).parent.parent)) or '.'}")
             content = self.read(path)
             if app is None or content is None:
                 continue
             for number, line in enumerate(content.decode("utf-8", "replace").splitlines(), start=1):
-                match = PBXPROJ_PACKAGE.match(line)
-                package_folder = _normal(app.folder, match.group(1)) if match else None
+                relative = _pbxproj_package(line)
+                package_folder = _normal(app.folder, relative) if relative else None
                 package_part = self.parts.get(f"part:{package_folder}") if package_folder else None
                 if package_part is not None:
                     self.connect(
@@ -284,7 +279,9 @@ class _System:
         by_blob: dict[str, list[str]] = {}
         for path, blob in self.files.items():
             by_blob.setdefault(blob, []).append(path)
-        for contract in [part for part in self.parts.values() if part.kind == "contract"]:
+        contracts = [part for part in self.parts.values() if part.kind == "contract"]
+        named = self.mentions({contract.file for contract in contracts})
+        for contract in contracts:
             evidence: dict[str, tuple[str, int | None]] = {}
             holder = self.owner(contract.file)
             if holder is not None and holder.folder:
@@ -292,16 +289,8 @@ class _System:
             for copy in by_blob.get(self.files.get(contract.file, ""), []):
                 if copy != contract.file and (part := self.owner(copy)) is not None:
                     evidence.setdefault(part.id, (copy, None))
-            for path in self.files:
-                name = PurePosixPath(path).name
-                if not _config_file(name):
-                    continue
-                part = self.owner(path)
-                if part is None or part.id in evidence:
-                    continue
-                line = self.names(path, contract.file)
-                if line is not None:
-                    evidence[part.id] = (path, line)
+            for part_id, config, number in named.get(contract.file, []):
+                evidence.setdefault(part_id, (config, number))
             for part_id, (path, line) in sorted(evidence.items()):
                 part = self.parts[part_id]
                 kind = RelationKind.IMPLEMENTS if part.kind == "service" else RelationKind.CALLS_VIA
@@ -314,17 +303,30 @@ class _System:
                     (Source(path, line, line) if line else Source(path),),
                 )
 
-    def names(self, path: str, target: str) -> int | None:
-        """The line of `path` that names the file `target` (from the root or relative to `path`), if any."""
-        content = self.read(path)
-        if content is None:
-            return None
-        folder = _folder(str(PurePosixPath(path).parent))
-        for number, line in enumerate(content.decode("utf-8", "replace").splitlines(), start=1):
-            for mention in TOKEN_SPLIT.split(line):  # one linear split; no backtracking pattern over long lines
-                if mention and (mention == target or _normal(folder, mention) == target):
-                    return number
-        return None
+    def mentions(self, targets: set[str]) -> dict[str, list[tuple[str, str, int]]]:
+        """For each target file, the parts whose config files name it: (part id, config file, first line).
+
+        Each config file is read and split once, whatever the number of targets, and only a token ending in a
+        target's file name is resolved, so the cost grows with the repository's size, not with its contracts.
+        """
+        names = {PurePosixPath(target).name for target in targets}
+        found: dict[str, list[tuple[str, str, int]]] = {}
+        for path in sorted(self.files):
+            part = self.owner(path) if _config_file(PurePosixPath(path).name) else None
+            content = self.read(path) if part is not None else None
+            if part is None or content is None:
+                continue
+            folder = _folder(str(PurePosixPath(path).parent))
+            seen: set[str] = set()
+            for number, line in enumerate(content.decode("utf-8", "replace").splitlines(), start=1):
+                for mention in TOKEN_SPLIT.split(line):  # one linear split; no backtracking pattern over long lines
+                    if not mention or mention.rpartition("/")[2] not in names:
+                        continue
+                    resolved = _normal(folder, mention)
+                    for target in {mention, resolved or mention} & (targets - seen):
+                        seen.add(target)
+                        found.setdefault(target, []).append((part.id, path, number))
+        return found
 
     def deployments(self) -> None:
         for entity in self.entities.values():
@@ -353,7 +355,7 @@ class _System:
                     )
             elif entity.kind is EntityKind.RESOURCE:
                 kind = str(entity.attributes.get("type", ""))
-                module = self.parts.get(f"part:{entity.attributes.get('module')}")
+                module = self.parts.get(f"part:{_folder(str(entity.attributes.get('module', ''))) or '.'}")
                 platform_key = next(
                     (value for prefix, value in RESOURCE_PLATFORMS.items() if kind.startswith(prefix)), None
                 )
@@ -391,21 +393,23 @@ class _System:
                 key = str(entity.attributes.get("kind"))
                 if key in PLATFORMS:
                     candidates.append((str(entity.attributes["target"]), key, entity.sources[0]))
+        by_word: dict[str, list[tuple[str, str, Source]]] = {}
+        for candidate in candidates:  # each name split once, then each part is one lookup
+            for word in set(WORD.findall(candidate[0].lower())):
+                by_word.setdefault(word, []).append(candidate)
         for part in [part for part in self.parts.values() if part.kind in ("service", "app") and part.folder]:
-            word = PurePosixPath(part.folder).name.lower()
-            for name, key, source in candidates:
-                if word in WORD.findall(name.lower()):
-                    platform = self.platform(key)
-                    if (part.id, str(RelationKind.DEPLOYED_ON), platform) in self.seen:
-                        continue
-                    self.connect(
-                        part.id,
-                        RelationKind.DEPLOYED_ON,
-                        platform,
-                        "matched by name",
-                        {"evidence": "matched", "rule": "name", "names": [name, part.folder], "source": _cite(source)},
-                        (source,),
-                    )
+            for name, key, source in by_word.get(PurePosixPath(part.folder).name.lower(), []):
+                platform = self.platform(key)
+                if (part.id, str(RelationKind.DEPLOYED_ON), platform) in self.seen:
+                    continue
+                self.connect(
+                    part.id,
+                    RelationKind.DEPLOYED_ON,
+                    platform,
+                    "matched by name",
+                    {"evidence": "matched", "rule": "name", "names": [name, part.folder], "source": _cite(source)},
+                    (source,),
+                )
 
     def facts(self) -> SystemFacts:
         entities = [
@@ -428,6 +432,18 @@ def _config_file(name: str) -> bool:
     if not found or not (match := GENERATOR_TAIL.fullmatch(tail)):
         return False
     return match.group().endswith((".yml", ".yaml")) or head.endswith(".openapi-")
+
+
+def _pbxproj_package(line: str) -> str | None:
+    """The package path in an Xcode `relativePath = <path>;` line, read without a pattern that could backtrack."""
+    key, equals, value = line.strip().partition("=")
+    value = value.strip()
+    if not equals or key.strip() != "relativePath" or not value.endswith(";"):
+        return None
+    value = value[:-1].strip()
+    if len(value) >= 2 and value[0] == value[-1] == '"':
+        value = value[1:-1]
+    return value if value and '"' not in value and ";" not in value else None
 
 
 def _folder(folder: str) -> str:

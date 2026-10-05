@@ -212,3 +212,35 @@ def test_the_files_that_may_name_a_contract(name: str, expected: bool) -> None:
     from codetrail.system import _config_file
 
     assert _config_file(name) is expected
+
+
+def test_a_pbxproj_line_of_spaces_takes_linear_time() -> None:
+    import time
+
+    line = b"relativePath =" + b" " * 300_000  # `\s*` and the value can share the spaces: backtracking is quadratic
+    started = time.monotonic()
+    derive(ENTITIES, RELATIONS, FILES, reader({**CONTENT, "apps/ios/Shop.xcodeproj/project.pbxproj": line}))
+    assert time.monotonic() - started < 2
+
+
+def test_many_contracts_and_a_large_config_file_take_linear_time() -> None:
+    import time
+
+    contracts = [entity(f"schema:S{index}", EntityKind.SCHEMA, f"specs/{index}/openapi.yaml") for index in range(3_000)]
+    root = entity("project:.", EntityKind.PROJECT, "pyproject.toml", name="root")
+    files = {
+        "pyproject.toml": "r",
+        "x.toml": "x",
+        **{f"specs/{index}/openapi.yaml": f"s{index}" for index in range(3_000)},
+    }
+    content = {"x.toml": b"a " * 500_000}
+    started = time.monotonic()
+    derive([root, *contracts], [], files, lambda path: content.get(path))
+    assert time.monotonic() - started < 5
+
+
+def test_a_root_xcode_project_depends_on_its_packages() -> None:
+    files = {"Shop.xcodeproj/project.pbxproj": "p", "Packages/APIClient/Package.swift": "s"}
+    package = entity("project:Packages/APIClient", EntityKind.PROJECT, "Packages/APIClient/Package.swift", name="API")
+    found = derive([package], [], files, lambda path: b"\t\trelativePath = Packages/APIClient;\n")
+    assert ("part:.", "depends_on", "part:Packages/APIClient") in arrows(found)
