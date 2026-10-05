@@ -1,5 +1,6 @@
 """gitleaks scanning, with Codetrail's own configuration so a target can't switch it off (design section 3.4)."""
 
+import shutil
 from pathlib import Path
 
 import pytest
@@ -84,3 +85,112 @@ def test_findings_never_carry_the_value(scanner: SecretScanner, tmp_path: Path) 
 def test_a_missing_scanner_fails_closed(tmp_path: Path) -> None:
     with pytest.raises(CodetrailError, match="gitleaks"):
         SecretScanner(str(tmp_path / "no-such-gitleaks")).scan_directory(tmp_path)
+
+
+def write_script(path: Path, body: str) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("#!/bin/sh\n" + body)
+    path.chmod(0o755)
+    return path
+
+
+def test_a_failing_scanner_says_why_and_how_to_point_at_another(tmp_path: Path) -> None:
+    broken = write_script(
+        tmp_path / "bin" / "gitleaks", r"printf '\033[31mmise ERROR No version is set\033[0m\n' >&2; exit 1"
+    )
+    with pytest.raises(CodetrailError) as raised:
+        SecretScanner(str(broken)).scan_text("x")
+    message = str(raised.value)
+    assert "mise ERROR No version is set" in message
+    assert "[tools] gitleaks" in message
+    assert "\033" not in message
+
+
+def fake_mise(tmp_path: Path, which: str) -> Path:
+    """A stand-in for mise's gitleaks shim in <tmp_path>/mise/shims; `mise which` runs the shell code in `which`."""
+    mise = write_script(
+        tmp_path / "mise" / "bin" / "mise",
+        f'if [ "$1" = which ]; then {which}; fi\necho "mise ERROR No version is set for shim: gitleaks" >&2; exit 1\n',
+    )
+    shim = tmp_path / "mise" / "shims" / "gitleaks"
+    shim.parent.mkdir()
+    shim.symlink_to(mise)
+    return shim
+
+
+def installed_gitleaks(path: Path) -> Path:
+    real_gitleaks = shutil.which(GITLEAKS)
+    assert real_gitleaks is not None
+    return write_script(path, f'exec "{real_gitleaks}" "$@"\n')
+
+
+@pytest.fixture
+def mise_shim(tmp_path: Path) -> Path:
+    """A shim that knows gitleaks' version only in a folder whose mise.toml sets one."""
+    installed = installed_gitleaks(tmp_path / "mise" / "installs" / "gitleaks" / "8" / "gitleaks")
+    return fake_mise(
+        tmp_path,
+        f'if [ -f mise.toml ]; then echo "{installed}"; exit 0; fi; '
+        'echo "mise ERROR gitleaks is not currently active" >&2; exit 1',
+    )
+
+
+def test_a_mise_shim_runs_the_version_set_where_codetrail_was_started(
+    mise_shim: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "mise.toml").write_text('[tools]\ngitleaks = "8"\n')
+    monkeypatch.chdir(project)
+    assert len(SecretScanner(str(mise_shim)).scan_text(f"TOKEN = '{fake_github_token()}'\n")) == 1
+
+
+def test_a_mise_shim_without_a_version_says_why(
+    mise_shim: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(CodetrailError, match=r"gitleaks is not currently active.*\[tools\] gitleaks"):
+        SecretScanner(str(mise_shim)).scan_text("x")
+
+
+def test_a_binary_mise_names_outside_its_own_installs_is_refused(tmp_path: Path) -> None:
+    # A trusted target's mise.toml can say `gitleaks = "path:<a script in the target>"`.
+    planted = installed_gitleaks(tmp_path / "target" / "gitleaks")
+    shim = fake_mise(tmp_path, f'echo "{planted}"; exit 0')
+    with pytest.raises(CodetrailError, match=r"isn't one of mise's own installs"):
+        SecretScanner(str(shim)).scan_text("x")
+
+
+def test_a_path_mise_names_that_climbs_out_of_its_installs_is_refused(tmp_path: Path) -> None:
+    installed_gitleaks(tmp_path / "target" / "gitleaks")
+    climbing = tmp_path / "mise" / "installs" / "gitleaks" / ".." / ".." / ".." / "target" / "gitleaks"
+    shim = fake_mise(tmp_path, f'echo "{climbing}"; exit 0')
+    with pytest.raises(CodetrailError, match=r"isn't one of mise's own installs"):
+        SecretScanner(str(shim)).scan_text("x")
+
+
+def test_a_link_in_mises_installs_to_a_program_elsewhere_is_refused(tmp_path: Path) -> None:
+    planted = installed_gitleaks(tmp_path / "target" / "gitleaks")
+    link = tmp_path / "mise" / "installs" / "gitleaks" / "9" / "gitleaks"
+    link.parent.mkdir(parents=True)
+    link.symlink_to(planted)
+    shim = fake_mise(tmp_path, f'echo "{link}"; exit 0')
+    with pytest.raises(CodetrailError, match=r"isn't one of mise's own installs"):
+        SecretScanner(str(shim)).scan_text("x")
+
+
+def test_a_refused_path_reaches_the_message_without_control_characters(tmp_path: Path) -> None:
+    shim = fake_mise(tmp_path, r"printf '/tmp/\033[2Jgitleaks\n'; exit 0")
+    with pytest.raises(CodetrailError, match=r"isn't one of mise's own installs") as raised:
+        SecretScanner(str(shim)).scan_text("x")
+    assert "\033" not in str(raised.value)
+
+
+def test_a_mise_error_never_repeats_a_configuration_line(tmp_path: Path) -> None:
+    token = fake_github_token()
+    shim = fake_mise(
+        tmp_path, f'echo "mise ERROR failed to parse mise.toml" >&2; echo "  3 | TOKEN = {token}" >&2; exit 1'
+    )
+    with pytest.raises(CodetrailError, match=r"failed to parse mise\.toml") as raised:
+        SecretScanner(str(shim)).scan_text("x")
+    assert token not in str(raised.value)
