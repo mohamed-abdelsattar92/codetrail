@@ -16,7 +16,10 @@ from codetrail.config import Paths, TargetConfig, check_containment, load_global
 from codetrail.database import connect
 from codetrail.extract import Extraction, Extractor, run_extractors
 from codetrail.extract.adr import AdrExtractor
+from codetrail.extract.openapi import OpenApiExtractor
 from codetrail.extract.python import PythonExtractor
+from codetrail.extract.swift import SwiftExtractor
+from codetrail.extract.terraform import TerraformExtractor
 from codetrail.facts import FactDiff, Snapshot
 from codetrail.facts.store import FactStore
 from codetrail.generate.run import GenerationContext, GenerationResult, generate_guide
@@ -40,7 +43,13 @@ class UpdateResult:
 
 
 def build_extractors(target: TargetConfig) -> list[Extractor]:
-    available: dict[str, Extractor] = {"python": PythonExtractor(), "adr": AdrExtractor(target.adr.paths)}
+    available: dict[str, Extractor] = {
+        "python": PythonExtractor(),
+        "adr": AdrExtractor(target.adr.paths),
+        "openapi": OpenApiExtractor(target.openapi.paths),
+        "terraform": TerraformExtractor(),
+        "swift": SwiftExtractor(),
+    }
     return [available[name] for name in target.extractors]
 
 
@@ -52,7 +61,10 @@ def run_update(paths: Paths, name: str, claude: Claude | None = None, facts_only
     with target_lock(paths, name):
         manifest = refresh_while_locked(paths, name)
         source = data / "source"
-        extraction = run_extractors(source, manifest.files, build_extractors(target), settings.extract.max_file_bytes)
+        extraction = run_extractors(
+            source, manifest.files, build_extractors(target), settings.extract.max_file_bytes,
+            settings.extract.max_attribute_chars,
+        )  # fmt: skip
         connection = connect(data / "codetrail.db")
         try:
             store = FactStore(connection)

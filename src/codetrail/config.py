@@ -72,12 +72,18 @@ class BridgeSettings(Settings):
     max_budget_usd: float = Field(default=1.0, gt=0)
 
 
+class LearnSettings(Settings):
+    grading_cooldown_seconds: int = Field(default=10, ge=0)
+    max_budget_usd: float = Field(default=0.25, gt=0)
+
+
 class ClaudeSettings(Settings):
     retry_attempts: int = Field(default=2, ge=0, le=5)
 
 
 class ExtractSettings(Settings):
     max_file_bytes: int = Field(default=1_000_000, gt=0)
+    max_attribute_chars: int = Field(default=300, ge=10)
 
 
 class ServerSettings(Settings):
@@ -104,6 +110,7 @@ class GlobalConfig(Settings):
     tools: ToolsSettings = ToolsSettings()
     claude: ClaudeSettings = ClaudeSettings()
     bridge: BridgeSettings = BridgeSettings()
+    learn: LearnSettings = LearnSettings()
     extract: ExtractSettings = ExtractSettings()
     server: ServerSettings = ServerSettings()
     ui: InterfaceSettings = InterfaceSettings()
@@ -113,6 +120,10 @@ class GlobalConfig(Settings):
 
 class AdrSettings(Settings):
     paths: list[str] = ["docs/adr/*.md"]
+
+
+class OpenApiSettings(Settings):
+    paths: list[str] = ["**/openapi.json", "**/openapi.yaml", "**/openapi.yml"]
 
 
 class GenerationSettings(Settings):
@@ -134,8 +145,11 @@ class ModelSettings(Settings):
 class TargetConfig(Settings):
     repository: Path
     branch: str
-    extractors: list[Literal["python", "adr"]] = ["python", "adr"]
+    extractors: list[Literal["python", "adr", "openapi", "terraform", "swift"]] = [
+        "python", "adr", "openapi", "terraform", "swift",
+    ]  # fmt: skip
     adr: AdrSettings = AdrSettings()
+    openapi: OpenApiSettings = OpenApiSettings()
     generation: GenerationSettings = GenerationSettings()
     models: ModelSettings = ModelSettings()
 

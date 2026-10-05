@@ -19,6 +19,11 @@ class EntityKind(StrEnum):
     MODULE = "module"
     PACKAGE = "package"
     DECISION = "decision"
+    ROUTE = "route"
+    SCHEMA = "schema"
+    TERRAFORM_MODULE = "terraform_module"
+    RESOURCE = "resource"
+    SWIFT_TARGET = "swift_target"
 
 
 class RelationKind(StrEnum):
@@ -26,6 +31,8 @@ class RelationKind(StrEnum):
     IMPORTS = "imports"
     DEPENDS_ON = "depends_on"
     SUPERSEDES = "supersedes"
+    USES_SCHEMA = "uses_schema"
+    REFERENCES = "references"
 
 
 @dataclass(frozen=True)

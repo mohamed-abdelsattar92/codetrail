@@ -118,3 +118,24 @@ def test_attributes_that_are_not_json_become_a_warning(tmp_path: Path) -> None:
     extraction = run_extractors(tmp_path, paths, [Dates()])
     assert extraction.entities == []
     assert extraction.warnings == ["words: a.txt: could not be read (TypeError)"]
+
+
+class Long(Words):
+    def extract(self, path: str, content: bytes) -> FileFacts:
+        return FileFacts(path, (Entity(f"module:{path}", EntityKind.MODULE, {"text": "x" * 50, "list": ["y" * 50]}),))
+
+
+def test_long_text_attributes_are_cut(tmp_path: Path) -> None:
+    """Text from a target file reaches prompts and pages, so it's bounded (Phase 7 review, finding 3)."""
+    paths = write(tmp_path, {"a.txt": "red"})
+    extraction = run_extractors(tmp_path, paths, [Long()], max_attribute_chars=20)
+    assert dict(extraction.entities[0].attributes) == {"text": "x" * 19 + "…", "list": ["y" * 19 + "…"]}
+
+
+def test_facts_with_overlong_ids_are_skipped_with_a_warning(tmp_path: Path) -> None:
+    """Ids carry target text too, so they share the attribute limit (Phase 7 review, notes)."""
+    paths = write(tmp_path, {"a.txt": "red", ("b" * 40) + ".txt": "red"})
+    extraction = run_extractors(tmp_path, paths, [Words()], max_attribute_chars=30)
+    assert "module:a.txt" in {entity.id for entity in extraction.entities}
+    assert all(len(entity.id) <= 30 for entity in extraction.entities)
+    assert f"words: {'b' * 40}.txt: skipped a fact whose id is longer than 30 characters" in extraction.warnings

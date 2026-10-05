@@ -130,7 +130,8 @@ def outline_paths(data: Mapping[str, Any] | None, page_ids: set[str]) -> list[Ou
     """The stored paths, each keeping only steps that are still pages."""
     paths = []
     for item in (data or {}).get("paths", []) or []:
-        if isinstance(item, Mapping) and PAGE_ID.fullmatch(str(item.get("id", ""))):
+        path_id = str(item.get("id", "")) if isinstance(item, Mapping) else ""
+        if isinstance(item, Mapping) and path_id.startswith("paths/") and PAGE_ID.fullmatch(path_id):
             steps = [str(step) for step in item.get("steps", []) or [] if str(step) in page_ids]
             if steps:
                 paths.append(OutlinePath(str(item["id"]), str(item.get("title", "")), str(item.get("goal", "")), steps))

@@ -114,3 +114,16 @@ def test_the_home_page_lists_paths_and_catch_up(paths: Paths) -> None:
     digest_id = digests[0].split('href="/pages/')[1].split('"')[0]
     client.post("/learn/read", json={"page_id": digest_id}, headers=headers)
     assert "Nothing to catch up on." in client.get("/").text
+
+
+def test_grading_waits_for_its_cooldown(paths: Paths) -> None:
+    from codetrail.config import LearnSettings
+
+    session = SessionState(60)
+    settings = GlobalConfig(learn=LearnSettings(grading_cooldown_seconds=60))
+    client = TestClient(create_app(paths, "t", session, settings, claude_for=lambda: FakeClaude()), base_url=ORIGIN)
+    client.get(f"/login?code={session.issue_login_code()}", follow_redirects=False)
+    headers = {"origin": ORIGIN, TOKEN_HEADER: session.token}
+    body = {"page_id": "areas/app", "check_id": "q1", "answer": "x"}
+    assert client.post("/learn/checks", json=body, headers=headers).status_code == 200
+    assert client.post("/learn/checks", json=body, headers=headers).status_code == 429

@@ -19,6 +19,7 @@ from codetrail.repo.git import run_git
 
 PAGE_ID = re.compile(r"(areas|concepts|paths|digests|answers)/[a-z0-9][a-z0-9-]{0,80}")
 OUTLINE_FILE = "outline.yaml"
+COMMIT_ID = re.compile(r"[0-9a-f]{7,40}")
 # The guide's own commits run no hooks and need no signing key, whatever the user's global git settings say.
 COMMIT_SETTINGS = ["-c", "core.hooksPath=/dev/null", "-c", "commit.gpgsign=false",
                    "-c", "user.name=Codetrail", "-c", "user.email=codetrail@localhost"]  # fmt: skip
@@ -122,6 +123,8 @@ class GuideRepository:
         self._git("clean", "-q", "-f", "-d")
 
     def file_at(self, commit: str, page_id: str) -> str | None:
+        if not COMMIT_ID.fullmatch(commit):  # only a commit id reaches git, never an option
+            return None
         try:
             return self._git("show", f"{commit}:{validate_page_id(page_id)}.md").decode("utf-8", "replace")
         except CodetrailError:

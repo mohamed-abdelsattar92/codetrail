@@ -7,6 +7,7 @@ runs at a time. Every route sits behind the security middleware.
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable
 
 from fastapi import APIRouter
@@ -33,12 +34,17 @@ class CheckAnswer(BaseModel):
 
 
 def learning_router(
-    paths: Paths, name: str, claude_for: Callable[[], Claude], language_of: Callable[[], str], max_answer_chars: int
+    paths: Paths,
+    name: str,
+    claude_for: Callable[[], Claude],
+    language_of: Callable[[], str],
+    max_answer_chars: int,
+    cooldown_seconds: int = 0,
 ) -> APIRouter:
     router = APIRouter()
     data = paths.target_data(name)
     guide = GuideRepository(data / "guide")
-    grading = {"busy": False}
+    grading: dict[str, float | bool] = {"busy": False, "last": -1e18}
 
     def find_page(page_id: str) -> Page | None:
         return guide.read_page(page_id) if PAGE_ID.fullmatch(page_id) else None
@@ -69,7 +75,9 @@ def learning_router(
             return JSONResponse({"error": f"Answers are limited to {max_answer_chars} characters."}, 413)
         if grading["busy"]:  # claimed with no await before it, so two gradings can't both start
             return JSONResponse({"error": "Another answer is being graded."}, 429)
-        grading["busy"] = True
+        if time.monotonic() - float(grading["last"]) < cooldown_seconds:
+            return JSONResponse({"error": "Wait a few seconds before the next answer."}, 429)
+        grading["busy"], grading["last"] = True, time.monotonic()
         try:
             language = language_of()
             request = GradeRequest(

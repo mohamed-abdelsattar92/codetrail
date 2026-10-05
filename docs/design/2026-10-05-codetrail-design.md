@@ -227,8 +227,8 @@ class Extractor(Protocol):
 | 2 | `python` | `*.py`, `pyproject.toml` | projects, modules, packages; `contains`, `imports`, `depends_on` | tree-sitter-python, `tomllib` |
 | 2 | `adr` | `[adr] paths` globs | decisions (number, title, status, date); `supersedes` | Markdown headings and status lines (standard library) |
 | 7 | `openapi` | configured OpenAPI documents | routes, schemas; `uses_schema` | `json` |
-| 7 | `terraform` | `*.tf` | resources, modules, environments; `references` | tree-sitter HCL grammar |
-| 7 | `swift_packages` | `Package.swift`, `import` lines in `*.swift` | Swift targets; `depends_on`, `imports` | tree-sitter Swift grammar |
+| 7 | `terraform` | `*.tf` | modules (one per folder), resources; `contains`, `references` (between resources, and module calls to folders) | tree-sitter HCL grammar |
+| 7 | `swift` | `Package.swift`, `import` lines in `*.swift` | Swift packages (as projects), targets and external packages; `contains`, `depends_on`, `imports` | `Package.swift` read by pattern (never executed); tree-sitter Swift grammar for imports |
 
 The tree-sitter grammars come under decision 9's tree-sitter choice. Hamesh's SQL migrations, workflows, landing page and the design, PRD and slice documents are not extracted until a page needs them; Claude reads the documents for the "why".
 
@@ -345,7 +345,7 @@ Server-rendered with FastAPI and Jinja2, served by uvicorn; Markdown rendered on
 |---|---|
 | Access from another machine | The server binds `127.0.0.1` only. Configuration naming another host is refused at startup. |
 | DNS rebinding | `Host` must be `127.0.0.1:<port>` or `localhost:<port>`; otherwise the request is refused. |
-| Another local web server receiving the session cookie | Browsers send a cookie to every port of a host (RFC 6265), so a server on another 127.0.0.1 port that the reader visits receives it. The session ends after `server.session_minutes` (480 by default) and when `serve` stops. Such a server could also start paid work: an update or a question. That is bounded: an update has a total budget (`generation.max_budget_usd_per_update`), updates from the page wait `server.update_cooldown_seconds` after the last one, and one question runs at a time with its own budget. Accepted on that basis; revisit with a unique `*.localhost` host name if it proves insufficient. |
+| Another local web server receiving the session cookie | Browsers send a cookie to every port of a host (RFC 6265), so a server on another 127.0.0.1 port that the reader visits receives it. The session ends after `server.session_minutes` (480 by default) and when `serve` stops. Such a server could also start paid work: an update or a question. That is bounded: an update has a total budget (`generation.max_budget_usd_per_update`), updates from the page wait `server.update_cooldown_seconds` after the last one, one question runs at a time with its own budget, and grading runs one at a time, `learn.grading_cooldown_seconds` apart, with a budget of `learn.max_budget_usd` per answer. Accepted on that basis; revisit with a unique `*.localhost` host name if it proves insufficient. |
 | Other websites reading or driving the page | `serve` opens the browser at `/login?code=…`; the code is single-use and expires after `server.login_code_ttl_seconds`. It is exchanged for an `HttpOnly`, `SameSite=Strict` session cookie and removed from the URL. Every route except `/login` requires the session. Sessions live in memory and end when `serve` stops. |
 | Cross-site request forgery | Every `POST` needs an `Origin` equal to the served origin and an `X-Codetrail-Token` header matching the per-session token, which the page reads from a `<meta>` tag. Tokens come from `secrets.token_urlsafe(32)`. |
 | Script injection through repository content or Claude's output | Jinja2 autoescaping; Markdown with raw HTML disabled; only `http(s)` and relative links (markdown-it-py's link validation drops `javascript:`, `data:` and others); Mermaid labels escaped and Mermaid's `securityLevel: "strict"`; a CSP of `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'` (inline styles only because Mermaid injects `<style>` into its SVGs); `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`. |
@@ -411,6 +411,10 @@ cache_seconds = 60
 
 [diagrams]
 max_nodes = 25
+
+[extract]
+max_file_bytes = 1_000_000   # larger files are skipped with a warning
+max_attribute_chars = 300    # text taken from a file into a fact is cut to this length
 
 [tools]
 gitleaks = "gitleaks"

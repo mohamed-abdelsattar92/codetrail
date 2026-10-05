@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path, PurePosixPath
 from typing import Any, Protocol
 
@@ -62,15 +62,21 @@ class Extraction:
 
 
 DEFAULT_MAX_FILE_BYTES = 1_000_000
+DEFAULT_MAX_ATTRIBUTE_CHARS = 300
 
 
 def run_extractors(
-    source: Path, paths: Iterable[str], extractors: Sequence[Extractor], max_file_bytes: int = DEFAULT_MAX_FILE_BYTES
+    source: Path,
+    paths: Iterable[str],
+    extractors: Sequence[Extractor],
+    max_file_bytes: int = DEFAULT_MAX_FILE_BYTES,
+    max_attribute_chars: int = DEFAULT_MAX_ATTRIBUTE_CHARS,
 ) -> Extraction:
     """Runs every extractor over the listed files of `source`; nothing outside the list is read.
 
     Files over `max_file_bytes` are skipped with a warning, and facts whose attributes aren't plain JSON become a
-    warning for their file, so no file can stall or break an update.
+    warning for their file, so no file can stall or break an update. Text attributes come from the target's files and
+    reach prompts and pages, so each is cut to `max_attribute_chars`, and a fact whose id is longer is skipped.
     """
     listed = sorted(paths)
     warnings: list[str] = []
@@ -94,6 +100,12 @@ def run_extractors(
             except Exception as error:
                 warnings.append(f"{extractor.name}: {path}: could not be read ({type(error).__name__})")
                 continue
+            facts = _cut_attributes(facts, max_attribute_chars)
+            if any(len(entity.id) > max_attribute_chars for entity in facts.entities):
+                warnings.append(
+                    f"{extractor.name}: {path}: skipped a fact whose id is longer than {max_attribute_chars} characters"
+                )
+                facts = replace(facts, entities=tuple(e for e in facts.entities if len(e.id) <= max_attribute_chars))
             found[extractor.name].append(facts)
             for entity in facts.entities:
                 _merge(entities, entity, extractor.name, path, warnings)
@@ -112,6 +124,22 @@ def run_extractors(
         relations=sorted(relations.values(), key=lambda relation: relation.key),
         warnings=warnings,
         unresolved=unresolved,
+    )
+
+
+def _cut_attributes(facts: FileFacts, limit: int) -> FileFacts:
+    def cut(value: Any) -> Any:
+        if isinstance(value, str) and len(value) > limit:
+            return value[: limit - 1] + "…"
+        return [cut(item) for item in value] if isinstance(value, list) else value
+
+    def cut_all(attributes: Mapping[str, Any]) -> dict[str, Any]:
+        return {key: cut(value) for key, value in attributes.items()}
+
+    return replace(
+        facts,
+        entities=tuple(replace(entity, attributes=cut_all(entity.attributes)) for entity in facts.entities),
+        references=tuple(replace(item, attributes=cut_all(item.attributes)) for item in facts.references),
     )
 
 

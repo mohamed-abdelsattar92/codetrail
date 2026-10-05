@@ -15,7 +15,7 @@ from markupsafe import Markup
 
 from codetrail.facts.store import FactStore
 from codetrail.generate.validate import DIAGRAM, FILE_CITATION, MARKER
-from codetrail.web.diagrams import Diagram, dependencies_diagram, imports_diagram
+from codetrail.web.diagrams import Diagram, dependencies_diagram, imports_diagram, resources_diagram
 
 FACT_LINK = re.compile(r"\[\[([a-z_]+:[^\]\s]+)\]\]")
 MARKDOWN = MarkdownIt("commonmark", {"html": False, "linkify": False}).enable("table")
@@ -90,4 +90,6 @@ def _diagram(arguments: str, store: FactStore, max_nodes: int) -> Diagram | None
         return imports_diagram(store, value, max_nodes)
     if kind == "dependencies":
         return dependencies_diagram(store, value)
+    if kind == "resources":
+        return resources_diagram(store, value, max_nodes)
     return None

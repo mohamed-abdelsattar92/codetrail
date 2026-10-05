@@ -62,3 +62,17 @@ def test_front_matter_with_hostile_text_stays_data(guide: GuideRepository) -> No
     hostile = Page("concepts/x", {"kind": "concept", "title": "---\n!!python/object:os.system 'id'"}, "---\nbody")
     guide.write_page(hostile)
     assert guide.read_page("concepts/x") == hostile
+
+
+@pytest.mark.parametrize("commit", ["--output=/tmp/x", "-p", "HEAD", "not-hex", "a" * 41])
+def test_file_at_refuses_anything_but_a_commit_id(guide: GuideRepository, commit: str) -> None:
+    guide.write_page(page())
+    guide.commit("First")
+    assert guide.file_at(commit, "concepts/contract-first") is None
+
+
+def test_file_at_reads_a_page_at_a_commit(guide: GuideRepository) -> None:
+    guide.write_page(page())
+    head = guide.commit("First")
+    assert head is not None
+    assert "# Body" in (guide.file_at(head, "concepts/contract-first") or "")
