@@ -1,7 +1,8 @@
 """The openapi extractor: an OpenAPI document's routes, its schemas, and what uses what (design section 5.2).
 
 Only local references (`#/components/schemas/<name>`) become relations; a remote or file `$ref` is never followed.
-Documents are walked iteratively, to a fixed depth, so no nesting can exhaust the stack.
+Documents are walked iteratively, to a fixed depth, so no nesting can exhaust the stack. YAML aliases are refused:
+they let a few hundred bytes stand for an unbounded tree (or a loop), and OpenAPI documents don't need them.
 """
 
 from __future__ import annotations
@@ -38,6 +39,16 @@ def local_refs(value: Any) -> Iterator[str]:
             stack.extend((child, depth + 1) for child in node)
 
 
+def _text(value: Any) -> str:
+    return value if isinstance(value, str) else ""
+
+
+def _load_yaml(text: str) -> Any:
+    if any(isinstance(event, yaml.AliasEvent) for event in yaml.parse(text, Loader=yaml.SafeLoader)):
+        raise ValueError("YAML aliases are not read")
+    return yaml.safe_load(text)
+
+
 class OpenApiExtractor:
     name = "openapi"
     version = 1
@@ -53,7 +64,7 @@ class OpenApiExtractor:
 
     def extract(self, path: str, content: bytes) -> FileFacts:
         text = content.decode("utf-8")
-        document = json.loads(text) if path.endswith(".json") else yaml.safe_load(text)
+        document = json.loads(text) if path.endswith(".json") else _load_yaml(text)
         if not isinstance(document, Mapping) or not ("openapi" in document or "swagger" in document):
             return FileFacts(path)
         entities: list[Entity] = []
@@ -68,7 +79,7 @@ class OpenApiExtractor:
                 route_id = f"route:{method.upper()} {route_path}"
                 attributes = {
                     "method": method.upper(), "path": str(route_path),
-                    "operation_id": str(operation.get("operationId", "")), "summary": str(operation.get("summary", "")),
+                    "operation_id": _text(operation.get("operationId")), "summary": _text(operation.get("summary")),
                     "tags": [str(tag) for tag in operation.get("tags", []) if isinstance(tag, str)], "document": path,
                 }  # fmt: skip
                 entities.append(Entity(route_id, EntityKind.ROUTE, attributes, source))

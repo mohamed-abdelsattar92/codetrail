@@ -118,3 +118,15 @@ def test_attributes_that_are_not_json_become_a_warning(tmp_path: Path) -> None:
     extraction = run_extractors(tmp_path, paths, [Dates()])
     assert extraction.entities == []
     assert extraction.warnings == ["words: a.txt: could not be read (TypeError)"]
+
+
+class Long(Words):
+    def extract(self, path: str, content: bytes) -> FileFacts:
+        return FileFacts(path, (Entity(f"module:{path}", EntityKind.MODULE, {"text": "x" * 50, "list": ["y" * 50]}),))
+
+
+def test_long_text_attributes_are_cut(tmp_path: Path) -> None:
+    """Text from a target file reaches prompts and pages, so it's bounded (Phase 7 review, finding 3)."""
+    paths = write(tmp_path, {"a.txt": "red"})
+    extraction = run_extractors(tmp_path, paths, [Long()], max_attribute_chars=10)
+    assert dict(extraction.entities[0].attributes) == {"text": "x" * 9 + "…", "list": ["y" * 9 + "…"]}

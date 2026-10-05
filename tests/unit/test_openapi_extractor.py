@@ -83,3 +83,21 @@ def test_deep_nesting_stays_bounded(tmp_path: Path) -> None:
     document = {"openapi": "3.1.0", "paths": {}, "components": {"schemas": {"Deep": deep}}}
     extraction = run(tmp_path, {"openapi.json": json.dumps(document)})
     assert [entity.id for entity in extraction.entities] == ["schema:Deep"]
+
+
+def test_yaml_aliases_are_refused(tmp_path: Path) -> None:
+    """Aliases let a few hundred bytes expand without bound (Phase 7 review, finding 2)."""
+    laughs = ["openapi: 3.0.0", "a0: &a0 [x, x, x, x, x, x, x, x, x, x]"]
+    laughs += [f"a{n}: &a{n} [" + ", ".join([f"*a{n - 1}"] * 10) + "]" for n in range(1, 10)]
+    laughs += ["paths:", "  /x:", "    get:", "      summary: *a9", "      operationId: get_x"]
+    recursive = "openapi: 3.0.0\npaths:\n  /x:\n    get: &loop\n      operationId: get_x\n      more: [*loop, *loop]\n"
+    extraction = run(tmp_path, {"one/openapi.yaml": "\n".join(laughs) + "\n", "two/openapi.yaml": recursive})
+    assert extraction.entities == []
+    assert len(extraction.warnings) == 2
+
+
+def test_free_text_must_be_text(tmp_path: Path) -> None:
+    document = {"openapi": "3.1.0", "paths": {"/x": {"get": {"operationId": ["a", "b"], "summary": {"no": 1}}}}}
+    extraction = run(tmp_path, {"openapi.json": json.dumps(document)})
+    route = extraction.entities[0]
+    assert (route.attributes["operation_id"], route.attributes["summary"]) == ("", "")

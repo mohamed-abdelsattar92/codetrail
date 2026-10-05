@@ -61,7 +61,10 @@ def run_update(paths: Paths, name: str, claude: Claude | None = None, facts_only
     with target_lock(paths, name):
         manifest = refresh_while_locked(paths, name)
         source = data / "source"
-        extraction = run_extractors(source, manifest.files, build_extractors(target), settings.extract.max_file_bytes)
+        extraction = run_extractors(
+            source, manifest.files, build_extractors(target), settings.extract.max_file_bytes,
+            settings.extract.max_attribute_chars,
+        )  # fmt: skip
         connection = connect(data / "codetrail.db")
         try:
             store = FactStore(connection)

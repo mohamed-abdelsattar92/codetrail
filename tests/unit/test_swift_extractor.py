@@ -91,3 +91,27 @@ def test_imports_belong_to_their_target(tmp_path: Path) -> None:
 def test_a_broken_manifest_is_a_warning_not_a_failure(tmp_path: Path) -> None:
     extraction = run(tmp_path, {"Pkg/Package.swift": 'let package = Package(name: "X", targets: [.target(name: '})
     assert "project:Pkg" in {entity.id for entity in extraction.entities}
+
+
+def test_hostile_manifests_stay_linear(tmp_path: Path) -> None:
+    """A committed Package.swift can't stall the update (Phase 7 review, finding 1)."""
+    import time
+
+    hostile = {
+        "a/Package.swift": ".target(" * 120_000,
+        "b/Package.swift": '.package(url: "a"' * 55_000,
+        "c/Package.swift": '.target(name: "A", ' * 50_000 + ")" * 50_000,
+        "d/Package.swift": '.target(name: "A", dependencies: [.product(name: "P", package: "Q"' * 15_000,
+    }
+    started = time.monotonic()
+    extraction = run(tmp_path, hostile)
+    assert time.monotonic() - started < 2
+    assert {"project:a", "project:b", "project:c", "project:d"} <= {entity.id for entity in extraction.entities}
+
+
+def test_package_urls_lose_their_credentials(tmp_path: Path) -> None:
+    url = "https://me:hunter2@git.example/Lib.git"
+    manifest = f'let package = Package(name: "X", dependencies: [.package(url: "{url}", from: "1.0.0")])'
+    extraction = run(tmp_path, {"X/Package.swift": manifest})
+    entities = {entity.id: entity for entity in extraction.entities}
+    assert entities["package:swift/lib"].attributes == {"url": "https://git.example/Lib.git"}

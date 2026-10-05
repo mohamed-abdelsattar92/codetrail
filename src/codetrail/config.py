@@ -83,6 +83,7 @@ class ClaudeSettings(Settings):
 
 class ExtractSettings(Settings):
     max_file_bytes: int = Field(default=1_000_000, gt=0)
+    max_attribute_chars: int = Field(default=300, ge=10)
 
 
 class ServerSettings(Settings):

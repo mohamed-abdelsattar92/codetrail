@@ -412,6 +412,10 @@ cache_seconds = 60
 [diagrams]
 max_nodes = 25
 
+[extract]
+max_file_bytes = 1_000_000   # larger files are skipped with a warning
+max_attribute_chars = 300    # text taken from a file into a fact is cut to this length
+
 [tools]
 gitleaks = "gitleaks"
 

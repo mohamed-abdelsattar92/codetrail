@@ -1,9 +1,12 @@
 """The swift extractor: Swift packages, their targets, dependencies, and the imports of each target (design 5.2).
 
 `Package.swift` is read for the package's name, its targets (with their source folder and dependencies) and the
-packages it fetches by URL. Each `.swift` file belongs to the target whose folder holds it; its `import` lines, read
-with tree-sitter, become edges from that target to another target or to an external package's product. Apple's
-frameworks (Foundation, SwiftUI...) resolve to nothing and are counted once each.
+packages it fetches by URL (without any credentials in it). The manifest is untrusted, so reading it stays linear:
+brackets are paired in one pass, a target call inside another is skipped, and every pattern's tail is bounded.
+
+Each `.swift` file belongs to the target whose folder holds it; its `import` lines, read with tree-sitter, become
+edges from that target to another target or to an external package's product. Apple's frameworks (Foundation,
+SwiftUI...) resolve to nothing and are counted once each.
 """
 
 from __future__ import annotations
@@ -11,6 +14,7 @@ from __future__ import annotations
 import re
 from collections.abc import Iterator, Mapping, Sequence
 from pathlib import PurePosixPath
+from urllib.parse import urlsplit
 
 import tree_sitter_swift
 from tree_sitter import Language, Parser
@@ -22,10 +26,10 @@ SWIFT = Language(tree_sitter_swift.language())
 TARGET_CALL = re.compile(r"\.(target|testTarget|executableTarget)\s*\(")
 NAME = re.compile(r'\bname\s*:\s*"([^"]+)"')
 PATH = re.compile(r'\bpath\s*:\s*"([^"]+)"')
-PRODUCT = re.compile(r'\.product\s*\(\s*name\s*:\s*"([^"]+)"\s*,\s*package\s*:\s*"([^"]+)"[^)]*\)')
-NAMED_TARGET = re.compile(r'\.(?:target|byName)\s*\(\s*name\s*:\s*"([^"]+)"[^)]*\)')
+PRODUCT = re.compile(r'\.product\s*\(\s*name\s*:\s*"([^"]+)"\s*,\s*package\s*:\s*"([^"]+)"[^)]{0,2000}\)')
+NAMED_TARGET = re.compile(r'\.(?:target|byName)\s*\(\s*name\s*:\s*"([^"]+)"[^)]{0,2000}\)')
 QUOTED = re.compile(r'"([^"]+)"')
-REMOTE_PACKAGE = re.compile(r'\.package\s*\(\s*url\s*:\s*"([^"]+)"([^)]*)\)')
+REMOTE_PACKAGE = re.compile(r'\.package\s*\(\s*url\s*:\s*"([^"]+)"([^)]{0,2000})\)')
 VERSION = re.compile(r'"([0-9][^"]*)"')
 IMPORT_KINDS = {"typealias", "struct", "class", "enum", "protocol", "let", "var", "func"}
 
@@ -47,11 +51,33 @@ def _balanced(text: str, start: int, opening: str, closing: str) -> str | None:
     return None
 
 
+def _without_credentials(url: str) -> str:
+    parts = urlsplit(url)
+    if "@" not in parts.netloc:
+        return url
+    return parts._replace(netloc=parts.netloc.rsplit("@", 1)[1]).geturl()
+
+
+def _closing_brackets(text: str) -> dict[int, int]:
+    """Each "(" position paired with its ")", found in one pass; a bracket that never closes has no entry."""
+    pairs, open_at = {}, []
+    for index, character in enumerate(text):
+        if character == "(":
+            open_at.append(index)
+        elif character == ")" and open_at:
+            pairs[open_at.pop()] = index
+    return pairs
+
+
 def _calls(text: str) -> Iterator[tuple[str, str]]:
+    """Each target call and its arguments; one inside another call's arguments is skipped, so no text is read twice."""
+    closing = _closing_brackets(text)
+    read_to = -1
     for match in TARGET_CALL.finditer(text):
-        body = _balanced(text, match.end() - 1, "(", ")")
-        if body is not None:
-            yield match.group(1), body
+        start = match.end() - 1
+        if start > read_to and start in closing:
+            read_to = closing[start]
+            yield match.group(1), text[start + 1 : read_to]
 
 
 class SwiftExtractor:
@@ -91,6 +117,7 @@ class SwiftExtractor:
         entities = [Entity(project, EntityKind.PROJECT, {"name": package_name, "language": "swift"}, source)]
         references: list[Reference] = []
         for url, rest in REMOTE_PACKAGE.findall(text):
+            url = _without_credentials(url)
             external = package_id(url.rstrip("/").rsplit("/", 1)[-1])
             entities.append(Entity(external, EntityKind.PACKAGE, {"url": url}, source))
             version = VERSION.search(rest)
