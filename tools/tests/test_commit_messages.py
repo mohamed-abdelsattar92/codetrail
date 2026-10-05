@@ -1,5 +1,5 @@
 """Tests for the commit message rules: commitlint.config.mjs, which the commit-msg hook uses, and
-commitlint.ci.config.mjs, which CI uses (AGENTS.md, Workflow). Adapted from hamesh-monorepo's."""
+commitlint.ci.config.mjs, which CI uses (AGENTS.md, Workflow)."""
 import pathlib
 import subprocess
 

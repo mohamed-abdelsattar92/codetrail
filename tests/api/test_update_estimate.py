@@ -11,7 +11,7 @@ from tests.api.test_guide_pages import paths as paths  # the fixture
 
 ESTIMATE = UpdateEstimate(
     [EstimateLine(CallEstimate("write", "claude_code", "claude-sonnet-5-5", 120_000, 6_000, 0.3, False), 2, 5)],
-    {"claude_code": "Claude subscription (max)"}, [], 10.0,
+    {"claude_code": "Claude subscription (max)"}, [], 10.0, 5_000_000,
 )  # fmt: skip
 
 
@@ -43,6 +43,7 @@ def test_the_update_waits_with_its_estimate_and_goes_on_with_its_id(paths: Paths
     assert estimate["sign_ins"] == {"claude_code": "Claude subscription (max)"}
     estimate_id = status["estimate_id"]
     assert client.post("/update/confirm", json={"estimate_id": "wrong"}, headers=headers).status_code == 428
+    assert client.post("/update/confirm", json={"estimate_id": "\u00e9t\u00e9"}, headers=headers).status_code == 428
     assert client.post("/update/confirm", json={"estimate_id": estimate_id}).status_code == 403  # no token
     assert client.post("/update/confirm", json={"estimate_id": estimate_id}, headers=headers).status_code == 200
     assert client.post("/update/confirm", json={"estimate_id": estimate_id}, headers=headers).status_code == 428
@@ -83,7 +84,7 @@ def test_nothing_to_estimate_means_no_question(paths: Paths) -> None:
     decisions: list[bool] = []
 
     def updater(confirm: Callable[[UpdateEstimate], bool]) -> None:
-        decisions.append(confirm(UpdateEstimate([], {}, [], 10.0)))
+        decisions.append(confirm(UpdateEstimate([], {}, [], 10.0, 5_000_000)))
 
     session = SessionState(60)
     client = client_for(paths, session, updater=updater)
@@ -99,6 +100,6 @@ def test_the_status_carries_the_estimate_rendered_for_the_dialog(paths: Paths) -
     html = str(wait_for(client, {"waiting"})["estimate_html"])
     assert "claude_code · claude-sonnet-5-5" in html and "2 to 5" in html
     assert "~126k" in html and "$0.30" in html and "a starting guess" in html
-    assert "no charge" in html and "$10.00" in html
+    assert "no charge" in html and "$10.00 or 5.0M tokens" in html
     page = client.get("/").text
     assert "data-estimate-dialog" in page and "Go ahead" in page

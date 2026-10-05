@@ -62,3 +62,12 @@ def test_unknown_tools_and_bad_arguments_are_refused(tools: LocalTools) -> None:
     assert tools.run("bash", {"command": "ls"}).startswith("Refused:")
     assert tools.run("read", {"file": "app/main.py"}).startswith("Refused:")
     assert tools.run("read", {"path": 3}).startswith("Refused:")
+
+
+def test_symlinks_are_never_followed(tools: LocalTools, tmp_path: Path) -> None:
+    """source/ never holds symlinks, but the tools don't rely on that: one pointing outside is ignored."""
+    (tools.root / "app" / "link.txt").symlink_to(tmp_path / "outside.txt")
+    (tools.root / "linked").symlink_to(tmp_path, target_is_directory=True)
+    assert "secret" not in tools.run("grep", {"text": "secret"})
+    assert "link" not in tools.run("glob", {"pattern": "**/*.txt"})
+    assert tools.run("read", {"path": "app/link.txt"}).startswith("Refused:")

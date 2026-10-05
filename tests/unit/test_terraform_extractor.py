@@ -28,8 +28,8 @@ data "google_project" "this" {}
 """
 
 ENVIRONMENT = """
-module "hamesh" {
-  source      = "../../modules/hamesh"
+module "shop" {
+  source      = "../../modules/shop"
   environment = "dev"
 }
 
@@ -47,22 +47,22 @@ def run(root: Path, files: dict[str, str]):  # type: ignore[no-untyped-def]
 
 
 def test_modules_resources_calls_and_references(tmp_path: Path) -> None:
-    extraction = run(tmp_path, {"infra/modules/hamesh/main.tf": MODULE, "infra/envs/dev/main.tf": ENVIRONMENT})
+    extraction = run(tmp_path, {"infra/modules/shop/main.tf": MODULE, "infra/envs/dev/main.tf": ENVIRONMENT})
     entities = {entity.id: entity for entity in extraction.entities}
-    assert entities["terraform_module:infra/modules/hamesh"].kind is EntityKind.TERRAFORM_MODULE
+    assert entities["terraform_module:infra/modules/shop"].kind is EntityKind.TERRAFORM_MODULE
     assert entities["terraform_module:infra/envs/dev"].kind is EntityKind.TERRAFORM_MODULE
-    bucket = entities["resource:infra/modules/hamesh/google_storage_bucket.audio"]
-    assert bucket.attributes == {"type": "google_storage_bucket", "name": "audio", "module": "infra/modules/hamesh"}
+    bucket = entities["resource:infra/modules/shop/google_storage_bucket.audio"]
+    assert bucket.attributes == {"type": "google_storage_bucket", "name": "audio", "module": "infra/modules/shop"}
     assert bucket.sources[0].start_line == 2
-    assert "resource:infra/modules/hamesh/google_project.this" not in entities  # data sources aren't resources
+    assert "resource:infra/modules/shop/google_project.this" not in entities  # data sources aren't resources
     edges = {(r.source_id, r.kind, r.target_id) for r in extraction.relations}
-    assert ("terraform_module:infra/modules/hamesh", RelationKind.CONTAINS, bucket.id) in edges
-    api = "resource:infra/modules/hamesh/google_cloud_run_v2_service.api"
+    assert ("terraform_module:infra/modules/shop", RelationKind.CONTAINS, bucket.id) in edges
+    api = "resource:infra/modules/shop/google_cloud_run_v2_service.api"
     assert (api, RelationKind.REFERENCES, bucket.id) in edges
     assert (
         "terraform_module:infra/envs/dev",
         RelationKind.REFERENCES,
-        "terraform_module:infra/modules/hamesh",
+        "terraform_module:infra/modules/shop",
     ) in edges
     assert extraction.unresolved == {"terraform": 1}  # the registry module
 

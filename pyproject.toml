@@ -22,6 +22,11 @@ dependencies = [
 [project.scripts]
 codetrail = "codetrail.cli:main"
 
+[tool.uv]
+# Rebuild an installed Codetrail whenever the checkout's commit changes, not only when pyproject.toml does,
+# so `uv tool install --reinstall .` after a `git pull` installs the new code.
+cache-keys = [{ file = "pyproject.toml" }, { git = { commit = true } }]
+
 [build-system]
 requires = ["uv_build>=0.12,<0.13"]
 build-backend = "uv_build"
@@ -30,7 +35,7 @@ build-backend = "uv_build"
 line-length = 120
 target-version = "py314"
 src = ["src", "tests"]
-# Hamesh's hook scripts and their tests are copied with their own compact style (AGENTS.md, writing code rule 3).
+# The hook scripts and their tests keep the compact style they were adapted in (AGENTS.md, writing code rule 3).
 extend-exclude = [".claude", "tools", "*.md"]
 
 [tool.ruff.lint]

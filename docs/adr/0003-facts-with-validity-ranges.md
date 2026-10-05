@@ -8,7 +8,7 @@
 
 ## Context
 - Every update takes a snapshot of the facts and needs the difference from the previous one, to find the pages to rewrite and to write the digest.
-- Hamesh has about 1,300 tracked files, a few thousand facts. The founder wants the design to stay workable on repositories of around 100,000 files, roughly a million relations per snapshot.
+- The first test repository, a monorepo, has about 1,300 tracked files, a few thousand facts. The founder wants the design to stay workable on repositories of around 100,000 files, roughly a million relations per snapshot.
 - Storing a full copy of the facts per update grows with repository size times the number of updates: gigabytes at that scale.
 - The fact store's schema is costly to change once guides and learning state depend on it.
 

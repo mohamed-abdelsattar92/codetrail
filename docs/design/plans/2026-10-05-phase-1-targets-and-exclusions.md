@@ -54,7 +54,7 @@ def load_global(paths: Paths) -> GlobalConfig                 # absent file -> d
 def load_target(paths: Paths, name: str) -> TargetConfig      # absent -> CodetrailError naming `target add`
 def write_target(paths: Paths, name: str, repository: Path, branch: str) -> Path   # refuses to overwrite
 ```
-**Tests:** XDG variables respected and defaults under the home folder; bad names (`../x`, `Hamesh`, `a b`, empty, 64 chars) refused; unknown keys refused naming the key; missing target file message names `codetrail target add`; written TOML round-trips (including a path with `"` and non-ASCII); `write_target` refuses an existing target; the repository may not be inside `data_dir` nor contain it.
+**Tests:** XDG variables respected and defaults under the home folder; bad names (`../x`, `Shop`, `a b`, empty, 64 chars) refused; unknown keys refused naming the key; missing target file message names `codetrail target add`; written TOML round-trips (including a path with `"` and non-ASCII); `write_target` refuses an existing target; the repository may not be inside `data_dir` nor contain it.
 
 ### Task 2: Exclusion rules
 

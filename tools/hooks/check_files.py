@@ -1,4 +1,4 @@
-"""Pre-commit check of staged files, adapted from hamesh-monorepo's.
+"""Pre-commit check of staged files.
 
 - No file over 1 MB outside the vendor folder, where Mermaid lives (ADR 0004).
 Sizes are read from the staged blobs, not the working tree.

@@ -8,7 +8,7 @@ from codetrail.facts import EntityKind, RelationKind
 
 PYPROJECT = """
 [project]
-name = "hamesh-api"
+name = "shop-api"
 requires-python = ">=3.14"
 dependencies = ["fastapi==0.120.0", "PyYAML>=6", "SQLAlchemy[asyncio]~=2.0"]
 
@@ -32,7 +32,7 @@ def test_projects_packages_and_dependencies(tmp_path: Path) -> None:
     extraction = extract(tmp_path, {"services/api/pyproject.toml": PYPROJECT})
     entities = {entity.id: entity for entity in extraction.entities}
     project = entities["project:services/api"]
-    assert project.attributes == {"name": "hamesh-api", "requires_python": ">=3.14"}
+    assert project.attributes == {"name": "shop-api", "requires_python": ">=3.14"}
     assert {"package:pypi/fastapi", "package:pypi/pyyaml", "package:pypi/sqlalchemy", "package:pypi/pytest"} <= set(
         entities
     )

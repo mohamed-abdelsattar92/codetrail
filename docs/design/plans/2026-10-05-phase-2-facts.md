@@ -84,12 +84,12 @@ Projects from `pyproject.toml` (`project:<dir>`, attributes `name`, `requires_py
 ### Task 5: The adr extractor
 **Files:** `src/codetrail/extract/adr.py`, `tests/unit/test_adr_extractor.py`.
 Handles files matching the target's `[adr] paths` globs. Number from the heading `# 0023. Title` (or the file name `0023-title.md`); title from the heading; status from a `Status:` line (list item or plain) or the first line under `## Status`, lower-cased up to the first space or parenthesis; date from a `Date:` line. `superseded by NNNN` in the status gives `decision:ADR-NNNN supersedes decision:ADR-this`. Files without a number (README, template) are skipped.
-**Tests:** Hamesh's format; a Nygard-style `## Status` section; superseded; template and README skipped.
+**Tests:** a `Status:` line format; a Nygard-style `## Status` section; superseded; template and README skipped.
 
 ### Task 6: The update command
 **Files:** modify `src/codetrail/config.py` (`TargetConfig.extractors: list[str] = ["python", "adr"]`, `adr: AdrSettings(paths=["docs/adr/*.md"])`), `src/codetrail/repo/refresh.py` (lock taken by callers), `src/codetrail/cli.py`; create `src/codetrail/update.py`, `tests/e2e/test_update_command.py`.
 `run_update(paths, name) -> UpdateResult` locks, refreshes the sources, runs the enabled extractors, records the snapshot in `data/<name>/codetrail.db`. The CLI prints the commit, per-kind counts of added/changed/removed facts, unresolved references and warnings. An unknown extractor name in configuration is refused at load.
 **Tests:** a fixture project updated, then a commit adding a module and changing a dependency, then an update with no change; the target unchanged throughout.
 
-### Task 7: Documents, Hamesh, finish
-README (Phase 2 done, `update` prints facts), spec 5.1 (`prepare`), then `codetrail update hamesh` with the read-only check, `just ci`, security review, finish.
+### Task 7: Documents, the first test repository, finish
+README (Phase 2 done, `update` prints facts), spec 5.1 (`prepare`), then `codetrail update shop` with the read-only check, `just ci`, security review, finish.

@@ -54,8 +54,8 @@ def _calls(target: TargetConfig, work: PlannedWork) -> list[tuple[str, str, str,
     plan, write, digest = (model_choice(getattr(target.models, kind)) for kind in ("plan", "write", "digest"))
     return [
         ("plan", *plan, work.plan_calls, work.plan_calls),
-        ("write", *write, work.pages_expected, work.pages_max),
-        ("digest", *digest, int(work.digest), int(work.digest)),
+        ("write", *write, work.pages_expected, work.page_calls_max),
+        ("digest", *digest, int(work.digest_expected), int(work.digest_possible)),
     ]
 
 
@@ -127,7 +127,8 @@ def run_update(
             if confirm is not None:
                 work = planned_work(context)
                 estimate = estimate_update(connection, _calls(target, work), settings.estimates, settings.prices,
-                                           sign_ins, target.generation.max_budget_usd_per_update)  # fmt: skip
+                                           sign_ins, target.generation.max_budget_usd_per_update,
+                                           target.generation.max_tokens_per_update)  # fmt: skip
                 if not confirm(estimate):
                     return UpdateResult(manifest, snapshot, diff, extraction, None, estimate, declined=True)
             writer = claude or build_assistant(source, settings, target)

@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Hamesh's OpenAPI contract, Terraform infrastructure and Swift packages become facts, so the guide, the diagrams and the "you're behind" pages cover the API contract, the cloud resources and the iOS app's structure.
+**Goal:** A target repository's OpenAPI contract, Terraform infrastructure and Swift packages become facts, so the guide, the diagrams and the "you're behind" pages cover the API contract, the cloud resources and the Swift app's structure.
 
 **Architecture:** Three extractors behind the existing interface. New kinds: entities `route`, `schema`, `terraform_module`, `resource`, `swift_target` (Swift packages are `project` facts); relations `uses_schema`, `references`. The imports diagram also draws Swift targets and their dependencies; a new `resources` diagram draws Terraform modules and resources.
 
@@ -28,4 +28,4 @@
 2. The terraform extractor (modules, resources, module calls, references); tests.
 3. The swift extractor (packages, targets, dependencies, external packages, imports per target); tests.
 4. Diagrams (Swift targets in the imports diagram; a resources diagram; validation and the page syntax); facts summary; tests.
-5. Hamesh: update, check the facts and the diagrams in the browser, Hamesh unchanged; documents; review.
+5. The first test repository: update, check the facts and the diagrams in the browser, the target repository unchanged; documents; review.

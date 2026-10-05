@@ -181,7 +181,7 @@ msgid "Nothing to show yet."
 msgstr ""
 
 #, python-format
-msgid "Plan usage (%(provider)s, %(window)s): %(used)s%%, as of %(when)s UTC."
+msgid "Plan usage (%(provider)s, %(window)s): %(used)s%%, as of %(when)s."
 msgstr ""
 
 msgid "Pointed to by"
@@ -218,7 +218,9 @@ msgid "The update failed:"
 msgstr ""
 
 #, python-format
-msgid "The update stops at its budget of %(budget)s."
+msgid ""
+"The update stops at its budget of %(budget)s or %(tokens)s tokens, "
+"whichever comes first."
 msgstr ""
 
 msgid "There's nothing here. It may be excluded, or not in the guide yet."

@@ -25,7 +25,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from starlette.types import ASGIApp
 
 from codetrail.assistant import Assistant
-from codetrail.assistant.estimate import CallEstimate, UpdateEstimate, estimate_call, tokens_text
+from codetrail.assistant.estimate import CallEstimate, UpdateEstimate, estimate_call, tokens_text, when_text
 from codetrail.assistant.routing import build_assistant
 from codetrail.assistant.status import require_ready
 from codetrail.bridge import bridge_router
@@ -355,6 +355,7 @@ def _environment(templates: str, language: Language) -> Environment:
     )
     environment.install_gettext_translations(language.translations, newstyle=True)  # type: ignore[attr-defined]
     environment.filters["tokens"] = tokens_text
+    environment.filters["utc"] = when_text
     environment.filters["dollars"] = lambda value: "" if value is None else f"${value:.2f}"
     return environment
 
@@ -398,8 +399,10 @@ class UpdateJob:
             self._decision = False
             self.estimate, self.estimate_id = estimate.as_json(), secrets.token_urlsafe(16)
             self.state = "waiting"
-        answered = self._decided.wait(self._ttl)
+        self._decided.wait(self._ttl)
         with self._lock:
+            # Decided under the lock: a confirmation racing the expiry either counts, or is refused by decide().
+            answered = self._decided.is_set()
             self.estimate, self.estimate_id = None, None
             if not answered:
                 self.message = "The estimate expired before it was confirmed, so nothing was spent."
@@ -411,7 +414,11 @@ class UpdateJob:
         """Confirms or cancels the waiting estimate; the id works once, and only while it waits."""
         with self._lock:
             expected = self.estimate_id
-            if self.state != "waiting" or expected is None or not hmac.compare_digest(estimate_id, expected):
+            if (
+                self.state != "waiting"
+                or expected is None
+                or not hmac.compare_digest(estimate_id.encode(), expected.encode())
+            ):
                 return False
             self.estimate_id = None
             self._decision = go_ahead

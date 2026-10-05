@@ -1,4 +1,4 @@
-# Git hook checks for codetrail (decision 11), adapted from hamesh-monorepo's. The git hooks themselves are the small
+# Git hook checks for codetrail (decision 11). The git hooks themselves are the small
 # scripts in tools/git-hooks/, installed by `just setup`; they call `lefthook run`.
 no_auto_install: true
 min_version: 2.1.14

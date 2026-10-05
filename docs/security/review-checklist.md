@@ -1,6 +1,6 @@
 # Security review checklist
 
-Codetrail runs Claude over repositories that hold secrets and serves a local page that can drive Claude, so it is security-first: security wins ties with convenience. Before a feature branch is finished, its commits get the review below. In Claude Code the `security-reviewer` agent (`.claude/agents/security-reviewer.md`) runs it; any other agent or person follows this file directly. It is adapted from `hamesh-monorepo`'s checklist; the process, standards and report are the same, and the product sections are Codetrail's.
+Codetrail runs Claude over repositories that hold secrets and serves a local page that can drive Claude, so it is security-first: security wins ties with convenience. Before a feature branch is finished, its commits get the review below. In Claude Code the `security-reviewer` agent (`.claude/agents/security-reviewer.md`) runs it; any other agent or person follows this file directly. It follows the founder's earlier checklists; the process, standards and report are the same, and the product sections are Codetrail's.
 
 ## When it runs
 1. The author finishes the branch's work, runs its tests and commits it.

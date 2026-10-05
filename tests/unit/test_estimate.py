@@ -59,3 +59,12 @@ def test_plan_usage_readings_carry_their_age(connection: sqlite3.Connection) -> 
     (reading,) = plan_usage(connection)
     assert (reading.provider, reading.window, reading.utilization) == ("claude_code", "five_hour", 0.4)
     assert reading.observed_at
+
+
+def test_times_read_as_minutes_in_utc() -> None:
+    from codetrail.assistant.estimate import PlanUsageReading, UpdateEstimate, describe, when_text
+
+    assert when_text("2026-10-05T06:38:11+00:00") == "2026-10-05 06:38 UTC"
+    reading = PlanUsageReading("claude_code", "five_hour", 0.6, 0, "2026-10-05T06:38:11+00:00")
+    lines = describe(UpdateEstimate([], {}, [reading], 10.0, 5_000_000))
+    assert "five hour): 60%, as of 2026-10-05 06:38 UTC." in lines[-1]

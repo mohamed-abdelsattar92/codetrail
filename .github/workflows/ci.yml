@@ -1,4 +1,4 @@
-# CI for codetrail (decision 11): one Linux job running `just ci`, as Hamesh's CI does for its areas.
+# CI for codetrail (decision 11): one Linux job running `just ci`.
 # Third-party actions are pinned to full commit SHAs. Agents read runs with `gh run list` and never trigger them.
 name: ci
 

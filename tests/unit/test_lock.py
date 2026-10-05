@@ -16,20 +16,20 @@ def paths(tmp_path: Path) -> Paths:
 
 def test_a_second_holder_is_told_an_update_is_running(paths: Paths) -> None:
     with (
-        target_lock(paths, "hamesh"),
+        target_lock(paths, "shop"),
         pytest.raises(CodetrailError, match="already updating"),
-        target_lock(paths, "hamesh"),
+        target_lock(paths, "shop"),
     ):
         pass
 
 
 def test_other_targets_are_independent(paths: Paths) -> None:
-    with target_lock(paths, "hamesh"), target_lock(paths, "other"):
+    with target_lock(paths, "shop"), target_lock(paths, "other"):
         pass
 
 
 def test_the_lock_is_released_after_an_error(paths: Paths) -> None:
-    with pytest.raises(RuntimeError), target_lock(paths, "hamesh"):
+    with pytest.raises(RuntimeError), target_lock(paths, "shop"):
         raise RuntimeError("boom")
-    with target_lock(paths, "hamesh"):
+    with target_lock(paths, "shop"):
         pass
