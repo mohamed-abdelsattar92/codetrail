@@ -25,6 +25,7 @@ from codetrail.extract.openapi import OpenApiExtractor
 from codetrail.extract.python import PythonExtractor
 from codetrail.extract.swift import SwiftExtractor
 from codetrail.extract.terraform import TerraformExtractor
+from codetrail.extract.typescript import TypeScriptExtractor
 from codetrail.facts import FactDiff, Snapshot
 from codetrail.facts.store import FactStore
 from codetrail.generate.run import GenerationContext, GenerationResult, PlannedWork, generate_guide, planned_work
@@ -66,6 +67,7 @@ def build_extractors(target: TargetConfig) -> list[Extractor]:
         "openapi": OpenApiExtractor(target.openapi.paths),
         "terraform": TerraformExtractor(),
         "swift": SwiftExtractor(),
+        "typescript": TypeScriptExtractor(),
     }
     return [available[name] for name in target.extractors]
 

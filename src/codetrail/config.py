@@ -271,12 +271,13 @@ class TargetAssistantSettings(Settings):
 class TargetConfig(Settings):
     repository: Path
     branch: str
-    extractors: list[Literal["python", "adr", "openapi", "terraform", "swift"]] = [
+    extractors: list[Literal["python", "adr", "openapi", "terraform", "swift", "typescript"]] = [
         "python",
         "adr",
         "openapi",
         "terraform",
         "swift",
+        "typescript",
     ]
     adr: AdrSettings = AdrSettings()
     openapi: OpenApiSettings = OpenApiSettings()

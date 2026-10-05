@@ -139,3 +139,26 @@ def test_facts_with_overlong_ids_are_skipped_with_a_warning(tmp_path: Path) -> N
     assert "module:a.txt" in {entity.id for entity in extraction.entities}
     assert all(len(entity.id) <= 30 for entity in extraction.entities)
     assert f"words: {'b' * 40}.txt: skipped a fact whose id is longer than 30 characters" in extraction.warnings
+
+
+class BreaksInPrepare(Words):
+    name = "prepare-breaks"
+
+    def prepare(self, paths: Sequence[str]) -> None:
+        raise ValueError("a hostile config")
+
+
+class BreaksInResolve(Words):
+    name = "resolve-breaks"
+
+    def resolve(self, files: Sequence[FileFacts], known: Mapping[str, Entity]) -> Resolution:
+        raise TypeError("paths was a number")
+
+
+def test_an_extractor_failing_to_prepare_or_resolve_is_a_warning(tmp_path: Path) -> None:
+    paths = write(tmp_path, {"a.txt": "red uses:b.txt", "b.txt": "blue"})
+    extraction = run_extractors(tmp_path, paths, [BreaksInPrepare(), BreaksInResolve(), Words()])
+    assert any("prepare-breaks" in warning and "ValueError" in warning for warning in extraction.warnings)
+    assert any("resolve-breaks" in warning and "TypeError" in warning for warning in extraction.warnings)
+    assert ("module:a.txt", "module:b.txt") in {(r.source_id, r.target_id) for r in extraction.relations}
+    assert not any("hostile" in warning or "number" in warning for warning in extraction.warnings)  # no content

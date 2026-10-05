@@ -84,8 +84,12 @@ def run_extractors(
     found: dict[str, list[FileFacts]] = {}
     for extractor in extractors:
         handled = [path for path in listed if extractor.handles(path)]
-        extractor.prepare(handled)
         found[extractor.name] = []
+        try:
+            extractor.prepare(handled)
+        except Exception as error:  # one extractor's bad input never fails the update; its files are skipped
+            warnings.append(f"{extractor.name}: could not prepare ({type(error).__name__})")
+            continue
         for path in handled:
             file = source / PurePosixPath(path)
             if file.stat().st_size > max_file_bytes:
@@ -112,7 +116,11 @@ def run_extractors(
     relations: dict[tuple[str, str, str], Relation] = {}
     unresolved: dict[str, int] = {}
     for extractor in extractors:
-        resolution = extractor.resolve(found[extractor.name], entities)
+        try:
+            resolution = extractor.resolve(found[extractor.name], entities)
+        except Exception as error:  # its entities stay; only its relations are lost
+            warnings.append(f"{extractor.name}: could not resolve references ({type(error).__name__})")
+            continue
         dangling = [r for r in resolution.relations if r.source_id not in entities or r.target_id not in entities]
         for relation in resolution.relations:
             if relation not in dangling:
