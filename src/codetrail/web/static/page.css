@@ -43,3 +43,8 @@ details { margin-block-start: 0.5rem; font-size: 0.9rem; }
 .guide-page table { margin: 1rem 0; }
 .update { display: flex; gap: 1rem; align-items: center; }
 button { font: inherit; padding: 0.4rem 0.9rem; border-radius: 0.4rem; border: 1px solid var(--line); background: var(--soft); color: var(--text); cursor: pointer; }
+.ask { max-width: 64rem; margin: 2rem auto; padding: 1rem 1.25rem; border-block-start: 1px solid var(--line); }
+.ask textarea { width: 100%; font: inherit; padding: 0.5rem; border-radius: 0.4rem; border: 1px solid var(--line); background: var(--soft); color: var(--text); }
+.ask form { display: grid; gap: 0.5rem; justify-items: start; }
+.answer { white-space: pre-wrap; margin-block: 1rem; }
+.answer:has(p, ul, ol, h1, h2, h3, pre) { white-space: normal; }

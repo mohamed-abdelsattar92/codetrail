@@ -20,7 +20,10 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.types import ASGIApp
 
-from codetrail.config import GlobalConfig, Paths
+from codetrail.bridge import bridge_router
+from codetrail.claude import Claude
+from codetrail.claude.agent_sdk import AgentSdkClaude
+from codetrail.config import GlobalConfig, Paths, load_target
 from codetrail.database import connect
 from codetrail.errors import CodetrailError
 from codetrail.facts import EntityKind
@@ -49,6 +52,7 @@ def create_app(
     settings: GlobalConfig,
     locales: Path | None = None,
     updater: Callable[[], object] | None = None,
+    claude_for: Callable[[], Claude] | None = None,
 ) -> ASGIApp:
     """The page, wrapped in the security middleware outside everything, so every response passes through it.
 
@@ -58,6 +62,14 @@ def create_app(
     view = TargetView(paths, name)
     guide = GuideRepository(paths.target_data(name) / "guide")
     job = UpdateJob(updater or (lambda: run_update(paths, name)))
+
+    def real_claude() -> Claude:
+        target = load_target(paths, name)
+        return AgentSdkClaude(
+            paths.target_data(name) / "source", target.models, target.generation, settings.claude.retry_attempts,
+            (settings.bridge.max_turns, settings.bridge.max_budget_usd),
+        )  # fmt: skip
+
     languages = installed_languages(locales)
     templates = str(files("codetrail.web").joinpath("templates"))
     environments = {code: _environment(templates, language) for code, language in languages.items()}
@@ -218,6 +230,17 @@ def create_app(
             return PlainTextResponse("Not found.", status_code=404)
         return not_found()
 
+    app.include_router(
+        bridge_router(
+            paths,
+            name,
+            claude_for or real_claude,
+            lambda: language().code,
+            settings.bridge.max_question_chars,
+            settings.diagrams.max_nodes,
+            settings.tools.gitleaks,
+        )
+    )
     app.mount("/static", StaticFiles(directory=str(files("codetrail.web").joinpath("static"))), name="static")
     return SecurityMiddleware(app, session=session, port=settings.server.port)
 

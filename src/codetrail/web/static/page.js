@@ -60,7 +60,81 @@ function watchUpdate() {
   poll(false); // show an update that is already running
 }
 
+function watchQuestions() {
+  const section = document.querySelector("[data-ask]");
+  if (!section) return;
+  const form = section.querySelector("[data-ask-form]");
+  const status = section.querySelector("[data-ask-status]");
+  const answer = section.querySelector("[data-answer]");
+  const save = section.querySelector("[data-save-answer]");
+  let answerId = null;
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const question = form.elements.question.value.trim();
+    if (!question) return;
+    form.querySelector("button").disabled = true;
+    save.hidden = true;
+    answer.textContent = "";
+    status.textContent = "Claude is reading the code…";
+    const body = { question };
+    if (section.dataset.pageId) body.page_id = section.dataset.pageId;
+    try {
+      const response = await post("/bridge/questions", body);
+      if (!response.ok) {
+        const problem = await response.json().catch(() => ({}));
+        status.textContent = problem.error ?? `The question was refused (${response.status}).`;
+        return;
+      }
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        let newline;
+        while ((newline = buffer.indexOf("\n")) >= 0) {
+          const line = buffer.slice(0, newline);
+          buffer = buffer.slice(newline + 1);
+          if (!line.trim()) continue;
+          const message = JSON.parse(line);
+          if (message.type === "text") {
+            answer.textContent += message.text; // plain text while it streams
+            status.textContent = "";
+          } else if (message.type === "done") {
+            answer.innerHTML = message.html; // rendered on the server with raw HTML disabled
+            answerId = message.answer_id;
+            save.hidden = false;
+          } else if (message.type === "error") {
+            status.textContent = message.message;
+          }
+        }
+      }
+    } finally {
+      form.querySelector("button").disabled = false;
+    }
+  });
+
+  save.addEventListener("click", async () => {
+    if (!answerId) return;
+    const response = await post(`/bridge/answers/${answerId}/save`, {});
+    const result = await response.json().catch(() => ({}));
+    if (response.ok) {
+      save.hidden = true;
+      status.textContent = "Saved.";
+      const link = document.createElement("a");
+      link.href = `/pages/${result.page_id}`;
+      link.textContent = result.page_id;
+      status.append(" ", link);
+    } else {
+      status.textContent = result.error ?? "Couldn't save the answer.";
+    }
+  });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
+  watchQuestions();
   watchLanguage();
   watchUpdate();
   renderDiagrams();

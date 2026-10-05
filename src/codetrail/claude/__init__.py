@@ -5,6 +5,7 @@ The Agent SDK adapter is the only code that imports the SDK; tests use the fake.
 
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -67,9 +68,31 @@ class DigestDraft:
     cost_usd: float = 0.0
 
 
+@dataclass(frozen=True)
+class QuestionRequest:
+    target: str
+    question: str
+    language: str  # a validated, installed language code
+    page_title: str = ""
+    page_body: str = ""
+    page_facts: list[str] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class AnswerChunk:
+    """A piece of a streamed answer; the last one has `done` set, with the files read and the cost."""
+
+    text: str = ""
+    done: bool = False
+    files_read: list[str] = field(default_factory=list)
+    cost_usd: float = 0.0
+
+
 class Claude(Protocol):
     async def plan(self, request: PlanRequest) -> PlanDraft: ...
 
     async def write_page(self, request: PageRequest) -> PageDraft: ...
 
     async def write_digest(self, request: DigestRequest) -> DigestDraft: ...
+
+    def answer(self, request: QuestionRequest) -> AsyncIterator[AnswerChunk]: ...

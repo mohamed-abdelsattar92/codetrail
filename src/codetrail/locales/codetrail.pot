@@ -31,6 +31,12 @@ msgstr ""
 msgid "Areas touched:"
 msgstr ""
 
+msgid "Ask"
+msgstr ""
+
+msgid "Ask Claude about the code"
+msgstr ""
+
 #, python-format
 msgid "At commit %(commit)s."
 msgstr ""
@@ -66,6 +72,9 @@ msgid ""
 msgstr ""
 
 msgid "Folders"
+msgstr ""
+
+msgid "For example: how does a request reach the database?"
 msgstr ""
 
 msgid "Found in"
@@ -109,6 +118,9 @@ msgid "Pointed to by"
 msgstr ""
 
 msgid "Points to"
+msgstr ""
+
+msgid "Save to guide"
 msgstr ""
 
 msgid "Since the last update"
