@@ -1,5 +1,6 @@
 """gitleaks scanning, with Codetrail's own configuration so a target can't switch it off (design section 3.4)."""
 
+import shutil
 from pathlib import Path
 
 import pytest
@@ -84,3 +85,57 @@ def test_findings_never_carry_the_value(scanner: SecretScanner, tmp_path: Path) 
 def test_a_missing_scanner_fails_closed(tmp_path: Path) -> None:
     with pytest.raises(CodetrailError, match="gitleaks"):
         SecretScanner(str(tmp_path / "no-such-gitleaks")).scan_directory(tmp_path)
+
+
+def write_script(path: Path, body: str) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("#!/bin/sh\n" + body)
+    path.chmod(0o755)
+    return path
+
+
+def test_a_failing_scanner_says_why_and_how_to_point_at_another(tmp_path: Path) -> None:
+    broken = write_script(
+        tmp_path / "bin" / "gitleaks", r"printf '\033[31mmise ERROR No version is set\033[0m\n' >&2; exit 1"
+    )
+    with pytest.raises(CodetrailError) as raised:
+        SecretScanner(str(broken)).scan_text("x")
+    message = str(raised.value)
+    assert "mise ERROR No version is set" in message
+    assert "[tools] gitleaks" in message
+    assert "\033" not in message
+
+
+@pytest.fixture
+def mise_shim(tmp_path: Path) -> Path:
+    """A stand-in for a mise shim: it knows gitleaks' version only in a folder whose mise.toml sets one."""
+    real_gitleaks = shutil.which(GITLEAKS)
+    assert real_gitleaks is not None
+    mise = write_script(
+        tmp_path / "mise" / "bin" / "mise",
+        f'if [ "$1" = which ] && [ -f mise.toml ]; then echo "{real_gitleaks}"; exit 0; fi\n'
+        'if [ "$1" = which ]; then echo "mise ERROR gitleaks is not currently active" >&2; exit 1; fi\n'
+        'echo "mise ERROR No version is set for shim: gitleaks" >&2; exit 1\n',
+    )
+    shim = tmp_path / "mise" / "shims" / "gitleaks"
+    shim.parent.mkdir()
+    shim.symlink_to(mise)
+    return shim
+
+
+def test_a_mise_shim_runs_the_version_set_where_codetrail_was_started(
+    mise_shim: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "mise.toml").write_text('[tools]\ngitleaks = "8"\n')
+    monkeypatch.chdir(project)
+    assert len(SecretScanner(str(mise_shim)).scan_text(f"TOKEN = '{fake_github_token()}'\n")) == 1
+
+
+def test_a_mise_shim_without_a_version_says_why(
+    mise_shim: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(CodetrailError, match=r"gitleaks is not currently active.*\[tools\] gitleaks"):
+        SecretScanner(str(mise_shim)).scan_text("x")

@@ -8,7 +8,7 @@ Codetrail only reads your repository. It never writes to it, and everything it m
 
 - **macOS or Linux**, with **git**.
 - **[uv](https://docs.astral.sh/uv/)**, which installs Codetrail and the Python it needs.
-- **[gitleaks](https://github.com/gitleaks/gitleaks)** on your `PATH` (`brew install gitleaks`, or a release binary). Codetrail refuses to read a repository without it, because it scans every file for secrets first.
+- **[gitleaks](https://github.com/gitleaks/gitleaks)** on your `PATH` (`brew install gitleaks`, a release binary, or `mise use -g gitleaks`; a mise shim works where mise sets a version), or its absolute path in `[tools] gitleaks` in `~/.config/codetrail/config.toml`. Codetrail refuses to read a repository without it, because it scans every file for secrets first.
 - **One assistant**, with a subscription you already have. You can mix them later.
 
 | Assistant | You need | Set it up |
@@ -220,6 +220,8 @@ To remove Codetrail, run `uv tool uninstall codetrail` and delete those folders.
 | You see | Do this |
 |---|---|
 | `gitleaks wasn't found` | Install gitleaks and make sure it's on your `PATH`, or set `[tools] gitleaks` in `config.toml` |
+| `… is a mise shim, and mise couldn't say which gitleaks it runs here` | The `gitleaks` on your `PATH` is a mise shim, and no mise configuration in the folder you ran Codetrail from (or a parent) sets a gitleaks version. Run Codetrail from such a folder, set a global version with `mise use -g gitleaks`, or set `[tools] gitleaks` in `config.toml` to the binary's absolute path (`mise which gitleaks` prints it) |
+| `gitleaks failed (exit code …)` | The message ends with what gitleaks printed. To run a different gitleaks, set `[tools] gitleaks` in `config.toml` to its absolute path |
 | `claude_code isn't ready. Run claude and sign in with /login` | Run `claude`, then `/login` with your Claude account |
 | `Claude Code isn't signed in with a Claude subscription` | You signed in with an API (Console) account: `/login` again with your Claude account, or set `auth = "api_key"` on purpose |
 | `local isn't ready` | Start `ollama serve` (or LM Studio's server) and pull a model |

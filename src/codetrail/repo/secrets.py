@@ -2,13 +2,15 @@
 
 gitleaks always runs with Codetrail's own configuration, ignores `gitleaks:allow` comments and `.gitleaksignore`
 files, and never sees GITLEAKS_* settings, so nothing in a target can switch the scan off. Findings carry the path,
-the rule and the line, never the value. A missing or failing gitleaks raises, so callers fail closed.
+the rule and the line, never the value. A missing or failing gitleaks raises, so callers fail closed, with what it
+printed. A mise shim is resolved to its binary first, since gitleaks runs in an empty folder where no version is set.
 """
 
 from __future__ import annotations
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -23,6 +25,9 @@ COMMON_FLAGS = (
     "--report-format", "json", "--redact", "--no-banner", "--exit-code", "0", "--ignore-gitleaks-allow",
     "--gitleaks-ignore-path", os.devnull, "--log-level", "error",
 )  # fmt: skip
+POINT_AT_ANOTHER = "To run a particular gitleaks, set [tools] gitleaks in the configuration to its absolute path."
+ESCAPE_SEQUENCES = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]|[^\x20-\x7e]")
+MAX_EXPLANATION = 300
 
 
 @dataclass(frozen=True)
@@ -52,13 +57,8 @@ class SecretScanner:
         return self._run(["stdin"], text.encode("utf-8", "surrogateescape"))
 
     def _run(self, arguments: list[str], input: bytes | None) -> list[Finding]:
-        executable = shutil.which(self._executable)
-        if executable is None:
-            raise CodetrailError(
-                f"gitleaks wasn't found ({self._executable!r}); Codetrail won't read a repository without it. "
-                "Install it (for example with `mise install`) or set [tools] gitleaks in the configuration."
-            )
         environment = {key: value for key, value in os.environ.items() if not key.startswith("GITLEAKS_")}
+        executable = self._binary(environment)
         with as_file(files("codetrail.repo") / "gitleaks.toml") as config, tempfile.TemporaryDirectory() as folder:
             report = Path(folder) / "report.json"
             command = [executable, *arguments, "--config", str(config), *COMMON_FLAGS, "--report-path", str(report)]
@@ -67,6 +67,40 @@ class SecretScanner:
                 command, input=input, capture_output=True, env=environment, check=False, cwd=folder
             )
             if result.returncode != 0 or not report.exists():
-                raise CodetrailError(f"gitleaks failed (exit code {result.returncode}); the scan didn't complete.")
+                raise CodetrailError(
+                    f"gitleaks failed (exit code {result.returncode}); the scan didn't complete. "
+                    f"It said: {_explanation(result.stderr)}. {POINT_AT_ANOTHER}"
+                )
             items = json.loads(report.read_text() or "[]")
         return [Finding(path=item["File"], rule=item["RuleID"], line=int(item["StartLine"])) for item in items]
+
+    def _binary(self, environment: dict[str, str]) -> str:
+        """The gitleaks to run; for a mise shim, the one mise picks in the folder Codetrail was started from."""
+        found = shutil.which(self._executable)
+        if found is None:
+            raise CodetrailError(
+                f"gitleaks wasn't found ({self._executable!r}); Codetrail won't read a repository without it. "
+                f"Install it (for example with `mise install`). {POINT_AT_ANOTHER}"
+            )
+        mise = Path(found).resolve()
+        if mise.name != "mise":
+            return found
+        # A shim picks the version from its working directory, and gitleaks runs in an empty one, so ask mise here.
+        result = subprocess.run(  # noqa: S603
+            [str(mise), "which", Path(found).name], capture_output=True, env=environment, check=False
+        )
+        binary = result.stdout.decode("utf-8", "replace").strip()
+        if result.returncode != 0 or not binary:
+            raise CodetrailError(
+                f"{found} is a mise shim, and mise couldn't say which gitleaks it runs here "
+                f"(exit code {result.returncode}). It said: {_explanation(result.stderr)}. "
+                "Run Codetrail from a folder whose mise configuration sets gitleaks, or set a global version with "
+                f"`mise use -g gitleaks`. {POINT_AT_ANOTHER}"
+            )
+        return binary
+
+
+def _explanation(stderr: bytes) -> str:
+    """A program's error output as one printable line, without colour codes, cut short."""
+    lines = (ESCAPE_SEQUENCES.sub("", line).strip() for line in stderr.decode("utf-8", "replace").splitlines())
+    return "; ".join(line for line in lines if line)[:MAX_EXPLANATION] or "nothing"
