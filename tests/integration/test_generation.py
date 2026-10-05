@@ -4,9 +4,10 @@ from pathlib import Path
 
 import pytest
 
-from codetrail.claude import ClaudeError, PageDraft, PageRequest, PlanDraft, PlanRequest
-from codetrail.claude.fake import FakeClaude
+from codetrail.assistant import AssistantError, PageDraft, PageRequest, PlanDraft, PlanRequest, Usage
+from codetrail.assistant.fake import FakeAssistant
 from codetrail.config import Paths, write_target
+from codetrail.database import connect
 from codetrail.errors import CodetrailError
 from codetrail.guide import GuideRepository
 from codetrail.update import run_update
@@ -53,7 +54,7 @@ def guide(paths: Paths) -> GuideRepository:
 
 
 def test_the_first_update_plans_writes_and_commits(paths: Paths) -> None:
-    claude = FakeClaude(plans=[PLAN], page_writer=good_page)
+    claude = FakeAssistant(plans=[PLAN], page_writer=good_page)
     result = run_update(paths, "t", claude=claude)
     generation = result.generation
     assert generation is not None
@@ -70,21 +71,21 @@ def test_the_first_update_plans_writes_and_commits(paths: Paths) -> None:
 
 
 def test_an_update_without_changes_writes_nothing(paths: Paths) -> None:
-    run_update(paths, "t", claude=FakeClaude(plans=[PLAN], page_writer=good_page))
-    claude = FakeClaude(page_writer=good_page)
+    run_update(paths, "t", claude=FakeAssistant(plans=[PLAN], page_writer=good_page))
+    claude = FakeAssistant(page_writer=good_page)
     generation = run_update(paths, "t", claude=claude).generation
     assert generation is not None and generation.written == [] and generation.digest is None
     assert claude.requests == []
 
 
 def test_a_changed_fact_rewrites_only_its_pages(paths: Paths, tmp_path: Path) -> None:
-    run_update(paths, "t", claude=FakeClaude(plans=[PLAN], page_writer=good_page))
+    run_update(paths, "t", claude=FakeAssistant(plans=[PLAN], page_writer=good_page))
     add_commit(
         tmp_path / "target",
         {"services/api/app/routes.py": "from app import db\n"},
         "feat(api): routes\n\nWhy: orders need them",
     )
-    claude = FakeClaude(page_writer=good_page)
+    claude = FakeAssistant(page_writer=good_page)
     generation = run_update(paths, "t", claude=claude).generation
     assert generation is not None
     assert generation.written == ["areas/api"]
@@ -93,7 +94,7 @@ def test_a_changed_fact_rewrites_only_its_pages(paths: Paths, tmp_path: Path) ->
 
 def test_an_invalid_draft_is_retried_once_then_the_old_page_stays(paths: Paths) -> None:
     bad = PageDraft("Cites [[module:ghost.py]].", CHECKS)
-    claude = FakeClaude(plans=[PLAN], pages={"areas/api": [bad, bad]}, page_writer=good_page)
+    claude = FakeAssistant(plans=[PLAN], pages={"areas/api": [bad, bad]}, page_writer=good_page)
     generation = run_update(paths, "t", claude=claude).generation
     assert generation is not None
     assert [page for page, _ in generation.failed] == ["areas/api"]
@@ -104,7 +105,7 @@ def test_an_invalid_draft_is_retried_once_then_the_old_page_stays(paths: Paths) 
 
 
 def test_a_claude_error_on_one_page_doesnt_stop_the_others(paths: Paths) -> None:
-    claude = FakeClaude(plans=[PLAN], pages={"areas/api": [ClaudeError("budget")]}, page_writer=good_page)
+    claude = FakeAssistant(plans=[PLAN], pages={"areas/api": [AssistantError("budget")]}, page_writer=good_page)
     generation = run_update(paths, "t", claude=claude).generation
     assert generation is not None
     assert generation.written == ["concepts/fastapi"]
@@ -113,14 +114,14 @@ def test_a_claude_error_on_one_page_doesnt_stop_the_others(paths: Paths) -> None
 def test_the_page_budget_leaves_the_rest_for_next_time(paths: Paths) -> None:
     file = paths.target_file("t")
     file.write_text(file.read_text() + "[generation]\nmax_pages_per_update = 1\n")
-    generation = run_update(paths, "t", claude=FakeClaude(plans=[PLAN], page_writer=good_page)).generation
+    generation = run_update(paths, "t", claude=FakeAssistant(plans=[PLAN], page_writer=good_page)).generation
     assert generation is not None and len(generation.written) == 1 and len(generation.left_for_later) == 1
-    generation = run_update(paths, "t", claude=FakeClaude(page_writer=good_page)).generation
+    generation = run_update(paths, "t", claude=FakeAssistant(page_writer=good_page)).generation
     assert generation is not None and len(generation.written) == 1
 
 
 def test_an_unexpected_failure_leaves_the_guide_at_its_last_commit(paths: Paths) -> None:
-    run_update(paths, "t", claude=FakeClaude(plans=[PLAN], page_writer=good_page))
+    run_update(paths, "t", claude=FakeAssistant(plans=[PLAN], page_writer=good_page))
     head = guide(paths).head()
 
     def explode(request: PageRequest) -> PageDraft:
@@ -130,26 +131,26 @@ def test_an_unexpected_failure_leaves_the_guide_at_its_last_commit(paths: Paths)
     guide(paths).commit("Remove a page")
     head = guide(paths).head()
     with pytest.raises(RuntimeError):
-        run_update(paths, "t", claude=FakeClaude(page_writer=explode))
+        run_update(paths, "t", claude=FakeAssistant(page_writer=explode))
     assert guide(paths).head() == head
     assert not guide(paths).has_uncommitted_changes()
 
 
 def test_uncommitted_edits_in_the_guide_stop_the_update(paths: Paths) -> None:
-    run_update(paths, "t", claude=FakeClaude(plans=[PLAN], page_writer=good_page))
+    run_update(paths, "t", claude=FakeAssistant(plans=[PLAN], page_writer=good_page))
     (paths.target_data("t") / "guide" / "areas" / "api.md").write_text("my edit\n")
     with pytest.raises(CodetrailError, match="uncommitted"):
-        run_update(paths, "t", claude=FakeClaude(page_writer=good_page))
+        run_update(paths, "t", claude=FakeAssistant(page_writer=good_page))
 
 
 def test_facts_only_skips_the_guide(paths: Paths) -> None:
-    result = run_update(paths, "t", claude=FakeClaude(), facts_only=True)
+    result = run_update(paths, "t", claude=FakeAssistant(), facts_only=True)
     assert result.generation is None
 
 
 def test_the_first_guide_after_facts_only_updates_gets_a_created_digest(paths: Paths) -> None:
     run_update(paths, "t", facts_only=True)
-    generation = run_update(paths, "t", claude=FakeClaude(plans=[PLAN], page_writer=good_page)).generation
+    generation = run_update(paths, "t", claude=FakeAssistant(plans=[PLAN], page_writer=good_page)).generation
     assert generation is not None and generation.digest is not None
     digest = guide(paths).read_page(generation.digest)
     assert digest is not None and digest.title == "The guide was created"
@@ -158,7 +159,7 @@ def test_the_first_guide_after_facts_only_updates_gets_a_created_digest(paths: P
 def test_the_update_stops_calling_claude_at_its_total_budget(paths: Paths) -> None:
     file = paths.target_file("t")
     file.write_text(file.read_text() + "[generation]\nmax_budget_usd_per_update = 0.01\nconcurrency = 1\n")
-    claude = FakeClaude(plans=[PLAN], page_writer=good_page)  # each page costs 0.01
+    claude = FakeAssistant(plans=[PLAN], page_writer=good_page)  # each page costs 0.01
     generation = run_update(paths, "t", claude=claude).generation
     assert generation is not None
     assert len(generation.written) == 2 - len(generation.left_for_later)
@@ -176,7 +177,7 @@ PLAN_WITH_PATHS = PlanDraft(
 
 
 def test_paths_are_planned_validated_and_written(paths: Paths) -> None:
-    generation = run_update(paths, "t", claude=FakeClaude(plans=[PLAN_WITH_PATHS], page_writer=good_page)).generation
+    generation = run_update(paths, "t", claude=FakeAssistant(plans=[PLAN_WITH_PATHS], page_writer=good_page)).generation
     assert generation is not None
     path = guide(paths).read_page("paths/start-here")
     assert path is not None and path.kind == "path"
@@ -186,13 +187,26 @@ def test_paths_are_planned_validated_and_written(paths: Paths) -> None:
 
 
 def test_an_outline_without_paths_gets_them_planned(paths: Paths) -> None:
-    run_update(paths, "t", claude=FakeClaude(plans=[PLAN], page_writer=good_page))
+    run_update(paths, "t", claude=FakeAssistant(plans=[PLAN], page_writer=good_page))
     outline = guide(paths).read_outline()
     assert outline is not None
     guide(paths).write_outline({"pages": outline["pages"]})  # as written before paths existed
     guide(paths).commit("An outline from before paths")
-    claude = FakeClaude(plans=[PlanDraft([], paths=PLAN_WITH_PATHS.paths)], page_writer=good_page)
+    claude = FakeAssistant(plans=[PlanDraft([], paths=PLAN_WITH_PATHS.paths)], page_writer=good_page)
     run_update(paths, "t", claude=claude)
     request = claude.requests[0]
     assert isinstance(request, PlanRequest) and request.paths_only
     assert guide(paths).read_page("paths/start-here") is not None
+
+
+def test_each_calls_usage_is_recorded_and_counted(paths: Paths) -> None:
+    def priced_page(request: PageRequest) -> PageDraft:
+        draft = good_page(request)
+        usage = Usage("claude_code", "claude-sonnet-5-5", 1000, 0, 100, 0.25)
+        return PageDraft(draft.body, draft.checks, draft.files_read, 0.25, usage)
+
+    result = run_update(paths, "t", claude=FakeAssistant(plans=[PLAN], page_writer=priced_page))
+    assert result.generation is not None and result.generation.cost_usd == 0.5
+    connection = connect(paths.target_data("t") / "codetrail.db")
+    rows = connection.execute("SELECT kind, provider, cost_usd FROM assistant_calls").fetchall()
+    assert [tuple(row) for row in rows] == [("write", "claude_code", 0.25), ("write", "claude_code", 0.25)]

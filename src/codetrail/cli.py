@@ -9,7 +9,8 @@ from collections import Counter
 from pathlib import Path
 
 from codetrail import __version__
-from codetrail.config import Paths, validate_target_name, write_target
+from codetrail.assistant.status import provider_status
+from codetrail.config import PROVIDERS, Paths, load_global, validate_target_name, write_target
 from codetrail.errors import CodetrailError
 from codetrail.facts import FactDiff
 from codetrail.repo.mirror import check_branch
@@ -36,7 +37,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     update = commands.add_parser("update", help="refresh a target's sources and facts, and write the guide")
     update.add_argument("name")
-    update.add_argument("--facts-only", action="store_true", help="refresh the facts without calling Claude")
+    update.add_argument("--facts-only", action="store_true", help="refresh the facts without calling an assistant")
+
+    commands.add_parser("providers", help="show each assistant provider: installed, signed in, and how")
 
     serve_command = commands.add_parser("serve", help="serve the guide's page on 127.0.0.1")
     serve_command.add_argument("name")
@@ -54,6 +57,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if arguments.command == "target":
             return add_target(paths, arguments.name, arguments.path, arguments.branch)
+        if arguments.command == "providers":
+            return show_providers(paths)
         if arguments.command == "update":
             return update_target(paths, arguments.name, facts_only=arguments.facts_only)
         if arguments.command == "serve":
@@ -101,6 +106,22 @@ def list_files(paths: Paths, name: str) -> int:
     return 0
 
 
+def show_providers(paths: Paths) -> int:
+    settings = load_global(paths)
+    for provider in PROVIDERS:
+        status = provider_status(provider, settings)
+        state = "ready" if status.ready else "not ready"
+        how = " · ".join(part for part in (status.method, status.program) if part)
+        print(f"{provider:<12} {state:<10} {how}")
+        if status.models:
+            print(f"{'':<12} models: {', '.join(status.models)}")
+        if status.fix:
+            print(f"{'':<12} {status.fix}")
+        if status.warning:
+            print(f"{'':<12} Note: {status.warning}")
+    return 0
+
+
 def update_target(paths: Paths, name: str, facts_only: bool = False) -> int:
     result = run_update(paths, name, facts_only=facts_only)
     extraction, diff = result.extraction, result.diff
@@ -120,7 +141,7 @@ def update_target(paths: Paths, name: str, facts_only: bool = False) -> int:
     if generation is not None:
         print(
             f"Guide: {len(generation.written)} pages written, {len(generation.failed)} failed, "
-            f"{len(generation.left_for_later)} left for the next update; Claude cost ${generation.cost_usd:.2f}."
+            f"{len(generation.left_for_later)} left for the next update; cost ${generation.cost_usd:.2f}."
         )
         for page, reason in generation.failed:
             print(f"  Not rewritten: {page} ({printable(reason)})")

@@ -117,3 +117,12 @@ def test_rationale_blocks_are_parsed() -> None:
         ("documented", "a.md#L1-L2", '"one\ntwo"'),
         ("inferred", None, "mine"),
     ]
+
+
+def test_a_page_or_check_holding_a_secret_fails(context: ValidationContext) -> None:
+    body = f"The deploy key is {fake_github_token(11)} for now.\n"
+    assert any("looks like a secret" in problem for problem in validate_page(body, GOOD_CHECKS, context))
+    checks = [{**GOOD_CHECKS[0], "question": f"What does {fake_github_token(12)} unlock?"}]
+    problems = validate_page("A clean page.\n", checks, context)
+    assert any("looks like a secret" in problem for problem in problems)
+    assert not any(fake_github_token(12) in problem for problem in problems)  # the rule is named, never the value

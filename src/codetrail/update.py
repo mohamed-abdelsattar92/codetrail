@@ -10,8 +10,10 @@ from dataclasses import dataclass
 
 import anyio
 
-from codetrail.claude import Claude
-from codetrail.claude.agent_sdk import AgentSdkClaude
+from codetrail.assistant import Assistant
+from codetrail.assistant.routing import build_assistant
+from codetrail.assistant.status import require_ready
+from codetrail.assistant.usage import UsageLog
 from codetrail.config import Paths, TargetConfig, check_containment, load_global, load_target
 from codetrail.database import connect
 from codetrail.extract import Extraction, Extractor, run_extractors
@@ -53,10 +55,12 @@ def build_extractors(target: TargetConfig) -> list[Extractor]:
     return [available[name] for name in target.extractors]
 
 
-def run_update(paths: Paths, name: str, claude: Claude | None = None, facts_only: bool = False) -> UpdateResult:
+def run_update(paths: Paths, name: str, claude: Assistant | None = None, facts_only: bool = False) -> UpdateResult:
     target = load_target(paths, name)
     check_containment(paths, target.repository)  # before the lock creates the data folder
     settings = load_global(paths)
+    if claude is None and not facts_only:  # before any work: the providers this update uses must be ready
+        require_ready(target, settings, kinds=("plan", "write", "digest"))
     data = paths.target_data(name)
     with target_lock(paths, name):
         manifest = refresh_while_locked(paths, name)
@@ -90,8 +94,9 @@ def run_update(paths: Paths, name: str, claude: Claude | None = None, facts_only
                 previous_commit=previous.commit if previous else None,
                 diff=diff,
                 learned=LearningState(connection).learned_page_ids(),
+                usage=UsageLog(connection, settings.prices),
             )
-            writer = claude or AgentSdkClaude(source, target.models, target.generation, settings.claude.retry_attempts)
+            writer = claude or build_assistant(source, settings, target)
             generation = anyio.run(generate_guide, context, writer)
         finally:
             connection.close()

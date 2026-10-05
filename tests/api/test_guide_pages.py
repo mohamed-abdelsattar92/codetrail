@@ -6,8 +6,8 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from codetrail.claude import PageDraft, PageRequest, PlanDraft
-from codetrail.claude.fake import FakeClaude
+from codetrail.assistant import PageDraft, PageRequest, PlanDraft
+from codetrail.assistant.fake import FakeAssistant
 from codetrail.config import GlobalConfig, Paths, write_target
 from codetrail.update import run_update
 from codetrail.web.app import create_app
@@ -38,7 +38,7 @@ def paths(tmp_path: Path) -> Paths:
         "docs/adr/0001-x.md": "# 0001. X\n\nWe chose Python.\n",
     }
     write_target(paths, "t", make_repository(tmp_path / "target", [files]), "develop")
-    run_update(paths, "t", claude=FakeClaude(plans=[PLAN], page_writer=page_writer))
+    run_update(paths, "t", claude=FakeAssistant(plans=[PLAN], page_writer=page_writer))
     return paths
 
 

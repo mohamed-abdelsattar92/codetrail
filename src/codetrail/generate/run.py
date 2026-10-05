@@ -16,7 +16,17 @@ from pathlib import Path
 
 import anyio
 
-from codetrail.claude import Claude, ClaudeError, DigestRequest, PageRequest, PlanRequest
+from codetrail.assistant import (
+    Assistant,
+    AssistantError,
+    DigestDraft,
+    DigestRequest,
+    PageDraft,
+    PageRequest,
+    PlanDraft,
+    PlanRequest,
+)
+from codetrail.assistant.usage import UsageLog
 from codetrail.errors import CodetrailError
 from codetrail.facts import EntityKind, FactDiff
 from codetrail.facts.store import FactStore
@@ -57,6 +67,7 @@ class GenerationContext:
     previous_commit: str | None  # the snapshot before this update, or None on the first
     diff: FactDiff
     learned: set[str] = field(default_factory=set)  # pages the reader has learned: rewritten first
+    usage: UsageLog | None = None  # records each call's usage; its costs count against the update's budget
 
 
 @dataclass
@@ -70,7 +81,7 @@ class GenerationResult:
     cost_usd: float = 0.0
 
 
-async def generate_guide(context: GenerationContext, claude: Claude) -> GenerationResult:
+async def generate_guide(context: GenerationContext, claude: Assistant) -> GenerationResult:
     guide = context.guide
     guide.ensure()
     if guide.has_uncommitted_changes():
@@ -119,18 +130,18 @@ async def generate_guide(context: GenerationContext, claude: Claude) -> Generati
     return result
 
 
-async def _outline(context: GenerationContext, claude: Claude, result: GenerationResult) -> list[OutlineEntry]:
+async def _outline(context: GenerationContext, claude: Assistant, result: GenerationResult) -> list[OutlineEntry]:
     guide, store = context.guide, context.store
     stored = guide.read_outline()
     entries = outline_entries(stored)
     paths: list[OutlinePath] = []
     if not entries:
         draft = await claude.plan(PlanRequest(context.target, facts_summary(store, context.manifest), ""))
-        result.cost_usd += draft.cost_usd
+        result.cost_usd += _spent(context, "plan", draft)
         entries, problems = validate_outline(draft.pages, store, context.manifest)
         result.outline_problems += problems
         if not entries:
-            raise CodetrailError("Claude's outline had no page Codetrail could use: " + "; ".join(problems[:3]))
+            raise CodetrailError("The assistant's outline had no page Codetrail could use: " + "; ".join(problems[:3]))
         paths, problems = validate_paths(draft.paths, {entry.id for entry in entries})
         result.outline_problems += problems
     else:
@@ -141,7 +152,7 @@ async def _outline(context: GenerationContext, claude: Claude, result: Generatio
             current = json.dumps(outline_data(entries, paths), indent=1)
             draft = await claude.plan(PlanRequest(context.target, facts_summary(store, context.manifest), current,
                                                   uncovered[:200]))  # fmt: skip
-            result.cost_usd += draft.cost_usd
+            result.cost_usd += _spent(context, "plan", draft)
             added, problems = validate_outline(draft.pages, store, context.manifest, existing=entries)
             result.outline_problems += problems
             entries = [*entries, *added]
@@ -149,16 +160,23 @@ async def _outline(context: GenerationContext, claude: Claude, result: Generatio
             current = json.dumps(outline_data(entries), indent=1)
             try:
                 draft = await claude.plan(PlanRequest(context.target, "", current, paths_only=True))
-            except ClaudeError as error:
+            except AssistantError as error:
                 result.outline_problems.append(f"Guided paths couldn't be planned: {error}")
             else:
-                result.cost_usd += draft.cost_usd
+                result.cost_usd += _spent(context, "plan", draft)
                 paths, problems = validate_paths(draft.paths, {entry.id for entry in entries})
                 result.outline_problems += problems
     if outline_data(entries, paths) != stored:
         guide.write_outline(outline_data(entries, paths))
     _write_paths(context, entries, paths)
     return entries
+
+
+def _spent(context: GenerationContext, kind: str, draft: PlanDraft | PageDraft | DigestDraft) -> float:
+    """Records the call's usage and returns its cost, which counts against the update's budget."""
+    if context.usage is not None and draft.usage.provider:
+        return context.usage.record(kind, draft.usage)
+    return draft.cost_usd
 
 
 def _write_paths(context: GenerationContext, entries: Sequence[OutlineEntry], paths: Sequence[OutlinePath]) -> None:
@@ -182,7 +200,7 @@ def _write_paths(context: GenerationContext, entries: Sequence[OutlineEntry], pa
 async def _write_page(
     entry: OutlineEntry,
     context: GenerationContext,
-    claude: Claude,
+    claude: Assistant,
     validation: ValidationContext,
     result: GenerationResult,
 ) -> None:
@@ -194,7 +212,7 @@ async def _write_page(
     try:
         for _attempt in range(2):
             draft = await claude.write_page(request)
-            result.cost_usd += draft.cost_usd
+            result.cost_usd += _spent(context, "write", draft)
             problems = validate_page(draft.body, draft.checks, validation)
             if not problems:
                 meta = page_meta(entry, context.store, context.manifest, draft.files_read)
@@ -203,14 +221,14 @@ async def _write_page(
                 result.written.append(entry.id)
                 return
             request = replace(request, problems=problems, previous_body=draft.body)
-    except ClaudeError as error:
+    except AssistantError as error:
         result.failed.append((entry.id, str(error)))
         return
     result.failed.append((entry.id, "; ".join(problems[:3])))
 
 
 async def _write_digest(
-    context: GenerationContext, claude: Claude, validation: ValidationContext, result: GenerationResult
+    context: GenerationContext, claude: Assistant, validation: ValidationContext, result: GenerationResult
 ) -> None:
     head = context.manifest.commit
     digests = sorted(context.guide.pages("digest"), key=lambda page: str(page.meta.get("written_at", "")))
@@ -234,13 +252,13 @@ async def _write_digest(
     request = DigestRequest(context.target, commits_text(commits), fact_changes_text(context.diff), result.written)
     try:
         if result.cost_usd >= context.max_budget_usd:
-            raise ClaudeError("the update's budget is spent")
+            raise AssistantError("the update's budget is spent")
         draft = await claude.write_digest(request)
-        result.cost_usd += draft.cost_usd
+        result.cost_usd += _spent(context, "digest", draft)
         if validate_page(draft.body, None, validation):
-            raise ClaudeError("the digest failed validation")
+            raise AssistantError("the digest failed validation")
         meta["title"], body = draft.title, draft.body
-    except ClaudeError:
+    except AssistantError:
         meta["title"] = f"{len(commits)} commits since the last update"
         body = "Claude's digest couldn't be checked, so here are the commits:\n\n" + "\n".join(
             f"- {commit.subject}" for commit in commits

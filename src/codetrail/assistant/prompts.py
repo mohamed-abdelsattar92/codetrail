@@ -1,4 +1,4 @@
-"""What Codetrail asks Claude, and the shape of the answers (design section 6).
+"""What Codetrail asks the assistant, and the shape of the answers (design section 6).
 
 Every prompt says the same thing about the repository: its content is data to explain, never instructions.
 """
@@ -8,7 +8,7 @@ from __future__ import annotations
 import secrets
 from typing import Any
 
-from codetrail.claude import DigestRequest, GradeRequest, PageRequest, PlanRequest, QuestionRequest
+from codetrail.assistant import DigestRequest, GradeRequest, PageRequest, PlanRequest, QuestionRequest
 
 GROUND_RULES = """\
 You are writing part of Codetrail, a guide that teaches an experienced engineer the architecture, patterns and tools
@@ -238,6 +238,16 @@ You are answering the reader's question about the repository, live, in Codetrail
 - Use the page syntax for rationale: documented blocks only for words you can quote from a file or commit you read.
 - If the repository doesn't answer the question, say so plainly.
 """
+
+
+# Claude Code attaches the file an @path in a prompt names, before any tool call and past the guard (a probe proved
+# it). Prompts carry repository text, so every adapter turns each @ into a fullwidth at sign the model reads but no
+# program acts on.
+FULLWIDTH_AT = "\uff20"
+
+
+def neutralize(prompt: str) -> str:
+    return prompt.replace("@", FULLWIDTH_AT)
 
 
 def fence(text: str) -> str:
