@@ -145,3 +145,11 @@ def test_uncommitted_edits_in_the_guide_stop_the_update(paths: Paths) -> None:
 def test_facts_only_skips_the_guide(paths: Paths) -> None:
     result = run_update(paths, "t", claude=FakeClaude(), facts_only=True)
     assert result.generation is None
+
+
+def test_the_first_guide_after_facts_only_updates_gets_a_created_digest(paths: Paths) -> None:
+    run_update(paths, "t", facts_only=True)
+    generation = run_update(paths, "t", claude=FakeClaude(plans=[PLAN], page_writer=good_page)).generation
+    assert generation is not None and generation.digest is not None
+    digest = guide(paths).read_page(generation.digest)
+    assert digest is not None and digest.title == "The guide was created"

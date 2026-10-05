@@ -174,6 +174,8 @@ async def _write_digest(
     head = context.manifest.commit
     digests = sorted(context.guide.pages("digest"), key=lambda page: str(page.meta.get("written_at", "")))
     since = str(digests[-1].meta.get("to_commit")) if digests else context.previous_commit
+    if not digests and result.written:
+        since = None  # the guide's first pages: record its creation, whatever facts-only updates came before
     if since == head or (since is None and not result.written):
         return
     commits = commits_between(context.mirror, since, head, context.visible, context.scanner) if since else []
