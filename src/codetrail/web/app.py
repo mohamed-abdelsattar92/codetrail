@@ -95,16 +95,20 @@ def create_app(
     templates = str(files("codetrail.web").joinpath("templates"))
     environments = {code: _environment(templates, language) for code, language in languages.items()}
     signal_cache: dict[str, tuple[float, Signal | None]] = {}
-    index = SearchIndex()
     index_lock = threading.Lock()
-    index_built: dict[str, object] = {"key": None, "available": False}
+    index_built: dict[str, object] = {"key": None, "index": None}
 
     def search_index() -> SearchIndex | None:
-        """The index, rebuilt whenever the guide or the facts moved on (an update, a saved answer); None if broken."""
+        """The index, rebuilt whenever the guide or the facts moved on (an update, a saved answer); None if broken.
+
+        The key includes uncommitted changes, so pages a failed update discards leave the index at the next search.
+        """
         with index_lock:
             try:
                 database = view.data / "codetrail.db"
-                head = guide.head() if guide.git_dir.exists() else None
+                tracked = guide.git_dir.exists()
+                head = (guide.head(), guide.has_uncommitted_changes()) if tracked else None
+                index = index_built["index"] if isinstance(index_built["index"], SearchIndex) else SearchIndex()
                 if not database.exists():
                     key: object = (head, None)
                     if index_built["key"] != key:
@@ -116,9 +120,9 @@ def create_app(
                             index.rebuild(guide_documents(guide, store))
             except Exception as error:  # search is optional; the rest of the page keeps working
                 logger.warning("Search isn't available: %s", type(error).__name__)
-                index_built.update(key=None, available=False)
+                index_built.update(key=None)
                 return None
-            index_built.update(key=key, available=True)
+            index_built.update(key=key, index=index)
             return index
 
     def search_results(query: str) -> tuple[list[Result], bool]:

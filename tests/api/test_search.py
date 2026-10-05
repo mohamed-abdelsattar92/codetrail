@@ -131,3 +131,14 @@ def test_a_failing_index_leaves_the_page_working(paths: Paths, monkeypatch: pyte
     assert response.json() == {"results": [], "available": False}
     assert client.get("/").status_code == 200
     assert client.get("/search", params={"q": "payment"}).status_code == 200
+
+
+def test_pages_a_failed_update_discards_leave_the_index(paths: Paths) -> None:
+    from codetrail.guide import GuideRepository, Page
+
+    client, headers = signed_in(paths)
+    guide = GuideRepository(paths.target_data("t") / "guide")
+    guide.write_page(Page("concepts/draft", {"kind": "concept", "title": "Wombat draft"}, "Never committed."))
+    assert len(found(client, headers, "wombat")) == 1  # written, not yet committed: what the page could show
+    guide.discard()
+    assert found(client, headers, "wombat") == []

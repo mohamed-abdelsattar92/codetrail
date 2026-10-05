@@ -5,6 +5,7 @@
   `codetrail serve` prints; the code expires.
 - Every write (any method but GET and HEAD) needs an Origin equal to the served origin and the per-session token in
   the `X-Codetrail-Token` header (cross-site request forgery).
+- A request a browser marks as coming from another site or another port (`Sec-Fetch-Site`) is refused.
 - Every response, refusals included, carries the security headers.
 Sessions live in memory and end with the process.
 """
@@ -31,6 +32,7 @@ SECURITY_HEADERS = [
     (b"x-content-type-options", b"nosniff"),
     (b"referrer-policy", b"no-referrer"),
     (b"x-frame-options", b"DENY"),
+    (b"cross-origin-resource-policy", b"same-origin"),
 ]
 READ_METHODS = {"GET", "HEAD"}
 OPEN_PATHS = ("/login", "/static/")
@@ -117,7 +119,13 @@ class SecurityMiddleware:
         if host not in self.hosts:
             return PlainTextResponse("This page is only served at 127.0.0.1 or localhost.", 400)
         path = scope["path"]
-        if path == "/login" or path.startswith("/static/"):
+        if path.startswith("/static/"):
+            return None
+        # Browsers say where a request came from. Only the page itself or the address bar may reach Codetrail, so
+        # another site, or a server on another 127.0.0.1 port (same-site), can't time or drive it (ASVS 3.5.8).
+        if headers.get("sec-fetch-site", "same-origin") not in ("same-origin", "none"):
+            return PlainTextResponse("This request didn't come from Codetrail's page.", 403)
+        if path == "/login":
             return None
         cookies = SimpleCookie(headers.get("cookie", ""))
         cookie = cookies[SESSION_COOKIE].value if SESSION_COOKIE in cookies else None
