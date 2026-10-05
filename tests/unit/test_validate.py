@@ -39,6 +39,7 @@ def context(tmp_path: Path) -> ValidationContext:
         Entity("project:docs", EntityKind.PROJECT, {}, (Source("docs/pyproject.toml"),)),
         Entity("module:app/main.py", EntityKind.MODULE, {"name": "app.main"}, (Source("app/main.py"),)),
         Entity("package:pypi/fastapi", EntityKind.PACKAGE),
+        Entity("part:app", EntityKind.PART, {"kind": "service", "name": "app", "folder": "app"}),
     ], [Relation("project:.", RelationKind.DEPENDS_ON, "package:pypi/fastapi", {"group": "main"})])  # fmt: skip
     manifest = SourceManifest(head, {"docs/adr/0007-rest.md": "a" * 40, "app/main.py": "b" * 40})
     COMMITS["fix"] = git(checkout, "rev-parse", "HEAD~1")
@@ -61,6 +62,7 @@ def test_a_correct_page_passes(context: ValidationContext) -> None:
         + documented("docs/adr/0007-rest.md#L6-L7", "Use REST with the OpenAPI document as the contract.")
         + "\n> [!inferred]\n> It keeps clients generated.\n\n"
         + "See [[decision:ADR-0007]].\n\n{{diagram imports scope=app}}\n{{diagram dependencies project=project:.}}\n"
+        + "{{diagram system}}\n{{diagram system focus=app}}\n"
     )
     assert validate_page(body, GOOD_CHECKS, context) == []
 
@@ -87,6 +89,9 @@ def test_a_quote_from_a_commit_passes(context: ValidationContext) -> None:
         ("{{diagram imports scope=docs}}", "would draw nothing"),  # files, but no modules there
         ("{{diagram resources scope=app}}", "would draw nothing"),  # no Terraform there
         ("{{diagram dependencies project=project:docs}}", "would draw nothing"),  # a project with no dependencies
+        ("{{diagram system focus=docs}}", "would draw nothing"),  # no part there
+        ("{{diagram system scope=app}}", "takes focus="),
+        ("{{diagram system focus=app extra=1}}", "diagram"),
         ("", "empty"),
     ],
 )

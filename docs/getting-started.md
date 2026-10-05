@@ -127,6 +127,7 @@ codetrail serve shop
 
 - **The home page** picks up where you left off: the next page of your current path, how far the guide is behind the branch (with what the last update used), how much you've learned, what changed, and your saved answers.
 - **The sidebar** lists the guided paths with your progress, the areas and concepts, your saved answers, the digests and the decisions.
+- **System** (in the sidebar, or **G** then **Y**) draws how the repository's parts connect: services, apps, libraries, contracts, infrastructure and where each runs. Solid arrows come from a file you can open; dashed ones were matched by name. Each area page shows the same diagram focused on its folder.
 - **Area and concept pages** explain one part of the repository, with a diagram drawn from the facts, quotes linked to their source lines, an "On this page" outline, and checks on your understanding. **Previous** and **Next** follow the path you came from.
 - **Check my answer** grades your answer to a check. Each button shows its estimate, and afterwards what it used.
 
@@ -146,7 +147,7 @@ Press **?** on any page to see them all.
 |---|---|
 | **⌘K** or **/** | Search, or ask a question |
 | **A** | Ask about this page |
-| **G** then **H**, **P**, **S**, **D**, **R** | Go home, to your progress, saved answers, digests or decisions |
+| **G** then **H**, **P**, **Y**, **S**, **D**, **R** | Go home, to your progress, your system, saved answers, digests or decisions |
 | **[** and **]** | Previous and next page in the path |
 | **M** | Mark this page read, or unread |
 | **U** | Update the guide (shows the estimate first) |
@@ -221,6 +222,7 @@ To remove Codetrail, run `uv tool uninstall codetrail` and delete those folders.
 
 | You see | Do this |
 |---|---|
+| No **System** link, or no facts for TypeScript, JavaScript or Astro code | A target's settings may list its extractors. Add `"typescript"` and `"github_actions"` to `extractors` in `~/.config/codetrail/targets/<name>.toml`, then run `codetrail update <name> --facts-only` (free). A repository with no projects, contracts or infrastructure has no parts to draw |
 | `gitleaks wasn't found` | Install gitleaks and make sure it's on your `PATH`, or set `[tools] gitleaks` in `config.toml` |
 | `… is a mise shim, and mise couldn't say which gitleaks it runs here` | The `gitleaks` on your `PATH` is a mise shim, and no mise configuration in the folder you ran Codetrail from (or a parent) sets a gitleaks version. Run Codetrail from such a folder, set a global version with `mise use -g gitleaks`, or set `[tools] gitleaks` in `config.toml` to the binary's absolute path (`mise which gitleaks` prints it) |
 | `mise named … as gitleaks here, which isn't one of mise's own installs` | A mise configuration in the folder you ran Codetrail from names a gitleaks outside mise's installs (a `path:` version, perhaps from a repository you're reading), and Codetrail won't run it. Run Codetrail from another folder, or set `[tools] gitleaks` to a gitleaks you trust |

@@ -8,6 +8,14 @@
   <p class="muted">{% trans count=files|length %}{{ count }} visible file{% pluralize %}{{ count }} visible files{% endtrans %}</p>
 </header>
 
+{% if system.nodes %}
+<section>
+  <div class="section-head"><h2>{{ _("Where it fits") }}</h2><a href="/system">{{ _("See the whole system") }}</a></div>
+  <p class="muted">{{ _("The parts in this folder and the parts they connect to.") }}</p>
+  {% with diagram=system %}{% include "diagram.html" %}{% include "system_legend.html" %}{% endwith %}
+</section>
+{% endif %}
+
 {% for project, diagram in projects %}
 <section>
   <h2>{{ _("Dependencies of") }} <a href="/facts/{{ project.id }}" lang="en" dir="ltr">{{ project.attributes.get("name", project.id) }}</a></h2>

@@ -8,11 +8,12 @@ limit, modules roll up to their folders, one level at a time, with the number of
 from __future__ import annotations
 
 import re
+import unicodedata
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import PurePosixPath
 
-from codetrail.facts import EntityKind, RelationKind
+from codetrail.facts import Entity, EntityKind, RelationKind
 from codetrail.facts.store import FactStore
 
 # Mermaid reads #<code>; as an entity inside a quoted label; anything that could close the label, start a link, a
@@ -25,8 +26,20 @@ ESCAPES = {
 
 def escape_label(text: str, fallback: str = "?") -> str:
     """A label Mermaid reads as plain text; an empty one (Mermaid refuses `[""]`) becomes the fallback."""
-    flattened = " ".join(text.split()) or " ".join(fallback.split()) or "?"
+    flattened = " ".join(_printable(text).split()) or " ".join(_printable(fallback).split()) or "?"
     return "".join(ESCAPES.get(character, character) for character in flattened)
+
+
+def _printable(text: str) -> str:
+    """Without control, format and surrogate characters or noncharacters (U+FDD0-U+FDEF, U+xFFFE and U+xFFFF):
+    Mermaid's YAML refuses them in a shape's label, failing the whole diagram."""
+    return "".join(
+        character
+        for character in text
+        if unicodedata.category(character) not in ("Cc", "Cf", "Cs")
+        and ord(character) & 0xFFFE != 0xFFFE
+        and not 0xFDD0 <= ord(character) <= 0xFDEF
+    )
 
 
 def _node(node_id: str, label: str, key: str) -> str:
@@ -47,10 +60,23 @@ class DiagramNode:
 
 
 @dataclass(frozen=True)
+class DiagramArrow:
+    """One connection in the system diagram and why it's there: its source file and line, or the rule's two names."""
+
+    source: str
+    kind: str
+    target: str
+    evidence: str
+    link: str | None
+    names: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
 class Diagram:
     mermaid: str
     nodes: list[DiagramNode] = field(default_factory=list)
     rolled_up: bool = False
+    arrows: list[DiagramArrow] = field(default_factory=list)
 
 
 def imports_diagram(store: FactStore, scope: str, max_nodes: int) -> Diagram:
@@ -123,6 +149,193 @@ def resources_diagram(store: FactStore, scope: str, max_nodes: int) -> Diagram:
                    rolled_up=len(nodes) < len(modules) + len(resources), counted=False)  # fmt: skip
 
 
+# Each kind of part has its own shape (Mermaid's syntax around a quoted, escaped label).
+SHAPES = {
+    "service": ('("', '")'),
+    "app": ('("', '")'),
+    "library": ('["', '"]'),
+    "contract": ('@{ shape: doc, label: "', '" }'),
+    "infrastructure": ('[["', '"]]'),
+    "platform": ('(["', '"])'),
+}
+SYSTEM_RELATIONS = (RelationKind.DEPENDS_ON, RelationKind.IMPLEMENTS, RelationKind.CALLS_VIA, RelationKind.DEPLOYED_ON)
+ARROW_LABELS = {RelationKind.IMPLEMENTS: "implements", RelationKind.CALLS_VIA: "calls via",
+                RelationKind.DEPLOYED_ON: "deployed on"}  # fmt: skip
+
+
+def system_diagram(store: FactStore, focus: str | None, max_nodes: int) -> Diagram:
+    """How the repository's parts connect (design 17.4), or, with `focus`, the parts in a folder and their neighbours.
+
+    A client that calls through a contract that one service implements gets an arrow to that service, labelled
+    with the contract. Matched connections are dashed. Above `max_nodes`, libraries roll up into their parent
+    folders, then every part but the platforms into its top-level folder, then the smallest groups into one.
+    """
+    parts = {entity.id: entity for entity in store.entities(EntityKind.PART)}
+    relations = [
+        relation for kind in SYSTEM_RELATIONS for relation in store.relations(kind)
+        if relation.source_id in parts and relation.target_id in parts
+    ]  # fmt: skip
+    implementers: dict[str, list[str]] = {}
+    for relation in relations:
+        if relation.kind is RelationKind.IMPLEMENTS:
+            implementers.setdefault(relation.target_id, []).append(relation.source_id)
+    edges: dict[tuple[str, str], tuple[str, bool]] = {}  # (source, target) -> (label, matched)
+    for relation in relations:
+        matched = relation.attributes.get("evidence") == "matched"
+        if relation.kind is RelationKind.CALLS_VIA and len(implementers.get(relation.target_id, [])) == 1:
+            # One service behind the contract: the call is drawn to it. With several, it stays on the contract, so
+            # arrows never grow as callers times services.
+            contract = str(parts[relation.target_id].attributes.get("name", ""))
+            edges.setdefault((relation.source_id, implementers[relation.target_id][0]), (contract, matched))
+            continue
+        label = "matched by name" if matched else ARROW_LABELS.get(relation.kind, "")
+        edges.setdefault((relation.source_id, relation.target_id), (label, matched))
+    shown = set(parts)
+    if focus is not None:
+        inside = {key for key, entity in parts.items() if _within(_part_folder(entity), focus.strip("/"))
+                  and entity.attributes.get("kind") != "platform"}  # fmt: skip
+        pairs = [*edges, *((relation.source_id, relation.target_id) for relation in relations)]
+        shown = inside | {other for pair in pairs if set(pair) & inside for other in pair}
+    edges = {pair: value for pair, value in edges.items() if set(pair) <= shown}
+    relations = [relation for relation in relations if {relation.source_id, relation.target_id} <= shown]
+    group = {key: key for key in shown}
+    labels = {key: str(parts[key].attributes.get("name") or "") for key in shown}
+    kinds = {key: str(parts[key].attributes.get("kind", "library")) for key in shown}
+    links = {key: f"/facts/{key}" for key in shown}
+    rolled_up = False
+    for level in ("libraries", "parts"):
+        if len(set(group.values())) <= max_nodes:
+            break
+        rolled_up = True
+        members: dict[str, list[str]] = {}
+        for key in shown:
+            if level == "libraries" and kinds[key] == "library":
+                folder = str(PurePosixPath(_part_folder(parts[key])).parent)
+            elif level == "parts" and kinds[key] != "platform":
+                folder = _part_folder(parts[key]).split("/", 1)[0] or "."
+            else:
+                continue
+            members.setdefault(f"group:{folder}", []).append(key)
+        for folder_key, keys in members.items():
+            folder = folder_key.removeprefix("group:")
+            noun = "libraries" if level == "libraries" else "parts"
+            labels[folder_key] = f"{folder}/ ({len(keys)} {noun})"
+            kinds[folder_key] = "library"
+            links[folder_key] = f"/areas/{folder}"
+            for key in keys:
+                group[key] = folder_key
+    sizes = Counter(group.values())
+    if len(sizes) > max_nodes:  # still too many: the largest groups stay, the rest fold into one node
+        kept = {key for key, _ in sizes.most_common(max_nodes - 1)}
+        folded = [key for key in shown if group[key] not in kept]
+        labels["group:other"] = f"other parts ({len(folded)})"
+        kinds["group:other"] = "library"
+        links["group:other"] = "/system"
+        for key in folded:
+            group[key] = "group:other"
+    counted: Counter[tuple[str, str]] = Counter()
+    merged: dict[tuple[str, str], tuple[str, bool]] = {}
+    for (source, target), (label, matched) in edges.items():
+        pair = (group[source], group[target])
+        if pair[0] == pair[1]:
+            continue
+        counted[pair] += 1
+        before = merged.get(pair)
+        if before is not None:  # merged arrows keep a label they share, and are dashed only if all were matched
+            label, matched = (label if before[0] == label else ""), before[1] and matched
+        merged[pair] = (label, matched)
+    keys = sorted(set(group.values()))
+    ids = {key: f"n{index}" for index, key in enumerate(keys, start=1)}
+    lines = ["flowchart LR"]
+    for key in keys:
+        start, end = SHAPES.get(kinds[key], SHAPES["library"])
+        lines.append(f"    {ids[key]}{start}{escape_label(labels[key], fallback=key)}{end}")
+    for (source, target), (label, matched) in sorted(merged.items()):
+        text = str(counted[(source, target)]) if counted[(source, target)] > 1 else label
+        arrow = "-.->" if matched else "-->"
+        lines.append(f'    {ids[source]} {arrow}|"{escape_label(text)}"| {ids[target]}' if text.strip()
+                     else f"    {ids[source]} {arrow} {ids[target]}")  # fmt: skip
+    nodes = [DiagramNode(ids[key], labels[key] or key, links[key]) for key in keys]
+    arrows = [
+        DiagramArrow(
+            labels[relation.source_id] or relation.source_id, str(relation.kind),
+            labels[relation.target_id] or relation.target_id, str(relation.attributes.get("evidence", "explicit")),
+            _source_link(str(relation.attributes.get("source", ""))),
+            tuple(str(name) for name in relation.attributes.get("names") or ()),
+        )
+        for relation in relations
+    ]  # fmt: skip
+    return Diagram("\n".join(lines) + "\n", nodes, rolled_up, arrows)
+
+
+PART_KINDS = ("service", "app", "library", "contract", "infrastructure", "platform")
+
+
+@dataclass(frozen=True)
+class SystemPart:
+    """A part as the system page lists it, with the names of the parts it connects to."""
+
+    id: str
+    name: str
+    folder: str
+    depends_on: list[str]
+    called_by: list[str]
+    runs_on: list[str]
+
+
+def system_parts(store: FactStore) -> list[tuple[str, list[SystemPart]]]:
+    """Every part, grouped by kind in PART_KINDS order: what it depends on, what calls it and where it runs.
+
+    A part that calls through a contract counts as calling the contract, and the service behind it when there's one.
+    """
+    parts = {entity.id: entity for entity in store.entities(EntityKind.PART)}
+    names = {key: str(entity.attributes.get("name") or key) for key, entity in parts.items()}
+    relations = [
+        relation for kind in SYSTEM_RELATIONS for relation in store.relations(kind)
+        if relation.source_id in parts and relation.target_id in parts
+    ]  # fmt: skip
+    implementers: dict[str, set[str]] = {}
+    for relation in relations:
+        if relation.kind is RelationKind.IMPLEMENTS:
+            implementers.setdefault(relation.target_id, set()).add(relation.source_id)
+    depends_on: dict[str, set[str]] = {}
+    called_by: dict[str, set[str]] = {}
+    runs_on: dict[str, set[str]] = {}
+    for relation in relations:
+        source, target = relation.source_id, relation.target_id
+        if relation.kind is RelationKind.DEPENDS_ON:
+            depends_on.setdefault(source, set()).add(names[target])
+        elif relation.kind is RelationKind.CALLS_VIA:  # a lone implementer is called too; several stay on the contract
+            services = implementers.get(target, set())
+            for called in {target, *services} if len(services) == 1 else {target}:
+                called_by.setdefault(called, set()).add(names[source])
+        elif relation.kind is RelationKind.DEPLOYED_ON:
+            runs_on.setdefault(source, set()).add(names[target])
+    grouped: dict[str, list[SystemPart]] = {}
+    for key, entity in sorted(parts.items(), key=lambda item: names[item[0]].lower()):
+        kind = str(entity.attributes.get("kind"))
+        grouped.setdefault(kind if kind in PART_KINDS else "library", []).append(
+            SystemPart(key, names[key], _part_folder(entity), sorted(depends_on.get(key, set())),
+                       sorted(called_by.get(key, set())), sorted(runs_on.get(key, set())))
+        )  # fmt: skip
+    return [(kind, grouped[kind]) for kind in PART_KINDS if kind in grouped]
+
+
+def _within(folder: str, scope: str) -> bool:
+    return folder == scope or folder.startswith(scope + "/")
+
+
+def _part_folder(entity: Entity) -> str:
+    return str(entity.attributes.get("folder") or "")
+
+
+def _source_link(cited: str) -> str | None:
+    path, _, line = cited.partition("#L")
+    if not path or not LISTABLE.fullmatch(path):
+        return None
+    return f"/source/{path}#L{line}" if line.isdigit() else f"/source/{path}"
+
+
 MAX_AVAILABLE = 15  # of each kind, so the list stays a short part of a question's prompt
 # A folder or project id listed for an answer: plain path characters only, so no repository name can carry
 # whitespace, braces or instructions into the prompt (a name with spaces couldn't be drawn anyway).
@@ -132,8 +345,9 @@ LISTABLE = re.compile(r"[A-Za-z0-9._@+/:-]+")
 def available_diagrams(store: FactStore) -> list[str]:
     """The diagram placeholders that would draw something from these facts, for an answer to use (design 7.3).
 
-    Imports for every top-level folder, project folder and folder of projects that holds at least two modules or
-    Swift targets; dependencies for every project that has any; resources for every top-level Terraform folder.
+    The system first, when there are parts; imports for every top-level folder, project folder and folder of
+    projects that holds at least two modules or Swift targets; dependencies for every project that has any;
+    resources for every top-level Terraform folder.
     """
     located = [_location(entity.id) for kind in (EntityKind.MODULE, EntityKind.SWIFT_TARGET)
                for entity in store.entities(kind)]  # fmt: skip
@@ -155,8 +369,10 @@ def available_diagrams(store: FactStore) -> list[str]:
     scopes = [scope for scope in scopes if LISTABLE.fullmatch(scope)]
     depending = {project for project in depending if LISTABLE.fullmatch(project)}
     terraform = [scope for scope in terraform if LISTABLE.fullmatch(scope)]
+    system = ["{{diagram system}}"] if store.entities(EntityKind.PART) else []
     return (
-        [f"{{{{diagram imports scope={scope}}}}}" for scope in scopes[:MAX_AVAILABLE]]
+        system
+        + [f"{{{{diagram imports scope={scope}}}}}" for scope in scopes[:MAX_AVAILABLE]]
         + [f"{{{{diagram dependencies project={project}}}}}" for project in sorted(depending & set(projects))][
             :MAX_AVAILABLE
         ]

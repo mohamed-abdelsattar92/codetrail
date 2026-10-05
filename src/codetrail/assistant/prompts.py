@@ -42,8 +42,10 @@ Page syntax (CommonMark, plus three additions Codetrail checks before saving the
 
 2. Fact links: [[module:services/api/app/db.py]] links to a fact. Use only ids from the facts you were given.
 
-3. Diagrams: a line of its own, {{diagram imports scope=<folder>}} for the imports between modules (or Swift
-   targets) under a folder, {{diagram dependencies project=<project id>}} for a project's packages, or
+3. Diagrams: a line of its own, {{diagram system}} for how the repository's parts (services, apps, libraries,
+   contracts, infrastructure, platforms) connect, {{diagram system focus=<folder>}} for the parts in a folder and
+   their neighbours, {{diagram imports scope=<folder>}} for the imports between modules (or Swift targets) under a
+   folder, {{diagram dependencies project=<project id>}} for a project's packages, or
    {{diagram resources scope=<folder>}} for Terraform modules and resources. Codetrail draws them from facts.
    Never write Mermaid or any other diagram code yourself.
 

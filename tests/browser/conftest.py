@@ -40,6 +40,7 @@ FILES: Commit = {
     "pyproject.toml": '[project]\nname = "shop"\n',
     "app/main.py": "from app import charges\n",
     "app/charges.py": "RETRIES = 3\n",
+    "infra/main.tf": 'resource "google_cloud_run_v2_service" "app" {\n  name = "app"\n}\n',  # parts for the system page
 }
 ESTIMATE = UpdateEstimate(
     [EstimateLine(CallEstimate("write", "claude_code", "claude-sonnet-5-5", 120_000, 6_000, 0.3, False), 2, 5)],

@@ -3,6 +3,7 @@
   <ul class="nav-list">
     <li><a class="nav-link" href="/" {% if active == "home" %}aria-current="page"{% endif %}>{{ icon("home") }}<span class="label">{{ _("Home") }}</span></a></li>
     <li><a class="nav-link" href="/progress" {% if active == "progress" %}aria-current="page"{% endif %}>{{ icon("progress") }}<span class="label">{{ _("Progress") }}</span></a></li>
+    {% if has_system %}<li><a class="nav-link" href="/system" {% if active == "system" %}aria-current="page"{% endif %}>{{ icon("system") }}<span class="label">{{ _("System") }}</span></a></li>{% endif %}
   </ul>
 
   {% if nav.paths %}

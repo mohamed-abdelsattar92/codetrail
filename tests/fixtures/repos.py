@@ -118,3 +118,28 @@ def commit_entries(repository: Path, files: dict[str, str], message: str = "Plum
     count = int(git(repository, "rev-list", "--count", "HEAD"))
     git(repository, "commit", "-q", "-m", message, date=count)
     return git(repository, "rev-parse", "HEAD")
+
+
+SHOP_CONTRACT = """openapi: 3.1.0
+info: {title: Shop, version: "1"}
+paths:
+  /orders:
+    get:
+      responses: {"200": {description: ok}}
+"""
+# A small repository with a service, a contract, a site deployed on Workers, and Terraform (design 17.3).
+MIXED_REPOSITORY: Commit = {
+    "services/api/pyproject.toml": '[project]\nname = "api"\ndependencies = ["fastapi>=0.1"]\n',
+    "services/api/app/main.py": "import fastapi\n",
+    "services/api/Makefile": "check:\n\tvalidate ../../contracts/openapi.yaml\n",
+    "contracts/openapi.yaml": SHOP_CONTRACT,
+    "apps/site/package.json": '{"name": "site", "dependencies": {"astro": "^5"}, "scripts": {"types": '
+    '"openapi-typescript ../../contracts/openapi.yaml"}}',
+    "apps/site/astro.config.mjs": "export default {};\n",
+    "apps/site/wrangler.jsonc": '{"name": "shop-site", "main": "src/worker.ts", "d1_databases": [{"binding": "DB"}]}',
+    "apps/site/src/worker.ts": "export default {};\n",
+    "apps/site/src/pages/index.astro": "---\n---\n<p>hi</p>\n",
+    "infra/app/main.tf": 'resource "google_cloud_run_v2_service" "api" {\n  name = "api"\n}\n',
+    ".github/workflows/deploy.yml": "jobs:\n  site:\n    steps:\n      - run: npx wrangler deploy\n"
+    "        working-directory: apps/site\n",
+}

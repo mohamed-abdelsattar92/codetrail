@@ -27,7 +27,7 @@ from codetrail.repo.source import SourceManifest
 MARKER = re.compile(r"^>\s*\[!(documented|inferred)\]\s*(\S*)\s*$")
 FACT_LINK = re.compile(r"\[\[([a-z_]+:[^\]\s]+)\]\]")
 DIAGRAM = re.compile(r"^\{\{\s*diagram\b(.*?)\}\}\s*$")
-DIAGRAM_KINDS = {"imports": "scope", "dependencies": "project", "resources": "scope"}
+DIAGRAM_KINDS = {"imports": "scope", "dependencies": "project", "resources": "scope", "system": "focus"}
 FILE_CITATION = re.compile(r"^(?P<path>[^#\s]+)#L(?P<start>\d+)(?:-L(?P<end>\d+))?$")
 COMMIT_CITATION = re.compile(r"^commit:(?P<sha>[0-9a-f]{7,40})$")
 MAX_CITED_LINES = 40
@@ -140,6 +140,9 @@ def _commit_message(sha: str, context: ValidationContext) -> str | None:
 
 def _check_diagram(arguments: str, context: ValidationContext) -> list[str]:
     parts = arguments.split()
+    if parts == ["system"]:
+        has_parts = bool(context.store.entities(EntityKind.PART))
+        return [] if has_parts else ["The system diagram would draw nothing: no parts were found."]
     if len(parts) != 2 or parts[0] not in DIAGRAM_KINDS or "=" not in parts[1]:
         return [f"The diagram placeholder '{{{{diagram{arguments}}}}}' isn't a known diagram."]
     kind, (key, value) = parts[0], parts[1].split("=", 1)
@@ -165,6 +168,11 @@ def _draws_something(kind: str, value: str, store: FactStore) -> bool:
     if kind == "resources":
         folders = (entity.id.split(":", 1)[1] + "/" for entity in store.entities(EntityKind.TERRAFORM_MODULE))
         return any(folder.startswith(prefix) or prefix.startswith(folder) for folder in folders)
+    if kind == "system":
+        focus = value.strip("/")
+        folders = (str(part.attributes.get("folder") or "") for part in store.entities(EntityKind.PART)
+                   if part.attributes.get("kind") != "platform")  # fmt: skip
+        return any(folder == focus or folder.startswith(focus + "/") for folder in folders)
     return any(relation.source_id == value for relation in store.relations(RelationKind.DEPENDS_ON))
 
 

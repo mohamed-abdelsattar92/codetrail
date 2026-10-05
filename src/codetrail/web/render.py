@@ -15,7 +15,13 @@ from markupsafe import Markup
 
 from codetrail.facts.store import FactStore
 from codetrail.generate.validate import DIAGRAM, FILE_CITATION, MARKER
-from codetrail.web.diagrams import Diagram, dependencies_diagram, imports_diagram, resources_diagram
+from codetrail.web.diagrams import (
+    Diagram,
+    dependencies_diagram,
+    imports_diagram,
+    resources_diagram,
+    system_diagram,
+)
 
 FACT_LINK = re.compile(r"\[\[([a-z_]+:[^\]\s]+)\]\]")
 MARKDOWN = MarkdownIt("commonmark", {"html": False, "linkify": False}).enable("table")
@@ -83,6 +89,8 @@ def _link(citation: str | None) -> str | None:
 
 def _diagram(arguments: str, store: FactStore, max_nodes: int) -> Diagram | None:
     parts = arguments.split()
+    if parts == ["system"]:
+        return system_diagram(store, None, max_nodes)
     if len(parts) != 2 or "=" not in parts[1]:
         return None
     kind, value = parts[0], parts[1].split("=", 1)[1]
@@ -92,4 +100,6 @@ def _diagram(arguments: str, store: FactStore, max_nodes: int) -> Diagram | None
         return dependencies_diagram(store, value)
     if kind == "resources":
         return resources_diagram(store, value, max_nodes)
+    if kind == "system" and parts[1].startswith("focus="):
+        return system_diagram(store, value, max_nodes)
     return None

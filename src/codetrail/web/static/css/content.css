@@ -133,6 +133,66 @@
   cursor: pointer;
 }
 
+/* The system diagram's legend: one small shape or line per kind, in the interface language (design 17.4). */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  margin: var(--space-3) 0 0;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.legend div {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.legend dt,
+.legend dd {
+  margin: 0;
+}
+
+.legend-shape {
+  display: inline-block;
+  inline-size: 22px;
+  block-size: 14px;
+  border: 1.5px solid var(--line-strong);
+  background: var(--card);
+}
+
+.legend-rounded {
+  border-radius: 5px;
+}
+
+.legend-document {
+  border-radius: 0 0 40% 40% / 0 0 5px 5px;
+}
+
+.legend-double {
+  border-style: double;
+  border-width: 4px;
+}
+
+.legend-stadium {
+  border-radius: 999px;
+}
+
+.legend-line {
+  display: inline-block;
+  inline-size: 26px;
+  border-block-start: 2px solid var(--text-muted);
+}
+
+.legend-dashed {
+  border-block-start-style: dashed;
+}
+
+.system-parts td {
+  overflow-wrap: anywhere;
+}
+
 .checks {
   margin-block-start: var(--space-12);
 }

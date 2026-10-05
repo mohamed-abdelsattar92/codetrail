@@ -59,7 +59,8 @@ def test_a_opens_the_ask_panel(page: Page, site: Site) -> None:
 
 
 @pytest.mark.parametrize(
-    ("key", "path"), [("h", "/"), ("p", "/progress"), ("s", "/answers"), ("d", "/digests"), ("r", "/decisions")]
+    ("key", "path"),
+    [("h", "/"), ("p", "/progress"), ("y", "/system"), ("s", "/answers"), ("d", "/digests"), ("r", "/decisions")],
 )
 def test_g_then_a_letter_goes_places(page: Page, site: Site, key: str, path: str) -> None:
     site.sign_in(page, "/pages/areas/app")

@@ -9,7 +9,18 @@ async function draw(figure) {
   const source = figure.dataset.source;
   const target = figure.querySelector("[data-diagram-target]");
   if (!window.mermaid || !source || !target) return;
-  window.mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: isDark() ? "dark" : "neutral" });
+  // Arrow labels sit on the page's own colour, so their text keeps its contrast in both themes.
+  const colors = getComputedStyle(document.documentElement);
+  const themeVariables = {
+    edgeLabelBackground: colors.getPropertyValue("--page").trim(),
+    textColor: colors.getPropertyValue("--text").trim(),
+  };
+  window.mermaid.initialize({
+    startOnLoad: false,
+    securityLevel: "strict",
+    theme: isDark() ? "dark" : "neutral",
+    themeVariables,
+  });
   try {
     const { svg } = await window.mermaid.render(`diagram-${counter++}`, source);
     target.innerHTML = svg; // Mermaid's own output, sanitized in strict mode
