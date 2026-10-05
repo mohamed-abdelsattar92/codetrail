@@ -221,6 +221,7 @@ To remove Codetrail, run `uv tool uninstall codetrail` and delete those folders.
 |---|---|
 | `gitleaks wasn't found` | Install gitleaks and make sure it's on your `PATH`, or set `[tools] gitleaks` in `config.toml` |
 | `… is a mise shim, and mise couldn't say which gitleaks it runs here` | The `gitleaks` on your `PATH` is a mise shim, and no mise configuration in the folder you ran Codetrail from (or a parent) sets a gitleaks version. Run Codetrail from such a folder, set a global version with `mise use -g gitleaks`, or set `[tools] gitleaks` in `config.toml` to the binary's absolute path (`mise which gitleaks` prints it) |
+| `mise named … as gitleaks here, which isn't one of mise's own installs` | A mise configuration in the folder you ran Codetrail from names a gitleaks outside mise's installs (a `path:` version, perhaps from a repository you're reading), and Codetrail won't run it. Run Codetrail from another folder, or set `[tools] gitleaks` to a gitleaks you trust |
 | `gitleaks failed (exit code …)` | The message ends with what gitleaks printed. To run a different gitleaks, set `[tools] gitleaks` in `config.toml` to its absolute path |
 | `claude_code isn't ready. Run claude and sign in with /login` | Run `claude`, then `/login` with your Claude account |
 | `Claude Code isn't signed in with a Claude subscription` | You signed in with an API (Console) account: `/login` again with your Claude account, or set `auth = "api_key"` on purpose |

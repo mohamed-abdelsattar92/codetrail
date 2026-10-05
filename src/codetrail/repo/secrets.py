@@ -82,25 +82,35 @@ class SecretScanner:
                 f"gitleaks wasn't found ({self._executable!r}); Codetrail won't read a repository without it. "
                 f"Install it (for example with `mise install`). {POINT_AT_ANOTHER}"
             )
-        mise = Path(found).resolve()
+        shim = Path(found)
+        mise = shim.resolve()
         if mise.name != "mise":
             return found
         # A shim picks the version from its working directory, and gitleaks runs in an empty one, so ask mise here.
         result = subprocess.run(  # noqa: S603
-            [str(mise), "which", Path(found).name], capture_output=True, env=environment, check=False
-        )
-        binary = result.stdout.decode("utf-8", "replace").strip()
-        if result.returncode != 0 or not binary:
+            [str(mise), "which", shim.name],
+            stdin=subprocess.DEVNULL, capture_output=True, env=environment, check=False,
+        )  # fmt: skip
+        binary = Path(result.stdout.decode("utf-8", "replace").strip())
+        if result.returncode != 0 or not binary.is_absolute():
+            # Only mise's own error lines: it quotes the configuration line it couldn't parse on the lines after.
             raise CodetrailError(
                 f"{found} is a mise shim, and mise couldn't say which gitleaks it runs here "
-                f"(exit code {result.returncode}). It said: {_explanation(result.stderr)}. "
+                f"(exit code {result.returncode}). It said: {_explanation(result.stderr, 'mise ERROR')}. "
                 "Run Codetrail from a folder whose mise configuration sets gitleaks, or set a global version with "
                 f"`mise use -g gitleaks`. {POINT_AT_ANOTHER}"
             )
-        return binary
+        # A trusted mise configuration in the folder, perhaps a target's, can name any program with a path: version.
+        installs = (shim.parent.parent / "installs" / shim.name).resolve()
+        if not binary.resolve().is_relative_to(installs) or not binary.is_file():
+            raise CodetrailError(
+                f"mise named {binary} as gitleaks here, which isn't one of mise's own installs in {installs}; "
+                f"Codetrail won't run it. {POINT_AT_ANOTHER}"
+            )
+        return str(binary)
 
 
-def _explanation(stderr: bytes) -> str:
-    """A program's error output as one printable line, without colour codes, cut short."""
+def _explanation(stderr: bytes, prefix: str = "") -> str:
+    """A program's error lines that start with `prefix`, as one printable line without colour codes, cut short."""
     lines = (ESCAPE_SEQUENCES.sub("", line).strip() for line in stderr.decode("utf-8", "replace").splitlines())
-    return "; ".join(line for line in lines if line)[:MAX_EXPLANATION] or "nothing"
+    return "; ".join(line for line in lines if line.startswith(prefix) and line)[:MAX_EXPLANATION] or "nothing"
