@@ -8,6 +8,7 @@ Per-file extraction keeps a later cache keyed by blob and extractor version poss
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path, PurePosixPath
@@ -62,6 +63,19 @@ class Extraction:
 
 
 DEFAULT_MAX_FILE_BYTES = 1_000_000
+URL_CREDENTIALS = re.compile(r"(://)[^/\s]*@")
+LOCAL_SPECIFIERS = ("npm:", "workspace:", "file:", "link:", "portal:", "patch:")
+
+
+def without_credentials(text: str) -> str:
+    """A specifier or URL without user or password: scheme://user:pass@host and user:pass@host:path."""
+    text = URL_CREDENTIALS.sub(r"\1", text)
+    authority = text.split("/", 1)[0]
+    if "://" not in text and "@" in authority and ":" in authority and not text.startswith(LOCAL_SPECIFIERS):
+        text = text[authority.rindex("@") + 1 :]
+    return text
+
+
 DEFAULT_MAX_ATTRIBUTE_CHARS = 300
 
 
@@ -84,8 +98,12 @@ def run_extractors(
     found: dict[str, list[FileFacts]] = {}
     for extractor in extractors:
         handled = [path for path in listed if extractor.handles(path)]
-        extractor.prepare(handled)
         found[extractor.name] = []
+        try:
+            extractor.prepare(handled)
+        except Exception as error:  # one extractor's bad input never fails the update; its files are skipped
+            warnings.append(f"{extractor.name}: could not prepare ({type(error).__name__})")
+            continue
         for path in handled:
             file = source / PurePosixPath(path)
             if file.stat().st_size > max_file_bytes:
@@ -112,7 +130,11 @@ def run_extractors(
     relations: dict[tuple[str, str, str], Relation] = {}
     unresolved: dict[str, int] = {}
     for extractor in extractors:
-        resolution = extractor.resolve(found[extractor.name], entities)
+        try:
+            resolution = extractor.resolve(found[extractor.name], entities)
+        except Exception as error:  # its entities stay; only its relations are lost
+            warnings.append(f"{extractor.name}: could not resolve references ({type(error).__name__})")
+            continue
         dangling = [r for r in resolution.relations if r.source_id not in entities or r.target_id not in entities]
         for relation in resolution.relations:
             if relation not in dangling:

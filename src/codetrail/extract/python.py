@@ -18,7 +18,7 @@ from typing import Any
 import tree_sitter_python
 from tree_sitter import Language, Node, Parser
 
-from codetrail.extract import FileFacts, Reference, Resolution
+from codetrail.extract import FileFacts, Reference, Resolution, without_credentials
 from codetrail.facts import Entity, EntityKind, Relation, RelationKind, Source
 
 PYTHON = Language(tree_sitter_python.language())
@@ -94,7 +94,7 @@ class PythonExtractor:
                         RelationKind.DEPENDS_ON,
                         package,
                         (Source(path),),
-                        {"specifier": match.group(3).strip(), "group": group},
+                        {"specifier": without_credentials(match.group(3).strip()), "group": group},
                     )
                 )
         return FileFacts(path, tuple(entities), tuple(references))  # fmt: skip

@@ -100,7 +100,7 @@ flowchart TB
         guide[("guide/<br/>Markdown, own git repo")]
     end
     rules{{"Exclusions<br/>secret patterns · ignore files · gitleaks"}}
-    extract["Extractors<br/>python · adr · openapi · terraform · swift"]
+    extract["Extractors<br/>python · adr · openapi · terraform · swift · typescript"]
     assistant["Your assistant<br/>Claude Code · Codex · a local model<br/>read-only"]
     page["Local page<br/>127.0.0.1"]
 

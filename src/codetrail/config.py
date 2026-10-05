@@ -131,6 +131,7 @@ class CodexSettings(Settings):
 class ExtractSettings(Settings):
     max_file_bytes: int = Field(default=1_000_000, gt=0)
     max_attribute_chars: int = Field(default=300, ge=10)
+    max_tsconfig_paths: int = Field(default=100, gt=0, le=10_000)  # path patterns and targets read from a tsconfig
 
 
 class ServerSettings(Settings):
@@ -272,12 +273,13 @@ class TargetAssistantSettings(Settings):
 class TargetConfig(Settings):
     repository: Path
     branch: str
-    extractors: list[Literal["python", "adr", "openapi", "terraform", "swift"]] = [
+    extractors: list[Literal["python", "adr", "openapi", "terraform", "swift", "typescript"]] = [
         "python",
         "adr",
         "openapi",
         "terraform",
         "swift",
+        "typescript",
     ]
     adr: AdrSettings = AdrSettings()
     openapi: OpenApiSettings = OpenApiSettings()

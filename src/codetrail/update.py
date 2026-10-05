@@ -16,7 +16,15 @@ from codetrail.assistant.estimate import UpdateEstimate, estimate_update
 from codetrail.assistant.routing import build_assistant
 from codetrail.assistant.status import require_ready
 from codetrail.assistant.usage import UsageLog
-from codetrail.config import Paths, TargetConfig, check_containment, load_global, load_target, model_choice
+from codetrail.config import (
+    ExtractSettings,
+    Paths,
+    TargetConfig,
+    check_containment,
+    load_global,
+    load_target,
+    model_choice,
+)
 from codetrail.database import connect
 from codetrail.errors import CodetrailError
 from codetrail.extract import Extraction, Extractor, run_extractors
@@ -25,6 +33,7 @@ from codetrail.extract.openapi import OpenApiExtractor
 from codetrail.extract.python import PythonExtractor
 from codetrail.extract.swift import SwiftExtractor
 from codetrail.extract.terraform import TerraformExtractor
+from codetrail.extract.typescript import TypeScriptExtractor
 from codetrail.facts import FactDiff, Snapshot
 from codetrail.facts.store import FactStore
 from codetrail.generate.run import GenerationContext, GenerationResult, PlannedWork, generate_guide, planned_work
@@ -59,13 +68,15 @@ def _calls(target: TargetConfig, work: PlannedWork) -> list[tuple[str, str, str,
     ]
 
 
-def build_extractors(target: TargetConfig) -> list[Extractor]:
+def build_extractors(target: TargetConfig, extract: ExtractSettings | None = None) -> list[Extractor]:
+    extract = extract or ExtractSettings()
     available: dict[str, Extractor] = {
         "python": PythonExtractor(),
         "adr": AdrExtractor(target.adr.paths),
         "openapi": OpenApiExtractor(target.openapi.paths),
         "terraform": TerraformExtractor(),
         "swift": SwiftExtractor(),
+        "typescript": TypeScriptExtractor(extract.max_tsconfig_paths),
     }
     return [available[name] for name in target.extractors]
 
@@ -94,7 +105,7 @@ def run_update(
             manifest = refresh_while_locked(paths, name)
             source = data / "source"
             extraction = run_extractors(
-                source, manifest.files, build_extractors(target), settings.extract.max_file_bytes,
+                source, manifest.files, build_extractors(target, settings.extract), settings.extract.max_file_bytes,
                 settings.extract.max_attribute_chars,
             )  # fmt: skip
             connection = connect(data / "codetrail.db")

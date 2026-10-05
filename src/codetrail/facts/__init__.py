@@ -24,6 +24,7 @@ class EntityKind(StrEnum):
     TERRAFORM_MODULE = "terraform_module"
     RESOURCE = "resource"
     SWIFT_TARGET = "swift_target"
+    WORKER = "worker"
 
 
 class RelationKind(StrEnum):
