@@ -71,6 +71,12 @@ class BridgeSettings(Settings):
     max_question_chars: int = Field(default=4000, gt=0, le=20_000)
     max_turns: int = Field(default=20, gt=0)
     max_budget_usd: float = Field(default=1.0, gt=0)
+    max_session_answers: int = Field(default=20, gt=0, le=200)  # unsaved answers kept per session (16.4)
+
+
+class SearchSettings(Settings):
+    max_query_chars: int = Field(default=200, gt=0, le=1000)
+    max_results: int = Field(default=20, gt=0, le=100)
 
 
 class LearnSettings(Settings):
@@ -198,6 +204,7 @@ class GlobalConfig(Settings):
         return DEFAULT_PRICES | prices
 
     bridge: BridgeSettings = BridgeSettings()
+    search: SearchSettings = SearchSettings()
     learn: LearnSettings = LearnSettings()
     extract: ExtractSettings = ExtractSettings()
     server: ServerSettings = ServerSettings()

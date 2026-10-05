@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import difflib
 import hmac
+import logging
 import secrets
 import threading
 import time
@@ -38,6 +39,7 @@ from codetrail.guide import PAGE_ID, GuideRepository, Page, parse_page
 from codetrail.learn import LearningState, page_checks
 from codetrail.learn.routes import learning_router
 from codetrail.repo.signal import Signal, behind
+from codetrail.search import Result, SearchIndex, guide_documents
 from codetrail.update import run_update
 from codetrail.web.diagrams import dependencies_diagram, imports_diagram
 from codetrail.web.i18n import Language, installed_languages
@@ -46,6 +48,7 @@ from codetrail.web.security import SESSION_COOKIE, SecurityMiddleware, SessionSt
 from codetrail.web.target_view import TargetView
 
 LANGUAGE_SETTING = "language"
+logger = logging.getLogger(__name__)
 
 
 class LanguageChoice(BaseModel):
@@ -92,6 +95,41 @@ def create_app(
     templates = str(files("codetrail.web").joinpath("templates"))
     environments = {code: _environment(templates, language) for code, language in languages.items()}
     signal_cache: dict[str, tuple[float, Signal | None]] = {}
+    index_lock = threading.Lock()
+    index_built: dict[str, object] = {"key": None, "index": None}
+
+    def search_index() -> SearchIndex | None:
+        """The index, rebuilt whenever the guide or the facts moved on (an update, a saved answer); None if broken.
+
+        The key includes uncommitted changes, so pages a failed update discards leave the index at the next search.
+        """
+        with index_lock:
+            try:
+                database = view.data / "codetrail.db"
+                tracked = guide.git_dir.exists()
+                head = (guide.head(), guide.has_uncommitted_changes()) if tracked else None
+                index = index_built["index"] if isinstance(index_built["index"], SearchIndex) else SearchIndex()
+                if not database.exists():
+                    key: object = (head, None)
+                    if index_built["key"] != key:
+                        index.rebuild(guide_documents(guide, None))
+                else:
+                    with view.store() as store:
+                        key = (head, store.latest_snapshot())
+                        if index_built["key"] != key:
+                            index.rebuild(guide_documents(guide, store))
+            except Exception as error:  # search is optional; the rest of the page keeps working
+                logger.warning("Search isn't available: %s", type(error).__name__)
+                index_built.update(key=None)
+                return None
+            index_built.update(key=key, index=index)
+            return index
+
+    def search_results(query: str) -> tuple[list[Result], bool]:
+        found = search_index()
+        if found is None:
+            return [], False
+        return found.search(query, settings.search.max_query_chars, settings.search.max_results), True
 
     def language() -> Language:
         database = view.data / "codetrail.db"
@@ -209,6 +247,21 @@ def create_app(
             "page.html", page=page, segments=segments, sources_changed=changed, status=status.state, checks=checks,
             changes=changes,
         )  # fmt: skip
+
+    @app.get("/search", response_class=HTMLResponse)
+    def search_page(q: str = "") -> HTMLResponse:
+        results, available = search_results(q)
+        return render("search.html", query=q[: settings.search.max_query_chars], results=results, available=available)
+
+    @app.get("/search/results")
+    def search_json(q: str = "") -> Response:
+        results, available = search_results(q)
+        payload = [
+            {"title": result.document.title, "kind": result.document.kind, "link": result.document.link,
+             "snippet": [[text, matched] for text, matched in result.snippet]}
+            for result in results
+        ]  # fmt: skip
+        return JSONResponse({"results": payload, "available": available}, headers={"Cache-Control": "no-store"})
 
     @app.post("/update")
     def start_update() -> Response:
@@ -329,6 +382,7 @@ def create_app(
                 settings.providers.codex.timeout_seconds,
                 settings.providers.local.timeout_seconds,
             ),
+            settings.bridge.max_session_answers,
         )
     )
     app.include_router(

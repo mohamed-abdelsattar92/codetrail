@@ -37,9 +37,11 @@ def paths(tmp_path: Path) -> Paths:
     return paths
 
 
-def make_client(paths: Paths, claude: FakeAssistant) -> tuple[TestClient, dict[str, str]]:
+def make_client(
+    paths: Paths, claude: FakeAssistant, settings: GlobalConfig | None = None
+) -> tuple[TestClient, dict[str, str]]:
     session = SessionState(60)
-    app = create_app(paths, "t", session, GlobalConfig(), assistant_for=lambda: claude)
+    app = create_app(paths, "t", session, settings or GlobalConfig(), assistant_for=lambda: claude)
     client = TestClient(app, base_url=ORIGIN, follow_redirects=False)
     assert client.get(f"/login?code={session.issue_login_code()}").status_code == 303
     return client, {"origin": ORIGIN, TOKEN_HEADER: session.token}
@@ -242,3 +244,43 @@ def test_the_ask_button_shows_its_estimate_and_the_answer_its_usage(paths: Paths
     assert "~32k tokens · ~$0.07" in page  # the starting guess for an answer: 30k in, 1.5k out, at Sonnet's price
     found = events(client.post("/bridge/questions", json={"question": "Why?"}, headers=headers).text)
     assert found[-1]["usage"] == {"tokens": 12_800, "cost_usd": 0.03}
+
+
+def ask(client: TestClient, headers: dict[str, str], question: str) -> str:
+    response = client.post("/bridge/questions", json={"question": question}, headers=headers)
+    return str(events(response.text)[-1]["answer_id"])
+
+
+def test_the_sessions_answers_are_listed_for_the_panel(paths: Paths) -> None:
+    claude = FakeAssistant(answers=[[AnswerChunk("**One**."), AnswerChunk(done=True)], [AnswerChunk("Two."),
+                                    AnswerChunk(done=True)]])  # fmt: skip
+    client, headers = make_client(paths, claude)
+    first = ask(client, headers, "First?")
+    second = ask(client, headers, "Second?")
+    response = client.get("/bridge/answers", headers={TOKEN_HEADER: headers[TOKEN_HEADER]})
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store"
+    listed = response.json()["answers"]
+    assert [answer["id"] for answer in listed] == [first, second]
+    assert listed[0]["question"] == "First?" and "<strong>One</strong>" in listed[0]["html"]
+    assert listed[0]["asked_at"]
+    client.post(f"/bridge/answers/{first}/save", json={}, headers=headers)
+    remaining = client.get("/bridge/answers", headers={TOKEN_HEADER: headers[TOKEN_HEADER]}).json()["answers"]
+    assert [answer["id"] for answer in remaining] == [second]
+
+
+def test_listing_answers_needs_the_token(paths: Paths) -> None:
+    client, _ = make_client(paths, FakeAssistant())
+    assert client.get("/bridge/answers").status_code == 403
+
+
+def test_the_oldest_unsaved_answer_is_dropped_past_the_limit(paths: Paths) -> None:
+    settings = GlobalConfig.model_validate({"bridge": {"max_session_answers": 2}})
+    client, headers = make_client(paths, FakeAssistant(), settings)
+    oldest = ask(client, headers, "One?")
+    kept = [ask(client, headers, "Two?"), ask(client, headers, "Three?")]
+    listed = client.get("/bridge/answers", headers={TOKEN_HEADER: headers[TOKEN_HEADER]}).json()["answers"]
+    assert [answer["id"] for answer in listed] == kept
+    response = client.post(f"/bridge/answers/{oldest}/save", json={}, headers=headers)
+    assert response.status_code == 404
+    assert response.json()["error"] == "That answer is gone; ask again."

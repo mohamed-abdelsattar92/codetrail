@@ -100,7 +100,8 @@ class GuideRepository:
         (self.root / OUTLINE_FILE).write_text(text, encoding="utf-8")
 
     def has_uncommitted_changes(self) -> bool:
-        return bool(self._git("status", "--porcelain", "--untracked-files=all").strip())
+        # No optional locks: the page checks this while an update may be committing (design 16.3).
+        return bool(self._git("--no-optional-locks", "status", "--porcelain", "--untracked-files=all").strip())
 
     def head(self) -> str | None:
         try:

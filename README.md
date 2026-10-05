@@ -219,7 +219,7 @@ The interface is English first and switches language from the page. Each languag
 
 ## Status
 
-Every phase in the [design](docs/design/2026-10-05-codetrail-design.md) is built and tested.
+Phases 0 to 10 of the [design](docs/design/2026-10-05-codetrail-design.md) are built and tested. Phase 11, the page's redesign, is in progress.
 
 ```mermaid
 flowchart LR
@@ -233,6 +233,7 @@ flowchart LR
     P6 --> P8["8 · Providers and sign-in ✓"]
     P8 --> P9["9 · Cost estimates ✓"]
     P9 --> P10["10 · Getting started ✓"]
+    P10 --> P11["11 · The page's design …"]
 ```
 
 | Phase | What you can do | Status |
@@ -248,6 +249,7 @@ flowchart LR
 | 8. Providers and sign-in | Claude Code, Codex or a local model, on your own subscription | Done |
 | 9. Cost estimates | An estimate before every paid action | Done |
 | 10. Getting started | This README, and the [getting-started guide](docs/getting-started.md) | Done |
+| 11. The page's design | Search over the guide (done); a new look, the progress and saved-answers pages, a command palette, shortcuts and an Ask panel | In progress |
 
 Codex and local models are tested against stand-ins and Codetrail's own tests; Claude Code is also tested live. Codex's provider decision is [ADR 0006](docs/adr/0006-assistant-providers-and-subscriptions.md).
 

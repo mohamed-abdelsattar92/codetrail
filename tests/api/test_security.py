@@ -68,6 +68,7 @@ HEADERS = {
     "x-content-type-options": "nosniff",
     "referrer-policy": "no-referrer",
     "x-frame-options": "DENY",
+    "cross-origin-resource-policy": "same-origin",
 }
 
 
@@ -168,3 +169,21 @@ def test_a_session_ends_after_its_lifetime(clock: Clock) -> None:
     assert session.is_session(session.session_id)
     clock.now += 10 * 60 + 1
     assert not session.is_session(session.session_id)
+
+
+@pytest.mark.parametrize("site", ["cross-site", "same-site"])
+def test_requests_from_other_sites_and_ports_are_refused(client: TestClient, session: SessionState, site: str) -> None:
+    signed_in(client, session)
+    for path in ("/", f"/login?code={session.issue_login_code()}"):
+        response = client.get(path, headers={"sec-fetch-site": site})
+        assert response.status_code == 403
+        assert_security_headers(response)
+
+
+@pytest.mark.parametrize("site", ["same-origin", "none", None])
+def test_requests_from_the_page_or_the_address_bar_are_served(
+    client: TestClient, session: SessionState, site: str | None
+) -> None:
+    signed_in(client, session)
+    headers = {"sec-fetch-site": site} if site else {}
+    assert client.get("/", headers=headers).status_code == 200
