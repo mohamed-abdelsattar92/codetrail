@@ -67,7 +67,12 @@ def test_answering_a_check_learns_the_page_and_never_returns_the_rubric(paths: P
         "/learn/checks", json={"page_id": "areas/app", "check_id": "q1", "answer": "db"}, headers=headers
     )
     assert response.status_code == 200
-    assert response.json() == {"verdict": "pass", "feedback": "Right: main imports db.", "state": "learned"}
+    assert response.json() == {
+        "verdict": "pass",
+        "feedback": "Right: main imports db.",
+        "state": "learned",
+        "usage": {"tokens": 0, "cost_usd": 0.0},
+    }
     assert RUBRIC_POINT not in response.text
     assert 'data-status="learned"' in client.get("/pages/areas/app").text
 
@@ -147,3 +152,14 @@ def test_feedback_holding_a_secret_is_withheld_and_usage_recorded(paths: Paths) 
     assert stored and token not in stored[0]
     rows = connection.execute("SELECT kind, cost_usd FROM assistant_calls").fetchall()
     assert [tuple(row) for row in rows] == [("grade", 0.01)]
+
+
+def test_the_check_button_shows_its_estimate_and_the_grade_its_usage(paths: Paths) -> None:
+    usage = Usage("claude_code", "claude-sonnet-5-5", 3_000, 0, 300, 0.01)
+    claude = FakeAssistant(verdicts=[Verdict("pass", [], "Right.", 0.01, usage)])
+    client, headers = make_client(paths, claude)
+    assert "~4k tokens · ~$0.01" in client.get("/pages/areas/app").text
+    response = client.post(
+        "/learn/checks", json={"page_id": "areas/app", "check_id": "q1", "answer": "db"}, headers=headers
+    )
+    assert response.json()["usage"] == {"tokens": 3_300, "cost_usd": 0.01}

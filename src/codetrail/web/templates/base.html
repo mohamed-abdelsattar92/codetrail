@@ -1,4 +1,4 @@
-<!doctype html>
+{% from "macros.html" import cost with context %}<!doctype html>
 <html lang="{{ language.code }}" dir="{{ language.direction }}">
 <head>
   <meta charset="utf-8">
@@ -30,12 +30,13 @@
     {% block content %}{% endblock %}
   </main>
   <section class="ask" data-ask {% if page is defined and page.id %}data-page-id="{{ page.id }}"{% endif %}>
-    <h2>{{ _("Ask Claude about the code") }}</h2>
+    <h2>{{ _("Ask about the code") }}</h2>
     <form data-ask-form>
       <textarea name="question" rows="3" maxlength="4000" required placeholder="{{ _('For example: how does a request reach the database?') }}"></textarea>
-      <button type="submit">{{ _("Ask") }}</button>
+      <button type="submit">{{ _("Ask") }} {{ cost(estimates.get("answer")) }}</button>
     </form>
-    <p class="muted" data-ask-status></p>
+    <p class="muted" data-ask-status data-label-reading="{{ _('The assistant is reading the code…') }}"
+       data-label-used="{{ _('Used') }}" data-label-tokens="{{ _('tokens') }}"></p>
     <div class="answer" data-answer lang="{{ language.code }}" dir="auto"></div>
     <button type="button" data-save-answer hidden>{{ _("Save to guide") }}</button>
   </section>

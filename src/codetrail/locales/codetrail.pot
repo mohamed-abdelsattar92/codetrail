@@ -23,7 +23,16 @@ msgstr[0] ""
 msgstr[1] ""
 
 #, python-format
+msgid "%(expected)s to %(maximum)s"
+msgstr ""
+
+#, python-format
 msgid "%(learned)s of %(total)s learned"
+msgstr ""
+
+msgid ""
+"An estimate. On a subscription this counts against your plan’s usage "
+"limits; with an API key it is billed at these prices."
 msgstr ""
 
 msgid "An update is running."
@@ -38,7 +47,11 @@ msgstr ""
 msgid "Ask"
 msgstr ""
 
-msgid "Ask Claude about the code"
+msgid "Ask about the code"
+msgstr ""
+
+#, python-format
+msgid "At API prices: ~%(expected)s, at most %(maximum)s."
 msgstr ""
 
 #, python-format
@@ -46,6 +59,15 @@ msgid "At commit %(commit)s."
 msgstr ""
 
 msgid "Back to the start"
+msgstr ""
+
+msgid "Before the update"
+msgstr ""
+
+msgid "Call"
+msgstr ""
+
+msgid "Cancel"
 msgstr ""
 
 msgid "Catch up"
@@ -60,6 +82,9 @@ msgstr ""
 msgid "Concepts"
 msgstr ""
 
+msgid "Cost each"
+msgstr ""
+
 msgid "Couldn't check for new commits just now."
 msgstr ""
 
@@ -71,6 +96,10 @@ msgstr ""
 
 msgctxt "language name"
 msgid "English"
+msgstr ""
+
+#, python-format
+msgid "Expected: ~%(expected)s tokens; at most ~%(maximum)s."
 msgstr ""
 
 msgid "Facts"
@@ -93,10 +122,16 @@ msgstr ""
 msgid "Found in"
 msgstr ""
 
+msgid "Go ahead"
+msgstr ""
+
 msgid "Guided paths"
 msgstr ""
 
 msgid "Home"
+msgstr ""
+
+msgid "How many"
 msgstr ""
 
 msgid "Imports"
@@ -145,13 +180,23 @@ msgstr ""
 msgid "Nothing to show yet."
 msgstr ""
 
+#, python-format
+msgid "Plan usage (%(provider)s, %(window)s): %(used)s%%, as of %(when)s UTC."
+msgstr ""
+
 msgid "Pointed to by"
 msgstr ""
 
 msgid "Points to"
 msgstr ""
 
+msgid "Provider and model"
+msgstr ""
+
 msgid "Read"
+msgstr ""
+
+msgid "Refreshing the facts (free)…"
 msgstr ""
 
 msgid "Save to guide"
@@ -160,13 +205,29 @@ msgstr ""
 msgid "Since the last update"
 msgstr ""
 
+msgid "The assistant is reading the code…"
+msgstr ""
+
+msgid "The facts are refreshed. Writing the guide will call:"
+msgstr ""
+
 msgid "The guide"
+msgstr ""
+
+msgid "The update failed:"
+msgstr ""
+
+#, python-format
+msgid "The update stops at its budget of %(budget)s."
 msgstr ""
 
 msgid "There's nothing here. It may be excluded, or not in the guide yet."
 msgstr ""
 
 msgid "This file isn't text, or is too large to show."
+msgstr ""
+
+msgid "Tokens each"
 msgstr ""
 
 msgid ""
@@ -180,16 +241,46 @@ msgstr ""
 msgid "Update the guide"
 msgstr ""
 
+msgid "Updated."
+msgstr ""
+
+msgid "Updating…"
+msgstr ""
+
+msgid "Used"
+msgstr ""
+
 msgid "What changed since you learned this page"
 msgstr ""
 
 msgid "What each box links to"
 msgstr ""
 
+msgid "a starting guess"
+msgstr ""
+
+msgid "billed to that account."
+msgstr ""
+
 msgid "changed since you learned it"
+msgstr ""
+
+msgid "default model"
+msgstr ""
+
+msgid "free"
 msgstr ""
 
 msgctxt "text direction"
 msgid "ltr"
+msgstr ""
+
+msgid "no charge; the work counts against your plan's usage limits."
+msgstr ""
+
+msgid "no price configured"
+msgstr ""
+
+msgid "tokens"
 msgstr ""
 

@@ -9,6 +9,7 @@ from collections import Counter
 from pathlib import Path
 
 from codetrail import __version__
+from codetrail.assistant.estimate import UpdateEstimate, describe, tokens_text
 from codetrail.assistant.status import provider_status
 from codetrail.config import PROVIDERS, Paths, load_global, validate_target_name, write_target
 from codetrail.errors import CodetrailError
@@ -38,6 +39,7 @@ def build_parser() -> argparse.ArgumentParser:
     update = commands.add_parser("update", help="refresh a target's sources and facts, and write the guide")
     update.add_argument("name")
     update.add_argument("--facts-only", action="store_true", help="refresh the facts without calling an assistant")
+    update.add_argument("--yes", action="store_true", help="go ahead after showing the estimate, without asking")
 
     commands.add_parser("providers", help="show each assistant provider: installed, signed in, and how")
 
@@ -60,7 +62,7 @@ def main(argv: list[str] | None = None) -> int:
         if arguments.command == "providers":
             return show_providers(paths)
         if arguments.command == "update":
-            return update_target(paths, arguments.name, facts_only=arguments.facts_only)
+            return update_target(paths, arguments.name, facts_only=arguments.facts_only, yes=arguments.yes)
         if arguments.command == "serve":
             serve(paths, arguments.name, open_browser=not arguments.no_browser)
             return 0
@@ -122,8 +124,26 @@ def show_providers(paths: Paths) -> int:
     return 0
 
 
-def update_target(paths: Paths, name: str, facts_only: bool = False) -> int:
-    result = run_update(paths, name, facts_only=facts_only)
+def update_target(paths: Paths, name: str, facts_only: bool = False, yes: bool = False) -> int:
+    no_terminal = False
+
+    def confirm(estimate: UpdateEstimate) -> bool:
+        """Shows the estimate and asks before any paid work (design section 15.4)."""
+        nonlocal no_terminal
+        if not estimate.lines:
+            print("Nothing for the assistant to do in this update.")
+            return True
+        for line in describe(estimate):
+            print(line)
+        if yes:
+            return True
+        if not sys.stdin.isatty():
+            no_terminal = True
+            print("There's no terminal to ask in, so nothing was spent. Run again with --yes to go ahead.")
+            return False
+        return input("Continue? [y/N] ").strip().lower() in ("y", "yes")
+
+    result = run_update(paths, name, facts_only=facts_only, confirm=None if facts_only else confirm)
     extraction, diff = result.extraction, result.diff
     print(f"Updated {name} at commit {result.manifest.commit[:12]} (snapshot {result.snapshot.id}).")
     print(f"Facts: {len(extraction.entities)} entities, {len(extraction.relations)} relations.")
@@ -137,11 +157,15 @@ def update_target(paths: Paths, name: str, facts_only: bool = False) -> int:
         print(f"Unresolved references ({extractor}): {count}")
     for warning in extraction.warnings:
         print(f"Warning: {printable(warning)}")
+    if result.declined:
+        print("The facts were refreshed; the guide wasn't updated.")
+        return 2 if no_terminal else 0
     generation = result.generation
     if generation is not None:
         print(
             f"Guide: {len(generation.written)} pages written, {len(generation.failed)} failed, "
-            f"{len(generation.left_for_later)} left for the next update; cost ${generation.cost_usd:.2f}."
+            f"{len(generation.left_for_later)} left for the next update; "
+            f"used ~{tokens_text(generation.tokens)} tokens, ${generation.cost_usd:.2f} at API prices."
         )
         for page, reason in generation.failed:
             print(f"  Not rewritten: {page} ({printable(reason)})")

@@ -220,6 +220,8 @@ class GenerationSettings(Settings):
     max_turns: int = Field(default=30, gt=0)
     max_budget_usd_per_call: float = Field(default=1.0, gt=0)
     max_budget_usd_per_update: float = Field(default=10.0, gt=0)
+    # Counts every provider, including models with no configured price (design section 15.3).
+    max_tokens_per_update: int = Field(default=5_000_000, gt=0)
 
 
 PROVIDERS = ("claude_code", "codex", "local")

@@ -80,3 +80,49 @@ def test_nothing_is_created_when_the_data_folder_would_sit_inside_the_target(
     assert "inside" in capsys.readouterr().err
     after = sorted(path.name for path in (environment / "data").glob("*")) if (environment / "data").exists() else []
     assert after == before
+
+
+def signed_in_claude(environment: Path) -> None:
+    """A stand-in `claude` that only answers the sign-in check, which is all an update needs before it asks."""
+    import json
+
+    from tests.fixtures.programs import make_program
+
+    status = {"loggedIn": True, "authMethod": "claude.ai", "subscriptionType": "max"}
+    claude = make_program(environment / "bin", "fake-claude", [json.dumps(status)])
+    config = environment / "config" / "codetrail" / "config.toml"
+    config.parent.mkdir(parents=True, exist_ok=True)
+    config.write_text(f'[providers.claude_code]\ncommand = "{claude.path}"\n')
+
+
+def test_update_without_a_terminal_shows_the_estimate_and_needs_yes(
+    environment: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    checkout = make_repository(environment / "target", [{"app/main.py": "x = 1\n"}])
+    assert main(["target", "add", "app", str(checkout)]) == 0
+    signed_in_claude(environment)
+    capsys.readouterr()
+    assert main(["update", "app"]) == 2
+    output = capsys.readouterr().out
+    assert "This update will call:" in output and "claude_code" in output
+    assert "Claude subscription (max), so no charge" in output
+    assert "--yes" in output and "wasn't updated" in output
+
+
+def test_update_asks_and_respects_no(
+    environment: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    checkout = make_repository(environment / "target", [{"app/main.py": "x = 1\n"}])
+    assert main(["target", "add", "app", str(checkout)]) == 0
+    signed_in_claude(environment)
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+    asked: list[str] = []
+
+    def answer_no(prompt: str) -> str:
+        asked.append(prompt)
+        return "n"
+
+    monkeypatch.setattr("builtins.input", answer_no)
+    assert main(["update", "app"]) == 0
+    assert asked == ["Continue? [y/N] "]
+    assert "wasn't updated" in capsys.readouterr().out

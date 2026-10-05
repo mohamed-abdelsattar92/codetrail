@@ -1,0 +1,31 @@
+<h2>{{ _("Before the update") }}</h2>
+<p>{{ _("The facts are refreshed. Writing the guide will call:") }}</p>
+<table class="estimate">
+  <thead>
+    <tr><th>{{ _("Call") }}</th><th>{{ _("Provider and model") }}</th><th>{{ _("How many") }}</th><th>{{ _("Tokens each") }}</th><th>{{ _("Cost each") }}</th></tr>
+  </thead>
+  <tbody>
+  {% for line in estimate.lines %}
+    <tr>
+      <td>{{ line.kind }}</td>
+      <td>{{ line.provider }} · {{ line.model or _("default model") }}</td>
+      <td>{% if line.expected == line.maximum %}{{ line.expected }}{% else %}{% trans expected=line.expected, maximum=line.maximum %}{{ expected }} to {{ maximum }}{% endtrans %}{% endif %}</td>
+      <td>~{{ line.tokens_each | tokens }}{% if not line.from_history %} <span class="muted">({{ _("a starting guess") }})</span>{% endif %}</td>
+      <td>{% if line.cost_each_usd is none %}{{ _("no price configured") }}{% elif line.cost_each_usd == 0 %}{{ _("free") }}{% else %}~{{ line.cost_each_usd | dollars }}{% endif %}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+<p>
+  {% trans expected=estimate.expected_tokens|tokens, maximum=estimate.maximum_tokens|tokens %}Expected: ~{{ expected }} tokens; at most ~{{ maximum }}.{% endtrans %}
+  {% if estimate.expected_usd is not none %}{% trans expected=estimate.expected_usd|dollars, maximum=estimate.maximum_usd|dollars %}At API prices: ~{{ expected }}, at most {{ maximum }}.{% endtrans %}{% endif %}
+  {% trans budget=estimate.budget_usd|dollars %}The update stops at its budget of {{ budget }}.{% endtrans %}
+</p>
+<ul class="estimate-notes">
+{% for provider, method in estimate.sign_ins.items() %}
+  <li>{{ provider }}: {{ method }}{% if "subscription" in method|lower %}: {{ _("no charge; the work counts against your plan's usage limits.") }}{% elif provider != "local" %}: {{ _("billed to that account.") }}{% endif %}</li>
+{% endfor %}
+{% for reading in estimate.plan_usage %}
+  <li>{% trans provider=reading.provider, window=reading.window|replace("_", " "), used=(reading.utilization * 100)|round|int, when=reading.observed_at %}Plan usage ({{ provider }}, {{ window }}): {{ used }}%, as of {{ when }} UTC.{% endtrans %}</li>
+{% endfor %}
+</ul>

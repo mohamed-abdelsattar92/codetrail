@@ -105,12 +105,17 @@ def learning_router(
             return JSONResponse({"error": "The grade couldn't be read, so nothing was recorded; try again."}, 502)
         connection = connect(data / "codetrail.db")
         try:
-            UsageLog(connection, prices or {}).record("grade", verdict.usage)
+            cost = UsageLog(connection, prices or {}).record("grade", verdict.usage) or verdict.cost_usd
             status = LearningState(connection).record_attempt(
                 page, check, submitted.answer, verdict.verdict, feedback, language, guide.head()
             )
         finally:
             connection.close()
-        return JSONResponse({"verdict": verdict.verdict, "feedback": feedback, "state": status.state})
+        usage = verdict.usage
+        used = {
+            "tokens": usage.input_tokens + usage.cached_input_tokens + usage.output_tokens,
+            "cost_usd": round(cost, 4),
+        }
+        return JSONResponse({"verdict": verdict.verdict, "feedback": feedback, "state": status.state, "usage": used})
 
     return router
