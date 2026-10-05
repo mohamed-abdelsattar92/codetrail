@@ -36,6 +36,8 @@ jobs:
           install_args: gitleaks just python uv node pnpm
       - run: pnpm install --frozen-lockfile
       - run: uv sync --locked
+      # Headless Chromium and its system libraries for the browser tests (ADR 0008)
+      - run: uv run playwright install --with-deps chromium
       - run: just ci
       # Only develop's pushes: every commit reaches main through develop in the same push.
       - name: Commit messages in this push

@@ -11,13 +11,14 @@ default:
 setup:
     mise install
     uv sync
+    uv run playwright install chromium
     pnpm install --frozen-lockfile
     just _install-hooks
     git flow config sync
     @echo "Setup complete."
 
 # Run every check CI runs
-ci: check-repo lint typecheck test
+ci: check-repo lint typecheck test test-browser
 
 # Repository-wide checks: secrets anywhere in the history, and the file rules on every tracked file
 check-repo:
@@ -56,13 +57,17 @@ catalogs:
     if ls src/codetrail/locales/*/LC_MESSAGES/codetrail.po >/dev/null 2>&1; then uv run pybabel update --no-location --omit-header -i src/codetrail/locales/codetrail.pot -d src/codetrail/locales -D codetrail; fi
     if ls src/codetrail/locales/*/LC_MESSAGES/codetrail.po >/dev/null 2>&1; then uv run pybabel compile -d src/codetrail/locales -D codetrail; fi
 
-# Run every test except the live ones, which call the real Claude
+# Run every test except the live ones (the real providers) and the browser ones (just test-browser)
 test:
     uv run pytest -q
 
 # Run the quick tests, as the pre-push hook does
 test-quick:
-    uv run pytest -q -m "not slow and not live"
+    uv run pytest -q -m "not slow and not live and not browser"
+
+# Run the page in headless Chromium: the palette, shortcuts, the Ask panel and accessibility (ADR 0008)
+test-browser:
+    uv run pytest -q -m browser tests/browser
 
 # Run the live tests against the real Claude (local only; CI has no Claude sign-in)
 test-live:

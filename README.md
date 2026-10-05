@@ -275,7 +275,7 @@ mise trust && mise install
 just setup
 ```
 
-Then `just ci` runs every check CI runs; `just lint`, `just format`, `just typecheck`, `just test`, `just test-quick` (run by the pre-push hook) and `just test-live` (the real providers installed here, local only) run one kind each. Each phase's implementation plan is in [docs/design/plans/](docs/design/plans/).
+Then `just ci` runs every check CI runs; `just lint`, `just format`, `just typecheck`, `just test`, `just test-quick` (run by the pre-push hook), `just test-browser` (the page in headless Chromium, which `just setup` installs) and `just test-live` (the real providers installed here, local only) run one kind each. Each phase's implementation plan is in [docs/design/plans/](docs/design/plans/).
 
 ## Documentation
 
