@@ -88,6 +88,24 @@ class AnswerChunk:
     cost_usd: float = 0.0
 
 
+@dataclass(frozen=True)
+class GradeRequest:
+    question: str
+    rubric: list[dict[str, Any]]
+    page_title: str
+    page_body: str
+    answer: str
+    language: str
+
+
+@dataclass(frozen=True)
+class Verdict:
+    verdict: str  # "pass", "partial" or "fail"; anything else is an error
+    missed: list[str] = field(default_factory=list)
+    feedback: str = ""
+    cost_usd: float = 0.0
+
+
 class Claude(Protocol):
     async def plan(self, request: PlanRequest) -> PlanDraft: ...
 
@@ -96,3 +114,5 @@ class Claude(Protocol):
     async def write_digest(self, request: DigestRequest) -> DigestDraft: ...
 
     def answer(self, request: QuestionRequest) -> AsyncIterator[AnswerChunk]: ...
+
+    async def grade(self, request: GradeRequest) -> Verdict: ...

@@ -48,7 +48,7 @@ def test_a_rewritten_page_goes_stale_and_only_changed_checks_return(learning: Le
     current = page()
     for check in CHECKS:
         learning.record_attempt(current, check, "a", "pass", "", "en", "c1")
-    changed = {"id": "b", "question": "Why B, now?", "rubric": [{"point": "q2", "grounds": ["y"]}]}
+    changed: dict[str, object] = {"id": "b", "question": "Why B, now?", "rubric": [{"point": "q2", "grounds": ["y"]}]}
     rewritten = page("New body", [CHECKS[0], changed])
     status = learning.status(rewritten)
     assert status.state == "stale"

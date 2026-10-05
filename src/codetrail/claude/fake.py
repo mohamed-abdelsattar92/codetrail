@@ -10,11 +10,13 @@ from codetrail.claude import (
     ClaudeError,
     DigestDraft,
     DigestRequest,
+    GradeRequest,
     PageDraft,
     PageRequest,
     PlanDraft,
     PlanRequest,
     QuestionRequest,
+    Verdict,
 )
 
 PageScript = Callable[[PageRequest], PageDraft]
@@ -27,7 +29,10 @@ class FakeClaude:
     page_writer: PageScript | None = None
     digests: list[DigestDraft] = field(default_factory=list)
     answers: list[list[AnswerChunk] | Exception] = field(default_factory=list)
-    requests: list[PlanRequest | PageRequest | DigestRequest | QuestionRequest] = field(default_factory=list)
+    verdicts: list[Verdict | Exception] = field(default_factory=list)
+    requests: list[PlanRequest | PageRequest | DigestRequest | QuestionRequest | GradeRequest] = field(
+        default_factory=list
+    )
 
     async def plan(self, request: PlanRequest) -> PlanDraft:
         self.requests.append(request)
@@ -60,3 +65,10 @@ class FakeClaude:
             raise scripted
         for chunk in scripted:
             yield chunk
+
+    async def grade(self, request: GradeRequest) -> Verdict:
+        self.requests.append(request)
+        scripted = self.verdicts.pop(0) if self.verdicts else Verdict("pass", [], "Well explained.")
+        if isinstance(scripted, Exception):
+            raise scripted
+        return scripted
