@@ -30,6 +30,7 @@ Codetrail is one uv project with one package, `src/codetrail/`, and tests in `te
 | Command | Does |
 |---|---|
 | `codetrail target add <name> <path> [--branch <branch>]` | Writes a target's configuration with defaults |
+| `codetrail target remove <name> [--yes]` | Lists everything Codetrail keeps for the target (its settings, ignore file, data and state folders), asks, then deletes them; never the repository |
 | `codetrail files <target>` | Refreshes the target's sources and lists exactly the files Codetrail can see |
 | `codetrail update <target> [--yes] [--facts-only]` | Refreshes the sources, the facts and the guide, after showing the estimate (section 15.4) |
 | `codetrail providers` | Shows each assistant provider, whether it is installed and signed in, and how (section 15.2) |
