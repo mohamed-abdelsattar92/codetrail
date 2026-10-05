@@ -213,6 +213,8 @@ Run `codetrail update shop` whenever the repository has moved on; the page's hom
 
 The `XDG_CONFIG_HOME`, `XDG_DATA_HOME` and `XDG_STATE_HOME` variables move these folders.
 
+To remove one repository, stop `codetrail serve` for it, then run `codetrail target remove shop`. It lists what it will delete (the target's settings, its ignore file, and its data and state folders), asks first, and never touches the repository itself. `--yes` skips the question.
+
 To remove Codetrail, run `uv tool uninstall codetrail` and delete those folders.
 
 ## Troubleshooting
