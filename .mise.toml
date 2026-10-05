@@ -1,5 +1,5 @@
 # Pinned tools for codetrail (decision 11). Once per clone: `mise trust && mise install`, then `just setup`.
-# The versions match hamesh-monorepo's, so both repositories run on the same tools.
+# Every clone and CI run on exactly these versions.
 
 [tools]
 python = "3.14.7"

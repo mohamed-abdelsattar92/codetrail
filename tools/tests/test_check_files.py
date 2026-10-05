@@ -1,4 +1,4 @@
-"""Tests for the staged-file check, tools/hooks/check_files.py (adapted from hamesh-monorepo's)."""
+"""Tests for the staged-file check, tools/hooks/check_files.py."""
 import importlib.util
 import pathlib
 

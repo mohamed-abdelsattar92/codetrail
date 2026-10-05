@@ -27,4 +27,4 @@
 2. `Claude.grade` (interface, fake, adapter with no tools, prompt with the rubric as data, verdict schema); tests including a malformed verdict; a live test.
 3. Paths in the outline (schema, validation, `paths/` pages written by Codetrail, planned for an outline that has none); learned-first ranking; tests.
 4. The page: status and "Mark read", checks with answer boxes (`POST /bridge/checks/{page}/{check}`), the stale diff, paths and catch-up on the home page; catalog strings; tests.
-5. Hamesh: plan paths, answer a real check in the browser, mark pages, check Hamesh unchanged; documents; review.
+5. The first test repository: plan paths, answer a real check in the browser, mark pages, check the target repository unchanged; documents; review.

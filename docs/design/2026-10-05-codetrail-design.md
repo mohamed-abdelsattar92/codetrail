@@ -9,7 +9,7 @@ This spec describes the whole system. It is built in phases (section 13), each w
 
 ## 1. Purpose and success criteria
 
-The founder of `hamesh-monorepo` is falling behind on its architecture, patterns and tools as agents merge into `develop` every day. Codetrail tells them what changed and why it matters (need B), and teaches the engineering the way a course does (need C). It keeps a curated guide that grows with the repository, pushes what's new instead of waiting for questions, and draws diagrams only from extracted facts.
+The founder of a large monorepo is falling behind on its architecture, patterns and tools as agents merge into `develop` every day. Codetrail tells them what changed and why it matters (need B), and teaches the engineering the way a course does (need C). It keeps a curated guide that grows with the repository, pushes what's new instead of waiting for questions, and draws diagrams only from extracted facts.
 
 Codetrail succeeds when:
 
@@ -87,7 +87,7 @@ The guide's location can be configured, but never inside the target.
 `codetrail target add` writes `~/.config/codetrail/targets/<name>.toml`:
 
 ```toml
-repository = "~/PersonalProjects/hamesh/hamesh-monorepo"
+repository = "~/code/shop"
 branch = "develop"
 extractors = ["python", "adr"]
 # source_url_template = "https://github.com/<owner>/<repo>/blob/{commit}/{path}#L{start}-L{end}"
@@ -118,10 +118,10 @@ Unknown keys are refused. Model names and every limit live here or in the global
 ### 3.3 Exclusion rules
 Three layers decide whether a tracked file exists for Codetrail:
 
-1. **Built-in secret patterns**, defined in code, which nothing can override. They start from Hamesh's `block_secret_reads.py`:
+1. **Built-in secret patterns**, defined in code, which nothing can override. They start from the secret-read hook adapted from the founder's earlier projects:
    `.env`, `.env.*`, `.dev.vars`, `*.p8`, `*.p12`, `*.pem`, `*.keystore`, `*.jks`, `*.tfstate`, `*.tfstate.backup`,
    plus `*.tfvars`, `*.tfvars.json`, `.terraform/`, `*.key`, `*.pfx`, `id_rsa*`, `id_ed25519*`, `*.ppk`, `.netrc`, `.npmrc`, `.pypirc`.
-   As in Hamesh, `*.example` files (such as `.env.example`) are not secrets and stay visible.
+   `*.example` files (such as `.env.example`) are not secrets and stay visible.
 2. **Ignore files** in exact gitignore syntax (files, `dir/`, `*`, `**`, `?`, `[…]`, leading `/` anchoring, `!` negation, `#` comments), from two sources applied in order:
    - `.codetrailignore` committed in the target, if there is one, read from the snapshot commit;
    - `~/.config/codetrail/targets/<name>.ignore`, the founder's file.
@@ -222,7 +222,7 @@ class Extractor(Protocol):
 - Extraction is per file so that a later cache keyed by blob hash and extractor version can make it incremental without changing the interface. The cache is built when a large target needs it.
 - Extractors find their own roots where a convention exists; every `pyproject.toml` marks a Python project root, so `services/api/app/db.py` is the module `app.db` in the project `services/api`.
 
-### 5.2 Extractors for Hamesh
+### 5.2 The first extractors
 | Phase | Extractor | Reads | Produces | Parser |
 |---|---|---|---|---|
 | 2 | `python` | `*.py`, `pyproject.toml` | projects, modules, packages; `contains`, `imports`, `depends_on` | tree-sitter-python, `tomllib` |
@@ -231,7 +231,7 @@ class Extractor(Protocol):
 | 7 | `terraform` | `*.tf` | modules (one per folder), resources; `contains`, `references` (between resources, and module calls to folders) | tree-sitter HCL grammar |
 | 7 | `swift` | `Package.swift`, `import` lines in `*.swift` | Swift packages (as projects), targets and external packages; `contains`, `depends_on`, `imports` | `Package.swift` read by pattern (never executed); tree-sitter Swift grammar for imports |
 
-The tree-sitter grammars come under decision 9's tree-sitter choice. Hamesh's SQL migrations, workflows, landing page and the design, PRD and slice documents are not extracted until a page needs them; Claude reads the documents for the "why".
+The tree-sitter grammars come under decision 9's tree-sitter choice. A repository's SQL migrations, workflows, landing page and its design, product and planning documents are not extracted until a page needs them; Claude reads the documents for the "why".
 
 ## 6. Generation
 
@@ -374,7 +374,7 @@ Each page carries two to four open questions in its front matter, written in the
 ```yaml
 checks:
   - id: why-contract-first
-    question: "Why does Hamesh generate its app clients from the OpenAPI document instead of writing them?"
+    question: "Why does the shop generate its app clients from the OpenAPI document instead of writing them?"
     rubric:
       - point: "The OpenAPI document is the single contract between the API and the apps"
         grounds: ["decision:ADR-0007"]
@@ -531,14 +531,14 @@ Each phase is usable on its own, has its own implementation plan, and ends with 
 
 | Phase | Builds | Usable result | Needs |
 |---|---|---|---|
-| 0. Engineering setup | mise, `just`, the uv project skeleton, lefthook with Hamesh's hook scripts adapted, commitlint, git-flow-next, ruff, mypy, pytest; `.claude/` (deny rules, push and secret-read hooks, security-reviewer agent); `.codex/rules/`; CI; Dependabot; `docs/security/review-checklist.md` | `just ci` passes on an empty package; the "Never do" rules are enforced by tools | Decision 11 |
-| 1. Targets and exclusions | `config`, `target add`, `mirror.git`, `source/`, the three exclusion layers, filtered logs and diffs, `codetrail files` | The founder checks on Hamesh that secrets and ignored files are gone, before any Claude call exists | ADRs 0001, 0002 |
-| 2. Facts | The fact store, the extractor interface, `python` and `adr`, `codetrail update` printing the fact diff | Hamesh's modules, packages and decisions as facts | ADR 0003 |
-| 3. The page, without Claude | `serve`, the security model, interface languages, area views with roll-up diagrams, fact and source views, the "you're behind" signal | A grounded map of Hamesh that says when it's behind, at no Claude cost | ADRs 0004, 0005 |
+| 0. Engineering setup | mise, `just`, the uv project skeleton, lefthook with hook scripts adapted from the founder's earlier projects, commitlint, git-flow-next, ruff, mypy, pytest; `.claude/` (deny rules, push and secret-read hooks, security-reviewer agent); `.codex/rules/`; CI; Dependabot; `docs/security/review-checklist.md` | `just ci` passes on an empty package; the "Never do" rules are enforced by tools | Decision 11 |
+| 1. Targets and exclusions | `config`, `target add`, `mirror.git`, `source/`, the three exclusion layers, filtered logs and diffs, `codetrail files` | The founder checks on the first test repository that secrets and ignored files are gone, before any Claude call exists | ADRs 0001, 0002 |
+| 2. Facts | The fact store, the extractor interface, `python` and `adr`, `codetrail update` printing the fact diff | A target repository's modules, packages and decisions as facts | ADR 0003 |
+| 3. The page, without Claude | `serve`, the security model, interface languages, area views with roll-up diagrams, fact and source views, the "you're behind" signal | A grounded map of a target repository that says when it's behind, at no Claude cost | ADRs 0004, 0005 |
 | 4. Generation | The Agent SDK spike; the `claude` interface, adapter, fake and guard; outline, area and concept pages, validation, digests, budget, update from the page | The guide: what changed, and the concepts behind it | — |
 | 5. Bridge | Questions, streamed answers in the chosen language, "save to guide" | Ask from any page and keep the answers | — |
 | 6. Learning | Paths, checks and grading, progress, staleness, the catch-up path | The course, and knowing when learning went stale | — |
-| 7. More extractors | `openapi`, then `terraform`, then `swift_packages` | Hamesh's contract, infrastructure and iOS packages in the guide | Can start after Phase 4, alongside 5 and 6 |
+| 7. More extractors | `openapi`, then `terraform`, then `swift_packages` | A target repository's API contract, infrastructure and Swift packages in the guide | Can start after Phase 4, alongside 5 and 6 |
 | 8. Providers and sign-in | The `assistant` interface; the `claude_code`, `codex` and `local` adapters; the allowlisted environment; `codetrail providers`; usage records; output scanning | Any of the three assistants, on the reader's own subscription | ADR 0006 |
 | 9. Cost estimates | Prices, starting values and history; the update, question and grading estimates; the page's dialog, the estimate id, and the command line's question | No paid action without its estimate first | Phase 8 |
 | 10. Getting started | A generic README with screenshots of Codetrail's guide to itself, and the install guide | Anyone can install and run Codetrail on their own repository | Phase 9 |
@@ -550,7 +550,7 @@ Each phase is usable on its own, has its own implementation plan, and ends with 
 | Default home of a target's knowledge base | Codetrail's data folder, its own git repository (section 2.3) |
 | Agent SDK sign-in or API key | The reader's own `claude -p` with their subscription, an API key only by choice (section 15.2, ADR 0006) |
 | The fact model | Section 4 |
-| The extractor interface and Hamesh's first extractors | Section 5 |
+| The extractor interface and the first extractors | Section 5 |
 | How the page is built | Server-rendered (section 7.1) |
 | Checks and staleness | Sections 8.2 and 8.3 |
 | Phase order | Section 13 |

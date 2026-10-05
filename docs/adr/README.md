@@ -1,6 +1,6 @@
 # Architecture decision records
 
-One file per decision that is hard to reverse. The format is MADR (Markdown Architectural Decision Records), trimmed, as in `hamesh-monorepo`; copy `template.md` to start one.
+One file per decision that is hard to reverse. The format is MADR (Markdown Architectural Decision Records), trimmed; copy `template.md` to start one.
 
 ## When a decision needs an ADR
 Write one when a decision is hard to reverse or touches any of these:

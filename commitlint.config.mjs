@@ -1,4 +1,4 @@
-// Commit message rules for codetrail (AGENTS.md, Workflow), adapted from hamesh-monorepo's.
+// Commit message rules for codetrail (AGENTS.md, Workflow).
 // Merge commits are ignored by commitlint's defaults. CI adds Dependabot's commits (commitlint.ci.config.mjs); the
 // local commit-msg hook keeps these rules for every commit.
 const TYPES = ["feat", "fix", "refactor", "perf", "test", "docs", "build", "ci", "chore", "revert"];

@@ -14,7 +14,7 @@ def fenced(prompt: str) -> list[str]:
 
 
 def test_plan_facts_are_fenced() -> None:
-    prompt = plan_prompt(PlanRequest("hamesh", f"route GET /x {INJECTED}", ""))
+    prompt = plan_prompt(PlanRequest("shop", f"route GET /x {INJECTED}", ""))
     assert any(INJECTED in body for body in fenced(prompt))
     assert INJECTED not in FENCED.sub("", prompt)
 
@@ -27,6 +27,6 @@ def test_page_facts_decisions_and_history_are_fenced() -> None:
 
 
 def test_digest_commits_and_fact_changes_are_fenced() -> None:
-    prompt = digest_prompt(DigestRequest("hamesh", f"abc {INJECTED}", f"+ module {INJECTED}"))
+    prompt = digest_prompt(DigestRequest("shop", f"abc {INJECTED}", f"+ module {INJECTED}"))
     assert len([body for body in fenced(prompt) if INJECTED in body]) == 2
     assert INJECTED not in FENCED.sub("", prompt)

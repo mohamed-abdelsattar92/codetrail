@@ -39,17 +39,17 @@ def test_paths_default_under_the_home_folder(tmp_path: Path) -> None:
     assert paths.config_dir == tmp_path / ".config" / "codetrail"
     assert paths.data_dir == tmp_path / ".local" / "share" / "codetrail"
     assert paths.state_dir == tmp_path / ".local" / "state" / "codetrail"
-    assert paths.target_file("hamesh") == tmp_path / ".config" / "codetrail" / "targets" / "hamesh.toml"
-    assert paths.ignore_file("hamesh") == tmp_path / ".config" / "codetrail" / "targets" / "hamesh.ignore"
-    assert paths.target_data("hamesh") == tmp_path / ".local" / "share" / "codetrail" / "hamesh"
+    assert paths.target_file("shop") == tmp_path / ".config" / "codetrail" / "targets" / "shop.toml"
+    assert paths.ignore_file("shop") == tmp_path / ".config" / "codetrail" / "targets" / "shop.ignore"
+    assert paths.target_data("shop") == tmp_path / ".local" / "share" / "codetrail" / "shop"
 
 
-@pytest.mark.parametrize("name", ["hamesh", "my-repo", "a", "a" * 63, "repo2"])
+@pytest.mark.parametrize("name", ["shop", "my-repo", "a", "a" * 63, "repo2"])
 def test_accepts_plain_target_names(name: str) -> None:
     assert validate_target_name(name) == name
 
 
-@pytest.mark.parametrize("name", ["", "../x", "Hamesh", "a b", "a" * 64, "-x", "x/y", ".hidden"])
+@pytest.mark.parametrize("name", ["", "../x", "Shop", "a b", "a" * 64, "-x", "x/y", ".hidden"])
 def test_refuses_other_target_names(name: str) -> None:
     with pytest.raises(CodetrailError):
         validate_target_name(name)
@@ -68,46 +68,46 @@ def test_unknown_global_keys_are_refused_by_name(paths: Paths) -> None:
 
 def test_a_missing_target_names_the_command_that_adds_it(paths: Paths) -> None:
     with pytest.raises(CodetrailError, match="codetrail target add"):
-        load_target(paths, "hamesh")
+        load_target(paths, "shop")
 
 
 def test_written_targets_round_trip(paths: Paths, tmp_path: Path) -> None:
     repository = tmp_path / 'my "odd" repö'
-    write_target(paths, "hamesh", repository, "develop")
-    target = load_target(paths, "hamesh")
+    write_target(paths, "shop", repository, "develop")
+    target = load_target(paths, "shop")
     assert target.repository == repository
     assert target.branch == "develop"
 
 
 def test_a_target_is_never_overwritten(paths: Paths, tmp_path: Path) -> None:
-    write_target(paths, "hamesh", tmp_path / "repo", "develop")
+    write_target(paths, "shop", tmp_path / "repo", "develop")
     with pytest.raises(CodetrailError, match="already exists"):
-        write_target(paths, "hamesh", tmp_path / "other", "main")
+        write_target(paths, "shop", tmp_path / "other", "main")
 
 
 def test_unknown_target_keys_are_refused_by_name(paths: Paths, tmp_path: Path) -> None:
-    write_target(paths, "hamesh", tmp_path / "repo", "develop")
-    file = paths.target_file("hamesh")
+    write_target(paths, "shop", tmp_path / "repo", "develop")
+    file = paths.target_file("shop")
     file.write_text(file.read_text() + 'extra = "x"\n')
     with pytest.raises(CodetrailError, match="extra"):
-        load_target(paths, "hamesh")
+        load_target(paths, "shop")
 
 
 def test_the_repository_may_not_contain_codetrails_folders(paths: Paths, tmp_path: Path) -> None:
     with pytest.raises(CodetrailError, match="inside"):
-        write_target(paths, "hamesh", tmp_path, "develop")
+        write_target(paths, "shop", tmp_path, "develop")
 
 
 def test_the_repository_may_not_sit_inside_codetrails_folders(paths: Paths) -> None:
     with pytest.raises(CodetrailError, match="inside"):
-        write_target(paths, "hamesh", paths.data_dir / "repo", "develop")
+        write_target(paths, "shop", paths.data_dir / "repo", "develop")
 
 
 def test_home_is_expanded_in_the_repository_path(paths: Paths, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("HOME", str(tmp_path / "home"))
-    paths.target_file("hamesh").parent.mkdir(parents=True)
-    paths.target_file("hamesh").write_text('repository = "~/repo"\nbranch = "develop"\n')
-    assert load_target(paths, "hamesh").repository == tmp_path / "home" / "repo"
+    paths.target_file("shop").parent.mkdir(parents=True)
+    paths.target_file("shop").write_text('repository = "~/repo"\nbranch = "develop"\n')
+    assert load_target(paths, "shop").repository == tmp_path / "home" / "repo"
 
 
 def test_relative_xdg_values_are_ignored(tmp_path: Path) -> None:
@@ -117,22 +117,22 @@ def test_relative_xdg_values_are_ignored(tmp_path: Path) -> None:
 
 
 def test_containment_is_checked_again_after_the_target_was_added(paths: Paths, tmp_path: Path) -> None:
-    write_target(paths, "hamesh", tmp_path / "repo", "develop")
+    write_target(paths, "shop", tmp_path / "repo", "develop")
     moved = Paths(config_dir=paths.config_dir, data_dir=tmp_path / "repo" / ".cache", state_dir=paths.state_dir)
     with pytest.raises(CodetrailError, match="inside"):
-        check_containment(moved, load_target(paths, "hamesh").repository)
+        check_containment(moved, load_target(paths, "shop").repository)
 
 
 def test_control_characters_survive_the_toml_round_trip(paths: Paths, tmp_path: Path) -> None:
     repository = tmp_path / "odd\x7fname"
-    write_target(paths, "hamesh", repository, "develop")
-    assert load_target(paths, "hamesh").repository == repository
+    write_target(paths, "shop", repository, "develop")
+    assert load_target(paths, "shop").repository == repository
 
 
 def test_invalid_branch_names_are_refused(paths: Paths, tmp_path: Path) -> None:
     with pytest.raises(CodetrailError, match="branch"):
-        write_target(paths, "hamesh", tmp_path / "repo", "bad..name")
-    assert not paths.target_file("hamesh").exists()
+        write_target(paths, "shop", tmp_path / "repo", "bad..name")
+    assert not paths.target_file("shop").exists()
 
 
 def test_server_and_page_defaults(paths: Paths) -> None:
@@ -161,8 +161,8 @@ def test_unsafe_or_impossible_settings_are_refused(paths: Paths, text: str) -> N
 
 
 def test_generation_defaults(paths: Paths, tmp_path: Path) -> None:
-    write_target(paths, "hamesh", tmp_path / "repo", "develop")
-    target = load_target(paths, "hamesh")
+    write_target(paths, "shop", tmp_path / "repo", "develop")
+    target = load_target(paths, "shop")
     assert target.generation.max_pages_per_update == 20
     assert target.generation.concurrency == 2
     assert target.generation.max_turns == 30
@@ -173,11 +173,11 @@ def test_generation_defaults(paths: Paths, tmp_path: Path) -> None:
 
 
 def test_generation_limits_must_be_positive(paths: Paths, tmp_path: Path) -> None:
-    write_target(paths, "hamesh", tmp_path / "repo", "develop")
-    file = paths.target_file("hamesh")
+    write_target(paths, "shop", tmp_path / "repo", "develop")
+    file = paths.target_file("shop")
     file.write_text(file.read_text() + "[generation]\nconcurrency = 0\n")
     with pytest.raises(CodetrailError, match="concurrency"):
-        load_target(paths, "hamesh")
+        load_target(paths, "shop")
 
 
 def test_provider_defaults_use_the_subscription(paths: Paths) -> None:

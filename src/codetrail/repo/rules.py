@@ -12,7 +12,7 @@ from enum import StrEnum
 
 from pathspec import GitIgnoreSpec
 
-# Started from hamesh-monorepo's secret-read hook, with Terraform variables, private keys and credential files added.
+# Environment files, Terraform variables, private keys and credential files: never read, whatever the rules say.
 BUILTIN_FILE_PATTERNS: tuple[str, ...] = (
     ".env",
     ".env.*",

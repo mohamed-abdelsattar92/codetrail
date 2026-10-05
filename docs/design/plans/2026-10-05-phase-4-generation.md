@@ -52,5 +52,5 @@
 ### Task 7: Rendering the guide, and the Update button
 `src/codetrail/web/render.py`: Markdown with markdown-it-py (`html` off, link validation on), rationale blocks rendered as labelled boxes ("Documented · <source link>", "Inferred"), fact links to `/facts/…`, diagram placeholders replaced by diagrams from facts. Routes: `/pages/{id:path}` (with a "sources changed" notice when a recorded file's blob changed), `/digests/{id}`; the home page lists the guide's areas, concepts and latest digest. `POST /update` starts the update in a background thread (one at a time; the target lock refuses a second), `GET /update/status` returns its state as JSON; page.js polls it. Tests: hostile Markdown inert; rationale and diagrams rendered; the button's endpoints behind the token.
 
-### Task 8: Hamesh, documents, review
-Run `codetrail update hamesh` with the real adapter (a small page budget), read the guide in the browser, check Hamesh unchanged; README, spec refinements; security review; finish.
+### Task 8: The first test repository, documents, review
+Run `codetrail update shop` with the real adapter (a small page budget), read the guide in the browser, check the target repository unchanged; README, spec refinements; security review; finish.

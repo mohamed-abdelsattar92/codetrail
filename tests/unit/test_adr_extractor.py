@@ -6,7 +6,7 @@ from codetrail.extract import run_extractors
 from codetrail.extract.adr import AdrExtractor
 from codetrail.facts import RelationKind
 
-HAMESH_STYLE = """# 0023. Use httpx for the API's outbound calls
+MADR_STYLE = """# 0023. Use httpx for the API's outbound calls
 
 - Status: accepted (by the founder, 4 October 2026)
 - Date: 2026-09-30
@@ -41,8 +41,8 @@ def run(root: Path, files: dict[str, str], globs: list[str] | None = None):  # t
     return run_extractors(root, sorted(files), [AdrExtractor(globs or ["docs/adr/*.md"])])
 
 
-def test_reads_hamesh_style_decisions(tmp_path: Path) -> None:
-    extraction = run(tmp_path, {"docs/adr/0023-httpx.md": HAMESH_STYLE})
+def test_reads_madr_style_decisions(tmp_path: Path) -> None:
+    extraction = run(tmp_path, {"docs/adr/0023-httpx.md": MADR_STYLE})
     [decision] = extraction.entities
     assert decision.id == "decision:ADR-0023"
     assert dict(decision.attributes) == {
@@ -55,7 +55,7 @@ def test_reads_hamesh_style_decisions(tmp_path: Path) -> None:
 
 
 def test_superseded_decisions_get_an_edge(tmp_path: Path) -> None:
-    extraction = run(tmp_path, {"docs/adr/0023-httpx.md": HAMESH_STYLE, "docs/adr/0005-requests.md": SUPERSEDED})
+    extraction = run(tmp_path, {"docs/adr/0023-httpx.md": MADR_STYLE, "docs/adr/0005-requests.md": SUPERSEDED})
     statuses = {entity.id: entity.attributes["status"] for entity in extraction.entities}
     assert statuses["decision:ADR-0005"] == "superseded"
     assert [relation.key for relation in extraction.relations] == [
@@ -81,7 +81,7 @@ def test_files_without_a_number_are_skipped(tmp_path: Path) -> None:
 
 
 def test_only_configured_paths_are_read(tmp_path: Path) -> None:
-    extraction = run(tmp_path, {"docs/other/0001-x.md": HAMESH_STYLE})
+    extraction = run(tmp_path, {"docs/other/0001-x.md": MADR_STYLE})
     assert extraction.entities == []
 
 
