@@ -19,7 +19,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from codetrail.assistant import Assistant, AssistantError, GradeRequest
 from codetrail.assistant.usage import UsageLog
-from codetrail.config import Paths, Price
+from codetrail.config import Paths, Price, ToolsSettings
 from codetrail.database import connect
 from codetrail.guide import PAGE_ID, GuideRepository, Page
 from codetrail.learn import VERDICTS, LearningState, page_checks
@@ -44,8 +44,8 @@ def learning_router(
     assistant_for: Callable[[], Assistant],
     language_of: Callable[[], str],
     max_answer_chars: int,
-    cooldown_seconds: int = 0,
-    gitleaks: str = "gitleaks",
+    cooldown_seconds: int,
+    tools: ToolsSettings,
     prices: Mapping[str, Price] | None = None,
 ) -> APIRouter:
     router = APIRouter()
@@ -109,7 +109,7 @@ def learning_router(
         finally:
             grading["busy"] = False
         feedback = verdict.feedback
-        findings = await anyio.to_thread.run_sync(SecretScanner(gitleaks).scan_text, feedback)
+        findings = await anyio.to_thread.run_sync(SecretScanner(tools).scan_text, feedback)
         if findings:
             feedback = (
                 f"The feedback was withheld: it contains something that looks like a secret ({findings[0].rule})."

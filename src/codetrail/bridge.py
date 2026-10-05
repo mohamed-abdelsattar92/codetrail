@@ -27,7 +27,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from codetrail.assistant import AnswerChunk, Assistant, AssistantError, QuestionRequest, Usage
 from codetrail.assistant.usage import UsageLog
-from codetrail.config import Paths, Price
+from codetrail.config import Paths, Price, ToolsSettings
 from codetrail.database import connect
 from codetrail.errors import CodetrailError
 from codetrail.facts.store import FactStore
@@ -87,14 +87,14 @@ def bridge_router(
     language_of: Callable[[], str],
     max_question_chars: int,
     max_nodes: int,
-    gitleaks: str,
+    tools: ToolsSettings,
     prices: Mapping[str, Price],
     call_timeout_seconds: float,
     max_session_answers: int = 20,
 ) -> APIRouter:
     router = APIRouter()
     state = BridgeState(abandon_after_seconds=call_timeout_seconds + 60)
-    scanner = SecretScanner(gitleaks)
+    scanner = SecretScanner(tools)
     data = paths.target_data(name)
     guide = GuideRepository(data / "guide")
 
@@ -212,7 +212,7 @@ def bridge_router(
             return JSONResponse({"error": "That answer is gone; ask again."}, 404)
         try:
             with target_lock(paths, name):
-                page_id = _save(answer, data, guide, gitleaks)
+                page_id = _save(answer, data, guide, tools)
         except TargetBusy:
             return JSONResponse({"error": "An update is running; save again when it finishes."}, 409)
         except CodetrailError as error:
@@ -227,7 +227,7 @@ def _tokens(usage: Usage) -> int:
     return usage.input_tokens + usage.cached_input_tokens + usage.output_tokens
 
 
-def _save(answer: Answer, data: Any, guide: GuideRepository, gitleaks: str) -> str:
+def _save(answer: Answer, data: Any, guide: GuideRepository, tools: ToolsSettings) -> str:
     guide.ensure()
     manifest = SourceManifest.load(data / "source.json")
     if manifest is None:
@@ -235,7 +235,7 @@ def _save(answer: Answer, data: Any, guide: GuideRepository, gitleaks: str) -> s
     connection = connect(data / "codetrail.db")
     try:
         store = FactStore(connection)
-        context = ValidationContext(data / "source", manifest, store, data / "mirror.git", SecretScanner(gitleaks))
+        context = ValidationContext(data / "source", manifest, store, data / "mirror.git", SecretScanner(tools))
         body = demote_unverified(answer.body, context)
     finally:
         connection.close()

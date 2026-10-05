@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from codetrail.config import ToolsSettings
 from codetrail.database import connect
 from codetrail.facts import Entity, EntityKind, Relation, RelationKind, Source
 from codetrail.facts.store import FactStore
@@ -42,7 +43,7 @@ def context(tmp_path: Path) -> ValidationContext:
     manifest = SourceManifest(head, {"docs/adr/0007-rest.md": "a" * 40, "app/main.py": "b" * 40})
     COMMITS["fix"] = git(checkout, "rev-parse", "HEAD~1")
     COMMITS["secret"] = git(checkout, "rev-parse", "HEAD")
-    return ValidationContext(source, manifest, store, mirror, SecretScanner("gitleaks"))
+    return ValidationContext(source, manifest, store, mirror, SecretScanner(ToolsSettings()))
 
 
 def documented(citation: str, quote: str) -> str:

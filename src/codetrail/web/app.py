@@ -470,7 +470,7 @@ def create_app(
             lambda: language().code,
             settings.bridge.max_question_chars,
             settings.diagrams.max_nodes,
-            settings.tools.gitleaks,
+            settings.tools,
             settings.prices,
             max(
                 settings.providers.claude_code.timeout_seconds,
@@ -488,7 +488,7 @@ def create_app(
             lambda: language().code,
             settings.bridge.max_question_chars,
             settings.learn.grading_cooldown_seconds,
-            settings.tools.gitleaks,
+            settings.tools,
             settings.prices,
         )
     )
