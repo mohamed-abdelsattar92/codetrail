@@ -37,9 +37,4 @@ def no_real_providers(request: pytest.FixtureRequest, monkeypatch: pytest.Monkey
 
         monkeypatch.setattr(runner, "run_program", program)
         monkeypatch.setattr(runner, "run_command", short)
-
-        def refuse_sdk(*arguments: Any, **keywords: Any) -> Any:
-            raise AssertionError("A test tried to call the real Claude; use FakeAssistant or mark the test live.")
-
-        monkeypatch.setattr("codetrail.assistant.agent_sdk.query", refuse_sdk)
     yield

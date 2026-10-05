@@ -242,8 +242,8 @@ flowchart LR
     P4 --> P5["5 · Bridge ✓"]
     P5 --> P6["6 · Learning ✓"]
     P4 --> P7["7 · More extractors ✓"]
-    P6 --> P8["8 · Providers and sign-in"]:::next
-    P8 --> P9["9 · Cost estimates"]
+    P6 --> P8["8 · Providers and sign-in ✓"]
+    P8 --> P9["9 · Cost estimates"]:::next
     P9 --> P10["10 · Getting started"]
     classDef next stroke-width:3px
 ```
@@ -258,7 +258,7 @@ flowchart LR
 | 5. Bridge | Ask from any page and save the answers | Done |
 | 6. Learning | Paths, checks, progress and staleness | Done |
 | 7. More extractors | OpenAPI, Terraform and Swift packages in the guide | Done |
-| 8. Providers and sign-in | Claude Code, Codex or a local model, on your own subscription | Planned |
+| 8. Providers and sign-in | Claude Code, Codex or a local model, on your own subscription | Done |
 | 9. Cost estimates | An estimate before every paid action | Planned |
 | 10. Getting started | A generic README with screenshots, and an install guide | Planned |
 

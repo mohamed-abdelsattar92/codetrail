@@ -5,8 +5,8 @@ description = "Turn a git repository into a local learning guide that keeps up w
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
-    "claude-agent-sdk==0.2.163",
     "fastapi==0.142.2",
+    "httpx==0.28.1",
     "jinja2==3.1.6",
     "markdown-it-py==4.2.0",
     "pathspec==1.1.1",
@@ -56,14 +56,13 @@ testpaths = ["tests", "tools/tests"]
 pythonpath = ["."]
 markers = [
     "slow: end-to-end tests the pre-push hook skips; CI runs them",
-    "live: tests that call the real Claude; run only by `just test-live`",
+    "live: tests that run the real providers installed here; run only by `just test-live`",
 ]
 addopts = "-m 'not live'"
 
 [dependency-groups]
 dev = [
     "babel==2.18.0",
-    "httpx==0.28.1",
     "mypy==2.4.0",
     "pytest==9.1.1",
     "ruff==0.16.10",
