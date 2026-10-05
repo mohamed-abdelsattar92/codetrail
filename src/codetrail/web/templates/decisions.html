@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Decisions") }}{% endblock %}
+{% block content %}
+<h1>{{ _("Decisions") }}</h1>
+{% if decisions %}
+<table class="decisions" lang="en" dir="ltr">
+  <tr><th>#</th><th>Title</th><th>Status</th><th>Date</th></tr>
+  {% for decision in decisions %}
+  <tr>
+    <td><a href="/facts/{{ decision.id }}">{{ decision.attributes.number }}</a></td>
+    <td><a href="/source/{{ decision.attributes.path }}">{{ decision.attributes.title }}</a></td>
+    <td>{{ decision.attributes.get("status", "") }}</td>
+    <td>{{ decision.attributes.get("date", "") }}</td>
+  </tr>
+  {% endfor %}
+</table>
+{% else %}
+<p>{{ _("No decisions found.") }}</p>
+{% endif %}
+{% endblock %}

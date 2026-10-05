@@ -50,6 +50,12 @@ format:
 typecheck:
     uv run mypy
 
+# Extract the interface's strings to the template, update every language's catalog, and compile them (ADR 0005)
+catalogs:
+    uv run pybabel extract --no-location --omit-header --sort-output -F babel.cfg -k pgettext:1c,2 -o src/codetrail/locales/codetrail.pot .
+    if ls src/codetrail/locales/*/LC_MESSAGES/codetrail.po >/dev/null 2>&1; then uv run pybabel update --no-location --omit-header -i src/codetrail/locales/codetrail.pot -d src/codetrail/locales -D codetrail; fi
+    if ls src/codetrail/locales/*/LC_MESSAGES/codetrail.po >/dev/null 2>&1; then uv run pybabel compile -d src/codetrail/locales -D codetrail; fi
+
 # Run every test except the live ones, which call the real Claude
 test:
     uv run pytest -q

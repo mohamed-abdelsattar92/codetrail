@@ -132,3 +132,7 @@ def test_folders_that_collide_on_disk_are_excluded_without_failing(tmp_path: Pat
     assert list(manifest.files) == ["ok.md"]
     unsafe = sorted(item.path for item in manifest.excluded if item.reason is Reason.UNSAFE_PATH)
     assert unsafe == ["Docs/a.md", "Notes", "docs/b.md", "notes/x.md"]
+
+
+def test_names_that_are_not_valid_utf8_are_unsafe() -> None:
+    assert not safe_path("bad\udcff.md")

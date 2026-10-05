@@ -51,6 +51,8 @@ def safe_path(path: str) -> bool:
     """A relative path with no empty, `.`, `..` or `.git` parts (in any case), which stays inside its folder."""
     if not path or path.startswith("/") or "\\" in path:
         return False
+    if any("\udc80" <= character <= "\udcff" for character in path):  # bytes that aren't UTF-8 (surrogateescape)
+        return False
     parts = path.split("/")
     return all(part and part not in (".", "..") and on_disk_key(part) != ".git" for part in parts)
 

@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}{{ path }}{% endblock %}
+{% block content %}
+<h1 lang="en" dir="ltr">{{ path }}</h1>
+<p class="muted">{% trans commit=commit[:12] %}At commit {{ commit }}.{% endtrans %}</p>
+{% if lines is none %}
+<p>{{ _("This file isn't text, or is too large to show.") }}</p>
+{% else %}
+<pre class="source" lang="en" dir="ltr">{% for line in lines %}<span id="L{{ loop.index }}"><a class="line" href="#L{{ loop.index }}">{{ loop.index }}</a>{{ line }}
+</span>{% endfor %}</pre>
+{% endif %}
+{% endblock %}

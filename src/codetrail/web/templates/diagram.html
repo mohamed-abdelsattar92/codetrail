@@ -1,0 +1,8 @@
+<figure class="diagram-block" lang="en" dir="ltr">
+  <pre class="diagram">{{ diagram.mermaid }}</pre>
+  <figcaption>
+    <details><summary>{{ _("What each box links to") }}</summary>
+      <ul>{% for node in diagram.nodes %}<li><a href="{{ node.link }}">{{ node.label }}</a></li>{% endfor %}</ul>
+    </details>
+  </figcaption>
+</figure>

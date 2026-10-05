@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}{{ entity.id }}{% endblock %}
+{% block content %}
+<h1 lang="en" dir="ltr">{{ entity.id }}</h1>
+<p>{{ _("Kind") }}: <span lang="en" dir="ltr">{{ entity.kind }}</span></p>
+{% if entity.attributes %}
+<table class="attributes" lang="en" dir="ltr">
+  {% for key, value in entity.attributes.items() %}<tr><th>{{ key }}</th><td>{{ value }}</td></tr>{% endfor %}
+</table>
+{% endif %}
+<h2>{{ _("Found in") }}</h2>
+<ul lang="en" dir="ltr">
+  {% for source in entity.sources %}
+  <li><a href="/source/{{ source.path }}{% if source.start_line %}#L{{ source.start_line }}{% endif %}">{{ source.path }}{% if source.start_line %}:{{ source.start_line }}{% endif %}</a></li>
+  {% endfor %}
+</ul>
+{% if outgoing %}
+<h2>{{ _("Points to") }}</h2>
+<ul lang="en" dir="ltr">{% for relation in outgoing %}<li>{{ relation.kind }} <a href="/facts/{{ relation.target_id }}">{{ relation.target_id }}</a></li>{% endfor %}</ul>
+{% endif %}
+{% if incoming %}
+<h2>{{ _("Pointed to by") }}</h2>
+<ul lang="en" dir="ltr">{% for relation in incoming %}<li><a href="/facts/{{ relation.source_id }}">{{ relation.source_id }}</a> {{ relation.kind }}</li>{% endfor %}</ul>
+{% endif %}
+{% endblock %}

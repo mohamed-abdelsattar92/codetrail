@@ -70,9 +70,32 @@ class ExtractSettings(Settings):
     max_file_bytes: int = Field(default=1_000_000, gt=0)
 
 
+class ServerSettings(Settings):
+    # The host is always 127.0.0.1 and can't be configured (design section 7.4).
+    port: int = Field(default=8765, ge=1024, le=65535)
+    login_code_ttl_seconds: int = Field(default=60, gt=0)
+    session_minutes: int = Field(default=480, gt=0)
+
+
+class InterfaceSettings(Settings):
+    default_language: str = "en"
+
+
+class SignalSettings(Settings):
+    cache_seconds: int = Field(default=60, ge=0)
+
+
+class DiagramSettings(Settings):
+    max_nodes: int = Field(default=60, gt=0)
+
+
 class GlobalConfig(Settings):
     tools: ToolsSettings = ToolsSettings()
     extract: ExtractSettings = ExtractSettings()
+    server: ServerSettings = ServerSettings()
+    ui: InterfaceSettings = InterfaceSettings()
+    signal: SignalSettings = SignalSettings()
+    diagrams: DiagramSettings = DiagramSettings()
 
 
 class AdrSettings(Settings):

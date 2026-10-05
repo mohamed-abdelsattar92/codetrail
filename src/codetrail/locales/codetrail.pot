@@ -1,0 +1,123 @@
+#, python-format
+msgid "%(count)s commit"
+msgid_plural "%(count)s commits"
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
+msgid "%(count)s file"
+msgid_plural "%(count)s files"
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
+msgid "%(count)s merge landed since the last update"
+msgid_plural "%(count)s merges landed since the last update"
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
+msgid "%(count)s visible file"
+msgid_plural "%(count)s visible files"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "An update is running."
+msgstr ""
+
+msgid "Areas"
+msgstr ""
+
+msgid "Areas touched:"
+msgstr ""
+
+#, python-format
+msgid "At commit %(commit)s."
+msgstr ""
+
+msgid "Back to the start"
+msgstr ""
+
+msgid "Couldn't check for new commits just now."
+msgstr ""
+
+msgid "Decisions"
+msgstr ""
+
+msgid "Dependencies of"
+msgstr ""
+
+msgctxt "language name"
+msgid "English"
+msgstr ""
+
+msgid "Facts"
+msgstr ""
+
+msgid "Files"
+msgstr ""
+
+msgid "Found in"
+msgstr ""
+
+msgid "Home"
+msgstr ""
+
+msgid "Imports"
+msgstr ""
+
+msgid "Kind"
+msgstr ""
+
+msgid "Language"
+msgstr ""
+
+#, python-format
+msgid "Last update: commit %(commit)s, %(when)s."
+msgstr ""
+
+msgid "No decisions found."
+msgstr ""
+
+#, python-format
+msgid ""
+"No update yet. Run <code>codetrail update %(name)s</code> to read the "
+"repository."
+msgstr ""
+
+msgid "Not found"
+msgstr ""
+
+msgid "Nothing to show yet."
+msgstr ""
+
+msgid "Pointed to by"
+msgstr ""
+
+msgid "Points to"
+msgstr ""
+
+msgid "Since the last update"
+msgstr ""
+
+msgid "There's nothing here. It may be excluded, or not in the guide yet."
+msgstr ""
+
+msgid "This file isn't text, or is too large to show."
+msgstr ""
+
+msgid ""
+"Too many modules to show one by one: folders are shown, with the number "
+"of imports on each arrow."
+msgstr ""
+
+msgid "Up to date with the branch."
+msgstr ""
+
+msgid "What each box links to"
+msgstr ""
+
+msgctxt "text direction"
+msgid "ltr"
+msgstr ""
+

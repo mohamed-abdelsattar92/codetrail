@@ -132,3 +132,28 @@ def test_invalid_branch_names_are_refused(paths: Paths, tmp_path: Path) -> None:
     with pytest.raises(CodetrailError, match="branch"):
         write_target(paths, "hamesh", tmp_path / "repo", "bad..name")
     assert not paths.target_file("hamesh").exists()
+
+
+def test_server_and_page_defaults(paths: Paths) -> None:
+    settings = load_global(paths)
+    assert settings.server.port == 8765
+    assert settings.server.login_code_ttl_seconds == 60
+    assert settings.ui.default_language == "en"
+    assert settings.signal.cache_seconds == 60
+    assert settings.diagrams.max_nodes == 60
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "[server]\nport = 80\n",
+        "[server]\nport = 70000\n",
+        "[diagrams]\nmax_nodes = 0\n",
+        "[server]\nhost = '0.0.0.0'\n",
+    ],
+)
+def test_unsafe_or_impossible_settings_are_refused(paths: Paths, text: str) -> None:
+    paths.config_dir.mkdir(parents=True)
+    (paths.config_dir / "config.toml").write_text(text)
+    with pytest.raises(CodetrailError):
+        load_global(paths)
