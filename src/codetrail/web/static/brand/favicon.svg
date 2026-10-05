@@ -1,7 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32" role="img" aria-label="Codetrail">
-  <rect width="32" height="32" rx="8" fill="#5b5bd6"/>
-  <path d="M8 23 C 12 23, 13 16, 16 16 S 20 9, 24 9" fill="none" stroke="#ffffff" stroke-opacity="0.35" stroke-width="2" stroke-linecap="round" stroke-dasharray="0.1 4"/>
-  <circle cx="8" cy="23" r="2.6" fill="#ffffff"/>
-  <circle cx="16" cy="16" r="2.6" fill="#ffffff" fill-opacity="0.8"/>
-  <circle cx="24" cy="9" r="2.6" fill="#ffffff" fill-opacity="0.6"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" role="img" aria-label="codetrail"><title>codetrail</title><rect width="32" height="32" rx="7" fill="#5b5bd6"/><path d="M7 10L13 16L7 22" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="17" cy="22" r="2.5" fill="#fff" fill-opacity=".6"/><circle cx="21" cy="18" r="2.5" fill="#fff" fill-opacity=".85"/><circle cx="25" cy="14" r="2.5" fill="#fff"/></svg>

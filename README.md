@@ -1,4 +1,9 @@
-# Codetrail
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/logo-dark.svg">
+    <img alt="Codetrail" src="docs/images/logo.svg" height="48">
+  </picture>
+</h1>
 
 **Turn a git repository into a local learning guide that keeps up with it.**
 

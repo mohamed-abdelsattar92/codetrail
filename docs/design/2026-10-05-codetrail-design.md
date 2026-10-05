@@ -666,7 +666,12 @@ Empty states invite rather than apologize ("Ask a question from any page and sav
 - **Accessibility.** WCAG AA contrast for every text and background pair in both themes; a visible focus ring; a "Skip to content" link; landmarks (`header`, `nav`, `main`, `aside`); a label on every icon-only button.
 - **Right-to-left.** Logical CSS properties only, so the sidebar and the panel swap sides; guide content keeps `lang="en" dir="ltr"` (section 7.2).
 - **Icons.** About a dozen small inline SVGs written for Codetrail; no icon font.
-- **The mark.** One SVG, `static/brand/mark.svg`, for the header; `static/brand/favicon.svg` for the favicon; `docs/images/logo.svg` for the README. Until the founder's logo replaces them, they hold a placeholder: three dots rising along a trail. Replacing the three files changes the mark everywhere, with no code change.
+- **The mark.** An indigo tile holding a code prompt (`›`) and three steps rising along a trail, the last one solid: from the code to where you've got to. Chosen by the founder on 5 October 2026. The files:
+  - `static/brand/mark.svg` for the header, and `static/brand/favicon.svg` for the favicon, which is the same drawing made heavier so it holds at 16 px.
+  - `docs/images/logo.svg` and `logo-dark.svg` for the README: the mark with the wordmark, "codetrail" in Inter Display SemiBold tracked −0.02em, as outlines so it needs no font.
+  - `docs/images/banner.svg` and `banner.png` (1280×640) for GitHub's social preview.
+
+  Replacing these files changes the mark everywhere, with no code change. The tile is accent indigo `#5b5bd6` with white in both themes, so the header can load it as an image whatever theme the reader picks. The mark is never shown below 16 px, never recolored, and never placed with less clear space than a quarter of its width around it. The amber and green of the visual system stay out of it, since they mean inferred, stale and learned.
 
 ### 16.3 Search and the palette
 - **What is searched:** the guide only. Page titles, headings and text (areas, concepts, paths, digests), saved answers, decisions, and fact names and kinds. Only a page's title and body are indexed, never its front matter, so check rubrics (never shown, section 8.2) and an answer's recorded files can't be found or quoted (such as `module:src/billing/retry.py` or `POST /charges`). Source files are not indexed, so search can never surface a file the exclusion rules hide.
