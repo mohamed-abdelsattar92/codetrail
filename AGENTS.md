@@ -1,6 +1,6 @@
 # codetrail: instructions for coding agents
 
-Codetrail turns a git repository into a local learning guide. It extracts facts from the code (dependencies, routes, infrastructure, decisions), has Claude write concept pages, guided paths, change digests and checks on understanding from them, and serves the result as a local web page that can send questions to Claude Code. The first target repository is `hamesh-monorepo`.
+Codetrail turns a git repository into a local learning guide. It extracts facts from the code (dependencies, routes, infrastructure, decisions), has an assistant (Claude Code, Codex or a local model, on the reader's own subscription) write concept pages, guided paths, change digests and checks on understanding from them, and serves the result as a local web page that can send it questions. The first target repository is `hamesh-monorepo`.
 
 This file is the single source of instructions for every coding agent (Claude Code, Codex and any other). `CLAUDE.md` only imports it. Its rules follow `hamesh-monorepo`'s, trimmed to a Python tool (decision 11 in `docs/design/brainstorm-decisions.md`).
 
@@ -24,11 +24,11 @@ Since Phase 0, these rules are also enforced by tools: permission rules and hook
 - Decisions: the ADRs in `docs/adr/`, once there are any. Accepted ADRs override the design documents where they conflict.
 
 ## Non-negotiables
-1. **Security first.** Codetrail runs Claude over repositories that hold secrets and serves a local page that can drive Claude. The bridge listens on `127.0.0.1` only, checks `Host` and `Origin`, requires a per-session token, and gives Claude read-only tools (no Bash, Edit or Write). Extractors and Claude's read tools skip git-ignored files and secret patterns. Before writing a new endpoint, data flow or dependency, work out who can reach it and how it could be abused. The checklist is `docs/security/review-checklist.md` (Phase 0).
+1. **Security first.** Codetrail runs an assistant over repositories that hold secrets and serves a local page that can drive it. The bridge listens on `127.0.0.1` only, checks `Host` and `Origin`, requires a per-session token, and gives the assistant read-only tools (no Bash, Edit or Write) wherever the provider allows it. Extractors and the assistant's read tools skip git-ignored files and secret patterns. Codetrail never reads, stores or passes a key or token: providers get an allowlisted environment. Before writing a new endpoint, data flow or dependency, work out who can reach it and how it could be abused. The checklist is `docs/security/review-checklist.md` (Phase 0).
 2. **Test first.** Every behaviour starts as a failing test (red, green, refactor). Refusals are behaviours too: the bridge's rejected requests and the secret filter have tests.
-3. **Grounded, not guessed.** Diagrams come from extracted facts, never from Claude. Rationale is marked documented (quoted, with a link to its source) or inferred (Claude's reading of the code).
-4. **Local by default.** No hosted service, database or third-party tool. Claude, through the Claude Agent SDK or Claude Code, is the only service Codetrail calls.
-5. **Plug-and-play.** Claude sits behind an interface shaped by Codetrail's needs, with one real adapter and a fake for tests. Vendor-specific code lives only in the adapter.
+3. **Grounded, not guessed.** Diagrams come from extracted facts, never from the assistant. Rationale is marked documented (quoted, with a link to its source) or inferred (the assistant's reading of the code).
+4. **Local by default.** No hosted service, database or third-party tool. The only services Codetrail calls are the assistant providers the reader configures, through the reader's own programs (Claude Code, Codex) or a model on the reader's machine, on the reader's subscription by default (ADR 0006). Every paid action shows its estimate first.
+5. **Plug-and-play.** The assistant sits behind an interface shaped by Codetrail's needs, with one adapter per provider and a fake for tests. Vendor-specific code lives only in the adapters.
 6. **Configuration, not constants.** Paths, limits, model names and target-repository settings live in configuration.
 7. **Propose, don't ask, in unattended runs.** When a change needs a dependency outside the stack or a deviation from the design, write it as an ADR with status `proposed` and say so in your final message. Agents never accept ADRs; the founder does.
 
@@ -36,7 +36,7 @@ Since Phase 0, these rules are also enforced by tools: permission rules and hook
 1. **Keep it simple.** Write the plainest code that meets the requirement; don't overcomplicate.
 2. **No unnecessary code.** Build only what the current task needs: no speculative features, options, parameters or helpers "for later".
 3. **Reuse what exists.** Before writing something new, look for it in the repository and in the chosen libraries, and use it when it fits. Hamesh's hook scripts and their tests are reused and adapted, not rewritten.
-4. **No abstractions that aren't needed.** Add an interface, base class or layer only when there is a real need today. Plug-and-play (non-negotiable 5) requires one for Claude. Anything else needs at least two real callers; the extractor interface has them, since Hamesh alone needs several extractors.
+4. **No abstractions that aren't needed.** Add an interface, base class or layer only when there is a real need today. Plug-and-play (non-negotiable 5) requires one for the assistant. Anything else needs at least two real callers; the extractor interface has them, since Hamesh alone needs several extractors.
 5. **Meaningful names.** Name variables, functions, classes and files for what they are or do. No abbreviations or single letters outside very short loops.
 6. **Standard architecture only.** Use each tool's standard structure and idioms: a uv project, FastAPI routers, the standard library's `sqlite3` or SQLAlchemy. No custom frameworks, clever metaprogramming or unusual patterns.
 
@@ -59,4 +59,4 @@ Since Phase 0, these rules are also enforced by tools: permission rules and hook
 - **Definition of done:** tests pass (written first); lint, format and strict type checks pass; the security review passes; no new hard-coded values; docs updated.
 
 ## Commands
-Everything runs through `just`, with the tools pinned in `.mise.toml`. Once per clone: `mise trust && mise install`, then `just setup` (Python and commit-message dependencies, the git hooks, the git-flow settings). In a shell where mise isn't activated, such as an agent's, prefix commands with `mise exec --`. Recipes: `just ci`, `just check-repo`, `just lint`, `just format`, `just typecheck`, `just test`, `just test-quick` (the pre-push hook), `just test-live` (real Claude, local only), `just check-commits`.
+Everything runs through `just`, with the tools pinned in `.mise.toml`. Once per clone: `mise trust && mise install`, then `just setup` (Python and commit-message dependencies, the git hooks, the git-flow settings). In a shell where mise isn't activated, such as an agent's, prefix commands with `mise exec --`. Recipes: `just ci`, `just check-repo`, `just lint`, `just format`, `just typecheck`, `just test`, `just test-quick` (the pre-push hook), `just test-live` (the real providers installed here, local only), `just check-commits`.
