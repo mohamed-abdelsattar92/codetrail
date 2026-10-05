@@ -3,7 +3,8 @@
 `POST /bridge/questions` streams newline-delimited JSON: `text` events while the assistant writes, then `done` with
 the answer's id and its rendered HTML, or `error`. The whole answer is scanned for secrets before `done`; one that
 holds something gitleaks flags ends with `error` and isn't kept (design section 15.5). Its usage is recorded.
-Answers stay in memory for the session until saved. One question runs at a time per session; closing the page
+Answers stay in memory for the session until saved, at most `max_session_answers` of them, and `GET /bridge/answers`
+lists them for the page's Ask panel. One question runs at a time per session; closing the page
 cancels it. Every route sits behind the security middleware.
 """
 
@@ -87,6 +88,7 @@ def bridge_router(
     gitleaks: str,
     prices: Mapping[str, Price],
     call_timeout_seconds: float,
+    max_session_answers: int = 20,
 ) -> APIRouter:
     router = APIRouter()
     state = BridgeState(abandon_after_seconds=call_timeout_seconds + 60)
@@ -144,6 +146,8 @@ def bridge_router(
                                         datetime.now(UTC).isoformat(timespec="seconds"), chunk.cost_usd)  # fmt: skip
                         answer_id = uuid.uuid4().hex
                         state.answers[answer_id] = answer
+                        while len(state.answers) > max_session_answers:  # the oldest unsaved answer goes first
+                            del state.answers[next(iter(state.answers))]
                         used = {"tokens": _tokens(chunk.usage), "cost_usd": round(cost, 4)}
                         yield _event(
                             {"type": "done", "answer_id": answer_id, "html": _html(answer.body), "usage": used}
@@ -169,6 +173,15 @@ def bridge_router(
         finally:
             connection.close()
         return "".join(str(segment.html) for segment in segments if segment.kind != "diagram")
+
+    @router.get("/bridge/answers")
+    def session_answers() -> Response:
+        """This session's unsaved answers, oldest first, rendered and sanitized, for the Ask panel (design 16.4)."""
+        listed = [
+            {"id": answer_id, "question": answer.question, "html": _html(answer.body), "asked_at": answer.asked_at}
+            for answer_id, answer in list(state.answers.items())
+        ]
+        return JSONResponse({"answers": listed}, headers={"Cache-Control": "no-store"})
 
     @router.post("/bridge/answers/{answer_id}/save")
     def save(answer_id: str) -> Response:

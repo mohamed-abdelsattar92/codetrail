@@ -34,6 +34,8 @@ SECURITY_HEADERS = [
 ]
 READ_METHODS = {"GET", "HEAD"}
 OPEN_PATHS = ("/login", "/static/")
+# Reads that return JSON for the page's script also need the token, as defence in depth (design 16.3).
+TOKEN_READS = ("/search/results", "/bridge/answers")
 
 
 class SessionState:
@@ -121,6 +123,8 @@ class SecurityMiddleware:
         cookie = cookies[SESSION_COOKIE].value if SESSION_COOKIE in cookies else None
         if not self.session.is_session(cookie):
             return PlainTextResponse("Sign in with the link codetrail serve printed.", 403)
+        if path in TOKEN_READS and not self.session.is_token(headers.get(TOKEN_HEADER)):
+            return PlainTextResponse("This request didn't come from Codetrail's page.", 403)
         writes = scope["method"] not in READ_METHODS
         if writes and (
             headers.get("origin") != f"http://{host}" or not self.session.is_token(headers.get(TOKEN_HEADER))
