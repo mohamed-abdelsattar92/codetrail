@@ -30,3 +30,5 @@ Everything smaller is explained in the commit body, not in an ADR.
 | [0004](0004-server-rendered-page-stack.md) | Render the page on the server with Jinja2 and markdown-it-py, keep front matter in YAML, serve with uvicorn, and vendor Mermaid | accepted | 2026-10-05 |
 | [0005](0005-babel-for-interface-catalogs.md) | Use Babel at development time to extract and compile the interface's gettext catalogs | accepted | 2026-10-05 |
 | [0006](0006-assistant-providers-and-subscriptions.md) | Run the reader's own assistant programs (Claude Code, Codex) or a local model, on their subscription | proposed | 2026-10-05 |
+| [0007](0007-bundle-the-inter-typeface.md) | Bundle the Inter typeface with the page | proposed | 2026-10-05 |
+| [0008](0008-browser-tests-with-playwright.md) | Test the page in a real browser with Playwright for Python, and check accessibility with axe-core | proposed | 2026-10-05 |
