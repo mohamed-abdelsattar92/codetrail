@@ -123,11 +123,42 @@ codetrail serve shop
 
 `serve` prints a one-time sign-in link and opens it in your browser. The page runs on `127.0.0.1` only, and the session ends when you stop `serve` (Ctrl-C).
 
-On the page:
-- **The home page** shows what changed since the last update, the guided paths, and every area and concept page.
-- **Area and concept pages** explain one part of the repository, with a diagram drawn from the facts, quotes linked to their source lines, and checks on your understanding.
-- **Check my answer** grades your answer to a check. **Ask** sends a question about the code to your assistant. Each button shows its estimate, and afterwards what it used.
-- **Update the guide** refreshes the facts, then shows the update's estimate in a dialog. Nothing is spent until you choose **Go ahead**.
+![The home page: continue where you left off, how far behind the guide is, and your saved answers](images/home.png)
+
+- **The home page** picks up where you left off: the next page of your current path, how far the guide is behind the branch (with what the last update used), how much you've learned, what changed, and your saved answers.
+- **The sidebar** lists the guided paths with your progress, the areas and concepts, your saved answers, the digests and the decisions.
+- **Area and concept pages** explain one part of the repository, with a diagram drawn from the facts, quotes linked to their source lines, an "On this page" outline, and checks on your understanding. **Previous** and **Next** follow the path you came from.
+- **Check my answer** grades your answer to a check. Each button shows its estimate, and afterwards what it used.
+
+### Search, ask and save
+
+- Press **⌘K** (Ctrl+K on Linux) or **/** anywhere to search the guide: pages, saved answers, decisions and facts. Search runs on your machine and costs nothing.
+- Press **A**, or choose **Ask about** in the search box, to open the Ask panel beside the page you're reading. Your question goes with the page as context, and **Send** shows the estimate before anything is spent.
+- The panel keeps this session's answers while you move between pages. **Save to guide** keeps an answer for good: it appears under **Saved answers** in the sidebar, on the Saved answers page, and in search.
+
+![Searching the guide from the keyboard](images/palette.png)
+
+### Shortcuts
+
+Press **?** on any page to see them all.
+
+| Keys | Does |
+|---|---|
+| **⌘K** or **/** | Search, or ask a question |
+| **A** | Ask about this page |
+| **G** then **H**, **P**, **S**, **D**, **R** | Go home, to your progress, saved answers, digests or decisions |
+| **[** and **]** | Previous and next page in the path |
+| **M** | Mark this page read, or unread |
+| **U** | Update the guide (shows the estimate first) |
+| **Esc** | Close the palette, the panel or a dialog |
+
+No shortcut spends anything: questions are sent by their **Send** button, and an update starts only when you choose **Go ahead**.
+
+### Updating from the page
+
+**Update the guide** (or **U**) refreshes the facts, then shows the update's estimate in a dialog. Nothing is spent until you choose **Go ahead**.
+
+The theme follows your system; the sun button in the header switches between system, light and dark.
 
 ## 8. Choose assistants and models
 

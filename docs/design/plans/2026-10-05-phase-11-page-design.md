@@ -147,4 +147,4 @@ def answers_newest_first(pages: list[Page]) -> list[Page]   # malformed asked_at
 ### Task 15: docs
 **Files:** `README.md`, `docs/getting-started.md`, `docs/images/*.png`.
 - [ ] New screenshots of Codetrail's guide to itself (home, a guide page with the outline, the palette, the Ask panel, the estimate dialog), taken with Playwright, light theme, 1440×900; the README shows the logo and lists search and the shortcuts, credits Inter; the getting-started guide's "Open the page" section covers search, the palette, shortcuts and saved answers.
-- [ ] `just ci`; security review; finish; report to the founder, who sends the logo before pushing.
+- [ ] `just ci`; security review; finish; report to the founder. (The founder's mark, favicon, logo and banner landed separately on `feature/brand` and replaced the placeholder.)
