@@ -126,7 +126,8 @@ def bridge_router(
                 async for chunk in assistant_for().answer(request):
                     if chunk.text:
                         parts.append(chunk.text)
-                        yield _event({"type": "text", "text": chunk.text})
+                        if not chunk.done:  # streamed text; a buffered answer arrives with done, after the scan
+                            yield _event({"type": "text", "text": chunk.text})
                     if chunk.done:
                         findings = await anyio.to_thread.run_sync(scanner.scan_text, "".join(parts))
                         _record(chunk)

@@ -118,8 +118,8 @@ class CodexAssistant:
         outcome = await self._call(
             "answer", GROUND_RULES + "\n" + PAGE_SYNTAX + "\n" + ANSWER_RULES, answer_prompt(request), None
         )
-        yield AnswerChunk(text=outcome.message or "")
-        yield AnswerChunk(done=True, files_read=outcome.files_read, usage=self._usage("answer", outcome))
+        # One final chunk: the bridge shows it only after scanning it (design section 15.5).
+        yield AnswerChunk(outcome.message or "", True, outcome.files_read, usage=self._usage("answer", outcome))
 
     async def _run(
         self, kind: str, rules: str, prompt: str, schema: dict[str, Any]

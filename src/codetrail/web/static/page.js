@@ -107,6 +107,7 @@ function watchQuestions() {
             answerId = message.answer_id;
             save.hidden = false;
           } else if (message.type === "error") {
+            answer.textContent = ""; // nothing of a failed or withheld answer stays on the page
             status.textContent = message.message;
           }
         }

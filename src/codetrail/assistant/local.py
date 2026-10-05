@@ -10,7 +10,6 @@ them. Local models cost nothing.
 from __future__ import annotations
 
 import json
-import re
 from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -53,7 +52,7 @@ from codetrail.assistant.prompts import (
 from codetrail.config import GenerationSettings, LocalSettings
 
 PROVIDER: Final = "local"
-FENCED_JSON = re.compile(r"^\s*```(?:json)?\s*(.*?)\s*```\s*$", re.DOTALL)
+MAX_TOOL_CALLS_PER_TURN = 20
 TOOL_RULES = "Use the read, grep and glob tools to look at the repository's files before you answer."
 
 
@@ -108,8 +107,8 @@ class LocalAssistant:
     async def answer(self, request: QuestionRequest) -> AsyncIterator[AnswerChunk]:
         rules = GROUND_RULES + "\n" + PAGE_SYNTAX + "\n" + ANSWER_RULES
         result = await self._loop("answer", rules, answer_prompt(request), None)
-        yield AnswerChunk(text=result.text)
-        yield AnswerChunk(done=True, files_read=result.files_read, usage=result.usage)
+        # One final chunk: the bridge shows it only after scanning it (design section 15.5).
+        yield AnswerChunk(result.text, True, result.files_read, usage=result.usage)
 
     async def _structured(
         self, kind: str, rules: str, prompt: str, schema: dict[str, Any], tools: bool = True
@@ -155,14 +154,13 @@ class LocalAssistant:
                 calls = message.get("tool_calls") or []
                 if calls and tools:
                     messages.append({"role": "assistant", "content": message.get("content") or "", "tool_calls": calls})
-                    for call in calls:
-                        messages.append(
-                            {
-                                "role": "tool",
-                                "tool_call_id": str(call.get("id", "")),
-                                "content": await _run_tool(files, call),
-                            }
+                    for index, call in enumerate(calls):
+                        content = (
+                            await _run_tool(files, call)
+                            if index < MAX_TOOL_CALLS_PER_TURN
+                            else f"Refused: too many tool calls in one turn (at most {MAX_TOOL_CALLS_PER_TURN})."
                         )
+                        messages.append({"role": "tool", "tool_call_id": str(call.get("id", "")), "content": content})
                     continue
                 text = str(message.get("content") or "")
                 if schema is not None and isinstance(problem := _parse(text, schema), str) and not retried:
@@ -219,11 +217,20 @@ def _message(reply: Mapping[str, Any]) -> dict[str, Any]:
     return message
 
 
+def _unfenced(text: str) -> str:
+    """The text inside a ```json fence, if the whole answer is one; plain string work, so it stays linear."""
+    stripped = text.strip()
+    if stripped.startswith("```") and stripped.endswith("```") and len(stripped) >= 6:
+        inner = stripped[3:-3]
+        first_line, _newline, rest = inner.partition("\n")
+        return rest if first_line.strip() in ("", "json") else inner
+    return stripped
+
+
 def _parse(text: str, schema: Mapping[str, Any]) -> dict[str, Any] | str:
     """The answer as a JSON object with the schema's required keys, or what is wrong with it."""
-    fenced = FENCED_JSON.match(text)
     try:
-        data = json.loads(fenced.group(1) if fenced else text)
+        data = json.loads(_unfenced(text))
     except ValueError:
         return "it isn't valid JSON."
     if not isinstance(data, dict):
