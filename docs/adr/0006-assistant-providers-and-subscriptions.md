@@ -27,7 +27,8 @@ Facts that shape the choice (checked on 2026-10-05):
 ### Option A: run the reader's own programs, plus Codetrail's own loop for local models
 - Good, because it is the use the providers allow: the reader's own unmodified `claude` or `codex`, signed in by the reader, for their own work. Codetrail never sees credentials.
 - Good, because each adapter is small; Codetrail keeps its guard for `claude_code` and `local`, and its output scan for all three.
-- Bad, because Codex can read outside `source/`; mitigated by its working folder, the allowlisted environment and the output scan, and documented.
+- Bad, because Codex can read and run anything the reader can, including the target's excluded files through Codetrail's data folder; so it is off unless a target opts in, runs with an empty `HOME` and the reader's Codex configuration switched off, has its outputs scanned, and is documented.
+- Good, because a probe showed Claude Code's own permission rules (reads allowed only under the working folder, `dontAsk`) confine reads even when the guard hook fails, so `claude_code` has two independent layers.
 - Bad, because the programs' output formats can change; the adapters parse them defensively and live tests catch changes.
 
 ### Option B: keep the Agent SDK with the subscription sign-in, and add the others beside it
@@ -39,7 +40,7 @@ Facts that shape the choice (checked on 2026-10-05):
 - Bad, because Codetrail's read-only and secret guarantees would rest on a third party's sandbox, and sign-in would still differ per provider.
 
 ## Decision
-Option A. Codetrail drops the Claude Agent SDK. Its `assistant` interface has three adapters: `claude_code` (the reader's `claude -p`), `codex` (the reader's `codex exec`) and `local` (Codetrail's read-only tool loop against an OpenAI-compatible endpoint on loopback). Each provider uses the reader's subscription by default: the programs get an allowlisted environment with no keys. An API key is used only when the reader sets `auth = "api_key"`, and Codetrail then passes the key variable through by name without reading it. Every paid action is preceded by an estimate (design section 15.4).
+Option A. Codetrail drops the Claude Agent SDK and adds httpx as a runtime dependency (the `local` provider's client). Its `assistant` interface has three adapters: `claude_code` (the reader's `claude -p`), `codex` (the reader's `codex exec`) and `local` (Codetrail's read-only tool loop against an OpenAI-compatible endpoint on loopback). Each provider uses the reader's subscription by default: the programs get an allowlisted environment with no keys. An API key is used only when the reader sets `auth = "api_key"`, and Codetrail then passes the key variable through by name without reading it. Every paid action is preceded by an estimate (design section 15.4).
 
 Codetrail is meant for each person's own use of their own subscription. Anyone who distributes it as a product to others should confirm the terms with Anthropic and OpenAI first.
 
@@ -47,7 +48,7 @@ Codetrail is meant for each person's own use of their own subscription. Anyone w
 - Readers choose a provider per kind of call, including free local models.
 - The `claude-agent-sdk` dependency is removed; the programs are installed by the reader, like git and gitleaks.
 - The adapters depend on the programs' command-line flags and output formats; a change there breaks an adapter until it is updated.
-- Codex runs with weaker read confinement than the other two.
+- Codex runs with weaker confinement than the other two, so a target must opt in to it (`[assistant] allow_codex = true`).
 - Revisit if Anthropic or OpenAI change their terms for personal tools, if Claude Code or Codex add a supported way for tools to use a subscription, or if a provider adds read confinement.
 
 ## Changes required
@@ -55,5 +56,5 @@ Codetrail is meant for each person's own use of their own subscription. Anyone w
 - [x] AGENTS.md: non-negotiable 4 ("Claude ... is the only service") and 5 ("one real adapter") name the configured assistant providers.
 - [ ] Code: the `assistant` package with the three adapters, the allowlisted environment, `codetrail providers`, usage records, output scanning (Phase 8).
 - [ ] Code: estimates and their gates (Phase 9).
-- [ ] Remove `claude-agent-sdk` from `pyproject.toml` and `uv.lock` (Phase 8).
+- [ ] Remove `claude-agent-sdk`, and add `httpx` as a runtime dependency, in `pyproject.toml` and `uv.lock` (Phase 8).
 - [ ] README and the getting-started guide describe providers, sign-in and estimates (Phase 10).
