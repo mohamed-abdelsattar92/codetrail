@@ -104,6 +104,8 @@ def site(tmp_path: Path) -> Iterator[Site]:
         if server.started:
             break
         time.sleep(0.02)
+    # Fail closed: if another process took the port, nothing must be sent to it.
+    assert server.started and thread.is_alive(), "The test server didn't start."
     yield Site(f"http://127.0.0.1:{port}", session, claude, decisions)
     server.should_exit = True
     thread.join(5)
