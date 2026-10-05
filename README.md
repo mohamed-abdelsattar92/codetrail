@@ -251,7 +251,7 @@ flowchart LR
 | Phase | What you can do | Status |
 |---|---|---|
 | 0. Engineering setup | `just ci` passes; the agent rules are enforced by hooks and permissions | Done |
-| 1. Targets and exclusions | See exactly which committed files Codetrail can read, with secrets and your excluded files gone | Done |
+| 1. Targets and exclusions | See exactly which committed files Codetrail can read, with secrets and your excluded files gone; remove a target and everything Codetrail kept for it | Done |
 | 2. Facts | Modules, packages and decisions as facts | Done |
 | 3. The page | A grounded map of the repository that says when it's behind, at no cost | Done |
 | 4. Generation | The guide: digests, area and concept pages | Done |

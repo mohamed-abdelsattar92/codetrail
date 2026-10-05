@@ -14,6 +14,7 @@ from codetrail.assistant.status import provider_status
 from codetrail.config import PROVIDERS, Paths, load_global, validate_target_name, write_target
 from codetrail.errors import CodetrailError
 from codetrail.facts import FactDiff
+from codetrail.remove import remove_target
 from codetrail.repo.mirror import check_branch
 from codetrail.repo.refresh import refresh_source
 from codetrail.repo.rules import Reason
@@ -32,6 +33,11 @@ def build_parser() -> argparse.ArgumentParser:
     add.add_argument("name", help="a short name: lower-case letters, digits and hyphens")
     add.add_argument("path", type=Path, help="the repository's local checkout")
     add.add_argument("--branch", default="develop", help="the branch to teach (default: develop)")
+    remove = target_commands.add_parser(
+        "remove", help="delete everything Codetrail keeps for a target; the repository isn't touched"
+    )
+    remove.add_argument("name")
+    remove.add_argument("--yes", action="store_true", help="delete without asking")
 
     files = commands.add_parser("files", help="refresh a target's sources and list exactly what Codetrail can see")
     files.add_argument("name")
@@ -57,6 +63,8 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     paths = Paths.from_environment()
     try:
+        if arguments.command == "target" and arguments.target_command == "remove":
+            return remove_target_command(paths, arguments.name, yes=arguments.yes)
         if arguments.command == "target":
             return add_target(paths, arguments.name, arguments.path, arguments.branch)
         if arguments.command == "providers":
@@ -81,6 +89,31 @@ def add_target(paths: Paths, name: str, path: Path, branch: str) -> int:
     file = write_target(paths, name, path, branch)
     print(f"Added target {name!r}: {path} ({branch}). Settings: {file}")
     print(f"Exclusions you add go in {paths.ignore_file(name)} (gitignore syntax).")
+    return 0
+
+
+def remove_target_command(paths: Paths, name: str, yes: bool = False) -> int:
+    no_terminal = False
+
+    def confirm(locations: list[Path]) -> bool:
+        nonlocal no_terminal
+        print(f"Removing target {name!r} deletes:")
+        for location in locations:
+            print(f"  {printable(str(location))}")
+        print("The repository itself isn't touched.")
+        if yes:
+            return True
+        if not sys.stdin.isatty():
+            no_terminal = True
+            print("There's no terminal to ask in, so nothing was removed. Run again with --yes to go ahead.")
+            return False
+        return input(f"Remove target {name!r} and delete these? [y/N] ").strip().lower() in ("y", "yes")
+
+    if not remove_target(paths, name, confirm):
+        if not no_terminal:
+            print("Nothing was removed.")
+        return 2 if no_terminal else 0
+    print(f"Removed target {name!r}.")
     return 0
 
 

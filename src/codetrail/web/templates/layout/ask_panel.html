@@ -4,7 +4,10 @@
        data-language="{{ language.code }}"
        data-label-save="{{ _('Save to guide') }}" data-label-saved="{{ _('Saved · open it') }}"
        data-label-save-failed="{{ _('Couldn’t save the answer.') }}"
-       aria-labelledby="ask-title" hidden>
+       aria-labelledby="ask-title" id="ask-panel" hidden>
+  <div class="resize-handle resize-panel" data-resize="panel" role="separator" aria-orientation="vertical"
+       aria-controls="ask-panel" aria-label="{{ _('Resize the Ask panel') }}"
+       title="{{ _('Drag to resize; double-click to reset') }}" tabindex="0"></div>
   <div class="ask-head">
     <h2 id="ask-title">{{ _("Ask about the code") }}</h2>
     <button type="button" class="icon-button" data-ask-close aria-label="{{ _('Close') }}">{{ icon("close") }}</button>
