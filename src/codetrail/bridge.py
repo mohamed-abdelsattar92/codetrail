@@ -9,23 +9,25 @@ from __future__ import annotations
 
 import json
 import re
+import time
 import uuid
 from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-import anyio
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from codetrail.claude import AnswerChunk, Claude, ClaudeError, QuestionRequest
+from codetrail.claude.agent_sdk import CALL_TIMEOUT_SECONDS
 from codetrail.config import Paths
 from codetrail.database import connect
+from codetrail.errors import CodetrailError
 from codetrail.facts.store import FactStore
 from codetrail.generate.validate import MARKER, ValidationContext, parse_rationale, validate_page
-from codetrail.guide import GuideRepository, Page
+from codetrail.guide import PAGE_ID, GuideRepository, Page
 from codetrail.lock import TargetBusy, target_lock
 from codetrail.repo.secrets import SecretScanner
 from codetrail.repo.source import SourceManifest
@@ -54,7 +56,18 @@ class Answer:
 @dataclass
 class BridgeState:
     answers: dict[str, Answer] = field(default_factory=dict)
-    busy: anyio.Lock = field(default_factory=anyio.Lock)
+    answering_since: float | None = None  # claimed in the request itself, so simultaneous questions are refused
+
+    def claim(self) -> bool:
+        """Claims the one question slot; a slot held longer than a call can last counts as abandoned."""
+        now = time.monotonic()
+        if self.answering_since is not None and now - self.answering_since < CALL_TIMEOUT_SECONDS:
+            return False
+        self.answering_since = now
+        return True
+
+    def release(self) -> None:
+        self.answering_since = None
 
 
 def bridge_router(
@@ -78,10 +91,12 @@ def bridge_router(
         manifest = SourceManifest.load(data / "source.json")
         if manifest is None:
             return JSONResponse({"error": f"Run codetrail update {name} first."}, 409)
+        if question.page_id and not PAGE_ID.fullmatch(question.page_id):
+            return JSONResponse({"error": "That page doesn't exist."}, 404)
         page = guide.read_page(question.page_id) if question.page_id else None
         if question.page_id and page is None:
             return JSONResponse({"error": "That page doesn't exist."}, 404)
-        if state.busy.locked():
+        if not state.claim():  # no await before this point, so two requests can't both pass
             return JSONResponse({"error": "Another question is still being answered."}, 429)
         request = QuestionRequest(
             target=name,
@@ -94,7 +109,7 @@ def bridge_router(
         return StreamingResponse(_stream(request, manifest.commit), media_type="application/x-ndjson")
 
     async def _stream(request: QuestionRequest, commit: str) -> AsyncIterator[bytes]:
-        async with state.busy:
+        try:
             parts: list[str] = []
             try:
                 async for chunk in claude_for().answer(request):
@@ -111,6 +126,8 @@ def bridge_router(
                 yield _event({"type": "error", "message": str(error)})
             except Exception as error:  # details stay out of the page
                 yield _event({"type": "error", "message": f"The answer failed ({type(error).__name__})."})
+        finally:
+            state.release()
 
     def _html(body: str) -> str:
         connection = connect(data / "codetrail.db")
@@ -130,6 +147,8 @@ def bridge_router(
                 page_id = _save(answer, data, guide, gitleaks)
         except TargetBusy:
             return JSONResponse({"error": "An update is running; save again when it finishes."}, 409)
+        except CodetrailError as error:
+            return JSONResponse({"error": str(error)}, 409)
         del state.answers[answer_id]
         return JSONResponse({"page_id": page_id})
 
@@ -157,8 +176,12 @@ def _save(answer: Answer, data: Any, guide: GuideRepository, gitleaks: str) -> s
     }  # fmt: skip
     if guide.has_uncommitted_changes():
         raise ClaudeError("The guide has uncommitted edits; commit or discard them first.")
-    guide.write_page(Page(page_id, meta, body))
-    guide.commit(f"Save the answer to: {answer.question[:60]}")
+    try:
+        guide.write_page(Page(page_id, meta, body))
+        guide.commit(f"Save the answer to: {answer.question[:60]}")
+    except BaseException:
+        guide.discard()  # never leave the guide dirty, or every update would refuse to start
+        raise
     return page_id
 
 
