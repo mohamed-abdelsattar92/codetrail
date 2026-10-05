@@ -859,5 +859,6 @@ dialog[open] {
   .ask-panel {
     inset-block-start: 0;
     z-index: 35;
+    inline-size: 100vw;
   }
 }
