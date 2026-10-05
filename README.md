@@ -13,7 +13,7 @@ It works with the assistant you already pay for: **Claude Code** on a Claude sub
 
 **[Get started in ten minutes →](docs/getting-started.md)**
 
-![Codetrail's home page for its own repository: what changed, guided paths, areas and concepts](docs/images/home.png)
+![Codetrail's home page for its own repository: where to continue, how far behind the guide is, what you've learned and what changed](docs/images/home.png)
 
 ## Contents
 - [Why Codetrail](#why-codetrail)
@@ -29,6 +29,7 @@ It works with the assistant you already pay for: **Claude Code** on a Claude sub
 - [Status](#status)
 - [Developing Codetrail](#developing-codetrail)
 - [Documentation](#documentation)
+- [Credits](#credits)
 
 ## Why Codetrail
 
@@ -53,8 +54,10 @@ Codetrail uses the assistant for meaning and code for structure: deterministic e
 | 📈 | **Grounded diagrams** | Imports, dependencies and infrastructure drawn from extracted facts; every node links to its source. |
 | 📜 | **Documented versus inferred** | Rationale quoted from an ADR or commit is verified against the source; everything else is labelled as the assistant's reading. |
 | 💬 | **Ask from any page** | Questions go to your assistant with read-only tools; answers come into the page in your language. |
-| 📌 | **Save to guide** | Answers worth keeping become part of the guide instead of disappearing like chat history. |
-| 🧭 | **Guided paths** | Ordered routes through the pages toward a goal, such as "how a request travels through the API". |
+| 📌 | **Save to guide** | Answers worth keeping become part of the guide instead of disappearing like chat history: they're in the sidebar, on the Saved answers page, and in search. |
+| 🔎 | **Search** | Press ⌘K or / on any page to search the guide's pages, saved answers, decisions and facts. It runs on your machine and costs nothing. |
+| ⌨️ | **Shortcuts** | Ask (A), go places (G then H, P, S, D or R), step through a path ([ and ]), mark read (M), update (U). None of them spends anything. |
+| 🧭 | **Guided paths** | Ordered routes through the pages toward a goal, such as "how a request travels through the API". The home page picks up where you left off. |
 | ✅ | **Checks** | Open questions on each page, graded against a rubric grounded in the code. |
 | ♻️ | **Staleness** | When the code behind a page you learned changes, the page says so and shows what changed. |
 | 💲 | **Estimates first** | Every paid action shows what it will use before it runs: tokens, dollars at API prices, and your plan's usage. |
@@ -63,17 +66,21 @@ Codetrail uses the assistant for meaning and code for structure: deterministic e
 
 These screenshots are Codetrail's guide to its own repository, written by Claude Code on a subscription.
 
-**An area page** explains one component, with a diagram drawn from the facts, quotes checked against their source lines, and links to every fact and file.
+**A concept page** explains one part of the code, with quotes checked against their source lines, links to every fact and file, and an outline that follows you down the page. **Previous** and **Next** follow the path you came from.
 
-![An area page with its import diagram drawn from extracted facts](docs/images/area.png)
+![A concept page in a guided path, with its outline and its documented and inferred blocks](docs/images/area.png)
+
+**Search** the whole guide from the keyboard: press ⌘K or /, type, and press Enter.
+
+![The command palette finding pages, decisions and facts as you type](docs/images/palette.png)
 
 **Checks** test your understanding. Each button shows what the call will use, and the answer shows what it did use.
 
 ![A concept page with checks on understanding and their estimates](docs/images/checks.png)
 
-**Ask** from any page; the answer is grounded in the files the assistant read.
+**Ask** from any page (press A): the panel opens beside the page you're reading and keeps this session's answers as you move around. **Send** shows the estimate first, and **Save to guide** keeps an answer for good.
 
-![A question answered on a page, with the files it read](docs/images/answer.png)
+![The Ask panel beside a page, with a question ready to send and its estimate on the button](docs/images/answer.png)
 
 **Update the guide** refreshes the facts for free, then shows the estimate. Nothing is spent until you choose **Go ahead**.
 
@@ -224,7 +231,7 @@ The interface is English first and switches language from the page. Each languag
 
 ## Status
 
-Phases 0 to 10 of the [design](docs/design/2026-10-05-codetrail-design.md) are built and tested. Phase 11, the page's redesign, is in progress.
+Every phase in the [design](docs/design/2026-10-05-codetrail-design.md) is built and tested.
 
 ```mermaid
 flowchart LR
@@ -238,7 +245,7 @@ flowchart LR
     P6 --> P8["8 · Providers and sign-in ✓"]
     P8 --> P9["9 · Cost estimates ✓"]
     P9 --> P10["10 · Getting started ✓"]
-    P10 --> P11["11 · The page's design …"]
+    P10 --> P11["11 · The page's design ✓"]
 ```
 
 | Phase | What you can do | Status |
@@ -254,7 +261,7 @@ flowchart LR
 | 8. Providers and sign-in | Claude Code, Codex or a local model, on your own subscription | Done |
 | 9. Cost estimates | An estimate before every paid action | Done |
 | 10. Getting started | This README, and the [getting-started guide](docs/getting-started.md) | Done |
-| 11. The page's design | Search over the guide, a new look with progress first, the progress, saved-answers and digests pages, a command palette, shortcuts and an Ask panel (done); browser tests and new screenshots | In progress |
+| 11. The page's design | A new look with progress first, search, a command palette, shortcuts, an Ask panel, and pages for progress, saved answers and digests; tested in a real browser | Done |
 
 Codex and local models are tested against stand-ins and Codetrail's own tests; Claude Code is also tested live. Codex's provider decision is [ADR 0006](docs/adr/0006-assistant-providers-and-subscriptions.md).
 
@@ -287,3 +294,9 @@ Then `just ci` runs every check CI runs; `just lint`, `just format`, `just typec
 | [Architecture decision records](docs/adr/README.md) | Decisions that are hard to reverse |
 | [Security review checklist](docs/security/review-checklist.md) | What every change is reviewed against |
 | [AGENTS.md](AGENTS.md) | Rules and workflow for coding agents |
+
+## Credits
+
+- The page's typeface is [Inter](https://rsms.me/inter/) by Rasmus Andersson, under the SIL Open Font License 1.1 ([its licence](src/codetrail/web/static/vendor/inter/LICENSE.txt), [ADR 0007](docs/adr/0007-bundle-the-inter-typeface.md)).
+- Diagrams are drawn by [Mermaid](https://mermaid.js.org), under the MIT License ([ADR 0004](docs/adr/0004-server-rendered-page-stack.md)).
+- The browser tests check accessibility with [axe-core](https://github.com/dequelabs/axe-core) by Deque, under the Mozilla Public License 2.0; it is used by the tests only ([ADR 0008](docs/adr/0008-browser-tests-with-playwright.md)).
