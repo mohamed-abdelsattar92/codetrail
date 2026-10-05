@@ -22,10 +22,13 @@ from codetrail.facts import EntityKind, FactDiff
 from codetrail.facts.store import FactStore
 from codetrail.generate.outline import (
     OutlineEntry,
+    OutlinePath,
     outline_data,
     outline_entries,
+    outline_paths,
     uncovered_facts,
     validate_outline,
+    validate_paths,
 )
 from codetrail.generate.scope import affected_reason, changed_fact_count, facts_in_scope, page_meta
 from codetrail.generate.validate import ValidationContext, validate_page
@@ -53,6 +56,7 @@ class GenerationContext:
     max_budget_usd: float
     previous_commit: str | None  # the snapshot before this update, or None on the first
     diff: FactDiff
+    learned: set[str] = field(default_factory=set)  # pages the reader has learned: rewritten first
 
 
 @dataclass
@@ -81,7 +85,7 @@ async def generate_guide(context: GenerationContext, claude: Claude) -> Generati
             page = guide.read_page(entry.id)
             if affected_reason(entry, page, context.store) is not None:
                 affected.append((changed_fact_count(entry, page, context.store), entry))
-        affected.sort(key=lambda item: -item[0])
+        affected.sort(key=lambda item: (item[1].id not in context.learned, -item[0]))
         to_write = [entry for _, entry in affected[: context.max_pages]]
         result.left_for_later = [entry.id for _, entry in affected[context.max_pages :]]
         validation = ValidationContext(context.source_root, context.manifest, context.store, context.mirror,
@@ -117,7 +121,9 @@ async def generate_guide(context: GenerationContext, claude: Claude) -> Generati
 
 async def _outline(context: GenerationContext, claude: Claude, result: GenerationResult) -> list[OutlineEntry]:
     guide, store = context.guide, context.store
-    entries = outline_entries(guide.read_outline())
+    stored = guide.read_outline()
+    entries = outline_entries(stored)
+    paths: list[OutlinePath] = []
     if not entries:
         draft = await claude.plan(PlanRequest(context.target, facts_summary(store, context.manifest), ""))
         result.cost_usd += draft.cost_usd
@@ -125,21 +131,52 @@ async def _outline(context: GenerationContext, claude: Claude, result: Generatio
         result.outline_problems += problems
         if not entries:
             raise CodetrailError("Claude's outline had no page Codetrail could use: " + "; ".join(problems[:3]))
-        guide.write_outline(outline_data(entries))
-        return entries
-    new_facts = set(context.diff.added_entities)
-    uncovered = [fact for fact in uncovered_facts(store, entries) if fact in new_facts]
-    if uncovered:
-        current = json.dumps(outline_data(entries), indent=1)
-        draft = await claude.plan(PlanRequest(context.target, facts_summary(store, context.manifest), current,
-                                              uncovered[:200]))  # fmt: skip
-        result.cost_usd += draft.cost_usd
-        added, problems = validate_outline(draft.pages, store, context.manifest, existing=entries)
+        paths, problems = validate_paths(draft.paths, {entry.id for entry in entries})
         result.outline_problems += problems
-        if added:
+    else:
+        paths = outline_paths(stored, {entry.id for entry in entries})
+        new_facts = set(context.diff.added_entities)
+        uncovered = [fact for fact in uncovered_facts(store, entries) if fact in new_facts]
+        if uncovered:
+            current = json.dumps(outline_data(entries, paths), indent=1)
+            draft = await claude.plan(PlanRequest(context.target, facts_summary(store, context.manifest), current,
+                                                  uncovered[:200]))  # fmt: skip
+            result.cost_usd += draft.cost_usd
+            added, problems = validate_outline(draft.pages, store, context.manifest, existing=entries)
+            result.outline_problems += problems
             entries = [*entries, *added]
-            guide.write_outline(outline_data(entries))
+        if stored is not None and "paths" not in stored:  # an outline written before paths existed: plan them once
+            current = json.dumps(outline_data(entries), indent=1)
+            try:
+                draft = await claude.plan(PlanRequest(context.target, "", current, paths_only=True))
+            except ClaudeError as error:
+                result.outline_problems.append(f"Guided paths couldn't be planned: {error}")
+            else:
+                result.cost_usd += draft.cost_usd
+                paths, problems = validate_paths(draft.paths, {entry.id for entry in entries})
+                result.outline_problems += problems
+    if outline_data(entries, paths) != stored:
+        guide.write_outline(outline_data(entries, paths))
+    _write_paths(context, entries, paths)
     return entries
+
+
+def _write_paths(context: GenerationContext, entries: Sequence[OutlineEntry], paths: Sequence[OutlinePath]) -> None:
+    """Writes each guided path as a page, without Claude: its goal and its steps, by title."""
+    titles = {entry.id: entry.title for entry in entries}
+    wanted = {path.id for path in paths}
+    for page in context.guide.pages("path"):
+        if page.id not in wanted:
+            context.guide.path_of(page.id).unlink()
+    for path in paths:
+        meta = {"id": path.id, "kind": "path", "title": path.title, "generated": True, "goal": path.goal,
+                "steps": path.steps}  # fmt: skip
+        body = f"{path.goal}\n\n" + "\n".join(
+            f"{number}. [{titles.get(step, step)}](/pages/{step})" for number, step in enumerate(path.steps, start=1)
+        )
+        current = context.guide.read_page(path.id)
+        if current is None or current.meta != meta or current.body != body:
+            context.guide.write_page(Page(path.id, meta, body))
 
 
 async def _write_page(

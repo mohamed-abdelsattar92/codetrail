@@ -82,3 +82,11 @@ async def test_questions_reach_claude_without_an_at_sign(
         ):
             pass
     assert seen and all("@" not in prompt for prompt in seen)
+
+
+def test_grading_has_no_tools(adapter: AgentSdkClaude, tmp_path: Path) -> None:
+    from codetrail.claude.prompts import GRADE_RULES, GRADE_SCHEMA
+
+    options = adapter.options(ToolGuard(tmp_path), "m", GRADE_SCHEMA, GRADE_RULES, tools=[])
+    assert options.tools == []
+    assert options.setting_sources == []

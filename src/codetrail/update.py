@@ -21,6 +21,7 @@ from codetrail.facts import FactDiff, Snapshot
 from codetrail.facts.store import FactStore
 from codetrail.generate.run import GenerationContext, GenerationResult, generate_guide
 from codetrail.guide import GuideRepository
+from codetrail.learn import LearningState
 from codetrail.lock import target_lock
 from codetrail.repo.mirror import read_file_at
 from codetrail.repo.refresh import TARGET_IGNORE_FILE, ignore_lines, refresh_while_locked
@@ -76,6 +77,7 @@ def run_update(paths: Paths, name: str, claude: Claude | None = None, facts_only
                 max_budget_usd=target.generation.max_budget_usd_per_update,
                 previous_commit=previous.commit if previous else None,
                 diff=diff,
+                learned=LearningState(connection).learned_page_ids(),
             )
             writer = claude or AgentSdkClaude(source, target.models, target.generation, settings.claude.retry_attempts)
             generation = anyio.run(generate_guide, context, writer)

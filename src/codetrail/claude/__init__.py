@@ -22,11 +22,13 @@ class PlanRequest:
     facts: str  # a rolled-up summary of the facts
     existing_outline: str  # YAML, empty on the first run
     uncovered: list[str] = field(default_factory=list)  # fact ids in no page's scope
+    paths_only: bool = False  # propose guided paths through the existing pages, and no new pages
 
 
 @dataclass(frozen=True)
 class PlanDraft:
     pages: list[dict[str, Any]]
+    paths: list[dict[str, Any]] = field(default_factory=list)
     files_read: list[str] = field(default_factory=list)
     cost_usd: float = 0.0
 
@@ -88,6 +90,24 @@ class AnswerChunk:
     cost_usd: float = 0.0
 
 
+@dataclass(frozen=True)
+class GradeRequest:
+    question: str
+    rubric: list[dict[str, Any]]
+    page_title: str
+    page_body: str
+    answer: str
+    language: str
+
+
+@dataclass(frozen=True)
+class Verdict:
+    verdict: str  # "pass", "partial" or "fail"; anything else is an error
+    missed: list[str] = field(default_factory=list)
+    feedback: str = ""
+    cost_usd: float = 0.0
+
+
 class Claude(Protocol):
     async def plan(self, request: PlanRequest) -> PlanDraft: ...
 
@@ -96,3 +116,5 @@ class Claude(Protocol):
     async def write_digest(self, request: DigestRequest) -> DigestDraft: ...
 
     def answer(self, request: QuestionRequest) -> AsyncIterator[AnswerChunk]: ...
+
+    async def grade(self, request: GradeRequest) -> Verdict: ...

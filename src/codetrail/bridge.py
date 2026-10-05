@@ -57,17 +57,20 @@ class Answer:
 class BridgeState:
     answers: dict[str, Answer] = field(default_factory=dict)
     answering_since: float | None = None  # claimed in the request itself, so simultaneous questions are refused
+    holder: str | None = None
 
-    def claim(self) -> bool:
-        """Claims the one question slot; a slot held longer than a call can last counts as abandoned."""
+    def claim(self) -> str | None:
+        """Claims the one question slot and returns its token; a slot held well past a call's limit is abandoned."""
         now = time.monotonic()
-        if self.answering_since is not None and now - self.answering_since < CALL_TIMEOUT_SECONDS:
-            return False
-        self.answering_since = now
-        return True
+        if self.answering_since is not None and now - self.answering_since < CALL_TIMEOUT_SECONDS + 60:
+            return None
+        self.answering_since, self.holder = now, uuid.uuid4().hex
+        return self.holder
 
-    def release(self) -> None:
-        self.answering_since = None
+    def release(self, token: str) -> None:
+        """Releases the slot only for the claim that still holds it."""
+        if self.holder == token:
+            self.answering_since, self.holder = None, None
 
 
 def bridge_router(
@@ -96,7 +99,8 @@ def bridge_router(
         page = guide.read_page(question.page_id) if question.page_id else None
         if question.page_id and page is None:
             return JSONResponse({"error": "That page doesn't exist."}, 404)
-        if not state.claim():  # no await before this point, so two requests can't both pass
+        token = state.claim()  # no await before this point, so two requests can't both pass
+        if token is None:
             return JSONResponse({"error": "Another question is still being answered."}, 429)
         request = QuestionRequest(
             target=name,
@@ -106,9 +110,9 @@ def bridge_router(
             page_body=page.body[:PAGE_CONTEXT_CHARACTERS] if page else "",
             page_facts=[str(fact.get("id")) for fact in (page.meta.get("facts") or [])] if page else [],
         )
-        return StreamingResponse(_stream(request, manifest.commit), media_type="application/x-ndjson")
+        return StreamingResponse(_stream(request, manifest.commit, token), media_type="application/x-ndjson")
 
-    async def _stream(request: QuestionRequest, commit: str) -> AsyncIterator[bytes]:
+    async def _stream(request: QuestionRequest, commit: str, token: str) -> AsyncIterator[bytes]:
         try:
             parts: list[str] = []
             try:
@@ -127,7 +131,7 @@ def bridge_router(
             except Exception as error:  # details stay out of the page
                 yield _event({"type": "error", "message": f"The answer failed ({type(error).__name__})."})
         finally:
-            state.release()
+            state.release(token)
 
     def _html(body: str) -> str:
         connection = connect(data / "codetrail.db")

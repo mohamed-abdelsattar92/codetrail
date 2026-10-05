@@ -29,22 +29,27 @@ from codetrail.claude import (
     ClaudeError,
     DigestDraft,
     DigestRequest,
+    GradeRequest,
     PageDraft,
     PageRequest,
     PlanDraft,
     PlanRequest,
     QuestionRequest,
+    Verdict,
 )
 from codetrail.claude.guard import ALLOWED_TOOLS, ToolGuard
 from codetrail.claude.prompts import (
     ANSWER_RULES,
     DIGEST_SCHEMA,
+    GRADE_RULES,
+    GRADE_SCHEMA,
     GROUND_RULES,
     PAGE_SCHEMA,
     PAGE_SYNTAX,
     PLAN_SCHEMA,
     answer_prompt,
     digest_prompt,
+    grade_prompt,
     page_prompt,
     plan_prompt,
 )
@@ -85,10 +90,15 @@ class AgentSdkClaude:
         self.answer_limits = answer_limits  # max turns and budget of one bridge answer
 
     def options(
-        self, guard: ToolGuard, model: str, schema: dict[str, Any] | None, system_prompt: str
+        self,
+        guard: ToolGuard,
+        model: str,
+        schema: dict[str, Any] | None,
+        system_prompt: str,
+        tools: list[str] | None = None,
     ) -> ClaudeAgentOptions:
         return ClaudeAgentOptions(
-            tools=list(ALLOWED_TOOLS),
+            tools=list(ALLOWED_TOOLS) if tools is None else tools,
             allowed_tools=[],
             setting_sources=[],
             mcp_servers={},
@@ -127,13 +137,21 @@ class AgentSdkClaude:
 
     async def plan(self, request: PlanRequest) -> PlanDraft:
         data, files_read, cost = await self._run(plan_prompt(request), self.models.plan, PLAN_SCHEMA, GROUND_RULES)
-        return PlanDraft(list(data.get("pages", [])), files_read, cost)
+        return PlanDraft(list(data.get("pages", [])), list(data.get("paths", [])), files_read, cost)
 
     async def write_page(self, request: PageRequest) -> PageDraft:
         data, files_read, cost = await self._run(
             page_prompt(request), self.models.write, PAGE_SCHEMA, GROUND_RULES + "\n" + PAGE_SYNTAX
         )
         return PageDraft(str(data.get("body", "")), list(data.get("checks", [])), files_read, cost)
+
+    async def grade(self, request: GradeRequest) -> Verdict:
+        """Grades with no tools at all: only the check, the rubric, the page and the answer (design section 8.2)."""
+        data, _files, cost = await self._run(
+            grade_prompt(request), self.models.grade, GRADE_SCHEMA, GRADE_RULES, tools=[]
+        )
+        return Verdict(str(data.get("verdict", "")), [str(item) for item in data.get("missed", [])],
+                       str(data.get("feedback", "")), cost)  # fmt: skip
 
     async def write_digest(self, request: DigestRequest) -> DigestDraft:
         data, files_read, cost = await self._run(
@@ -142,13 +160,14 @@ class AgentSdkClaude:
         return DigestDraft(str(data.get("title", "")), str(data.get("body", "")), files_read, cost)
 
     async def _run(
-        self, prompt: str, model: str, schema: dict[str, Any], system_prompt: str
+        self, prompt: str, model: str, schema: dict[str, Any], system_prompt: str, tools: list[str] | None = None
     ) -> tuple[dict[str, Any], list[str], float]:
         last_error: Exception | None = None
         for _attempt in range(self.retries + 1):
             guard = ToolGuard(self.root)
             try:
-                result = await self._query(neutralize(prompt), self.options(guard, model, schema, system_prompt))
+                options = self.options(guard, model, schema, system_prompt, tools)
+                result = await self._query(neutralize(prompt), options)
             except ClaudeError:
                 raise
             except Exception as error:  # the CLI process or the connection failed: worth another try

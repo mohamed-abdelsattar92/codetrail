@@ -128,6 +128,7 @@ class ModelSettings(Settings):
     write: str = "claude-sonnet-5-5"
     digest: str = "claude-sonnet-5-5"
     answer: str = "claude-sonnet-5-5"
+    grade: str = "claude-sonnet-5-5"
 
 
 class TargetConfig(Settings):

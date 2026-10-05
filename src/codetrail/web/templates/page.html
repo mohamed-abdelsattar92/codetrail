@@ -8,6 +8,17 @@
   {% else %}
   <p class="muted">{{ page.kind }} · {{ page.meta.built_at[:12] if page.meta.built_at else "" }}</p>
   {% endif %}
+  <p class="learning" lang="{{ language.code }}" dir="{{ language.direction }}">
+    <span class="status status-{{ status }}" data-status="{{ status }}">{% if status == "learned" %}{{ _("Learned") }}{% elif status == "stale" %}{{ _("Learned, but changed since") }}{% elif status == "read" %}{{ _("Read") }}{% else %}{{ _("Not read yet") }}{% endif %}</span>
+    {% if status == "unread" %}<button type="button" data-mark-read="{{ page.id }}">{{ _("Mark read") }}</button>{% endif %}
+  </p>
+  {% if changes %}
+  <details class="changes" open lang="{{ language.code }}" dir="{{ language.direction }}">
+    <summary>{{ _("What changed since you learned this page") }}</summary>
+    <pre lang="en" dir="ltr">{% for line in changes.splitlines() %}<span class="{% if line.startswith('+') %}added{% elif line.startswith('-') %}removed{% endif %}">{{ line }}</span>
+{% endfor %}</pre>
+  </details>
+  {% endif %}
   {% if sources_changed %}
   <p class="notice" lang="{{ language.code }}" dir="{{ language.direction }}">{{ _("Files this page was written from have changed since. It will be checked again at the next update.") }}</p>
   {% endif %}
@@ -27,4 +38,17 @@
     {% endif %}
   {% endfor %}
 </article>
+{% if checks %}
+<section class="checks" lang="{{ language.code }}" dir="{{ language.direction }}">
+  <h2>{{ _("Check your understanding") }}</h2>
+  {% for check in checks %}
+  <form class="check" data-check="{{ check.id }}" data-page="{{ page.id }}">
+    <p lang="en" dir="ltr"><strong>{{ check.question }}</strong>{% if check.passed %} <span class="ok">✓</span>{% endif %}</p>
+    <textarea name="answer" rows="3" maxlength="4000" required></textarea>
+    <button type="submit">{{ _("Check my answer") }}</button>
+    <p class="feedback" data-feedback dir="auto"></p>
+  </form>
+  {% endfor %}
+</section>
+{% endif %}
 {% endblock %}

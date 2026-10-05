@@ -31,6 +31,28 @@
 
 {% if guide_pages %}
 <section>
+  <h2>{{ _("Catch up") }}</h2>
+  {% if unread_digests or stale_pages %}
+  <ul>
+    {% for digest in unread_digests %}<li><a href="/pages/{{ digest.id }}" lang="en" dir="ltr">{{ digest.title }}</a></li>{% endfor %}
+    {% for page in stale_pages %}<li><a href="/pages/{{ page.id }}" lang="en" dir="ltr">{{ page.title }}</a> <span class="muted">{{ _("changed since you learned it") }}</span></li>{% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted">{{ _("Nothing to catch up on.") }}</p>
+  {% endif %}
+</section>
+{% if paths %}
+<section>
+  <h2>{{ _("Guided paths") }}</h2>
+  <ul>
+    {% for path, learned, total in paths %}<li><a href="/pages/{{ path.id }}" lang="en" dir="ltr">{{ path.title }}</a> <span class="muted">{% trans learned=learned, total=total %}{{ learned }} of {{ total }} learned{% endtrans %}</span></li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% endif %}
+
+{% if guide_pages %}
+<section>
   <h2>{{ _("The guide") }}</h2>
   {% if latest_digest %}<p>{{ _("Latest digest:") }} <a href="/pages/{{ latest_digest.id }}" lang="en" dir="ltr">{{ latest_digest.title }}</a></p>{% endif %}
   {% for kind, heading in [("area", _("Areas")), ("concept", _("Concepts"))] %}
