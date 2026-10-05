@@ -1,5 +1,6 @@
 """Removing a target deletes everything Codetrail keeps for it, and nothing else."""
 
+import shutil
 from collections.abc import Callable
 from pathlib import Path
 
@@ -88,19 +89,43 @@ def test_a_symlinked_folder_is_unlinked_not_followed(paths: Paths, tmp_path: Pat
     elsewhere.mkdir()
     (elsewhere / "keep.txt").write_text("keep")
     for folder in (paths.target_data("shop"), paths.target_state("shop")):
-        for child in folder.iterdir():
-            if child.is_dir():
-                child.rmdir()
-            else:
-                child.unlink()
-        folder.rmdir()
+        shutil.rmtree(folder)
         folder.symlink_to(elsewhere, target_is_directory=True)
 
     assert remove_target(paths, "shop", lambda found: True)
 
     assert not paths.target_data("shop").is_symlink()
     assert not paths.target_state("shop").is_symlink()
+    assert [child.name for child in elsewhere.iterdir()] == ["keep.txt"]  # the lock wasn't taken through the link
     assert (elsewhere / "keep.txt").read_text() == "keep"
+
+
+def test_a_dangling_symlinked_data_folder_is_removed(paths: Paths, tmp_path: Path) -> None:
+    add(paths, tmp_path, "shop")
+    shutil.rmtree(paths.target_data("shop"))
+    paths.target_data("shop").symlink_to(tmp_path / "gone", target_is_directory=True)
+
+    assert remove_target(paths, "shop", lambda found: True)
+
+    assert not paths.target_data("shop").is_symlink()
+    assert not paths.target_file("shop").exists()
+
+
+def test_folders_inside_the_repository_are_never_removed(paths: Paths, tmp_path: Path) -> None:
+    """The XDG variables may have changed since the target was added; the repository is checked again."""
+    add(paths, tmp_path, "shop")
+    repository = tmp_path / "shop-repository"
+    (repository / "codetrail" / "shop").mkdir(parents=True)
+    (repository / "codetrail" / "shop" / "keep.txt").write_text("keep")
+    moved = Paths(config_dir=paths.config_dir, data_dir=repository / "codetrail", state_dir=paths.state_dir)
+    asked: list[Path] = []
+
+    with pytest.raises(CodetrailError, match="can't be inside the repository"):
+        remove_target(moved, "shop", agree_and_record(asked))
+
+    assert asked == []
+    assert (repository / "codetrail" / "shop" / "keep.txt").read_text() == "keep"
+    assert moved.target_file("shop").exists()
 
 
 def test_a_target_that_is_updating_is_not_removed(paths: Paths, tmp_path: Path) -> None:
