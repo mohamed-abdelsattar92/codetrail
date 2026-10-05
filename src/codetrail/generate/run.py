@@ -68,6 +68,7 @@ class GenerationContext:
     diff: FactDiff
     learned: set[str] = field(default_factory=set)  # pages the reader has learned: rewritten first
     usage: UsageLog | None = None  # records each call's usage; its costs count against the update's budget
+    max_tokens: int | None = None  # the update's token budget, which counts every provider, priced or not
 
 
 @dataclass
@@ -79,6 +80,7 @@ class GenerationResult:
     digest: str | None = None
     commit: str | None = None
     cost_usd: float = 0.0
+    tokens: int = 0
 
 
 async def generate_guide(context: GenerationContext, claude: Assistant) -> GenerationResult:
@@ -105,7 +107,7 @@ async def generate_guide(context: GenerationContext, claude: Assistant) -> Gener
 
         async def write(entry: OutlineEntry) -> None:
             async with limiter:
-                if result.cost_usd >= context.max_budget_usd:  # the update's total budget is spent
+                if _budget_spent(context, result):  # the update's total budget, in dollars or tokens, is spent
                     result.left_for_later.append(entry.id)
                     return
                 await _write_page(entry, context, claude, validation, result)
@@ -137,7 +139,7 @@ async def _outline(context: GenerationContext, claude: Assistant, result: Genera
     paths: list[OutlinePath] = []
     if not entries:
         draft = await claude.plan(PlanRequest(context.target, facts_summary(store, context.manifest), ""))
-        result.cost_usd += _spent(context, "plan", draft)
+        _spend(context, result, "plan", draft)
         entries, problems = validate_outline(draft.pages, store, context.manifest)
         result.outline_problems += problems
         if not entries:
@@ -152,7 +154,7 @@ async def _outline(context: GenerationContext, claude: Assistant, result: Genera
             current = json.dumps(outline_data(entries, paths), indent=1)
             draft = await claude.plan(PlanRequest(context.target, facts_summary(store, context.manifest), current,
                                                   uncovered[:200]))  # fmt: skip
-            result.cost_usd += _spent(context, "plan", draft)
+            _spend(context, result, "plan", draft)
             added, problems = validate_outline(draft.pages, store, context.manifest, existing=entries)
             result.outline_problems += problems
             entries = [*entries, *added]
@@ -163,7 +165,7 @@ async def _outline(context: GenerationContext, claude: Assistant, result: Genera
             except AssistantError as error:
                 result.outline_problems.append(f"Guided paths couldn't be planned: {error}")
             else:
-                result.cost_usd += _spent(context, "plan", draft)
+                _spend(context, result, "plan", draft)
                 paths, problems = validate_paths(draft.paths, {entry.id for entry in entries})
                 result.outline_problems += problems
     if outline_data(entries, paths) != stored:
@@ -172,11 +174,21 @@ async def _outline(context: GenerationContext, claude: Assistant, result: Genera
     return entries
 
 
-def _spent(context: GenerationContext, kind: str, draft: PlanDraft | PageDraft | DigestDraft) -> float:
-    """Records the call's usage and returns its cost, which counts against the update's budget."""
-    if context.usage is not None and draft.usage.provider:
-        return context.usage.record(kind, draft.usage)
-    return draft.cost_usd
+def _budget_spent(context: GenerationContext, result: GenerationResult) -> bool:
+    over_tokens = context.max_tokens is not None and result.tokens >= context.max_tokens
+    return result.cost_usd >= context.max_budget_usd or over_tokens
+
+
+def _spend(
+    context: GenerationContext, result: GenerationResult, kind: str, draft: PlanDraft | PageDraft | DigestDraft
+) -> None:
+    """Records the call's usage, and adds its cost (which counts against the update's budget) and tokens."""
+    usage = draft.usage
+    if context.usage is not None and usage.provider:
+        result.cost_usd += context.usage.record(kind, usage)
+    else:
+        result.cost_usd += draft.cost_usd
+    result.tokens += usage.input_tokens + usage.cached_input_tokens + usage.output_tokens
 
 
 def _write_paths(context: GenerationContext, entries: Sequence[OutlineEntry], paths: Sequence[OutlinePath]) -> None:
@@ -212,7 +224,7 @@ async def _write_page(
     try:
         for _attempt in range(2):
             draft = await claude.write_page(request)
-            result.cost_usd += _spent(context, "write", draft)
+            _spend(context, result, "write", draft)
             problems = validate_page(draft.body, draft.checks, validation)
             if not problems:
                 meta = page_meta(entry, context.store, context.manifest, draft.files_read)
@@ -231,15 +243,10 @@ async def _write_digest(
     context: GenerationContext, claude: Assistant, validation: ValidationContext, result: GenerationResult
 ) -> None:
     head = context.manifest.commit
-    digests = sorted(context.guide.pages("digest"), key=lambda page: str(page.meta.get("written_at", "")))
-    since = str(digests[-1].meta.get("to_commit")) if digests else context.previous_commit
-    if not digests and result.written:
-        since = None  # the guide's first pages: record its creation, whatever facts-only updates came before
-    if since == head or (since is None and not result.written):
+    found = _digest_range(context, bool(result.written))
+    if found is None:
         return
-    commits = commits_between(context.mirror, since, head, context.visible, context.scanner) if since else []
-    if since and not commits and not result.written:
-        return
+    since, commits = found
     page_id = f"digests/{datetime.now(UTC).strftime('%Y-%m-%d')}-{head[:12]}"
     meta = {"id": page_id, "kind": "digest", "generated": True, "from_commit": since, "to_commit": head,
             "written_at": datetime.now(UTC).isoformat(timespec="seconds"), "pages_changed": result.written}  # fmt: skip
@@ -251,20 +258,62 @@ async def _write_digest(
         return
     request = DigestRequest(context.target, commits_text(commits), fact_changes_text(context.diff), result.written)
     try:
-        if result.cost_usd >= context.max_budget_usd:
+        if _budget_spent(context, result):
             raise AssistantError("the update's budget is spent")
         draft = await claude.write_digest(request)
-        result.cost_usd += _spent(context, "digest", draft)
+        _spend(context, result, "digest", draft)
         if validate_page(draft.body, None, validation):
             raise AssistantError("the digest failed validation")
         meta["title"], body = draft.title, draft.body
     except AssistantError:
         meta["title"] = f"{len(commits)} commits since the last update"
-        body = "Claude's digest couldn't be checked, so here are the commits:\n\n" + "\n".join(
+        body = "The assistant's digest couldn't be checked, so here are the commits:\n\n" + "\n".join(
             f"- {commit.subject}" for commit in commits
         )
     context.guide.write_page(Page(page_id, meta, body))
     result.digest = page_id
+
+
+def _digest_range(context: GenerationContext, pages_written: bool) -> tuple[str | None, list[Commit]] | None:
+    """The commits a digest covers, from the last digest to the head; None when no digest is due."""
+    head = context.manifest.commit
+    digests = sorted(context.guide.pages("digest"), key=lambda page: str(page.meta.get("written_at", "")))
+    since = str(digests[-1].meta.get("to_commit")) if digests else context.previous_commit
+    if not digests and pages_written:
+        since = None  # the guide's first pages: record its creation, whatever facts-only updates came before
+    if since == head or (since is None and not pages_written):
+        return None
+    commits = commits_between(context.mirror, since, head, context.visible, context.scanner) if since else []
+    if since and not commits and not pages_written:
+        return None
+    return since, commits
+
+
+@dataclass(frozen=True)
+class PlannedWork:
+    """The paid calls an update will make, counted without making any (design section 15.4)."""
+
+    plan_calls: int
+    pages_expected: int
+    pages_max: int
+    digest: bool
+
+
+def planned_work(context: GenerationContext) -> PlannedWork:
+    entries = outline_entries(context.guide.read_outline())
+    if not entries:  # the first outline: a plan, then as many pages as the cap allows
+        return PlannedWork(1, context.max_pages, context.max_pages, True)
+    stored = context.guide.read_outline()
+    new_facts = set(context.diff.added_entities)
+    plan_calls = int(any(fact in new_facts for fact in uncovered_facts(context.store, entries)))
+    plan_calls += int(stored is not None and "paths" not in stored)
+    affected = sum(
+        1 for entry in entries if affected_reason(entry, context.guide.read_page(entry.id), context.store) is not None
+    )
+    expected = min(affected, context.max_pages)
+    maximum = context.max_pages if plan_calls else expected  # a plan can add pages
+    found = _digest_range(context, expected > 0)
+    return PlannedWork(plan_calls, expected, maximum, found is not None and bool(found[1]))
 
 
 def facts_summary(store: FactStore, manifest: SourceManifest) -> str:

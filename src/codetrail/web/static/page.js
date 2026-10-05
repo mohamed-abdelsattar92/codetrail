@@ -13,6 +13,14 @@ async function post(url, data) {
   });
 }
 
+function usedText(labels, usage) {
+  // What a call actually used, beside its estimate on the button (design section 15.4).
+  if (!usage) return "";
+  const tokens = usage.tokens >= 1000 ? `${Math.round(usage.tokens / 1000)}k` : `${usage.tokens}`;
+  const cost = usage.cost_usd ? ` · $${usage.cost_usd.toFixed(2)}` : "";
+  return `${labels.dataset.labelUsed} ${tokens} ${labels.dataset.labelTokens}${cost}`;
+}
+
 async function renderDiagrams() {
   if (!window.mermaid) return;
   window.mermaid.initialize({ startOnLoad: false, securityLevel: "strict", theme: "neutral" });
@@ -42,22 +50,46 @@ function watchLanguage() {
 function watchUpdate() {
   const button = document.querySelector("[data-update-button]");
   const status = document.querySelector("[data-update-status]");
-  if (!button || !status) return;
-  const labels = { running: "Updating…", done: "Updated.", failed: "The update failed: " };
+  const dialog = document.querySelector("[data-estimate-dialog]");
+  if (!button || !status || !dialog) return;
+  const labels = {
+    preparing: status.dataset.labelPreparing,
+    running: status.dataset.labelRunning,
+    done: status.dataset.labelDone,
+    failed: status.dataset.labelFailed + " ",
+  };
+  let estimateId = null;
+  async function decide(url) {
+    if (!estimateId) return;
+    const id = estimateId;
+    estimateId = null;
+    dialog.close();
+    await post(url, { estimate_id: id });
+    poll();
+  }
+  dialog.querySelector("[data-estimate-go]").addEventListener("click", () => decide("/update/confirm"));
+  dialog.querySelector("[data-estimate-cancel]").addEventListener("click", () => decide("/update/cancel"));
+  dialog.addEventListener("cancel", () => decide("/update/cancel")); // Escape cancels too
   async function poll(reloadWhenDone = true) {
     const response = await fetch("/update/status", { credentials: "same-origin" });
     if (!response.ok) return;
-    const { state, message } = await response.json();
-    status.textContent = state === "idle" ? "" : (labels[state] ?? "") + (message ?? "");
-    button.disabled = state === "running";
-    if (state === "running") setTimeout(poll, 2000);
+    const result = await response.json();
+    const { state, message } = result;
+    status.textContent = state === "idle" || state === "waiting" ? "" : (labels[state] ?? "") + (message ?? "");
+    button.disabled = ["preparing", "waiting", "running"].includes(state);
+    if (state === "waiting" && result.estimate_id && result.estimate_id !== estimateId) {
+      estimateId = result.estimate_id;
+      dialog.querySelector("[data-estimate-body]").innerHTML = result.estimate_html; // rendered and escaped on the server
+      dialog.showModal();
+    }
+    if (["preparing", "waiting", "running"].includes(state)) setTimeout(() => poll(reloadWhenDone), 1500);
     else if (state === "done" && reloadWhenDone) window.location.reload();
   }
   button.addEventListener("click", async () => {
     await post("/update", {});
     poll();
   });
-  poll(false); // show an update that is already running
+  poll(false); // show an update that is already running or waiting
 }
 
 function watchQuestions() {
@@ -76,7 +108,7 @@ function watchQuestions() {
     form.querySelector("button").disabled = true;
     save.hidden = true;
     answer.textContent = "";
-    status.textContent = "Claude is reading the code…";
+    status.textContent = status.dataset.labelReading;
     const body = { question };
     if (section.dataset.pageId) body.page_id = section.dataset.pageId;
     try {
@@ -106,6 +138,7 @@ function watchQuestions() {
             answer.innerHTML = message.html; // rendered on the server with raw HTML disabled
             answerId = message.answer_id;
             save.hidden = false;
+            status.textContent = usedText(status, message.usage);
           } else if (message.type === "error") {
             answer.textContent = ""; // nothing of a failed or withheld answer stays on the page
             status.textContent = message.message;
@@ -147,7 +180,7 @@ function watchLearning() {
       event.preventDefault();
       const button = form.querySelector("button");
       button.disabled = true;
-      feedback.textContent = "Claude is reading your answer…";
+      feedback.textContent = "…";
       try {
         const response = await post("/learn/checks", {
           page_id: form.dataset.page,
@@ -160,6 +193,8 @@ function watchLearning() {
           return;
         }
         feedback.textContent = `${result.verdict}: ${result.feedback}`; // text only, never HTML
+        const usage = document.querySelector("[data-ask-status]");
+        if (usage && result.usage) feedback.textContent += ` (${usedText(usage, result.usage)})`;
         if (result.state === "learned") window.setTimeout(() => window.location.reload(), 1500);
       } finally {
         button.disabled = false;

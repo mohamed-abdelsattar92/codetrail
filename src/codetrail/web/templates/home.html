@@ -26,7 +26,18 @@
 
 <section class="update">
   <button type="button" data-update-button>{{ _("Update the guide") }}</button>
-  <span class="muted" data-update-status></span>
+  <span class="muted" data-update-status
+        data-label-preparing="{{ _('Refreshing the facts (free)…') }}"
+        data-label-running="{{ _('Updating…') }}"
+        data-label-done="{{ _('Updated.') }}"
+        data-label-failed="{{ _('The update failed:') }}"></span>
+  <dialog class="estimate-dialog" data-estimate-dialog>
+    <div data-estimate-body></div>
+    <p class="estimate-actions">
+      <button type="button" data-estimate-go>{{ _("Go ahead") }}</button>
+      <button type="button" data-estimate-cancel>{{ _("Cancel") }}</button>
+    </p>
+  </dialog>
 </section>
 
 {% if guide_pages %}

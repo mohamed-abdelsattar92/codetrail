@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "macros.html" import cost with context %}
 {% block title %}{{ page.title }}{% endblock %}
 {% block content %}
 <article class="guide-page" lang="en" dir="ltr">
@@ -45,7 +46,7 @@
   <form class="check" data-check="{{ check.id }}" data-page="{{ page.id }}">
     <p lang="en" dir="ltr"><strong>{{ check.question }}</strong>{% if check.passed %} <span class="ok">✓</span>{% endif %}</p>
     <textarea name="answer" rows="3" maxlength="4000" required></textarea>
-    <button type="submit">{{ _("Check my answer") }}</button>
+    <button type="submit">{{ _("Check my answer") }} {{ cost(estimates.get("grade")) }}</button>
     <p class="feedback" data-feedback dir="auto"></p>
   </form>
   {% endfor %}

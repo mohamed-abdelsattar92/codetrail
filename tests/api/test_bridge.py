@@ -232,3 +232,13 @@ def test_a_buffered_answer_is_only_shown_after_its_scan(paths: Paths) -> None:
     client, headers = make_client(paths, clean)
     found = events(client.post("/bridge/questions", json={"question": "Any keys?"}, headers=headers).text)
     assert [event["type"] for event in found] == ["done"] and "All clear." in str(found[0]["html"])
+
+
+def test_the_ask_button_shows_its_estimate_and_the_answer_its_usage(paths: Paths) -> None:
+    usage = Usage("claude_code", "claude-sonnet-5-5", 12_000, 0, 800, 0.03)
+    claude = FakeAssistant(answers=[[AnswerChunk("Fine."), AnswerChunk(done=True, cost_usd=0.03, usage=usage)]])
+    client, headers = make_client(paths, claude)
+    page = client.get("/").text
+    assert "~32k tokens · ~$0.07" in page  # the starting guess for an answer: 30k in, 1.5k out, at Sonnet's price
+    found = events(client.post("/bridge/questions", json={"question": "Why?"}, headers=headers).text)
+    assert found[-1]["usage"] == {"tokens": 12_800, "cost_usd": 0.03}

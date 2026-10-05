@@ -132,6 +132,7 @@ class ServerSettings(Settings):
     login_code_ttl_seconds: int = Field(default=60, gt=0)
     session_minutes: int = Field(default=480, gt=0)
     update_cooldown_seconds: int = Field(default=300, ge=0)
+    estimate_ttl_seconds: int = Field(default=300, gt=0)
 
 
 class InterfaceSettings(Settings):
@@ -168,11 +169,28 @@ DEFAULT_PRICES = {
 }
 
 
+class TokenGuess(Settings):
+    input: int = Field(ge=0)
+    output: int = Field(ge=0)
+
+
+class EstimateSettings(Settings):
+    """Starting tokens per call, used until Codetrail has history of its own (design section 15.4)."""
+
+    history_size: int = Field(default=20, ge=3)
+    plan: TokenGuess = TokenGuess(input=60_000, output=8_000)
+    write: TokenGuess = TokenGuess(input=120_000, output=6_000)
+    digest: TokenGuess = TokenGuess(input=40_000, output=3_000)
+    answer: TokenGuess = TokenGuess(input=30_000, output=1_500)
+    grade: TokenGuess = TokenGuess(input=4_000, output=500)
+
+
 class GlobalConfig(Settings):
     tools: ToolsSettings = ToolsSettings()
     assistant: AssistantSettings = AssistantSettings()
     providers: ProvidersSettings = ProvidersSettings()
     prices: dict[str, Price] = DEFAULT_PRICES
+    estimates: EstimateSettings = EstimateSettings()
 
     @field_validator("prices")
     @classmethod
@@ -202,6 +220,8 @@ class GenerationSettings(Settings):
     max_turns: int = Field(default=30, gt=0)
     max_budget_usd_per_call: float = Field(default=1.0, gt=0)
     max_budget_usd_per_update: float = Field(default=10.0, gt=0)
+    # Counts every provider, including models with no configured price (design section 15.3).
+    max_tokens_per_update: int = Field(default=5_000_000, gt=0)
 
 
 PROVIDERS = ("claude_code", "codex", "local")

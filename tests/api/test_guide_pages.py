@@ -73,7 +73,7 @@ def test_unknown_pages_are_not_found(paths: Paths, page_id: str) -> None:
 def test_the_update_button_runs_one_update_at_a_time(paths: Paths) -> None:
     calls: list[str] = []
 
-    def updater() -> None:
+    def updater(confirm: object) -> None:
         calls.append("run")
         time.sleep(0.3)
 
@@ -92,7 +92,7 @@ def test_the_update_button_runs_one_update_at_a_time(paths: Paths) -> None:
 
 
 def test_a_failed_update_reports_without_details(paths: Paths) -> None:
-    def updater() -> None:
+    def updater(confirm: object) -> None:
         raise RuntimeError("secret detail")
 
     session = SessionState(60)
@@ -112,7 +112,7 @@ def test_updates_from_the_page_wait_for_the_cooldown(paths: Paths) -> None:
 
     session = SessionState(60)
     settings = GlobalConfig(server=ServerSettings(update_cooldown_seconds=300))
-    app = create_app(paths, "t", session, settings, updater=lambda: None)
+    app = create_app(paths, "t", session, settings, updater=lambda confirm: None)
     client = TestClient(app, base_url=ORIGIN, follow_redirects=False)
     assert client.get(f"/login?code={session.issue_login_code()}").status_code == 303
     headers = {"origin": ORIGIN, TOKEN_HEADER: session.token}

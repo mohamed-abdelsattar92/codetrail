@@ -23,7 +23,7 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from codetrail.assistant import AnswerChunk, Assistant, AssistantError, QuestionRequest
+from codetrail.assistant import AnswerChunk, Assistant, AssistantError, QuestionRequest, Usage
 from codetrail.assistant.usage import UsageLog
 from codetrail.config import Paths, Price
 from codetrail.database import connect
@@ -130,7 +130,7 @@ def bridge_router(
                             yield _event({"type": "text", "text": chunk.text})
                     if chunk.done:
                         findings = await anyio.to_thread.run_sync(scanner.scan_text, "".join(parts))
-                        _record(chunk)
+                        cost = _record(chunk)
                         if findings:
                             yield _event(
                                 {
@@ -144,7 +144,10 @@ def bridge_router(
                                         datetime.now(UTC).isoformat(timespec="seconds"), chunk.cost_usd)  # fmt: skip
                         answer_id = uuid.uuid4().hex
                         state.answers[answer_id] = answer
-                        yield _event({"type": "done", "answer_id": answer_id, "html": _html(answer.body)})
+                        used = {"tokens": _tokens(chunk.usage), "cost_usd": round(cost, 4)}
+                        yield _event(
+                            {"type": "done", "answer_id": answer_id, "html": _html(answer.body), "usage": used}
+                        )
             except AssistantError as error:
                 yield _event({"type": "error", "message": str(error)})
             except Exception as error:  # details stay out of the page
@@ -152,10 +155,10 @@ def bridge_router(
         finally:
             state.release(token)
 
-    def _record(chunk: AnswerChunk) -> None:
+    def _record(chunk: AnswerChunk) -> float:
         connection = connect(data / "codetrail.db")
         try:
-            UsageLog(connection, prices).record("answer", chunk.usage)
+            return UsageLog(connection, prices).record("answer", chunk.usage) or chunk.cost_usd
         finally:
             connection.close()
 
@@ -183,6 +186,10 @@ def bridge_router(
         return JSONResponse({"page_id": page_id})
 
     return router
+
+
+def _tokens(usage: Usage) -> int:
+    return usage.input_tokens + usage.cached_input_tokens + usage.output_tokens
 
 
 def _save(answer: Answer, data: Any, guide: GuideRepository, gitleaks: str) -> str:

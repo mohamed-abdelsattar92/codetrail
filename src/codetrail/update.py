@@ -6,16 +6,19 @@ rewritten stays affected, because that is derived from its front matter (design 
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 
 import anyio
 
 from codetrail.assistant import Assistant
+from codetrail.assistant.estimate import UpdateEstimate, estimate_update
 from codetrail.assistant.routing import build_assistant
 from codetrail.assistant.status import require_ready
 from codetrail.assistant.usage import UsageLog
-from codetrail.config import Paths, TargetConfig, check_containment, load_global, load_target
+from codetrail.config import Paths, TargetConfig, check_containment, load_global, load_target, model_choice
 from codetrail.database import connect
+from codetrail.errors import CodetrailError
 from codetrail.extract import Extraction, Extractor, run_extractors
 from codetrail.extract.adr import AdrExtractor
 from codetrail.extract.openapi import OpenApiExtractor
@@ -24,7 +27,7 @@ from codetrail.extract.swift import SwiftExtractor
 from codetrail.extract.terraform import TerraformExtractor
 from codetrail.facts import FactDiff, Snapshot
 from codetrail.facts.store import FactStore
-from codetrail.generate.run import GenerationContext, GenerationResult, generate_guide
+from codetrail.generate.run import GenerationContext, GenerationResult, PlannedWork, generate_guide, planned_work
 from codetrail.guide import GuideRepository
 from codetrail.learn import LearningState
 from codetrail.lock import target_lock
@@ -42,6 +45,18 @@ class UpdateResult:
     diff: FactDiff
     extraction: Extraction
     generation: GenerationResult | None = None
+    estimate: UpdateEstimate | None = None
+    declined: bool = False  # the reader didn't confirm the estimate; facts were refreshed, the guide wasn't touched
+
+
+def _calls(target: TargetConfig, work: PlannedWork) -> list[tuple[str, str, str, int, int]]:
+    """The update's paid calls for its estimate: kind, provider, model, expected count, maximum count."""
+    plan, write, digest = (model_choice(getattr(target.models, kind)) for kind in ("plan", "write", "digest"))
+    return [
+        ("plan", *plan, work.plan_calls, work.plan_calls),
+        ("write", *write, work.pages_expected, work.pages_max),
+        ("digest", *digest, int(work.digest), int(work.digest)),
+    ]
 
 
 def build_extractors(target: TargetConfig) -> list[Extractor]:
@@ -55,12 +70,24 @@ def build_extractors(target: TargetConfig) -> list[Extractor]:
     return [available[name] for name in target.extractors]
 
 
-def run_update(paths: Paths, name: str, claude: Assistant | None = None, facts_only: bool = False) -> UpdateResult:
+def run_update(
+    paths: Paths,
+    name: str,
+    claude: Assistant | None = None,
+    facts_only: bool = False,
+    confirm: Callable[[UpdateEstimate], bool] | None = None,
+) -> UpdateResult:
+    """Refreshes the sources and facts (free), then, unless `facts_only`, estimates the guide's paid work and asks
+    `confirm` before doing it (design section 15.4). An update with a real assistant always needs `confirm`."""
     target = load_target(paths, name)
     check_containment(paths, target.repository)  # before the lock creates the data folder
     settings = load_global(paths)
+    sign_ins: dict[str, str] = {}
     if claude is None and not facts_only:  # before any work: the providers this update uses must be ready
-        require_ready(target, settings, kinds=("plan", "write", "digest"))
+        if confirm is None:
+            raise CodetrailError("An update that calls an assistant must show its estimate and be confirmed first.")
+        statuses = require_ready(target, settings, kinds=("plan", "write", "digest"))
+        sign_ins = {status.provider: status.method for status in statuses}
     data = paths.target_data(name)
     with target_lock(paths, name):
         manifest = refresh_while_locked(paths, name)
@@ -91,11 +118,18 @@ def run_update(paths: Paths, name: str, claude: Assistant | None = None, facts_o
                 max_pages=target.generation.max_pages_per_update,
                 concurrency=target.generation.concurrency,
                 max_budget_usd=target.generation.max_budget_usd_per_update,
+                max_tokens=target.generation.max_tokens_per_update,
                 previous_commit=previous.commit if previous else None,
                 diff=diff,
                 learned=LearningState(connection).learned_page_ids(),
                 usage=UsageLog(connection, settings.prices),
             )
+            if confirm is not None:
+                work = planned_work(context)
+                estimate = estimate_update(connection, _calls(target, work), settings.estimates, settings.prices,
+                                           sign_ins, target.generation.max_budget_usd_per_update)  # fmt: skip
+                if not confirm(estimate):
+                    return UpdateResult(manifest, snapshot, diff, extraction, None, estimate, declined=True)
             writer = claude or build_assistant(source, settings, target)
             generation = anyio.run(generate_guide, context, writer)
         finally:

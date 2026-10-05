@@ -443,7 +443,7 @@ max_read_bytes = 200_000
 [estimates]                    # starting tokens per call, until Codetrail has its own history
 history_size = 20
 plan = { input = 60_000, output = 8_000 }
-page = { input = 120_000, output = 6_000 }
+write = { input = 120_000, output = 6_000 }
 digest = { input = 40_000, output = 3_000 }
 answer = { input = 30_000, output = 1_500 }
 grade = { input = 4_000, output = 500 }
@@ -587,13 +587,13 @@ Every adapter streams answers as text, returns structured drafts checked against
 ### 15.3 Usage and plan limits
 - Every call's `Usage` is recorded in the target's database (`assistant_calls`: when, kind, provider, model, tokens, cost in dollars). The cost is the provider's figure when it gives one, otherwise tokens times the configured prices; `local` is zero. A call whose model has no configured price has no cost, only tokens.
 - `claude_code` streams rate-limit events with the use of each plan window (five hours, seven days) and when it resets. The latest reading per window is kept (`plan_usage`), with the time it was read, and shown with every estimate. Codex has no such reading; the page links to its usage page.
-- The update budget (`generation.max_budget_usd_per_update`) counts these costs for every provider.
+- The update budget (`generation.max_budget_usd_per_update`) counts these costs for every provider, and `generation.max_tokens_per_update` (5,000,000 by default) counts tokens for every provider, so a model without a price is bounded too.
 
 ### 15.4 Estimates before paid work
 An estimate is shown before every action that calls a paid provider. It never calls the assistant itself.
 - **Tokens per call** are the median of the last `estimates.history_size` recorded calls of the same kind, provider and model, once there are three; before that, the starting values in `[estimates]`.
 - **An update** is estimated before it starts: the plan call (when the outline is new or facts are uncovered), the pages to rewrite (the affected pages, at most `max_pages_per_update`; on the first update, the maximum), and the digest (when commits came in). It is given as expected and at most, in tokens and in dollars at the configured prices, with each call's provider and model, the sign-in in use, and the latest plan usage.
-- **The page's Update button** fetches `GET /update/estimate` and shows it in a dialog. Proceeding sends the estimate's id with `POST /update`; an update without a fresh estimate id from the same session (valid `server.estimate_ttl_seconds`) is refused. The id records the reader's consent to that estimate, and is defence in depth against other websites, which can't read it. It doesn't stop another local program holding the session cookie (section 7.4); the update budget, the cooldown and one update at a time bound that.
+- **An update estimates after its free part.** `codetrail update` and the page's Update button both refresh the sources and facts first, which calls nothing; the estimate then counts the paid calls from the fresh facts. The page's update waits with its estimate (`GET /update/status` carries it, rendered on the server for the dialog) until the reader sends the estimate's id with `POST /update/confirm`, or `POST /update/cancel`; the id works once, and after `server.estimate_ttl_seconds` the update stops, having spent nothing. The id records the reader's consent to that estimate, and is defence in depth against other websites, which can't read it. It doesn't stop another local program holding the session cookie (section 7.4); the update budget, the cooldown and one update at a time bound that.
 - **Questions and graded checks** show their estimate on the button, such as "Ask · ~15k tokens · ≤ $0.25", without an extra click; each has its hard limit (`bridge.max_budget_usd`, `learn.max_budget_usd`).
 - **`codetrail update`** prints the same estimate and asks before going on; `--yes` skips the question; without a terminal and without `--yes` it refuses. `--facts-only` calls no provider and shows no estimate.
 - After each action, its actual tokens and cost are shown next to the estimate.

@@ -55,6 +55,6 @@ Codetrail is meant for each person's own use of their own subscription. Anyone w
 - [x] Design: section 15, and sections 2, 6.9, 7.3, 7.4, 9, 10, 11, 12, 13 and 14.
 - [x] AGENTS.md: non-negotiable 4 ("Claude ... is the only service") and 5 ("one real adapter") name the configured assistant providers.
 - [x] Code: the `assistant` package with the three adapters, the allowlisted environment, `codetrail providers`, usage records, output scanning (Phase 8).
-- [ ] Code: estimates and their gates (Phase 9).
+- [x] Code: estimates and their gates (Phase 9).
 - [x] Remove `claude-agent-sdk`, and add `httpx` as a runtime dependency, in `pyproject.toml` and `uv.lock` (Phase 8).
 - [ ] README and the getting-started guide describe providers, sign-in and estimates (Phase 10).
