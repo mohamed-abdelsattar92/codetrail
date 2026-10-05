@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from codetrail.database import connect
-from codetrail.facts import Entity, EntityKind, Source
+from codetrail.facts import Entity, EntityKind, Relation, RelationKind, Source
 from codetrail.facts.store import FactStore
 from codetrail.web.render import render_body
 
@@ -71,3 +71,17 @@ def test_diagram_placeholders_become_diagrams(store: FactStore) -> None:
 def test_a_diagram_that_would_draw_nothing_is_left_out(store: FactStore) -> None:
     segments = render_body("Intro.\n\n{{diagram imports scope=nowhere}}\n\nAfter.\n", store, 60)
     assert [segment.kind for segment in segments] == ["html", "html"]
+
+
+def test_the_system_placeholder_draws_the_system_or_one_folder(store: FactStore) -> None:
+    parts = [
+        Entity("part:app", EntityKind.PART, {"kind": "service", "name": "api", "folder": "app"}),
+        Entity("part:web", EntityKind.PART, {"kind": "app", "name": "site", "folder": "web"}),
+    ]
+    store.record("d", parts, [Relation("part:web", RelationKind.DEPENDS_ON, "part:app", {"evidence": "explicit"})])
+    whole = render_body("{{diagram system}}\n", store, 60)
+    focused = render_body("{{diagram system focus=web}}\n", store, 60)
+    elsewhere = render_body("{{diagram system focus=docs}}\n", store, 60)
+    assert [segment.kind for segment in whole] == ["diagram"] and [segment.kind for segment in focused] == ["diagram"]
+    assert whole[0].diagram is not None and len(whole[0].diagram.nodes) == 2
+    assert elsewhere == []

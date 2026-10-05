@@ -43,3 +43,10 @@ def test_an_answer_is_told_which_diagrams_it_can_place() -> None:
     assert "{{diagram imports scope=services/api}}" in prompt
     assert "only these" in prompt
     assert "Diagrams you can place" not in answer_prompt(QuestionRequest("shop", "Hi", "en"))
+
+
+def test_pages_are_told_about_the_system_diagram() -> None:
+    from codetrail.assistant.prompts import PAGE_SYNTAX
+
+    assert "{{diagram system}}" in PAGE_SYNTAX
+    assert "{{diagram system focus=<folder>}}" in PAGE_SYNTAX
