@@ -323,9 +323,10 @@ class _System:
                     if not mention or mention.rpartition("/")[2] not in names:
                         continue
                     resolved = _normal(folder, mention)
-                    for target in {mention, resolved or mention} & (targets - seen):
-                        seen.add(target)
-                        found.setdefault(target, []).append((part.id, path, number))
+                    for target in (mention, resolved):
+                        if target in targets and target not in seen:  # set lookups: no work grows with the contracts
+                            seen.add(target)
+                            found.setdefault(target, []).append((part.id, path, number))
         return found
 
     def deployments(self) -> None:
@@ -393,12 +394,12 @@ class _System:
                 key = str(entity.attributes.get("kind"))
                 if key in PLATFORMS:
                     candidates.append((str(entity.attributes["target"]), key, entity.sources[0]))
-        by_word: dict[str, list[tuple[str, str, Source]]] = {}
-        for candidate in candidates:  # each name split once, then each part is one lookup
-            for word in set(WORD.findall(candidate[0].lower())):
-                by_word.setdefault(word, []).append(candidate)
+        by_word: dict[str, dict[str, tuple[str, Source]]] = {}  # word -> platform -> its first name and source
+        for name, key, source in candidates:  # each name split once, then each part is one lookup per platform
+            for word in set(WORD.findall(name.lower())):
+                by_word.setdefault(word, {}).setdefault(key, (name, source))
         for part in [part for part in self.parts.values() if part.kind in ("service", "app") and part.folder]:
-            for name, key, source in by_word.get(PurePosixPath(part.folder).name.lower(), []):
+            for key, (name, source) in by_word.get(PurePosixPath(part.folder).name.lower(), {}).items():
                 platform = self.platform(key)
                 if (part.id, str(RelationKind.DEPLOYED_ON), platform) in self.seen:
                     continue

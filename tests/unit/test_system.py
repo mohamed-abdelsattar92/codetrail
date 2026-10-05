@@ -244,3 +244,24 @@ def test_a_root_xcode_project_depends_on_its_packages() -> None:
     package = entity("project:Packages/APIClient", EntityKind.PROJECT, "Packages/APIClient/Package.swift", name="API")
     found = derive([package], [], files, lambda path: b"\t\trelativePath = Packages/APIClient;\n")
     assert ("part:.", "depends_on", "part:Packages/APIClient") in arrows(found)
+
+
+def test_repeated_mentions_and_names_take_linear_time() -> None:
+    import time
+
+    contracts = [entity(f"schema:S{index}", EntityKind.SCHEMA, f"specs/{index}/openapi.yaml") for index in range(3_000)]
+    services = [
+        entity(f"project:s{index}/api", EntityKind.PROJECT, f"s{index}/api/pyproject.toml") for index in range(3_000)
+    ]
+    targets = [entity(f"deployment:d{index}", EntityKind.DEPLOYMENT, "w.yml", kind="fly", target="api")
+               for index in range(3_000)]  # fmt: skip
+    root = entity("project:.", EntityKind.PROJECT, "pyproject.toml", name="root")
+    files = {
+        "pyproject.toml": "r",
+        "x.toml": "x",
+        **{f"specs/{index}/openapi.yaml": f"s{index}" for index in range(3_000)},
+    }
+    content = {"x.toml": b"openapi.yaml " * 100_000}
+    started = time.monotonic()
+    derive([root, *contracts, *services, *targets], [], files, lambda path: content.get(path))
+    assert time.monotonic() - started < 5
