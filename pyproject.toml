@@ -22,6 +22,11 @@ dependencies = [
 [project.scripts]
 codetrail = "codetrail.cli:main"
 
+[tool.uv]
+# Rebuild an installed Codetrail whenever the checkout's commit changes, not only when pyproject.toml does,
+# so `uv tool install --reinstall .` after a `git pull` installs the new code.
+cache-keys = [{ file = "pyproject.toml" }, { git = { commit = true } }]
+
 [build-system]
 requires = ["uv_build>=0.12,<0.13"]
 build-backend = "uv_build"
