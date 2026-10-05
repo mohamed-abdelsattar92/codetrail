@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from codetrail.config import ToolsSettings
 from codetrail.errors import CodetrailError
 from codetrail.repo.mirror import TreeEntry, refresh_mirror
 from codetrail.repo.rules import ExclusionRules, Reason
@@ -38,7 +39,7 @@ def build(hostile: Path, tmp_path: Path, scanner: SecretScanner | None = None) -
     mirror = tmp_path / "data" / "mirror.git"
     commit = refresh_mirror(mirror, hostile, "develop")
     rules = ExclusionRules(["docs/private/", "**/*.png"])
-    return build_source(mirror, commit, rules, scanner or SecretScanner("gitleaks"), tmp_path / "data")
+    return build_source(mirror, commit, rules, scanner or SecretScanner(ToolsSettings()), tmp_path / "data")
 
 
 def test_only_allowed_files_are_materialized(hostile: Path, tmp_path: Path) -> None:
@@ -83,7 +84,7 @@ def test_a_failed_scan_leaves_the_previous_source_intact(hostile: Path, tmp_path
     build(hostile, tmp_path)
     before = sorted(path.name for path in (tmp_path / "data" / "source").rglob("*"))
     with pytest.raises(CodetrailError):
-        build(hostile, tmp_path, SecretScanner(str(tmp_path / "missing-gitleaks")))
+        build(hostile, tmp_path, SecretScanner(ToolsSettings(gitleaks=str(tmp_path / "missing-gitleaks"))))
     assert sorted(path.name for path in (tmp_path / "data" / "source").rglob("*")) == before
     assert not (tmp_path / "data" / "source.next").exists()
 

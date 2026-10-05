@@ -4,6 +4,7 @@ from pathlib import Path
 
 import pytest
 
+from codetrail.config import ToolsSettings
 from codetrail.repo.history import commits_between, diff_between, merges_between, recent_commits
 from codetrail.repo.mirror import refresh_mirror
 from codetrail.repo.rules import ExclusionRules
@@ -19,7 +20,7 @@ def visible(path: str) -> bool:
 
 @pytest.fixture
 def scanner() -> SecretScanner:
-    return SecretScanner("gitleaks")
+    return SecretScanner(ToolsSettings())
 
 
 def mirror_of(checkout: Path, tmp_path: Path) -> tuple[Path, str]:

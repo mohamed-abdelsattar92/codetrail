@@ -32,7 +32,7 @@ def refresh_while_locked(paths: Paths, name: str) -> SourceManifest:
     """Refreshes the target's sources; the caller holds the target's lock."""
     target = load_target(paths, name)
     check_containment(paths, target.repository)
-    scanner = SecretScanner(load_global(paths).tools.gitleaks)
+    scanner = SecretScanner(load_global(paths).tools)
     data = paths.target_data(name)
     mirror = data / "mirror.git"
     commit = refresh_mirror(mirror, target.repository, target.branch)
