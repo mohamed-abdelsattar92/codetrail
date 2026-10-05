@@ -76,3 +76,22 @@ def test_file_at_reads_a_page_at_a_commit(guide: GuideRepository) -> None:
     head = guide.commit("First")
     assert head is not None
     assert "# Body" in (guide.file_at(head, "concepts/contract-first") or "")
+
+
+def test_checking_for_uncommitted_changes_never_takes_the_index_lock(
+    guide: GuideRepository, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The page checks while an update may be committing; an optional index refresh would hold index.lock (16.3).
+    from codetrail import guide as guide_module
+
+    calls: list[list[str]] = []
+    real = guide_module.run_git
+
+    def recording(arguments: list[str], **options: object) -> bytes:
+        calls.append(arguments)
+        return real(arguments, **options)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(guide_module, "run_git", recording)
+    assert guide.has_uncommitted_changes() is False
+    [arguments] = calls
+    assert arguments.index("--no-optional-locks") < arguments.index("status")
