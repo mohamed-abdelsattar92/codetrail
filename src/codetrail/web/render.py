@@ -67,7 +67,7 @@ def render_body(body: str, store: FactStore, max_nodes: int) -> list[Segment]:
         if diagram:
             flush()
             drawn = _diagram(diagram.group(1), store, max_nodes)
-            if drawn is not None:
+            if drawn is not None and drawn.nodes:  # a diagram with nothing to draw is left out, not shown empty
                 segments.append(Segment("diagram", diagram=drawn))
         else:
             pending.append(line)

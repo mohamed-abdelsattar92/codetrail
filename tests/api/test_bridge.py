@@ -284,3 +284,31 @@ def test_the_oldest_unsaved_answer_is_dropped_past_the_limit(paths: Paths) -> No
     response = client.post(f"/bridge/answers/{oldest}/save", json={}, headers=headers)
     assert response.status_code == 404
     assert response.json()["error"] == "That answer is gone; ask again."
+
+
+def test_a_question_carries_the_guides_diagrams_and_an_answer_draws_them(paths: Paths) -> None:
+    from codetrail.assistant import QuestionRequest
+    from codetrail.web.diagrams import available_diagrams
+
+    claude = FakeAssistant(
+        answers=[
+            [
+                AnswerChunk("The app:\n\n{{diagram imports scope=app}}\n\n{{diagram imports scope=nowhere}}\n"),
+                AnswerChunk(done=True),
+            ]
+        ]
+    )
+    client, headers = make_client(paths, claude)
+    response = client.post("/bridge/questions", json={"question": "Draw the architecture"}, headers=headers)
+    done = events(response.text)[-1]
+    html = str(done["html"])
+    assert html.count('<pre class="diagram">') == 1  # the one that draws something; the other is left out
+    assert "flowchart LR" in html and "{{diagram" not in html
+    [request] = [request for request in claude.requests if isinstance(request, QuestionRequest)]
+    connection = connect(paths.target_data("t") / "codetrail.db")
+    try:
+        from codetrail.facts.store import FactStore
+
+        assert request.diagrams == available_diagrams(FactStore(connection))
+    finally:
+        connection.close()

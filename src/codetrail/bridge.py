@@ -22,6 +22,7 @@ from typing import Any
 import anyio
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse, Response, StreamingResponse
+from markupsafe import escape
 from pydantic import BaseModel, ConfigDict, Field
 
 from codetrail.assistant import AnswerChunk, Assistant, AssistantError, QuestionRequest, Usage
@@ -35,6 +36,7 @@ from codetrail.guide import PAGE_ID, GuideRepository, Page
 from codetrail.lock import TargetBusy, target_lock
 from codetrail.repo.secrets import SecretScanner
 from codetrail.repo.source import SourceManifest
+from codetrail.web.diagrams import available_diagrams
 from codetrail.web.render import render_body
 
 PAGE_CONTEXT_CHARACTERS = 12_000
@@ -118,6 +120,7 @@ def bridge_router(
             page_title=page.title if page else "",
             page_body=page.body[:PAGE_CONTEXT_CHARACTERS] if page else "",
             page_facts=[str(fact.get("id")) for fact in (page.meta.get("facts") or [])] if page else [],
+            diagrams=_available_diagrams(),
         )
         return StreamingResponse(_stream(request, manifest.commit, token), media_type="application/x-ndjson")
 
@@ -166,13 +169,27 @@ def bridge_router(
         finally:
             connection.close()
 
+    def _available_diagrams() -> list[str]:
+        connection = connect(data / "codetrail.db")
+        try:
+            return available_diagrams(FactStore(connection))
+        finally:
+            connection.close()
+
     def _html(body: str) -> str:
         connection = connect(data / "codetrail.db")
         try:
             segments = render_body(body, FactStore(connection), max_nodes)
         finally:
             connection.close()
-        return "".join(str(segment.html) for segment in segments if segment.kind != "diagram")
+        parts = []
+        for segment in segments:
+            if segment.kind == "diagram" and segment.diagram is not None:  # drawn by the page's script, from facts
+                parts.append(f'<figure class="diagram-block" lang="en" dir="ltr"><pre class="diagram">'
+                             f"{escape(segment.diagram.mermaid)}</pre></figure>")  # fmt: skip
+            else:
+                parts.append(str(segment.html))
+        return "".join(parts)
 
     @router.get("/bridge/answers")
     def session_answers() -> Response:

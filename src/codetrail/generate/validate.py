@@ -17,7 +17,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from codetrail.errors import CodetrailError
-from codetrail.facts import EntityKind
+from codetrail.facts import EntityKind, RelationKind
 from codetrail.facts.store import FactStore
 from codetrail.generate.outline import in_scope
 from codetrail.repo.git import run_git
@@ -151,7 +151,21 @@ def _check_diagram(arguments: str, context: ValidationContext) -> list[str]:
         project = context.store.entity(value)
         if project is None or project.kind is not EntityKind.PROJECT:
             return [f"The diagram project {value} isn't a project fact."]
+    if not _draws_something(kind, value, context.store):
+        return [f"The {kind} diagram for {value} would draw nothing: no facts of that kind are there."]
     return []
+
+
+def _draws_something(kind: str, value: str, store: FactStore) -> bool:
+    """Whether the diagram has at least one fact to draw, so no page shows an empty box."""
+    prefix = value.rstrip("/") + "/"
+    if kind == "imports":
+        kinds = (EntityKind.MODULE, EntityKind.SWIFT_TARGET)
+        return any(entity.id.split(":", 1)[1].startswith(prefix) for each in kinds for entity in store.entities(each))
+    if kind == "resources":
+        folders = (entity.id.split(":", 1)[1] + "/" for entity in store.entities(EntityKind.TERRAFORM_MODULE))
+        return any(folder.startswith(prefix) or prefix.startswith(folder) for folder in folders)
+    return any(relation.source_id == value for relation in store.relations(RelationKind.DEPENDS_ON))
 
 
 def _check_checks(checks: Sequence[Mapping[str, Any]], context: ValidationContext) -> list[str]:

@@ -22,9 +22,20 @@ ESCAPES = {
 }  # fmt: skip
 
 
-def escape_label(text: str) -> str:
-    flattened = " ".join(text.split())
+def escape_label(text: str, fallback: str = "?") -> str:
+    """A label Mermaid reads as plain text; an empty one (Mermaid refuses `[""]`) becomes the fallback."""
+    flattened = " ".join(text.split()) or " ".join(fallback.split()) or "?"
     return "".join(ESCAPES.get(character, character) for character in flattened)
+
+
+def _node(node_id: str, label: str, key: str) -> str:
+    return f'    {node_id}["{escape_label(label, fallback=key)}"]'
+
+
+def _edge(source: str, target: str, label: str) -> str:
+    """An arrow, labelled only when there's a label: Mermaid refuses an empty one (`-->|""|`)."""
+    text = " ".join(label.split())
+    return f'    {source} -->|"{escape_label(text)}"| {target}' if text else f"    {source} --> {target}"
 
 
 @dataclass(frozen=True)
@@ -80,13 +91,12 @@ def dependencies_diagram(store: FactStore, project_id: str) -> Diagram:
     relations = [r for r in store.relations(RelationKind.DEPENDS_ON) if r.source_id == project_id]
     labels = {project_id: str(project.attributes.get("name", project_id))}
     for relation in relations:
-        labels[relation.target_id] = relation.target_id.removeprefix("package:pypi/")
+        labels[relation.target_id] = _package_name(relation.target_id)
     ids = {key: f"n{index}" for index, key in enumerate(sorted(labels), start=1)}
     lines = ["flowchart LR"]
-    lines += [f'    {ids[key]}["{escape_label(label)}"]' for key, label in sorted(labels.items())]
+    lines += [_node(ids[key], label, key) for key, label in sorted(labels.items())]
     for relation in relations:
-        group = escape_label(str(relation.attributes.get("group", "")))
-        lines.append(f'    {ids[project_id]} -->|"{group}"| {ids[relation.target_id]}')
+        lines.append(_edge(ids[project_id], ids[relation.target_id], str(relation.attributes.get("group") or "")))
     nodes = [DiagramNode(ids[key], label, f"/facts/{key}") for key, label in sorted(labels.items())]
     return Diagram("\n".join(lines) + "\n", nodes)
 
@@ -112,6 +122,46 @@ def resources_diagram(store: FactStore, scope: str, max_nodes: int) -> Diagram:
                    rolled_up=len(nodes) < len(modules) + len(resources), counted=False)  # fmt: skip
 
 
+MAX_AVAILABLE = 15  # of each kind, so the list stays a short part of a question's prompt
+
+
+def available_diagrams(store: FactStore) -> list[str]:
+    """The diagram placeholders that would draw something from these facts, for an answer to use (design 7.3).
+
+    Imports for every top-level folder, project folder and folder of projects that holds at least two modules or
+    Swift targets; dependencies for every project that has any; resources for every top-level Terraform folder.
+    """
+    located = [_location(entity.id) for kind in (EntityKind.MODULE, EntityKind.SWIFT_TARGET)
+               for entity in store.entities(kind)]  # fmt: skip
+    projects = [entity.id for entity in store.entities(EntityKind.PROJECT)]
+    folders = {path.split("/", 1)[0] for path in located if "/" in path}
+    for project in projects:
+        folder = _location(project)
+        if folder not in ("", "."):
+            folders |= {folder, str(PurePosixPath(folder).parent)}
+    scopes = sorted(
+        folder
+        for folder in folders
+        if folder not in ("", ".") and sum(p.startswith(folder + "/") for p in located) >= 2
+    )
+    depending = {relation.source_id for relation in store.relations(RelationKind.DEPENDS_ON)}
+    terraform = sorted(
+        {_location(entity.id).split("/", 1)[0] for entity in store.entities(EntityKind.TERRAFORM_MODULE)}
+    )
+    return (
+        [f"{{{{diagram imports scope={scope}}}}}" for scope in scopes[:MAX_AVAILABLE]]
+        + [f"{{{{diagram dependencies project={project}}}}}" for project in sorted(depending & set(projects))][
+            :MAX_AVAILABLE
+        ]
+        + [f"{{{{diagram resources scope={scope}}}}}" for scope in terraform[:MAX_AVAILABLE]]
+    )
+
+
+def _package_name(package_id: str) -> str:
+    """package:<ecosystem>/<name> -> <name>, for every ecosystem (pypi, swift, ...)."""
+    return package_id.split(":", 1)[-1].split("/", 1)[-1]
+
+
 def _location(fact_id: str) -> str:
     """A path-based fact id's path: module:<path>, swift_target:<folder>/<name>, terraform_module:<folder>..."""
     return fact_id.split(":", 1)[1]
@@ -133,9 +183,8 @@ def _render(
     keys = sorted(set(group.values()))
     ids = {key: f"n{index}" for index, key in enumerate(keys, start=1)}
     lines = ["flowchart LR"]
-    lines += [f'    {ids[key]}["{escape_label(labels[key])}"]' for key in keys]
+    lines += [_node(ids[key], labels[key], key) for key in keys]
     for (source, target), count in sorted(edges.items()):
-        arrow = f'-->|"{count}"|' if counted else "-->"
-        lines.append(f"    {ids[source]} {arrow} {ids[target]}")
+        lines.append(_edge(ids[source], ids[target], str(count) if counted else ""))
     nodes = [DiagramNode(ids[key], labels[key], links[key]) for key in keys]
     return Diagram("\n".join(lines) + "\n", nodes, rolled_up)
