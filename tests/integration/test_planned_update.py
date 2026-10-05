@@ -33,7 +33,7 @@ def test_the_first_update_is_estimated_at_its_cap_and_can_be_declined(paths: Pat
     claude = FakeAssistant(plans=[PLAN], page_writer=good_page)
     result = run_update(paths, "t", claude=claude, confirm=recorder(seen, False))
     assert result.declined and result.generation is None
-    assert kinds(seen[0]) == {"plan": (1, 1), "write": (20, 20), "digest": (1, 1)}
+    assert kinds(seen[0]) == {"plan": (1, 1), "write": (20, 40), "digest": (1, 1)}
     assert seen[0].lines[0].call.model == "claude-opus-5-5"
     assert seen[0].expected_usd is not None and seen[0].maximum_usd <= seen[0].budget_usd  # type: ignore[operator]
     assert claude.requests == []  # nothing was called
@@ -50,7 +50,7 @@ def test_a_later_update_estimates_only_whats_affected(paths: Paths, tmp_path: Pa
     seen.clear()
     claude = FakeAssistant(page_writer=good_page)
     run_update(paths, "t", claude=claude, confirm=recorder(seen, True))
-    assert kinds(seen[0]) == {"write": (1, 1), "digest": (1, 1)}
+    assert kinds(seen[0]) == {"write": (1, 2), "digest": (1, 1)}
 
 
 def test_an_update_with_a_real_assistant_needs_a_confirmation(paths: Paths) -> None:

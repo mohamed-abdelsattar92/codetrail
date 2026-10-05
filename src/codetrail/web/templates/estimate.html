@@ -19,7 +19,7 @@
 <p>
   {% trans expected=estimate.expected_tokens|tokens, maximum=estimate.maximum_tokens|tokens %}Expected: ~{{ expected }} tokens; at most ~{{ maximum }}.{% endtrans %}
   {% if estimate.expected_usd is not none %}{% trans expected=estimate.expected_usd|dollars, maximum=estimate.maximum_usd|dollars %}At API prices: ~{{ expected }}, at most {{ maximum }}.{% endtrans %}{% endif %}
-  {% trans budget=estimate.budget_usd|dollars %}The update stops at its budget of {{ budget }}.{% endtrans %}
+  {% trans budget=estimate.budget_usd|dollars, tokens=estimate.budget_tokens|tokens %}The update stops at its budget of {{ budget }} or {{ tokens }} tokens, whichever comes first.{% endtrans %}
 </p>
 <ul class="estimate-notes">
 {% for provider, method in estimate.sign_ins.items() %}

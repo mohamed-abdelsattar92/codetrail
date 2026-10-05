@@ -398,8 +398,10 @@ class UpdateJob:
             self._decision = False
             self.estimate, self.estimate_id = estimate.as_json(), secrets.token_urlsafe(16)
             self.state = "waiting"
-        answered = self._decided.wait(self._ttl)
+        self._decided.wait(self._ttl)
         with self._lock:
+            # Decided under the lock: a confirmation racing the expiry either counts, or is refused by decide().
+            answered = self._decided.is_set()
             self.estimate, self.estimate_id = None, None
             if not answered:
                 self.message = "The estimate expired before it was confirmed, so nothing was spent."
@@ -411,7 +413,11 @@ class UpdateJob:
         """Confirms or cancels the waiting estimate; the id works once, and only while it waits."""
         with self._lock:
             expected = self.estimate_id
-            if self.state != "waiting" or expected is None or not hmac.compare_digest(estimate_id, expected):
+            if (
+                self.state != "waiting"
+                or expected is None
+                or not hmac.compare_digest(estimate_id.encode(), expected.encode())
+            ):
                 return False
             self.estimate_id = None
             self._decision = go_ahead

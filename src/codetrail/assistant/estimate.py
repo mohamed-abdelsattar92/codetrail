@@ -89,7 +89,8 @@ class UpdateEstimate:
     lines: list[EstimateLine]
     sign_ins: dict[str, str]  # provider -> how it is signed in
     plan_usage: list[PlanUsageReading]
-    budget_usd: float  # the update's own limit (generation.max_budget_usd_per_update)
+    budget_usd: float  # the update's own limits: generation.max_budget_usd_per_update
+    budget_tokens: int  # and generation.max_tokens_per_update, which counts every provider
 
     @property
     def expected_tokens(self) -> int:
@@ -97,7 +98,7 @@ class UpdateEstimate:
 
     @property
     def maximum_tokens(self) -> int:
-        return sum(line.call.tokens * line.maximum for line in self.lines)
+        return min(sum(line.call.tokens * line.maximum for line in self.lines), self.budget_tokens)
 
     @property
     def expected_usd(self) -> float | None:
@@ -115,7 +116,8 @@ class UpdateEstimate:
                        "cost_each_usd": line.call.cost_usd, "from_history": line.call.from_history}
                       for line in self.lines],
             "expected_tokens": self.expected_tokens, "maximum_tokens": self.maximum_tokens,
-            "expected_usd": self.expected_usd, "maximum_usd": self.maximum_usd, "budget_usd": self.budget_usd,
+            "expected_usd": self.expected_usd, "maximum_usd": self.maximum_usd,
+            "budget_usd": self.budget_usd, "budget_tokens": self.budget_tokens,
             "sign_ins": self.sign_ins,
             "plan_usage": [{"provider": reading.provider, "window": reading.window,
                             "utilization": reading.utilization, "resets_at": reading.resets_at,
@@ -130,13 +132,14 @@ def estimate_update(
     prices: Mapping[str, Price],
     sign_ins: Mapping[str, str],
     budget_usd: float,
+    budget_tokens: int,
 ) -> UpdateEstimate:
     lines = [
         EstimateLine(estimate_call(connection, kind, provider, model, settings, prices), expected, maximum)
         for kind, provider, model, expected, maximum in calls
         if maximum > 0
     ]
-    return UpdateEstimate(lines, dict(sign_ins), plan_usage(connection), budget_usd)
+    return UpdateEstimate(lines, dict(sign_ins), plan_usage(connection), budget_usd, budget_tokens)
 
 
 def _dollars(lines: list[EstimateLine], expected: bool) -> float | None:
@@ -172,7 +175,8 @@ def describe(estimate: UpdateEstimate) -> list[str]:
     money = "" if expected is None or maximum is None else f", ~${expected:.2f} (at most ${maximum:.2f})"
     lines.append(f"Expected: ~{tokens_text(estimate.expected_tokens)} tokens (at most "
                  f"~{tokens_text(estimate.maximum_tokens)}){money} at API prices. "
-                 f"The update stops at its budget of ${estimate.budget_usd:.2f}.")  # fmt: skip
+                 f"The update stops at its budget of ${estimate.budget_usd:.2f} "
+                 f"or {tokens_text(estimate.budget_tokens)} tokens.")  # fmt: skip
     for provider, method in estimate.sign_ins.items():
         if "subscription" in method.lower():
             lines.append(f"{provider}: {method}, so no charge; the work counts against your plan's usage limits.")

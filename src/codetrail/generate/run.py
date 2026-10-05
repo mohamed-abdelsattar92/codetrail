@@ -48,6 +48,7 @@ from codetrail.repo.secrets import SecretScanner
 from codetrail.repo.source import SourceManifest
 
 MAX_FACT_LINES = 200
+PAGE_ATTEMPTS = 2  # a page that fails validation is written once more
 HISTORY_COMMITS = 25
 
 
@@ -222,7 +223,7 @@ async def _write_page(
     )  # fmt: skip
     problems: list[str] = []
     try:
-        for _attempt in range(2):
+        for _attempt in range(PAGE_ATTEMPTS):
             draft = await claude.write_page(request)
             _spend(context, result, "write", draft)
             problems = validate_page(draft.body, draft.checks, validation)
@@ -295,14 +296,15 @@ class PlannedWork:
 
     plan_calls: int
     pages_expected: int
-    pages_max: int
-    digest: bool
+    page_calls_max: int  # each page may be written twice: the retry after a failed validation
+    digest_expected: bool
+    digest_possible: bool  # a digest also runs when commits came in and no page was written
 
 
 def planned_work(context: GenerationContext) -> PlannedWork:
     entries = outline_entries(context.guide.read_outline())
     if not entries:  # the first outline: a plan, then as many pages as the cap allows
-        return PlannedWork(1, context.max_pages, context.max_pages, True)
+        return PlannedWork(1, context.max_pages, context.max_pages * PAGE_ATTEMPTS, True, True)
     stored = context.guide.read_outline()
     new_facts = set(context.diff.added_entities)
     plan_calls = int(any(fact in new_facts for fact in uncovered_facts(context.store, entries)))
@@ -312,8 +314,13 @@ def planned_work(context: GenerationContext) -> PlannedWork:
     )
     expected = min(affected, context.max_pages)
     maximum = context.max_pages if plan_calls else expected  # a plan can add pages
-    found = _digest_range(context, expected > 0)
-    return PlannedWork(plan_calls, expected, maximum, found is not None and bool(found[1]))
+
+    def digest_due(pages_written: bool) -> bool:
+        found = _digest_range(context, pages_written)
+        return found is not None and bool(found[1])
+
+    possible = digest_due(True) or digest_due(False)
+    return PlannedWork(plan_calls, expected, maximum * PAGE_ATTEMPTS, digest_due(expected > 0), possible)
 
 
 def facts_summary(store: FactStore, manifest: SourceManifest) -> str:

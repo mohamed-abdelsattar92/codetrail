@@ -218,7 +218,9 @@ msgid "The update failed:"
 msgstr ""
 
 #, python-format
-msgid "The update stops at its budget of %(budget)s."
+msgid ""
+"The update stops at its budget of %(budget)s or %(tokens)s tokens, "
+"whichever comes first."
 msgstr ""
 
 msgid "There's nothing here. It may be excluded, or not in the guide yet."
