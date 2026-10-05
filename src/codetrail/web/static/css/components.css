@@ -200,6 +200,17 @@
 }
 
 .nav-path .bar {
+  margin-block-start: 5px;
+}
+
+.nav-empty {
+  padding: 4px var(--space-3);
+  color: var(--text-faint);
+  font-size: 0.82rem;
+}
+
+/* Progress bars, drawn by native progress elements. */
+.bar {
   display: block;
   inline-size: 100%;
   block-size: 6px;

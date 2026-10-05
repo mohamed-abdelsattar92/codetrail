@@ -304,14 +304,15 @@ def create_app(
                     "when you learned it", "now", lineterm="",
                 ))  # fmt: skip
         pages = guide.pages()
+        titles = {found.id: found.title for found in pages}
+        steps = [step for step in steps_of(page) if step in titles] if page.kind == "path" else []  # real pages only
         in_path, previous, following = path_neighbours(
             pages, page.id, path if path and PAGE_ID.fullmatch(path) else None
         )
         return render(
             "page.html", nav=navigation(pages), active=page.id, page=page, segments=segments, sources_changed=changed,
             status=status.state, checks=checks, changes=changes, in_path=in_path, previous=previous,
-            following=following, titles={found.id: found.title for found in pages},
-            steps=[step for step in steps_of(page) if any(found.id == step for found in pages)],
+            following=following, titles=titles, steps=steps,
         )  # fmt: skip
 
     @app.get("/search", response_class=HTMLResponse)

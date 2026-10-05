@@ -654,11 +654,11 @@ Empty states invite rather than apologize ("Ask a question from any page and sav
 | Token | Light | Dark |
 |---|---|---|
 | Accent (indigo) | `#5b5bd6`, hover `#4b4bc4` | `#9b9bf5` |
-| Text, muted text | `#1a1f36`, `#5c6378` | `#e6e8f0`, `#a1a8bd` |
+| Text, muted text, faint text | `#1a1f36`, `#5c6378`, `#646b7f` | `#e6e8f0`, `#a1a8bd`, `#8b92a8` |
 | Page, sidebar, card | `#ffffff`, `#f7f8fb`, `#f5f6fa` | `#0f1220`, `#141829`, `#191e31` |
 | Documented callout | indigo tint | indigo tint |
 | Inferred callout, stale | amber `#b26a00` and its tint | amber `#f0b255` and its tint |
-| Learned | green `#1f8a5b` | `#5fd39b` |
+| Learned | green `#18774d` | `#5fd39b` |
 
 - **Type.** Inter (weights 400, 500 and 600) for everything, bundled with Codetrail ([ADR 0007](../adr/0007-bundle-the-inter-typeface.md)); code in the system's monospace (`ui-monospace`, SF Mono, Menlo). Body text 16 px with a line height of 1.65.
 - **Shape.** A 4 px spacing scale; 8 px corners on controls and 12 px on cards; hairline borders; shadows only on what floats (the palette, dialogs and the Ask panel).
