@@ -50,6 +50,7 @@ class GenerationContext:
     visible: Callable[[str], bool]
     max_pages: int
     concurrency: int
+    max_budget_usd: float
     previous_commit: str | None  # the snapshot before this update, or None on the first
     diff: FactDiff
 
@@ -89,6 +90,9 @@ async def generate_guide(context: GenerationContext, claude: Claude) -> Generati
 
         async def write(entry: OutlineEntry) -> None:
             async with limiter:
+                if result.cost_usd >= context.max_budget_usd:  # the update's total budget is spent
+                    result.left_for_later.append(entry.id)
+                    return
                 await _write_page(entry, context, claude, validation, result)
 
         try:

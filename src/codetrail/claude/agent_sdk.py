@@ -44,6 +44,13 @@ from codetrail.claude.prompts import (
 from codetrail.config import GenerationSettings, ModelSettings
 
 CALL_TIMEOUT_SECONDS = 900
+# Claude Code attaches the file an @path in a prompt names, before any tool call and past the guard (a probe proved
+# it). Prompts carry repository text, so every @ becomes a fullwidth at sign the model reads but Claude Code ignores.
+FULLWIDTH_AT = "\uff20"
+
+
+def neutralize(prompt: str) -> str:
+    return prompt.replace("@", FULLWIDTH_AT)
 
 
 def sdk_hook(guard: ToolGuard) -> Any:
@@ -101,7 +108,7 @@ class AgentSdkClaude:
         for _attempt in range(self.retries + 1):
             guard = ToolGuard(self.root)
             try:
-                result = await self._query(prompt, self.options(guard, model, schema, system_prompt))
+                result = await self._query(neutralize(prompt), self.options(guard, model, schema, system_prompt))
             except ClaudeError:
                 raise
             except Exception as error:  # the CLI process or the connection failed: worth another try

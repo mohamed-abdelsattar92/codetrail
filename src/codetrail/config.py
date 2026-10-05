@@ -79,6 +79,7 @@ class ServerSettings(Settings):
     port: int = Field(default=8765, ge=1024, le=65535)
     login_code_ttl_seconds: int = Field(default=60, gt=0)
     session_minutes: int = Field(default=480, gt=0)
+    update_cooldown_seconds: int = Field(default=300, ge=0)
 
 
 class InterfaceSettings(Settings):
@@ -112,6 +113,7 @@ class GenerationSettings(Settings):
     concurrency: int = Field(default=2, gt=0, le=8)
     max_turns: int = Field(default=30, gt=0)
     max_budget_usd_per_call: float = Field(default=1.0, gt=0)
+    max_budget_usd_per_update: float = Field(default=10.0, gt=0)
 
 
 class ModelSettings(Settings):

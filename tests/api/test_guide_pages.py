@@ -105,3 +105,20 @@ def test_a_failed_update_reports_without_details(paths: Paths) -> None:
         time.sleep(0.05)
     assert status["state"] == "failed"
     assert "secret detail" not in status["message"]
+
+
+def test_updates_from_the_page_wait_for_the_cooldown(paths: Paths) -> None:
+    from codetrail.config import ServerSettings
+
+    session = SessionState(60)
+    settings = GlobalConfig(server=ServerSettings(update_cooldown_seconds=300))
+    app = create_app(paths, "t", session, settings, updater=lambda: None)
+    client = TestClient(app, base_url=ORIGIN, follow_redirects=False)
+    assert client.get(f"/login?code={session.issue_login_code()}").status_code == 303
+    headers = {"origin": ORIGIN, TOKEN_HEADER: session.token}
+    assert client.post("/update", headers=headers).status_code == 202
+    for _ in range(50):
+        if client.get("/update/status").json()["state"] == "done":
+            break
+        time.sleep(0.05)
+    assert client.post("/update", headers=headers).status_code == 429

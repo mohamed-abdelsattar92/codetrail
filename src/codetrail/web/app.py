@@ -57,7 +57,7 @@ def create_app(
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
     view = TargetView(paths, name)
     guide = GuideRepository(paths.target_data(name) / "guide")
-    job = UpdateJob(updater or (lambda: run_update(paths, name)))
+    job = UpdateJob(updater or (lambda: run_update(paths, name)), settings.server.update_cooldown_seconds)
     languages = installed_languages(locales)
     templates = str(files("codetrail.web").joinpath("templates"))
     environments = {code: _environment(templates, language) for code, language in languages.items()}
@@ -135,8 +135,10 @@ def create_app(
 
     @app.post("/update")
     def start_update() -> Response:
-        started = job.start()
-        return JSONResponse(job.status(), status_code=202 if started else 409)
+        refusal = job.start()
+        if refusal is None:
+            return JSONResponse(job.status(), status_code=202)
+        return JSONResponse({**job.status(), "message": refusal}, status_code=409 if job.state == "running" else 429)
 
     @app.get("/update/status")
     def update_status() -> Response:
@@ -235,20 +237,24 @@ def _environment(templates: str, language: Language) -> Environment:
 class UpdateJob:
     """One update at a time, run in a background thread; the target's lock also refuses one from the command line."""
 
-    def __init__(self, run: Callable[[], object]) -> None:
+    def __init__(self, run: Callable[[], object], cooldown_seconds: int = 0) -> None:
         self._run = run
         self._lock = threading.Lock()
+        self._cooldown = cooldown_seconds
+        self._finished_at: float | None = None
         self.state = "idle"
         self.message = ""
 
-    def start(self) -> bool:
-        """Starts the update unless one is running; True when this call started it."""
+    def start(self) -> str | None:
+        """Starts the update; returns why it can't (one running, or the last one finished too recently)."""
         with self._lock:
             if self.state == "running":
-                return False
+                return "An update is already running."
+            if self._finished_at is not None and time.monotonic() - self._finished_at < self._cooldown:
+                return "An update finished a moment ago; wait a few minutes before the next."
             self.state, self.message = "running", ""
         threading.Thread(target=self._work, daemon=True).start()
-        return True
+        return None
 
     def _work(self) -> None:
         try:
@@ -259,6 +265,8 @@ class UpdateJob:
             self.state, self.message = "failed", f"The update failed ({type(error).__name__})."
         else:
             self.state, self.message = "done", ""
+        finally:
+            self._finished_at = time.monotonic()
 
     def status(self) -> dict[str, str]:
         return {"state": self.state, "message": self.message}

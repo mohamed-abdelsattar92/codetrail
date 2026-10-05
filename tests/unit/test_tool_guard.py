@@ -55,6 +55,12 @@ def test_allows_reading_inside_source(source: Path, tool: str, arguments: dict[s
         ("WebFetch", {"url": "https://example.com"}),
         ("Task", {"prompt": "x"}),
         ("mcp__anything__tool", {}),
+        ("Glob", {"pattern": "{..,x}/*"}),
+        ("Glob", {"pattern": "**/{/etc,x}/*"}),
+        ("Grep", {"pattern": "x", "glob": "{..}/*"}),
+        ("Glob", {"pattern": "a\\..\\b"}),
+        ("Read", {"file_path": "~nosuchuser/x"}),
+        ("Read", {"file_path": "a\x00b"}),
     ],
 )
 def test_refuses_everything_else(source: Path, tool: str, arguments: dict[str, str]) -> None:
@@ -76,3 +82,10 @@ async def test_the_hook_denies_with_a_reason(source: Path) -> None:
     assert denied["hookSpecificOutput"]["permissionDecision"] == "deny"
     allowed = await guard.hook({"tool_name": "Read", "tool_input": {"file_path": "app/main.py"}}, None, {})
     assert allowed == {}
+
+
+@pytest.mark.anyio
+async def test_the_hook_fails_closed_on_strange_input(source: Path) -> None:
+    guard = ToolGuard(source)
+    denied = await guard.hook({"tool_name": "Read", "tool_input": ["not", "a", "mapping"]}, None, {})
+    assert denied["hookSpecificOutput"]["permissionDecision"] == "deny"

@@ -153,3 +153,13 @@ def test_the_first_guide_after_facts_only_updates_gets_a_created_digest(paths: P
     assert generation is not None and generation.digest is not None
     digest = guide(paths).read_page(generation.digest)
     assert digest is not None and digest.title == "The guide was created"
+
+
+def test_the_update_stops_calling_claude_at_its_total_budget(paths: Paths) -> None:
+    file = paths.target_file("t")
+    file.write_text(file.read_text() + "[generation]\nmax_budget_usd_per_update = 0.01\nconcurrency = 1\n")
+    claude = FakeClaude(plans=[PLAN], page_writer=good_page)  # each page costs 0.01
+    generation = run_update(paths, "t", claude=claude).generation
+    assert generation is not None
+    assert len(generation.written) == 2 - len(generation.left_for_later)
+    assert generation.left_for_later  # the second page waits for the next update
