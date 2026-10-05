@@ -33,7 +33,7 @@ def test_update_records_and_reports_changes(environment: Path, capsys: pytest.Ca
     assert main(["target", "add", "api", str(checkout)]) == 0
     capsys.readouterr()
 
-    assert main(["update", "api"]) == 0
+    assert main(["update", "api", "--facts-only"]) == 0
     first = capsys.readouterr().out
     assert "Facts: 6 entities" in first
     assert "decision: +1" in first
@@ -48,13 +48,13 @@ def test_update_records_and_reports_changes(environment: Path, capsys: pytest.Ca
         },
     )
     before = snapshot_tree(checkout)
-    assert main(["update", "api"]) == 0
+    assert main(["update", "api", "--facts-only"]) == 0
     second = capsys.readouterr().out
     assert "module: +1" in second
     assert "depends_on: +0 ~1 -0" in second
     assert snapshot_tree(checkout) == before
 
-    assert main(["update", "api"]) == 0
+    assert main(["update", "api", "--facts-only"]) == 0
     assert "No changes since the last update." in capsys.readouterr().out
 
 
@@ -64,7 +64,7 @@ def test_unknown_extractors_are_refused(environment: Path, capsys: pytest.Captur
     file = environment / "config" / "codetrail" / "targets" / "api.toml"
     file.write_text(file.read_text() + 'extractors = ["python", "cobol"]\n')
     capsys.readouterr()
-    assert main(["update", "api"]) == 1
+    assert main(["update", "api", "--facts-only"]) == 1
     assert "extractors" in capsys.readouterr().err
 
 
@@ -76,7 +76,7 @@ def test_nothing_is_created_when_the_data_folder_would_sit_inside_the_target(
     file = environment / "config" / "codetrail" / "targets" / "api.toml"
     file.write_text(file.read_text().replace(str(checkout), str(environment)))  # the repository now holds data/
     before = sorted(path.name for path in (environment / "data").glob("*")) if (environment / "data").exists() else []
-    assert main(["update", "api"]) == 1
+    assert main(["update", "api", "--facts-only"]) == 1
     assert "inside" in capsys.readouterr().err
     after = sorted(path.name for path in (environment / "data").glob("*")) if (environment / "data").exists() else []
     assert after == before

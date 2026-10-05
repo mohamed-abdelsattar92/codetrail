@@ -288,7 +288,7 @@ Each update writes one digest from the filtered log and diffs and the fact diff:
 Affected pages are ranked by how many of their facts changed, with pages the founder has learned first. At most `max_pages_per_update` are written, `concurrency` at a time, each within `max_turns`. The rest stay affected for the next update.
 
 ### 6.8 All or nothing
-Pages are written into the guide's working tree and committed once, at the end of the update, after which the snapshot becomes current. If the update is interrupted, crashes or loses Claude's sign-in, the uncommitted changes are discarded and the snapshot isn't advanced. An update refuses to start while the guide has uncommitted changes.
+Facts are recorded first: they are true whatever happens to the guide. Pages are written into the guide's working tree and committed once, at the end of the update. If the update is interrupted, crashes or loses Claude's sign-in, the uncommitted changes are discarded; pages not written stay affected, because that is derived from their front matter, and the digest covers the commits since the last digest's `to_commit`, not since the last snapshot. An update refuses to start while the guide has uncommitted changes. `codetrail update --facts-only` refreshes the facts without calling Claude.
 
 ### 6.9 The Claude interface
 ```python
@@ -305,7 +305,7 @@ The Agent SDK adapter is the only code that imports the SDK. The fake replays sc
 
 **Tool guard:** denies by default; allows only the listed tools; resolves each path to its real location and refuses anything outside `source/` or matching the exclusion rules; logs every allowed read.
 
-**Open item:** whether the Agent SDK runs under the founder's Claude Code sign-in or needs an API key. Phase 4 starts with a spike to find out. If the SDK can't use the sign-in, the adapter wraps `claude -p` instead; nothing outside the adapter changes.
+**Settled by the Phase 4 spike:** the Agent SDK runs under the founder's Claude Code sign-in with no API key. The guard runs as a PreToolUse hook, because hooks see every call, read-only ones included, while a permission callback can be skipped for them. Structured answers come back through the SDK's `StructuredOutput` tool, which the guard allows: it reads nothing and takes no path. Codetrail's own system prompt replaces Claude Code's, and each call has `max_turns` and a cost limit (`max_budget_usd_per_call`).
 
 ## 7. The page and the bridge
 
@@ -345,11 +345,11 @@ Server-rendered with FastAPI and Jinja2, served by uvicorn; Markdown rendered on
 |---|---|
 | Access from another machine | The server binds `127.0.0.1` only. Configuration naming another host is refused at startup. |
 | DNS rebinding | `Host` must be `127.0.0.1:<port>` or `localhost:<port>`; otherwise the request is refused. |
-| Another local web server receiving the session cookie | Browsers send a cookie to every port of a host (RFC 6265), so a server on another 127.0.0.1 port that the reader visits receives it. The session ends after `server.session_minutes` (480 by default) and when `serve` stops. This is accepted: such a server already runs on the reader's machine, inside the trust boundary above. |
+| Another local web server receiving the session cookie | Browsers send a cookie to every port of a host (RFC 6265), so a server on another 127.0.0.1 port that the reader visits receives it. The session ends after `server.session_minutes` (480 by default) and when `serve` stops. Such a server could also start paid work: an update or a question. That is bounded: an update has a total budget (`generation.max_budget_usd_per_update`), updates from the page wait `server.update_cooldown_seconds` after the last one, and one question runs at a time with its own budget. Accepted on that basis; revisit with a unique `*.localhost` host name if it proves insufficient. |
 | Other websites reading or driving the page | `serve` opens the browser at `/login?code=…`; the code is single-use and expires after `server.login_code_ttl_seconds`. It is exchanged for an `HttpOnly`, `SameSite=Strict` session cookie and removed from the URL. Every route except `/login` requires the session. Sessions live in memory and end when `serve` stops. |
 | Cross-site request forgery | Every `POST` needs an `Origin` equal to the served origin and an `X-Codetrail-Token` header matching the per-session token, which the page reads from a `<meta>` tag. Tokens come from `secrets.token_urlsafe(32)`. |
 | Script injection through repository content or Claude's output | Jinja2 autoescaping; Markdown with raw HTML disabled; only `http(s)` and relative links (markdown-it-py's link validation drops `javascript:`, `data:` and others); Mermaid labels escaped and Mermaid's `securityLevel: "strict"`; a CSP of `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'` (inline styles only because Mermaid injects `<style>` into its SVGs); `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`. |
-| Prompt injection through repository content | Claude has read-only tools over `source/` and no network; documented rationale is verified; grading has no tools at all; output is rendered inertly as above. |
+| Prompt injection through repository content | Claude has read-only tools over `source/` and no network; every `@` in a prompt becomes a fullwidth `＠`, because Claude Code attaches the file an `@path` names before any tool call (a probe proved it); documented rationale is verified; grading has no tools at all; output is rendered inertly as above. |
 | Running up Claude cost | The update budget, one question in flight, `max_turns`, and question length limits. |
 | Secrets reaching Claude or the page | Section 3, enforced twice: materialization and the tool guard. |
 | Free text reaching Claude's prompt | The language code and page id are validated against the installed catalogs and the guide. |

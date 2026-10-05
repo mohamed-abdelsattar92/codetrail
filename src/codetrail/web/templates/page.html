@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}{{ page.title }}{% endblock %}
+{% block content %}
+<article class="guide-page" lang="en" dir="ltr">
+  <h1>{{ page.title }}</h1>
+  {% if page.kind == "digest" %}
+  <p class="muted">{% if page.meta.from_commit %}{{ page.meta.from_commit[:12] }} → {% endif %}{{ page.meta.to_commit[:12] }}</p>
+  {% else %}
+  <p class="muted">{{ page.kind }} · {{ page.meta.built_at[:12] if page.meta.built_at else "" }}</p>
+  {% endif %}
+  {% if sources_changed %}
+  <p class="notice" lang="{{ language.code }}" dir="{{ language.direction }}">{{ _("Files this page was written from have changed since. It will be checked again at the next update.") }}</p>
+  {% endif %}
+  {% for segment in segments %}
+    {% if segment.kind == "html" %}
+      {{ segment.html }}
+    {% elif segment.kind == "rationale" %}
+      <aside class="rationale {{ segment.label }}">
+        <p class="rationale-label">
+          {% if segment.label == "documented" %}Documented{% if segment.citation %} · {% if segment.link %}<a href="{{ segment.link }}">{{ segment.citation }}</a>{% else %}{{ segment.citation }}{% endif %}{% endif %}
+          {% else %}Inferred · Claude's reading of the code{% endif %}
+        </p>
+        {{ segment.html }}
+      </aside>
+    {% elif segment.kind == "diagram" %}
+      {% with diagram=segment.diagram %}{% include "diagram.html" %}{% endwith %}
+    {% endif %}
+  {% endfor %}
+</article>
+{% endblock %}

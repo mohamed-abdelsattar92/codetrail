@@ -35,7 +35,7 @@ def paths(tmp_path: Path) -> Paths:
         ],
     )
     write_target(paths, "t", checkout, "develop")
-    run_update(paths, "t")
+    run_update(paths, "t", facts_only=True)
     return paths
 
 

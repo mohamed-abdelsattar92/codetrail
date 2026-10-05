@@ -157,3 +157,23 @@ def test_unsafe_or_impossible_settings_are_refused(paths: Paths, text: str) -> N
     (paths.config_dir / "config.toml").write_text(text)
     with pytest.raises(CodetrailError):
         load_global(paths)
+
+
+def test_generation_defaults(paths: Paths, tmp_path: Path) -> None:
+    write_target(paths, "hamesh", tmp_path / "repo", "develop")
+    target = load_target(paths, "hamesh")
+    assert target.generation.max_pages_per_update == 20
+    assert target.generation.concurrency == 2
+    assert target.generation.max_turns == 30
+    assert target.generation.max_budget_usd_per_call == 1.0
+    assert target.models.plan == "claude-opus-5-5"
+    assert target.models.write == "claude-sonnet-5-5"
+    assert target.models.digest == "claude-sonnet-5-5"
+
+
+def test_generation_limits_must_be_positive(paths: Paths, tmp_path: Path) -> None:
+    write_target(paths, "hamesh", tmp_path / "repo", "develop")
+    file = paths.target_file("hamesh")
+    file.write_text(file.read_text() + "[generation]\nconcurrency = 0\n")
+    with pytest.raises(CodetrailError, match="concurrency"):
+        load_target(paths, "hamesh")

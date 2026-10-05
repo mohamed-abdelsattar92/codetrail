@@ -38,6 +38,9 @@ msgstr ""
 msgid "Back to the start"
 msgstr ""
 
+msgid "Concepts"
+msgstr ""
+
 msgid "Couldn't check for new commits just now."
 msgstr ""
 
@@ -57,6 +60,14 @@ msgstr ""
 msgid "Files"
 msgstr ""
 
+msgid ""
+"Files this page was written from have changed since. It will be checked "
+"again at the next update."
+msgstr ""
+
+msgid "Folders"
+msgstr ""
+
 msgid "Found in"
 msgstr ""
 
@@ -74,6 +85,9 @@ msgstr ""
 
 #, python-format
 msgid "Last update: commit %(commit)s, %(when)s."
+msgstr ""
+
+msgid "Latest digest:"
 msgstr ""
 
 msgid "No decisions found."
@@ -100,6 +114,9 @@ msgstr ""
 msgid "Since the last update"
 msgstr ""
 
+msgid "The guide"
+msgstr ""
+
 msgid "There's nothing here. It may be excluded, or not in the guide yet."
 msgstr ""
 
@@ -112,6 +129,9 @@ msgid ""
 msgstr ""
 
 msgid "Up to date with the branch."
+msgstr ""
+
+msgid "Update the guide"
 msgstr ""
 
 msgid "What each box links to"

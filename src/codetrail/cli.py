@@ -34,8 +34,9 @@ def build_parser() -> argparse.ArgumentParser:
     files = commands.add_parser("files", help="refresh a target's sources and list exactly what Codetrail can see")
     files.add_argument("name")
 
-    update = commands.add_parser("update", help="refresh a target's sources and facts")
+    update = commands.add_parser("update", help="refresh a target's sources and facts, and write the guide")
     update.add_argument("name")
+    update.add_argument("--facts-only", action="store_true", help="refresh the facts without calling Claude")
 
     serve_command = commands.add_parser("serve", help="serve the guide's page on 127.0.0.1")
     serve_command.add_argument("name")
@@ -54,7 +55,7 @@ def main(argv: list[str] | None = None) -> int:
         if arguments.command == "target":
             return add_target(paths, arguments.name, arguments.path, arguments.branch)
         if arguments.command == "update":
-            return update_target(paths, arguments.name)
+            return update_target(paths, arguments.name, facts_only=arguments.facts_only)
         if arguments.command == "serve":
             serve(paths, arguments.name, open_browser=not arguments.no_browser)
             return 0
@@ -100,8 +101,8 @@ def list_files(paths: Paths, name: str) -> int:
     return 0
 
 
-def update_target(paths: Paths, name: str) -> int:
-    result = run_update(paths, name)
+def update_target(paths: Paths, name: str, facts_only: bool = False) -> int:
+    result = run_update(paths, name, facts_only=facts_only)
     extraction, diff = result.extraction, result.diff
     print(f"Updated {name} at commit {result.manifest.commit[:12]} (snapshot {result.snapshot.id}).")
     print(f"Facts: {len(extraction.entities)} entities, {len(extraction.relations)} relations.")
@@ -115,6 +116,18 @@ def update_target(paths: Paths, name: str) -> int:
         print(f"Unresolved references ({extractor}): {count}")
     for warning in extraction.warnings:
         print(f"Warning: {printable(warning)}")
+    generation = result.generation
+    if generation is not None:
+        print(
+            f"Guide: {len(generation.written)} pages written, {len(generation.failed)} failed, "
+            f"{len(generation.left_for_later)} left for the next update; Claude cost ${generation.cost_usd:.2f}."
+        )
+        for page, reason in generation.failed:
+            print(f"  Not rewritten: {page} ({printable(reason)})")
+        for problem in generation.outline_problems:
+            print(f"  Outline: {printable(problem)}")
+        if generation.digest:
+            print(f"  Digest: {generation.digest}")
     return 0
 
 

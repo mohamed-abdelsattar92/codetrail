@@ -66,6 +66,10 @@ class ToolsSettings(Settings):
     gitleaks: str = "gitleaks"
 
 
+class ClaudeSettings(Settings):
+    retry_attempts: int = Field(default=2, ge=0, le=5)
+
+
 class ExtractSettings(Settings):
     max_file_bytes: int = Field(default=1_000_000, gt=0)
 
@@ -75,6 +79,7 @@ class ServerSettings(Settings):
     port: int = Field(default=8765, ge=1024, le=65535)
     login_code_ttl_seconds: int = Field(default=60, gt=0)
     session_minutes: int = Field(default=480, gt=0)
+    update_cooldown_seconds: int = Field(default=300, ge=0)
 
 
 class InterfaceSettings(Settings):
@@ -91,6 +96,7 @@ class DiagramSettings(Settings):
 
 class GlobalConfig(Settings):
     tools: ToolsSettings = ToolsSettings()
+    claude: ClaudeSettings = ClaudeSettings()
     extract: ExtractSettings = ExtractSettings()
     server: ServerSettings = ServerSettings()
     ui: InterfaceSettings = InterfaceSettings()
@@ -102,11 +108,28 @@ class AdrSettings(Settings):
     paths: list[str] = ["docs/adr/*.md"]
 
 
+class GenerationSettings(Settings):
+    max_pages_per_update: int = Field(default=20, ge=0)
+    concurrency: int = Field(default=2, gt=0, le=8)
+    max_turns: int = Field(default=30, gt=0)
+    max_budget_usd_per_call: float = Field(default=1.0, gt=0)
+    max_budget_usd_per_update: float = Field(default=10.0, gt=0)
+
+
+class ModelSettings(Settings):
+    plan: str = "claude-opus-5-5"
+    write: str = "claude-sonnet-5-5"
+    digest: str = "claude-sonnet-5-5"
+    answer: str = "claude-sonnet-5-5"
+
+
 class TargetConfig(Settings):
     repository: Path
     branch: str
     extractors: list[Literal["python", "adr"]] = ["python", "adr"]
     adr: AdrSettings = AdrSettings()
+    generation: GenerationSettings = GenerationSettings()
+    models: ModelSettings = ModelSettings()
 
     @field_validator("repository")
     @classmethod

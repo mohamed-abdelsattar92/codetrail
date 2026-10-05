@@ -39,7 +39,29 @@ function watchLanguage() {
   });
 }
 
+function watchUpdate() {
+  const button = document.querySelector("[data-update-button]");
+  const status = document.querySelector("[data-update-status]");
+  if (!button || !status) return;
+  const labels = { running: "Updating…", done: "Updated.", failed: "The update failed: " };
+  async function poll(reloadWhenDone = true) {
+    const response = await fetch("/update/status", { credentials: "same-origin" });
+    if (!response.ok) return;
+    const { state, message } = await response.json();
+    status.textContent = state === "idle" ? "" : (labels[state] ?? "") + (message ?? "");
+    button.disabled = state === "running";
+    if (state === "running") setTimeout(poll, 2000);
+    else if (state === "done" && reloadWhenDone) window.location.reload();
+  }
+  button.addEventListener("click", async () => {
+    await post("/update", {});
+    poll();
+  });
+  poll(false); // show an update that is already running
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   watchLanguage();
+  watchUpdate();
   renderDiagrams();
 });

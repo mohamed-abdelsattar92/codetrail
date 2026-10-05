@@ -114,3 +114,18 @@ def changed_paths(mirror: Path, start: str, end: str) -> list[str]:
     """Paths changed between two commits; only names, which callers filter before showing."""
     output = run_git(["diff", "--name-only", "--no-renames", "-z", start, end], git_dir=mirror)
     return [name for name in output.decode("utf-8", "surrogateescape").split("\0") if name]
+
+
+def recent_commits(
+    mirror: Path,
+    end: str,
+    paths: Sequence[str],
+    limit: int,
+    visible: Callable[[str], bool],
+    scanner: SecretScanner,
+) -> list[Commit]:
+    """The latest commits (at most `limit`, oldest first) that touched any of `paths`, filtered like commits_between."""
+    pathspecs = [f":(literal){path}" for path in paths if path] or ["."]
+    shas = run_git(["log", f"-n{limit}", "--format=%H", end, "--", *pathspecs], git_dir=mirror).decode().split()
+    commits = [_read_commit(mirror, sha, visible) for sha in reversed(shas)]
+    return _withhold_flagged_messages(commits, scanner)

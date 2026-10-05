@@ -1,9 +1,17 @@
-"""An update: refresh the sources, extract the facts and record them, under the target's lock (design section 2.4)."""
+"""An update: refresh the sources, extract and record the facts, and write the guide, under the target's lock.
+
+Facts are recorded before the guide is written: they are true whatever happens to the guide, and a page that isn't
+rewritten stays affected, because that is derived from its front matter (design section 6.8).
+"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
+import anyio
+
+from codetrail.claude import Claude
+from codetrail.claude.agent_sdk import AgentSdkClaude
 from codetrail.config import Paths, TargetConfig, check_containment, load_global, load_target
 from codetrail.database import connect
 from codetrail.extract import Extraction, Extractor, run_extractors
@@ -11,8 +19,13 @@ from codetrail.extract.adr import AdrExtractor
 from codetrail.extract.python import PythonExtractor
 from codetrail.facts import FactDiff, Snapshot
 from codetrail.facts.store import FactStore
+from codetrail.generate.run import GenerationContext, GenerationResult, generate_guide
+from codetrail.guide import GuideRepository
 from codetrail.lock import target_lock
-from codetrail.repo.refresh import refresh_while_locked
+from codetrail.repo.mirror import read_file_at
+from codetrail.repo.refresh import TARGET_IGNORE_FILE, ignore_lines, refresh_while_locked
+from codetrail.repo.rules import ExclusionRules
+from codetrail.repo.secrets import SecretScanner
 from codetrail.repo.source import SourceManifest
 
 
@@ -22,6 +35,7 @@ class UpdateResult:
     snapshot: Snapshot
     diff: FactDiff
     extraction: Extraction
+    generation: GenerationResult | None = None
 
 
 def build_extractors(target: TargetConfig) -> list[Extractor]:
@@ -29,17 +43,42 @@ def build_extractors(target: TargetConfig) -> list[Extractor]:
     return [available[name] for name in target.extractors]
 
 
-def run_update(paths: Paths, name: str) -> UpdateResult:
+def run_update(paths: Paths, name: str, claude: Claude | None = None, facts_only: bool = False) -> UpdateResult:
     target = load_target(paths, name)
     check_containment(paths, target.repository)  # before the lock creates the data folder
-    limit = load_global(paths).extract.max_file_bytes
+    settings = load_global(paths)
+    data = paths.target_data(name)
     with target_lock(paths, name):
         manifest = refresh_while_locked(paths, name)
-        source = paths.target_data(name) / "source"
-        extraction = run_extractors(source, manifest.files, build_extractors(target), limit)
-        store = FactStore(connect(paths.target_data(name) / "codetrail.db"))
+        source = data / "source"
+        extraction = run_extractors(source, manifest.files, build_extractors(target), settings.extract.max_file_bytes)
+        connection = connect(data / "codetrail.db")
         try:
+            store = FactStore(connection)
             snapshot, diff = store.record(manifest.commit, extraction.entities, extraction.relations)
+            if facts_only:
+                return UpdateResult(manifest, snapshot, diff, extraction)
+            previous = store.previous_snapshot(snapshot)
+            mirror = data / "mirror.git"
+            rules = ExclusionRules(ignore_lines(paths, name, read_file_at(mirror, manifest.commit, TARGET_IGNORE_FILE)))
+            excluded = manifest.excluded_paths()
+            context = GenerationContext(
+                target=name,
+                guide=GuideRepository(data / "guide"),
+                store=store,
+                manifest=manifest,
+                source_root=source,
+                mirror=mirror,
+                scanner=SecretScanner(settings.tools.gitleaks),
+                visible=lambda path: rules.reason(path) is None and path not in excluded,
+                max_pages=target.generation.max_pages_per_update,
+                concurrency=target.generation.concurrency,
+                max_budget_usd=target.generation.max_budget_usd_per_update,
+                previous_commit=previous.commit if previous else None,
+                diff=diff,
+            )
+            writer = claude or AgentSdkClaude(source, target.models, target.generation, settings.claude.retry_attempts)
+            generation = anyio.run(generate_guide, context, writer)
         finally:
-            store.connection.close()
-    return UpdateResult(manifest, snapshot, diff, extraction)
+            connection.close()
+    return UpdateResult(manifest, snapshot, diff, extraction, generation)
