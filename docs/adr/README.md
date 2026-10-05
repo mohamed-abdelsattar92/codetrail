@@ -32,3 +32,4 @@ Everything smaller is explained in the commit body, not in an ADR.
 | [0006](0006-assistant-providers-and-subscriptions.md) | Run the reader's own assistant programs (Claude Code, Codex) or a local model, on their subscription | proposed | 2026-10-05 |
 | [0007](0007-bundle-the-inter-typeface.md) | Bundle the Inter typeface with the page | accepted | 2026-10-05 |
 | [0008](0008-browser-tests-with-playwright.md) | Test the page in a real browser with Playwright for Python, and check accessibility with axe-core | accepted | 2026-10-05 |
+| [0009](0009-typescript-and-javascript-grammars.md) | Parse TypeScript, JavaScript and Astro with tree-sitter's TypeScript and JavaScript grammars | proposed | 2026-10-05 |
