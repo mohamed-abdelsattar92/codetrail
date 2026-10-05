@@ -52,8 +52,22 @@ No raw HTML. Start with a one-paragraph overview, then sections with ## headings
 PLAN_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["pages"],
+    "required": ["pages", "paths"],
     "properties": {
+        "paths": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": False,
+                "required": ["id", "title", "goal", "steps"],
+                "properties": {
+                    "id": {"type": "string", "description": "paths/<slug>"},
+                    "title": {"type": "string"},
+                    "goal": {"type": "string"},
+                    "steps": {"type": "array", "items": {"type": "string"}, "description": "page ids, in order"},
+                },
+            },
+        },
         "pages": {
             "type": "array",
             "items": {
@@ -69,7 +83,7 @@ PLAN_SCHEMA: dict[str, Any] = {
                     "facts": {"type": "array", "items": {"type": "string"}},
                 },
             },
-        }
+        },
     },
 }
 
@@ -114,11 +128,27 @@ DIGEST_SCHEMA: dict[str, Any] = {
 }
 
 
+PATHS_TEXT = """Also propose two to four guided paths: each an ordered route of 3 to 8 page ids from the outline
+(by id), with a short goal saying what the reader will understand at the end (for example "how a recording becomes
+a note").
+Path ids are "paths/<slug>". Order steps from foundations to details."""
+
+
 def plan_prompt(request: PlanRequest) -> str:
+    if request.paths_only:
+        return f"""Propose guided paths through the guide's existing pages, and no new pages (pages: []).
+
+Repository: {request.target}
+
+{PATHS_TEXT}
+
+The existing outline (YAML):
+{request.existing_outline}
+"""
     task = (
-        "Propose additions to the guide's outline for the facts below that no page covers yet."
+        "Propose additions to the guide's outline for the facts below that no page covers yet (paths: [])."
         if request.existing_outline
-        else "Propose the guide's outline."
+        else "Propose the guide's outline.\n\n" + PATHS_TEXT
     )
     return f"""{task}
 

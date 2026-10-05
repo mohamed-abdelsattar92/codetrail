@@ -137,7 +137,7 @@ class AgentSdkClaude:
 
     async def plan(self, request: PlanRequest) -> PlanDraft:
         data, files_read, cost = await self._run(plan_prompt(request), self.models.plan, PLAN_SCHEMA, GROUND_RULES)
-        return PlanDraft(list(data.get("pages", [])), files_read, cost)
+        return PlanDraft(list(data.get("pages", [])), list(data.get("paths", [])), files_read, cost)
 
     async def write_page(self, request: PageRequest) -> PageDraft:
         data, files_read, cost = await self._run(

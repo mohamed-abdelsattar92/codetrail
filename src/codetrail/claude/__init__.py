@@ -22,11 +22,13 @@ class PlanRequest:
     facts: str  # a rolled-up summary of the facts
     existing_outline: str  # YAML, empty on the first run
     uncovered: list[str] = field(default_factory=list)  # fact ids in no page's scope
+    paths_only: bool = False  # propose guided paths through the existing pages, and no new pages
 
 
 @dataclass(frozen=True)
 class PlanDraft:
     pages: list[dict[str, Any]]
+    paths: list[dict[str, Any]] = field(default_factory=list)
     files_read: list[str] = field(default_factory=list)
     cost_usd: float = 0.0
 

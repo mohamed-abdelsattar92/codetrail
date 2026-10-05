@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from codetrail.claude import ClaudeError, PageDraft, PageRequest, PlanDraft
+from codetrail.claude import ClaudeError, PageDraft, PageRequest, PlanDraft, PlanRequest
 from codetrail.claude.fake import FakeClaude
 from codetrail.config import Paths, write_target
 from codetrail.errors import CodetrailError
@@ -163,3 +163,36 @@ def test_the_update_stops_calling_claude_at_its_total_budget(paths: Paths) -> No
     assert generation is not None
     assert len(generation.written) == 2 - len(generation.left_for_later)
     assert generation.left_for_later  # the second page waits for the next update
+
+
+PLAN_WITH_PATHS = PlanDraft(
+    PLAN.pages,
+    paths=[
+        {"id": "paths/start-here", "title": "Start here", "goal": "Understand the API.",
+         "steps": ["areas/api", "concepts/fastapi", "concepts/missing"]},
+        {"id": "paths/empty", "title": "Nothing", "goal": "x", "steps": ["concepts/missing"]},
+    ],
+)  # fmt: skip
+
+
+def test_paths_are_planned_validated_and_written(paths: Paths) -> None:
+    generation = run_update(paths, "t", claude=FakeClaude(plans=[PLAN_WITH_PATHS], page_writer=good_page)).generation
+    assert generation is not None
+    path = guide(paths).read_page("paths/start-here")
+    assert path is not None and path.kind == "path"
+    assert path.meta["steps"] == ["areas/api", "concepts/fastapi"]
+    assert guide(paths).read_page("paths/empty") is None
+    assert any("concepts/missing" in problem for problem in generation.outline_problems)
+
+
+def test_an_outline_without_paths_gets_them_planned(paths: Paths) -> None:
+    run_update(paths, "t", claude=FakeClaude(plans=[PLAN], page_writer=good_page))
+    outline = guide(paths).read_outline()
+    assert outline is not None
+    guide(paths).write_outline({"pages": outline["pages"]})  # as written before paths existed
+    guide(paths).commit("An outline from before paths")
+    claude = FakeClaude(plans=[PlanDraft([], paths=PLAN_WITH_PATHS.paths)], page_writer=good_page)
+    run_update(paths, "t", claude=claude)
+    request = claude.requests[0]
+    assert isinstance(request, PlanRequest) and request.paths_only
+    assert guide(paths).read_page("paths/start-here") is not None

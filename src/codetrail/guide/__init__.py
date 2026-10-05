@@ -17,7 +17,7 @@ import yaml
 from codetrail.errors import CodetrailError
 from codetrail.repo.git import run_git
 
-PAGE_ID = re.compile(r"(areas|concepts|digests|answers)/[a-z0-9][a-z0-9-]{0,80}")
+PAGE_ID = re.compile(r"(areas|concepts|paths|digests|answers)/[a-z0-9][a-z0-9-]{0,80}")
 OUTLINE_FILE = "outline.yaml"
 # The guide's own commits run no hooks and need no signing key, whatever the user's global git settings say.
 COMMIT_SETTINGS = ["-c", "core.hooksPath=/dev/null", "-c", "commit.gpgsign=false",

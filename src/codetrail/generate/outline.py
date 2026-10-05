@@ -90,8 +90,51 @@ def outline_entries(data: Mapping[str, Any] | None) -> list[OutlineEntry]:
     return entries
 
 
-def outline_data(entries: Iterable[OutlineEntry]) -> dict[str, Any]:
-    return {"pages": [asdict(entry) for entry in entries]}
+@dataclass(frozen=True)
+class OutlinePath:
+    id: str
+    title: str
+    goal: str
+    steps: list[str]
+
+
+def outline_data(entries: Iterable[OutlineEntry], paths: Iterable[OutlinePath] = ()) -> dict[str, Any]:
+    return {"pages": [asdict(entry) for entry in entries], "paths": [asdict(path) for path in paths]}
+
+
+def validate_paths(
+    raw: Sequence[Mapping[str, Any]], page_ids: set[str], existing: Sequence[OutlinePath] = ()
+) -> tuple[list[OutlinePath], list[str]]:
+    """Paths whose id is valid and that keep at least one step naming an existing page."""
+    paths: list[OutlinePath] = []
+    problems: list[str] = []
+    seen = {path.id for path in existing}
+    for item in raw:
+        path_id = str(item.get("id", "")).strip().lower()
+        if not path_id.startswith("paths/") or not PAGE_ID.fullmatch(path_id) or path_id in seen:
+            problems.append(f"{path_id!r}: a path id must be a new paths/<slug>.")
+            continue
+        steps = [str(step) for step in item.get("steps", []) if isinstance(step, str)]
+        kept = [step for step in steps if step in page_ids]
+        if len(kept) != len(steps):
+            problems.append(f"{path_id}: dropped steps that aren't pages: {sorted(set(steps) - set(kept))}.")
+        if not kept:
+            problems.append(f"{path_id}: no step names an existing page.")
+            continue
+        paths.append(OutlinePath(path_id, str(item.get("title", path_id)), str(item.get("goal", "")), kept))
+        seen.add(path_id)
+    return paths, problems
+
+
+def outline_paths(data: Mapping[str, Any] | None, page_ids: set[str]) -> list[OutlinePath]:
+    """The stored paths, each keeping only steps that are still pages."""
+    paths = []
+    for item in (data or {}).get("paths", []) or []:
+        if isinstance(item, Mapping) and PAGE_ID.fullmatch(str(item.get("id", ""))):
+            steps = [str(step) for step in item.get("steps", []) or [] if str(step) in page_ids]
+            if steps:
+                paths.append(OutlinePath(str(item["id"]), str(item.get("title", "")), str(item.get("goal", "")), steps))
+    return paths
 
 
 def uncovered_facts(store: FactStore, entries: Sequence[OutlineEntry]) -> list[str]:
