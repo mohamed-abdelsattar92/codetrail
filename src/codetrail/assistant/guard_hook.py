@@ -27,8 +27,17 @@ def main(arguments: list[str]) -> int:
         raise ValueError("The tool's input isn't a JSON object.")
     reason = guard.decide(str(payload.get("tool_name", "")), tool_input)
     if reason is not None:
-        print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "deny",
-                                                 "permissionDecisionReason": reason}}))  # fmt: skip
+        print(
+            json.dumps(
+                {
+                    "hookSpecificOutput": {
+                        "hookEventName": "PreToolUse",
+                        "permissionDecision": "deny",
+                        "permissionDecisionReason": reason,
+                    }
+                }
+            )
+        )
         return 0
     if guard.files_read:
         with log.open("a", encoding="utf-8") as handle:
@@ -42,6 +51,8 @@ if __name__ == "__main__":
     except BaseException as error:  # any failure must refuse the call, never let it through
         if isinstance(error, SystemExit) and error.code == 0:
             raise
-        print(f"Codetrail's tool guard couldn't check this call ({type(error).__name__}), so it is refused.",
-              file=sys.stderr)  # fmt: skip
+        print(
+            f"Codetrail's tool guard couldn't check this call ({type(error).__name__}), so it is refused.",
+            file=sys.stderr,
+        )
         sys.exit(2)

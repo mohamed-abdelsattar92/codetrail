@@ -30,9 +30,14 @@ async def run_program(
     deadline = anyio.current_time() + timeout_seconds
     with tempfile.TemporaryFile() as errors:
         process = await anyio.open_process(
-            list(command), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=errors, cwd=cwd,
-            env=dict(environment), start_new_session=True,
-        )  # fmt: skip
+            list(command),
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=errors,
+            cwd=cwd,
+            env=dict(environment),
+            start_new_session=True,
+        )
         try:
             assert process.stdin is not None and process.stdout is not None
             with _limit(deadline):
@@ -55,10 +60,13 @@ async def run_program(
                 code = await process.wait()
             if code != 0:
                 errors.seek(0)
-                last = next((line for line in reversed(errors.read().decode("utf-8", "replace").splitlines())
-                             if line.strip()), "")  # fmt: skip
-                raise AssistantError(f"{Path(command[0]).name} stopped with exit code {code}: "
-                                     f"{last.strip()[:ERROR_LINE_CHARS]}")  # fmt: skip
+                last = next(
+                    (line for line in reversed(errors.read().decode("utf-8", "replace").splitlines()) if line.strip()),
+                    "",
+                )
+                raise AssistantError(
+                    f"{Path(command[0]).name} stopped with exit code {code}: {last.strip()[:ERROR_LINE_CHARS]}"
+                )
         finally:
             await _stop(process)
 
@@ -69,9 +77,16 @@ def run_command(
     """Runs a short command (a sign-in check) and returns its exit code and output."""
     try:
         result = subprocess.run(  # noqa: S603  # the command is a resolved provider program and fixed arguments
-            list(command), input=stdin, capture_output=True, text=True, cwd=cwd, env=dict(environment),
-            timeout=timeout_seconds, check=False, start_new_session=True,
-        )  # fmt: skip
+            list(command),
+            input=stdin,
+            capture_output=True,
+            text=True,
+            cwd=cwd,
+            env=dict(environment),
+            timeout=timeout_seconds,
+            check=False,
+            start_new_session=True,
+        )
     except subprocess.TimeoutExpired as error:
         raise AssistantError(f"{Path(command[0]).name} didn't answer within {timeout_seconds:g} seconds.") from error
     except OSError as error:

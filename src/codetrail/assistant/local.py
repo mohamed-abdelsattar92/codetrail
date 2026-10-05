@@ -78,26 +78,27 @@ class LocalAssistant:
         self.settings = settings
         self.limits = limits
         self.client = client or httpx.AsyncClient(
-            base_url=settings.base_url, trust_env=False, follow_redirects=False,
+            base_url=settings.base_url,
+            trust_env=False,
+            follow_redirects=False,
             timeout=httpx.Timeout(settings.timeout_seconds),
-        )  # fmt: skip
+        )
 
     async def plan(self, request: PlanRequest) -> PlanDraft:
         data, result = await self._structured("plan", GROUND_RULES, plan_prompt(request), PLAN_SCHEMA)
-        return PlanDraft(list(data.get("pages", [])), list(data.get("paths", [])), result.files_read, 0.0,
-                         result.usage)  # fmt: skip
+        return PlanDraft(list(data.get("pages", [])), list(data.get("paths", [])), result.files_read, 0.0, result.usage)
 
     async def write_page(self, request: PageRequest) -> PageDraft:
-        data, result = await self._structured("write", GROUND_RULES + "\n" + PAGE_SYNTAX, page_prompt(request),
-                                              PAGE_SCHEMA)  # fmt: skip
-        return PageDraft(str(data.get("body", "")), list(data.get("checks", [])), result.files_read, 0.0,
-                         result.usage)  # fmt: skip
+        data, result = await self._structured(
+            "write", GROUND_RULES + "\n" + PAGE_SYNTAX, page_prompt(request), PAGE_SCHEMA
+        )
+        return PageDraft(str(data.get("body", "")), list(data.get("checks", [])), result.files_read, 0.0, result.usage)
 
     async def write_digest(self, request: DigestRequest) -> DigestDraft:
-        data, result = await self._structured("digest", GROUND_RULES + "\n" + PAGE_SYNTAX, digest_prompt(request),
-                                              DIGEST_SCHEMA)  # fmt: skip
-        return DigestDraft(str(data.get("title", "")), str(data.get("body", "")), result.files_read, 0.0,
-                           result.usage)  # fmt: skip
+        data, result = await self._structured(
+            "digest", GROUND_RULES + "\n" + PAGE_SYNTAX, digest_prompt(request), DIGEST_SCHEMA
+        )
+        return DigestDraft(str(data.get("title", "")), str(data.get("body", "")), result.files_read, 0.0, result.usage)
 
     async def grade(self, request: GradeRequest) -> Verdict:
         data, result = await self._structured("grade", GRADE_RULES, grade_prompt(request), GRADE_SCHEMA, tools=False)
@@ -131,8 +132,10 @@ class LocalAssistant:
             system += "\nFinish with only a JSON object that follows this schema, and nothing else:\n" + json.dumps(
                 schema
             )
-        messages: list[dict[str, Any]] = [{"role": "system", "content": system},
-                                          {"role": "user", "content": neutralize(prompt)}]  # fmt: skip
+        messages: list[dict[str, Any]] = [
+            {"role": "system", "content": system},
+            {"role": "user", "content": neutralize(prompt)},
+        ]
         tokens_in = tokens_out = 0
         retried = False
         with anyio.fail_after(self.settings.timeout_seconds):
@@ -153,15 +156,24 @@ class LocalAssistant:
                 if calls and tools:
                     messages.append({"role": "assistant", "content": message.get("content") or "", "tool_calls": calls})
                     for call in calls:
-                        messages.append({"role": "tool", "tool_call_id": str(call.get("id", "")),
-                                         "content": await _run_tool(files, call)})  # fmt: skip
+                        messages.append(
+                            {
+                                "role": "tool",
+                                "tool_call_id": str(call.get("id", "")),
+                                "content": await _run_tool(files, call),
+                            }
+                        )
                     continue
                 text = str(message.get("content") or "")
                 if schema is not None and isinstance(problem := _parse(text, schema), str) and not retried:
                     retried = True
-                    messages += [{"role": "assistant", "content": text},
-                                 {"role": "user", "content": f"That wasn't usable: {problem} Answer again with only "
-                                                             "the JSON object."}]  # fmt: skip
+                    messages += [
+                        {"role": "assistant", "content": text},
+                        {
+                            "role": "user",
+                            "content": f"That wasn't usable: {problem} Answer again with only the JSON object.",
+                        },
+                    ]
                     continue
                 usage_record = Usage(PROVIDER, model, tokens_in, 0, tokens_out, 0.0)
                 return _Result(text, list(files.files_read), usage_record)
@@ -171,8 +183,9 @@ class LocalAssistant:
         try:
             response = await self.client.post("chat/completions", json=body)
         except httpx.HTTPError as error:
-            raise AssistantError(f"The local model at {self.settings.base_url} couldn't be reached "
-                                 f"({type(error).__name__}).") from error  # fmt: skip
+            raise AssistantError(
+                f"The local model at {self.settings.base_url} couldn't be reached ({type(error).__name__})."
+            ) from error
         if response.status_code != 200:
             raise AssistantError(f"The local model answered with HTTP {response.status_code}.")
         try:

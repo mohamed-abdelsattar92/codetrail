@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import urlsplit
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from codetrail.errors import CodetrailError
 
@@ -78,7 +78,7 @@ class LearnSettings(Settings):
     max_budget_usd: float = Field(default=0.25, gt=0)
 
 
-class ClaudeSettings(Settings):
+class AssistantSettings(Settings):
     retry_attempts: int = Field(default=2, ge=0, le=5)
 
 
@@ -146,9 +146,39 @@ class DiagramSettings(Settings):
     max_nodes: int = Field(default=25, gt=0)
 
 
+class ProvidersSettings(Settings):
+    claude_code: ClaudeCodeSettings = ClaudeCodeSettings()
+    codex: CodexSettings = CodexSettings()
+    local: LocalSettings = LocalSettings()
+
+
+class Price(Settings):
+    """USD per million tokens, at API list prices: used for estimates and budgets only (design section 15.4)."""
+
+    input: float = Field(ge=0)
+    output: float = Field(ge=0)
+    cached_input: float | None = Field(default=None, ge=0)
+
+
+# API list prices on 5 October 2026 (https://platform.claude.com/docs/en/about-claude/pricing); they change, so a
+# [prices] table in the configuration adds to or replaces these.
+DEFAULT_PRICES = {
+    "claude-opus-5-5": Price(input=4.0, output=20.0, cached_input=0.4),
+    "claude-sonnet-5-5": Price(input=2.0, output=10.0, cached_input=0.2),
+}
+
+
 class GlobalConfig(Settings):
     tools: ToolsSettings = ToolsSettings()
-    claude: ClaudeSettings = ClaudeSettings()
+    assistant: AssistantSettings = AssistantSettings()
+    providers: ProvidersSettings = ProvidersSettings()
+    prices: dict[str, Price] = DEFAULT_PRICES
+
+    @field_validator("prices")
+    @classmethod
+    def keep_default_prices(cls, prices: dict[str, Price]) -> dict[str, Price]:
+        return DEFAULT_PRICES | prices
+
     bridge: BridgeSettings = BridgeSettings()
     learn: LearnSettings = LearnSettings()
     extract: ExtractSettings = ExtractSettings()
@@ -174,24 +204,67 @@ class GenerationSettings(Settings):
     max_budget_usd_per_update: float = Field(default=10.0, gt=0)
 
 
+PROVIDERS = ("claude_code", "codex", "local")
+
+
+def model_choice(value: str) -> tuple[str, str]:
+    """A `[models]` value as (provider, model): `local:qwen3:14b` is ("local", "qwen3:14b"); no prefix: claude_code."""
+    provider, separator, model = value.partition(":")
+    if separator and provider in PROVIDERS:
+        return provider, model
+    return "claude_code", value
+
+
 class ModelSettings(Settings):
+    """The provider and model of each kind of call, as `provider:model` (design section 15.1)."""
+
     plan: str = "claude-opus-5-5"
     write: str = "claude-sonnet-5-5"
     digest: str = "claude-sonnet-5-5"
     answer: str = "claude-sonnet-5-5"
     grade: str = "claude-sonnet-5-5"
 
+    @field_validator("plan", "write", "digest", "answer", "grade")
+    @classmethod
+    def known_provider(cls, value: str) -> str:
+        provider, separator, _model = value.partition(":")
+        if separator and provider not in PROVIDERS:
+            raise ValueError(f"{provider!r} isn't a provider; use one of {', '.join(PROVIDERS)}.")
+        return value
+
+    def uses(self, provider: str) -> bool:
+        return any(model_choice(getattr(self, kind))[0] == provider for kind in type(self).model_fields)
+
+
+class TargetAssistantSettings(Settings):
+    # Codex can read and run anything the reader can, so a target opts in to it (design section 15.5).
+    allow_codex: bool = False
+
 
 class TargetConfig(Settings):
     repository: Path
     branch: str
     extractors: list[Literal["python", "adr", "openapi", "terraform", "swift"]] = [
-        "python", "adr", "openapi", "terraform", "swift",
-    ]  # fmt: skip
+        "python",
+        "adr",
+        "openapi",
+        "terraform",
+        "swift",
+    ]
     adr: AdrSettings = AdrSettings()
     openapi: OpenApiSettings = OpenApiSettings()
     generation: GenerationSettings = GenerationSettings()
     models: ModelSettings = ModelSettings()
+    assistant: TargetAssistantSettings = TargetAssistantSettings()
+
+    @model_validator(mode="after")
+    def codex_needs_consent(self) -> TargetConfig:
+        if self.models.uses("codex") and not self.assistant.allow_codex:
+            raise ValueError(
+                "models: Codex can read outside the repository's allowed files (design section 15.5); to use it for "
+                "this target, set [assistant] allow_codex = true."
+            )
+        return self
 
     @field_validator("repository")
     @classmethod

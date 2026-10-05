@@ -61,7 +61,15 @@ def make_program(
     path = folder / name
     record = folder / f"{name}.record.json"
     lines = [event if isinstance(event, str) else json.dumps(event) for event in events]
-    path.write_text(SCRIPT.format(python=sys.executable, tool_calls=tool_calls or [], record=str(record), lines=lines,
-                                  stderr=stderr, exit_code=exit_code))  # fmt: skip
+    path.write_text(
+        SCRIPT.format(
+            python=sys.executable,
+            tool_calls=tool_calls or [],
+            record=str(record),
+            lines=lines,
+            stderr=stderr,
+            exit_code=exit_code,
+        )
+    )
     path.chmod(0o755)
     return FakeProgram(path, record)

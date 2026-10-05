@@ -9,6 +9,7 @@ from codetrail.config import (
     check_containment,
     load_global,
     load_target,
+    model_choice,
     validate_target_name,
     write_target,
 )
@@ -177,3 +178,57 @@ def test_generation_limits_must_be_positive(paths: Paths, tmp_path: Path) -> Non
     file.write_text(file.read_text() + "[generation]\nconcurrency = 0\n")
     with pytest.raises(CodetrailError, match="concurrency"):
         load_target(paths, "hamesh")
+
+
+def test_provider_defaults_use_the_subscription(paths: Paths) -> None:
+    settings = load_global(paths)
+    assert settings.assistant.retry_attempts == 2
+    assert (settings.providers.claude_code.command, settings.providers.claude_code.auth) == ("claude", "subscription")
+    assert (settings.providers.codex.command, settings.providers.codex.auth) == ("codex", "subscription")
+    assert settings.providers.local.base_url == "http://127.0.0.1:11434/v1"
+    assert settings.prices["claude-sonnet-5-5"].input == 2.0
+
+
+def test_provider_settings_are_read_and_checked(paths: Paths) -> None:
+    paths.config_dir.mkdir(parents=True)
+    config = paths.config_dir / "config.toml"
+    config.write_text('[providers.claude_code]\nauth = "api_key"\n[prices."my-model"]\ninput = 1.5\noutput = 6.0\n')
+    settings = load_global(paths)
+    assert settings.providers.claude_code.auth == "api_key"
+    assert settings.prices["my-model"].output == 6.0
+    assert "claude-opus-5-5" in settings.prices  # the defaults stay unless replaced
+    config.write_text('[providers.local]\nbase_url = "http://example.com/v1"\n')
+    with pytest.raises(CodetrailError, match="loopback"):
+        load_global(paths)
+    config.write_text('[providers.codex]\nauth = "token"\n')
+    with pytest.raises(CodetrailError, match="auth"):
+        load_global(paths)
+
+
+def test_models_name_their_provider(paths: Paths, tmp_path: Path) -> None:
+    write_target(paths, "shop", tmp_path / "repo", "main")
+    file = paths.target_file("shop")
+    file.write_text(file.read_text() + '[models]\nanswer = "local:qwen3:14b"\nplan = "claude_code:claude-opus-5-5"\n')
+    target = load_target(paths, "shop")
+    assert model_choice(target.models.answer) == ("local", "qwen3:14b")
+    assert model_choice(target.models.plan) == ("claude_code", "claude-opus-5-5")
+    assert model_choice(target.models.write) == ("claude_code", "claude-sonnet-5-5")  # no prefix: Claude Code
+
+
+def test_an_unknown_provider_is_refused(paths: Paths, tmp_path: Path) -> None:
+    write_target(paths, "shop", tmp_path / "repo", "main")
+    file = paths.target_file("shop")
+    file.write_text(file.read_text() + '[models]\nanswer = "gemini:pro"\n')
+    with pytest.raises(CodetrailError, match="gemini"):
+        load_target(paths, "shop")
+
+
+def test_codex_needs_the_target_to_opt_in(paths: Paths, tmp_path: Path) -> None:
+    write_target(paths, "shop", tmp_path / "repo", "main")
+    file = paths.target_file("shop")
+    base = file.read_text()
+    file.write_text(base + '[models]\nwrite = "codex:gpt-5.5-codex"\n')
+    with pytest.raises(CodetrailError, match="allow_codex"):
+        load_target(paths, "shop")
+    file.write_text(base + '[assistant]\nallow_codex = true\n[models]\nwrite = "codex:gpt-5.5-codex"\n')
+    assert load_target(paths, "shop").assistant.allow_codex

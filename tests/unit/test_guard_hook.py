@@ -12,8 +12,12 @@ def run_hook(source: Path, log: Path, payload: object) -> subprocess.CompletedPr
     text = payload if isinstance(payload, str) else json.dumps(payload)
     return subprocess.run(
         [sys.executable, "-m", "codetrail.assistant.guard_hook", str(source), str(log)],
-        input=text, capture_output=True, text=True, timeout=30, check=False,
-    )  # fmt: skip
+        input=text,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
 
 
 @pytest.fixture
@@ -68,6 +72,12 @@ def test_an_error_of_its_own_exits_with_code_2(source: Path, tmp_path: Path) -> 
 
 
 def test_missing_arguments_exit_with_code_2() -> None:
-    result = subprocess.run([sys.executable, "-m", "codetrail.assistant.guard_hook"], input="{}",
-                            capture_output=True, text=True, timeout=30, check=False)  # fmt: skip
+    result = subprocess.run(
+        [sys.executable, "-m", "codetrail.assistant.guard_hook"],
+        input="{}",
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
     assert result.returncode == 2

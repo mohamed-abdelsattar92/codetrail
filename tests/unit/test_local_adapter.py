@@ -16,8 +16,11 @@ from codetrail.config import GenerationSettings, LocalSettings
 PAGE = {"body": "A page.", "checks": []}
 
 
-def reply(content: str | None = None, calls: list[tuple[str, dict[str, Any]]] | None = None,
-          tokens: tuple[int, int] = (100, 20)) -> dict[str, Any]:  # fmt: skip
+def reply(
+    content: str | None = None,
+    calls: list[tuple[str, dict[str, Any]]] | None = None,
+    tokens: tuple[int, int] = (100, 20),
+) -> dict[str, Any]:
     message: dict[str, Any] = {"role": "assistant", "content": content}
     if calls:
         message["tool_calls"] = [
@@ -60,8 +63,12 @@ def page_request() -> PageRequest:
 
 @pytest.mark.anyio
 async def test_a_page_reads_through_the_tools_then_answers_json(source: Path) -> None:
-    endpoint = Endpoint([reply(calls=[("read", {"path": "app/main.py"}), ("read", {"path": "/etc/hosts"})]),
-                         reply("```json\n" + json.dumps(PAGE) + "\n```")])  # fmt: skip
+    endpoint = Endpoint(
+        [
+            reply(calls=[("read", {"path": "app/main.py"}), ("read", {"path": "/etc/hosts"})]),
+            reply("```json\n" + json.dumps(PAGE) + "\n```"),
+        ]
+    )
     draft = await adapter(source, endpoint).write_page(page_request())
     assert (draft.body, draft.files_read) == ("A page.", ["app/main.py"])
     first, second = endpoint.requests
@@ -120,9 +127,15 @@ async def test_an_endpoint_error_is_reported(source: Path) -> None:
 
 @pytest.mark.parametrize(
     "url",
-    ["http://example.com/v1", "http://127.0.0.1@evil.example/v1", "http://localhost.evil.example/v1",
-     "http://user:pass@127.0.0.1:11434/v1", "file:///etc/hosts", "http://10.0.0.5:11434/v1"],
-)  # fmt: skip
+    [
+        "http://example.com/v1",
+        "http://127.0.0.1@evil.example/v1",
+        "http://localhost.evil.example/v1",
+        "http://user:pass@127.0.0.1:11434/v1",
+        "file:///etc/hosts",
+        "http://10.0.0.5:11434/v1",
+    ],
+)
 def test_only_loopback_endpoints_are_accepted(url: str) -> None:
     with pytest.raises(ValueError, match="loopback"):
         LocalSettings(base_url=url)

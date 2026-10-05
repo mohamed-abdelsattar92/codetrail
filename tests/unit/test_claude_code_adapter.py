@@ -22,8 +22,14 @@ PAGE = {"body": "A page.", "checks": [{"id": "c1", "question": "Why?", "rubric":
 
 
 def result(structured: dict[str, Any] | None = None, error: bool = False, subtype: str = "success") -> dict[str, Any]:
-    return {"type": "result", "subtype": subtype, "is_error": error, "structured_output": structured,
-            "total_cost_usd": 0.0123, "usage": USAGE}  # fmt: skip
+    return {
+        "type": "result",
+        "subtype": subtype,
+        "is_error": error,
+        "structured_output": structured,
+        "total_cost_usd": 0.0123,
+        "usage": USAGE,
+    }
 
 
 @pytest.fixture
@@ -37,14 +43,25 @@ def source(tmp_path: Path) -> Path:
 def adapter(source: Path, program: FakeProgram, auth: str = "subscription") -> ClaudeCodeAssistant:
     return ClaudeCodeAssistant(
         source,
-        {"plan": "claude-opus-5-5", "write": "claude-sonnet-5-5", "digest": "claude-sonnet-5-5",
-         "answer": "claude-sonnet-5-5", "grade": "claude-sonnet-5-5"},
+        {
+            "plan": "claude-opus-5-5",
+            "write": "claude-sonnet-5-5",
+            "digest": "claude-sonnet-5-5",
+            "answer": "claude-sonnet-5-5",
+            "grade": "claude-sonnet-5-5",
+        },
         ClaudeCodeSettings(command=str(program.path), auth=auth),  # type: ignore[arg-type]
         GenerationSettings(max_turns=7, max_budget_usd_per_call=0.5),
         retries=0,
-        environ={"PATH": "/usr/bin:/bin", "HOME": "/Users/reader", "USER": "reader", "LOGNAME": "reader",
-                 "ANTHROPIC_API_KEY": "key-1", "GITHUB_TOKEN": "token-1"},
-    )  # fmt: skip
+        environ={
+            "PATH": "/usr/bin:/bin",
+            "HOME": "/Users/reader",
+            "USER": "reader",
+            "LOGNAME": "reader",
+            "ANTHROPIC_API_KEY": "key-1",
+            "GITHUB_TOKEN": "token-1",
+        },
+    )
 
 
 def page_request() -> PageRequest:
@@ -178,8 +195,10 @@ async def test_a_failing_program_raises_with_its_message(source: Path, tmp_path:
 @pytest.mark.anyio
 async def test_an_answer_streams_text_then_a_final_chunk(source: Path, tmp_path: Path) -> None:
     def delta(text: str) -> dict[str, Any]:
-        return {"type": "stream_event",
-                "event": {"type": "content_block_delta", "delta": {"type": "text_delta", "text": text}}}  # fmt: skip
+        return {
+            "type": "stream_event",
+            "event": {"type": "content_block_delta", "delta": {"type": "text_delta", "text": text}},
+        }
 
     events = [delta("Hello "), delta("there."), result(None)]
     program = make_program(tmp_path / "bin", "fake-claude", events)
@@ -192,5 +211,6 @@ async def test_an_answer_streams_text_then_a_final_chunk(source: Path, tmp_path:
 
 def test_the_program_must_resolve_to_an_absolute_path(source: Path) -> None:
     with pytest.raises(AssistantError, match="absolute"):
-        ClaudeCodeAssistant(source, {}, ClaudeCodeSettings(command="bin/claude"), GenerationSettings(),
-                            environ={"PATH": "/usr/bin"})  # fmt: skip
+        ClaudeCodeAssistant(
+            source, {}, ClaudeCodeSettings(command="bin/claude"), GenerationSettings(), environ={"PATH": "/usr/bin"}
+        )

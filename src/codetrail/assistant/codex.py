@@ -98,13 +98,15 @@ class CodexAssistant:
         return PlanDraft(list(data.get("pages", [])), list(data.get("paths", [])), outcome.files_read, 0.0, usage)
 
     async def write_page(self, request: PageRequest) -> PageDraft:
-        data, outcome, usage = await self._run("write", GROUND_RULES + "\n" + PAGE_SYNTAX, page_prompt(request),
-                                               PAGE_SCHEMA)  # fmt: skip
+        data, outcome, usage = await self._run(
+            "write", GROUND_RULES + "\n" + PAGE_SYNTAX, page_prompt(request), PAGE_SCHEMA
+        )
         return PageDraft(str(data.get("body", "")), list(data.get("checks", [])), outcome.files_read, 0.0, usage)
 
     async def write_digest(self, request: DigestRequest) -> DigestDraft:
-        data, outcome, usage = await self._run("digest", GROUND_RULES + "\n" + PAGE_SYNTAX, digest_prompt(request),
-                                               DIGEST_SCHEMA)  # fmt: skip
+        data, outcome, usage = await self._run(
+            "digest", GROUND_RULES + "\n" + PAGE_SYNTAX, digest_prompt(request), DIGEST_SCHEMA
+        )
         return DigestDraft(str(data.get("title", "")), str(data.get("body", "")), outcome.files_read, 0.0, usage)
 
     async def grade(self, request: GradeRequest) -> Verdict:
@@ -113,8 +115,9 @@ class CodexAssistant:
         return Verdict(str(data.get("verdict", "")), missed, str(data.get("feedback", "")), 0.0, usage)
 
     async def answer(self, request: QuestionRequest) -> AsyncIterator[AnswerChunk]:
-        outcome = await self._call("answer", GROUND_RULES + "\n" + PAGE_SYNTAX + "\n" + ANSWER_RULES,
-                                   answer_prompt(request), None)  # fmt: skip
+        outcome = await self._call(
+            "answer", GROUND_RULES + "\n" + PAGE_SYNTAX + "\n" + ANSWER_RULES, answer_prompt(request), None
+        )
         yield AnswerChunk(text=outcome.message or "")
         yield AnswerChunk(done=True, files_read=outcome.files_read, usage=self._usage("answer", outcome))
 
@@ -143,8 +146,18 @@ class CodexAssistant:
         outcome = _Outcome()
         with self._call_folder() as folder:
             environment = child_environment(PROVIDER, self.settings.auth, self.environ, empty_home=folder / "home")
-            command = [self.program, "exec", "-", "--sandbox", "read-only", "--json", "--ephemeral",
-                       "--skip-git-repo-check", "-C", str(self.root)]  # fmt: skip
+            command = [
+                self.program,
+                "exec",
+                "-",
+                "--sandbox",
+                "read-only",
+                "--json",
+                "--ephemeral",
+                "--skip-git-repo-check",
+                "-C",
+                str(self.root),
+            ]
             for override in ISOLATION:
                 command += ["-c", override]
             model = self.models.get(kind, "")
@@ -216,8 +229,13 @@ class CodexAssistant:
         return found
 
     def _usage(self, kind: str, outcome: _Outcome) -> Usage:
-        return Usage(PROVIDER, self.models.get(kind, ""), outcome.input_tokens - outcome.cached_input_tokens,
-                     outcome.cached_input_tokens, outcome.output_tokens)  # fmt: skip
+        return Usage(
+            PROVIDER,
+            self.models.get(kind, ""),
+            outcome.input_tokens - outcome.cached_input_tokens,
+            outcome.cached_input_tokens,
+            outcome.output_tokens,
+        )
 
     @contextmanager
     def _call_folder(self) -> Iterator[Path]:

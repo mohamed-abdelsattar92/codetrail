@@ -122,11 +122,19 @@ class ClaudeCodeAssistant:
         model = self.models["answer"]
         outcome = _Outcome()
         with self._call_files() as (settings_file, read_log):
-            command = self._command(model, None, GROUND_RULES + "\n" + PAGE_SYNTAX + "\n" + ANSWER_RULES,
-                                    ALLOWED_TOOLS, self.answer_limits[0], self.answer_limits[1], settings_file,
-                                    partial=True)  # fmt: skip
-            lines = runner.run_program(command, neutralize(answer_prompt(request)), self.root, self.environment,
-                                       self.settings.timeout_seconds)  # fmt: skip
+            command = self._command(
+                model,
+                None,
+                GROUND_RULES + "\n" + PAGE_SYNTAX + "\n" + ANSWER_RULES,
+                ALLOWED_TOOLS,
+                self.answer_limits[0],
+                self.answer_limits[1],
+                settings_file,
+                partial=True,
+            )
+            lines = runner.run_program(
+                command, neutralize(answer_prompt(request)), self.root, self.environment, self.settings.timeout_seconds
+            )
             async with aclosing(lines):
                 async for event in _events(lines):
                     text = _text_delta(event)
@@ -154,11 +162,13 @@ class ClaudeCodeAssistant:
                 await anyio.sleep(2)
             outcome = _Outcome()
             with self._call_files() as (settings_file, read_log):
-                command = self._command(model, schema, system_prompt, tools, self.limits.max_turns, budget,
-                                        settings_file)  # fmt: skip
+                command = self._command(
+                    model, schema, system_prompt, tools, self.limits.max_turns, budget, settings_file
+                )
                 try:
-                    lines = runner.run_program(command, neutralize(prompt), self.root, self.environment,
-                                               self.settings.timeout_seconds)  # fmt: skip
+                    lines = runner.run_program(
+                        command, neutralize(prompt), self.root, self.environment, self.settings.timeout_seconds
+                    )
                     async with aclosing(lines):
                         async for event in _events(lines):
                             _note(event, outcome)
@@ -186,17 +196,31 @@ class ClaudeCodeAssistant:
         partial: bool = False,
     ) -> list[str]:
         command = [
-            self.program, "-p", "--output-format", "stream-json", "--verbose",
-            "--tools", ",".join(tools),
-            "--permission-mode", "dontAsk",
-            "--setting-sources", "",
-            "--strict-mcp-config", "--disable-slash-commands", "--no-session-persistence",
-            "--settings", str(settings_file),
-            "--max-turns", str(max_turns),
-            "--max-budget-usd", f"{budget_usd:g}",
-            "--model", model,
-            "--system-prompt", system_prompt,
-        ]  # fmt: skip
+            self.program,
+            "-p",
+            "--output-format",
+            "stream-json",
+            "--verbose",
+            "--tools",
+            ",".join(tools),
+            "--permission-mode",
+            "dontAsk",
+            "--setting-sources",
+            "",
+            "--strict-mcp-config",
+            "--disable-slash-commands",
+            "--no-session-persistence",
+            "--settings",
+            str(settings_file),
+            "--max-turns",
+            str(max_turns),
+            "--max-budget-usd",
+            f"{budget_usd:g}",
+            "--model",
+            model,
+            "--system-prompt",
+            system_prompt,
+        ]
         if tools:
             # Reads are allowed only under the working folder; dontAsk refuses everything else, hook or not.
             command += ["--allowedTools", *(f"{tool}(./**)" for tool in tools)]
@@ -214,8 +238,18 @@ class ClaudeCodeAssistant:
             # -I: the hook must import Codetrail's guard, never a `codetrail` folder in `source/` (the working folder).
             parts = (sys.executable, "-I", "-m", "codetrail.assistant.guard_hook", str(self.root), str(read_log))
             hook = " ".join(shlex.quote(part) for part in parts)
-            settings = {"hooks": {"PreToolUse": [{"matcher": "*", "hooks": [
-                {"type": "command", "command": hook, "timeout": self.settings.hook_timeout_seconds}]}]}}  # fmt: skip
+            settings = {
+                "hooks": {
+                    "PreToolUse": [
+                        {
+                            "matcher": "*",
+                            "hooks": [
+                                {"type": "command", "command": hook, "timeout": self.settings.hook_timeout_seconds}
+                            ],
+                        }
+                    ]
+                }
+            }
             settings_file = Path(folder) / "settings.json"
             descriptor = os.open(settings_file, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
             with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
@@ -242,8 +276,9 @@ def _note(event: dict[str, Any], outcome: _Outcome) -> None:
         for name, window in windows.items():
             if isinstance(window, dict):
                 try:
-                    outcome.windows[str(name)] = PlanWindow(str(name), float(window["utilization"]),
-                                                            int(window["resetsAt"]))  # fmt: skip
+                    outcome.windows[str(name)] = PlanWindow(
+                        str(name), float(window["utilization"]), int(window["resetsAt"])
+                    )
                 except KeyError, TypeError, ValueError:
                     continue
 
@@ -276,13 +311,14 @@ def _usage(result: dict[str, Any], model: str, outcome: _Outcome) -> Usage:
 
     cost = result.get("total_cost_usd")
     return Usage(
-        PROVIDER, model,
+        PROVIDER,
+        model,
         input_tokens=count("input_tokens") + count("cache_creation_input_tokens"),
         cached_input_tokens=count("cache_read_input_tokens"),
         output_tokens=count("output_tokens"),
         cost_usd=float(cost) if isinstance(cost, int | float) else None,
         plan_windows=tuple(outcome.windows.values()),
-    )  # fmt: skip
+    )
 
 
 def _cost(usage: Usage) -> float:

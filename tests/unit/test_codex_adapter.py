@@ -25,8 +25,16 @@ def turn(input_tokens: int = 1000, cached: int = 400, output: int = 80) -> dict[
 
 
 def command_item(command: str) -> dict[str, Any]:
-    return {"type": "item.completed", "item": {"id": "item_1", "type": "command_execution", "command": command,
-                                               "exit_code": 0, "status": "completed"}}  # fmt: skip
+    return {
+        "type": "item.completed",
+        "item": {
+            "id": "item_1",
+            "type": "command_execution",
+            "command": command,
+            "exit_code": 0,
+            "status": "completed",
+        },
+    }
 
 
 @pytest.fixture
@@ -37,17 +45,29 @@ def source(tmp_path: Path) -> Path:
     return root
 
 
-def adapter(source: Path, program: FakeProgram, auth: str = "subscription", max_tokens: int = 400_000,
-            model: str = "gpt-5.5-codex") -> CodexAssistant:  # fmt: skip
+def adapter(
+    source: Path,
+    program: FakeProgram,
+    auth: str = "subscription",
+    max_tokens: int = 400_000,
+    model: str = "gpt-5.5-codex",
+) -> CodexAssistant:
     return CodexAssistant(
         source,
         {"write": model, "answer": model},
         CodexSettings(command=str(program.path), auth=auth, max_tokens_per_call=max_tokens),  # type: ignore[arg-type]
         GenerationSettings(),
         retries=0,
-        environ={"PATH": "/usr/bin:/bin", "HOME": "/Users/reader", "USER": "reader", "LOGNAME": "reader",
-                 "SHELL": "/bin/zsh", "OPENAI_API_KEY": "key-2", "GITHUB_TOKEN": "token-1"},
-    )  # fmt: skip
+        environ={
+            "PATH": "/usr/bin:/bin",
+            "HOME": "/Users/reader",
+            "USER": "reader",
+            "LOGNAME": "reader",
+            "SHELL": "/bin/zsh",
+            "OPENAI_API_KEY": "key-2",
+            "GITHUB_TOKEN": "token-1",
+        },
+    )
 
 
 def page_request() -> PageRequest:
@@ -56,8 +76,7 @@ def page_request() -> PageRequest:
 
 @pytest.mark.anyio
 async def test_a_page_runs_codex_read_only_and_isolated(source: Path, tmp_path: Path) -> None:
-    events = [{"type": "thread.started"}, command_item("bash -lc 'cat app/main.py'"), message(json.dumps(PAGE)),
-              turn()]  # fmt: skip
+    events = [{"type": "thread.started"}, command_item("bash -lc 'cat app/main.py'"), message(json.dumps(PAGE)), turn()]
     program = make_program(tmp_path / "bin", "fake-codex", events)
     draft = await adapter(source, program).write_page(page_request())
     record = program.record
@@ -69,8 +88,12 @@ async def test_a_page_runs_codex_read_only_and_isolated(source: Path, tmp_path: 
     assert argv[argv.index("-C") + 1] == str(source.resolve())
     assert argv[argv.index("-m") + 1] == "gpt-5.5-codex"
     overrides = [argv[index + 1] for index, value in enumerate(argv) if value == "-c"]
-    assert overrides == ["mcp_servers={}", "notify=[]", "project_doc_max_bytes=0",
-                         'shell_environment_policy.inherit="none"']  # fmt: skip
+    assert overrides == [
+        "mcp_servers={}",
+        "notify=[]",
+        "project_doc_max_bytes=0",
+        'shell_environment_policy.inherit="none"',
+    ]
     assert record["schema"]["required"] == ["body", "checks"]
     assert f"{FULLWIDTH_AT}app/main.py" in record["stdin"]
     assert record["cwd"] == str(source.resolve())

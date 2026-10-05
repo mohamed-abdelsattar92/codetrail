@@ -21,24 +21,54 @@ MAX_WILDCARDS = 10
 MAX_LINE_CHARS = 300
 
 SCHEMAS: list[dict[str, Any]] = [
-    {"type": "function", "function": {
-        "name": "read", "description": "Read a text file in the repository, with line numbers.",
-        "parameters": {"type": "object", "required": ["path"], "properties": {
-            "path": {"type": "string", "description": "A path relative to the repository's root."},
-            "offset": {"type": "integer", "description": "The first line to read, from 1."},
-            "limit": {"type": "integer", "description": "How many lines to read."}}}}},
-    {"type": "function", "function": {
-        "name": "grep", "description": "Find lines containing some text (plain text, not case-sensitive).",
-        "parameters": {"type": "object", "required": ["text"], "properties": {
-            "text": {"type": "string"},
-            "path": {"type": "string", "description": "A folder to search in; the root by default."},
-            "glob": {"type": "string", "description": "Only files whose path matches this pattern, like *.py."}}}}},
-    {"type": "function", "function": {
-        "name": "glob", "description": "List the files whose paths match a pattern, like **/*.py.",
-        "parameters": {"type": "object", "required": ["pattern"], "properties": {
-            "pattern": {"type": "string"},
-            "path": {"type": "string", "description": "A folder to search in; the root by default."}}}}},
-]  # fmt: skip
+    {
+        "type": "function",
+        "function": {
+            "name": "read",
+            "description": "Read a text file in the repository, with line numbers.",
+            "parameters": {
+                "type": "object",
+                "required": ["path"],
+                "properties": {
+                    "path": {"type": "string", "description": "A path relative to the repository's root."},
+                    "offset": {"type": "integer", "description": "The first line to read, from 1."},
+                    "limit": {"type": "integer", "description": "How many lines to read."},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "grep",
+            "description": "Find lines containing some text (plain text, not case-sensitive).",
+            "parameters": {
+                "type": "object",
+                "required": ["text"],
+                "properties": {
+                    "text": {"type": "string"},
+                    "path": {"type": "string", "description": "A folder to search in; the root by default."},
+                    "glob": {"type": "string", "description": "Only files whose path matches this pattern, like *.py."},
+                },
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "glob",
+            "description": "List the files whose paths match a pattern, like **/*.py.",
+            "parameters": {
+                "type": "object",
+                "required": ["pattern"],
+                "properties": {
+                    "pattern": {"type": "string"},
+                    "path": {"type": "string", "description": "A folder to search in; the root by default."},
+                },
+            },
+        },
+    },
+]
 
 
 class _Refused(Exception):
@@ -58,8 +88,9 @@ class LocalTools:
     def run(self, name: str, arguments: Mapping[str, Any]) -> str:
         try:
             if name == "read":
-                return self._read(_text(arguments, "path"), _number(arguments, "offset", 1),
-                                  _number(arguments, "limit", 2000))  # fmt: skip
+                return self._read(
+                    _text(arguments, "path"), _number(arguments, "offset", 1), _number(arguments, "limit", 2000)
+                )
             if name == "grep":
                 return self._grep(_text(arguments, "text"), _text(arguments, "path", "."), arguments.get("glob"))
             if name == "glob":

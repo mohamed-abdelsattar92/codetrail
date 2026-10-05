@@ -23,7 +23,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from starlette.types import ASGIApp
 
 from codetrail.assistant import Assistant
-from codetrail.assistant.agent_sdk import AgentSdkClaude
+from codetrail.assistant.routing import build_assistant
+from codetrail.assistant.status import require_ready
 from codetrail.bridge import bridge_router
 from codetrail.config import GlobalConfig, Paths, load_target
 from codetrail.database import connect
@@ -75,12 +76,10 @@ def create_app(
         finally:
             connection.close()
 
-    def real_claude() -> Assistant:
+    def real_assistant() -> Assistant:
         target = load_target(paths, name)
-        return AgentSdkClaude(
-            paths.target_data(name) / "source", target.models, target.generation, settings.claude.retry_attempts,
-            (settings.bridge.max_turns, settings.bridge.max_budget_usd), settings.learn.max_budget_usd,
-        )  # fmt: skip
+        require_ready(target, settings, kinds=("answer", "grade"))
+        return build_assistant(paths.target_data(name) / "source", settings, target)
 
     languages = installed_languages(locales)
     templates = str(files("codetrail.web").joinpath("templates"))
@@ -278,7 +277,7 @@ def create_app(
         bridge_router(
             paths,
             name,
-            assistant_for or real_claude,
+            assistant_for or real_assistant,
             lambda: language().code,
             settings.bridge.max_question_chars,
             settings.diagrams.max_nodes,
@@ -289,7 +288,7 @@ def create_app(
         learning_router(
             paths,
             name,
-            assistant_for or real_claude,
+            assistant_for or real_assistant,
             lambda: language().code,
             settings.bridge.max_question_chars,
             settings.learn.grading_cooldown_seconds,
