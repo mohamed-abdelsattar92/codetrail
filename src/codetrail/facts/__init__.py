@@ -25,6 +25,7 @@ class EntityKind(StrEnum):
     RESOURCE = "resource"
     SWIFT_TARGET = "swift_target"
     WORKER = "worker"
+    DEPLOYMENT = "deployment"
 
 
 class RelationKind(StrEnum):

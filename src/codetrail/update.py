@@ -29,6 +29,7 @@ from codetrail.database import connect
 from codetrail.errors import CodetrailError
 from codetrail.extract import Extraction, Extractor, run_extractors
 from codetrail.extract.adr import AdrExtractor
+from codetrail.extract.github_actions import GitHubActionsExtractor
 from codetrail.extract.openapi import OpenApiExtractor
 from codetrail.extract.python import PythonExtractor
 from codetrail.extract.swift import SwiftExtractor
@@ -74,9 +75,10 @@ def build_extractors(target: TargetConfig, extract: ExtractSettings | None = Non
         "python": PythonExtractor(),
         "adr": AdrExtractor(target.adr.paths),
         "openapi": OpenApiExtractor(target.openapi.paths),
-        "terraform": TerraformExtractor(),
+        "terraform": TerraformExtractor(extract.max_resource_paths),
         "swift": SwiftExtractor(),
         "typescript": TypeScriptExtractor(extract.max_tsconfig_paths),
+        "github_actions": GitHubActionsExtractor(extract.max_workflow_steps),
     }
     return [available[name] for name in target.extractors]
 
