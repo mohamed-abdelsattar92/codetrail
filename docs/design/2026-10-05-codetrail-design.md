@@ -410,7 +410,7 @@ retry_attempts = 3
 cache_seconds = 60
 
 [diagrams]
-max_nodes = 60
+max_nodes = 25
 
 [tools]
 gitleaks = "gitleaks"

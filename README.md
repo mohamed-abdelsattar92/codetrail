@@ -239,8 +239,8 @@ flowchart LR
     P1 --> P2["2 · Facts ✓"]
     P2 --> P3["3 · The page, without Claude ✓"]
     P3 --> P4["4 · Generation ✓"]
-    P4 --> P5["5 · Bridge"]:::next
-    P5 --> P6["6 · Learning"]
+    P4 --> P5["5 · Bridge ✓"]
+    P5 --> P6["6 · Learning"]:::next
     P4 --> P7["7 · More extractors"]
     classDef next stroke-width:3px
 ```
@@ -252,7 +252,7 @@ flowchart LR
 | 2. Facts | Hamesh's modules, packages and decisions as facts | Done |
 | 3. The page, without Claude | A grounded map of Hamesh that says when it's behind, at no Claude cost | Done |
 | 4. Generation | The guide: digests, area and concept pages | Done |
-| 5. Bridge | Ask from any page and save the answers | Planned |
+| 5. Bridge | Ask from any page and save the answers | Done |
 | 6. Learning | Paths, checks, progress and staleness | Planned |
 | 7. More extractors | OpenAPI, Terraform and Swift packages in the guide | Planned |
 

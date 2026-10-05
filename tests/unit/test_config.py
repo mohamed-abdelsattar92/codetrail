@@ -140,7 +140,7 @@ def test_server_and_page_defaults(paths: Paths) -> None:
     assert settings.server.login_code_ttl_seconds == 60
     assert settings.ui.default_language == "en"
     assert settings.signal.cache_seconds == 60
-    assert settings.diagrams.max_nodes == 60
+    assert settings.diagrams.max_nodes == 25
 
 
 @pytest.mark.parametrize(

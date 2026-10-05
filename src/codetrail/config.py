@@ -97,7 +97,7 @@ class SignalSettings(Settings):
 
 
 class DiagramSettings(Settings):
-    max_nodes: int = Field(default=60, gt=0)
+    max_nodes: int = Field(default=25, gt=0)
 
 
 class GlobalConfig(Settings):
