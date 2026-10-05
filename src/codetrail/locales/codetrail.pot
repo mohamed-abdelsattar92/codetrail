@@ -22,6 +22,10 @@ msgid_plural "%(count)s visible files"
 msgstr[0] ""
 msgstr[1] ""
 
+#, python-format
+msgid "%(learned)s of %(total)s learned"
+msgstr ""
+
 msgid "An update is running."
 msgstr ""
 
@@ -42,6 +46,15 @@ msgid "At commit %(commit)s."
 msgstr ""
 
 msgid "Back to the start"
+msgstr ""
+
+msgid "Catch up"
+msgstr ""
+
+msgid "Check my answer"
+msgstr ""
+
+msgid "Check your understanding"
 msgstr ""
 
 msgid "Concepts"
@@ -80,6 +93,9 @@ msgstr ""
 msgid "Found in"
 msgstr ""
 
+msgid "Guided paths"
+msgstr ""
+
 msgid "Home"
 msgstr ""
 
@@ -99,6 +115,15 @@ msgstr ""
 msgid "Latest digest:"
 msgstr ""
 
+msgid "Learned"
+msgstr ""
+
+msgid "Learned, but changed since"
+msgstr ""
+
+msgid "Mark read"
+msgstr ""
+
 msgid "No decisions found."
 msgstr ""
 
@@ -111,6 +136,12 @@ msgstr ""
 msgid "Not found"
 msgstr ""
 
+msgid "Not read yet"
+msgstr ""
+
+msgid "Nothing to catch up on."
+msgstr ""
+
 msgid "Nothing to show yet."
 msgstr ""
 
@@ -118,6 +149,9 @@ msgid "Pointed to by"
 msgstr ""
 
 msgid "Points to"
+msgstr ""
+
+msgid "Read"
 msgstr ""
 
 msgid "Save to guide"
@@ -146,7 +180,13 @@ msgstr ""
 msgid "Update the guide"
 msgstr ""
 
+msgid "What changed since you learned this page"
+msgstr ""
+
 msgid "What each box links to"
+msgstr ""
+
+msgid "changed since you learned it"
 msgstr ""
 
 msgctxt "text direction"

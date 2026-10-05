@@ -6,9 +6,11 @@ and guide content is marked as English.
 
 from __future__ import annotations
 
+import difflib
 import threading
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from importlib.resources import files
 from pathlib import Path
 from typing import Any
@@ -28,7 +30,9 @@ from codetrail.database import connect
 from codetrail.errors import CodetrailError
 from codetrail.facts import EntityKind
 from codetrail.generate.scope import sources_changed
-from codetrail.guide import PAGE_ID, GuideRepository
+from codetrail.guide import PAGE_ID, GuideRepository, Page, parse_page
+from codetrail.learn import LearningState, page_checks
+from codetrail.learn.routes import learning_router
 from codetrail.repo.signal import Signal, behind
 from codetrail.update import run_update
 from codetrail.web.diagrams import dependencies_diagram, imports_diagram
@@ -62,6 +66,14 @@ def create_app(
     view = TargetView(paths, name)
     guide = GuideRepository(paths.target_data(name) / "guide")
     job = UpdateJob(updater or (lambda: run_update(paths, name)), settings.server.update_cooldown_seconds)
+
+    @contextmanager
+    def learning() -> Iterator[LearningState]:
+        connection = connect(view.data / "codetrail.db")
+        try:
+            yield LearningState(connection)
+        finally:
+            connection.close()
 
     def real_claude() -> Claude:
         target = load_target(paths, name)
@@ -125,11 +137,26 @@ def create_app(
                 for entity in store.entities():
                     kinds[str(entity.kind)] = kinds.get(str(entity.kind), 0) + 1
                 counts = sorted(kinds.items())
-        guide_pages = [page for page in guide.pages() if page.kind in ("area", "concept")]
+        all_pages = guide.pages()
+        guide_pages = [page for page in all_pages if page.kind in ("area", "concept")]
         digests = sorted(guide.pages("digest"), key=lambda page: str(page.meta.get("written_at", "")))
+        unread_digests: list[Page] = []
+        stale: list[Page] = []
+        path_progress: list[tuple[Page, int, int]] = []
+        if (view.data / "codetrail.db").exists():
+            with learning() as state:
+                unread = set(state.unread_digests([page.id for page in digests]))
+                unread_digests = [page for page in reversed(digests) if page.id in unread]
+                statuses = {page.id: state.status(page).state for page in guide_pages}
+            stale = [page for page in guide_pages if statuses.get(page.id) == "stale"]
+            for path in guide.pages("path"):
+                steps = [str(step) for step in path.meta.get("steps") or []]
+                learned = sum(1 for step in steps if statuses.get(step) == "learned")
+                path_progress.append((path, learned, len(steps)))
         return render(
             "home.html", signal=current_signal(), areas=view.areas(), counts=counts, snapshot=snapshot,
             guide_pages=guide_pages, latest_digest=digests[-1] if digests else None,
+            unread_digests=unread_digests, stale_pages=stale, paths=path_progress,
         )  # fmt: skip
 
     @app.get("/pages/{page_id:path}", response_class=HTMLResponse)
@@ -143,7 +170,22 @@ def create_app(
         changed = manifest is not None and page.kind != "digest" and sources_changed(page, manifest)
         with view.store() as store:
             segments = render_body(page.body, store, settings.diagrams.max_nodes)
-        return render("page.html", page=page, segments=segments, sources_changed=changed)
+        with learning() as state:
+            status = state.status(page)
+        checks = [{"id": check["id"], "question": check.get("question", ""), "passed": check["id"] in status.passed}
+                  for check in page_checks(page)]  # the rubric stays on the server  # fmt: skip
+        changes = None
+        if status.state == "stale" and status.learned_commit:
+            before = guide.file_at(status.learned_commit, page.id)
+            if before is not None:
+                changes = "\n".join(difflib.unified_diff(
+                    parse_page(page.id, before).body.splitlines(), page.body.splitlines(),
+                    "when you learned it", "now", lineterm="",
+                ))  # fmt: skip
+        return render(
+            "page.html", page=page, segments=segments, sources_changed=changed, status=status.state, checks=checks,
+            changes=changes,
+        )  # fmt: skip
 
     @app.post("/update")
     def start_update() -> Response:
@@ -241,6 +283,11 @@ def create_app(
             settings.bridge.max_question_chars,
             settings.diagrams.max_nodes,
             settings.tools.gitleaks,
+        )
+    )
+    app.include_router(
+        learning_router(
+            paths, name, claude_for or real_claude, lambda: language().code, settings.bridge.max_question_chars
         )
     )
     app.mount("/static", StaticFiles(directory=str(files("codetrail.web").joinpath("static"))), name="static")

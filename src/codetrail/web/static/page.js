@@ -133,7 +133,42 @@ function watchQuestions() {
   });
 }
 
+function watchLearning() {
+  for (const button of document.querySelectorAll("[data-mark-read]")) {
+    button.addEventListener("click", async () => {
+      const response = await post("/learn/read", { page_id: button.dataset.markRead });
+      if (response.ok) window.location.reload();
+    });
+  }
+  for (const form of document.querySelectorAll("form[data-check]")) {
+    const feedback = form.querySelector("[data-feedback]");
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const button = form.querySelector("button");
+      button.disabled = true;
+      feedback.textContent = "Claude is reading your answer…";
+      try {
+        const response = await post("/learn/checks", {
+          page_id: form.dataset.page,
+          check_id: form.dataset.check,
+          answer: form.elements.answer.value,
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          feedback.textContent = result.error ?? "The answer couldn't be graded.";
+          return;
+        }
+        feedback.textContent = `${result.verdict}: ${result.feedback}`; // text only, never HTML
+        if (result.state === "learned") window.setTimeout(() => window.location.reload(), 1500);
+      } finally {
+        button.disabled = false;
+      }
+    });
+  }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
+  watchLearning();
   watchQuestions();
   watchLanguage();
   watchUpdate();

@@ -48,3 +48,11 @@ button { font: inherit; padding: 0.4rem 0.9rem; border-radius: 0.4rem; border: 1
 .ask form { display: grid; gap: 0.5rem; justify-items: start; }
 .answer { white-space: pre-wrap; margin-block: 1rem; }
 .answer:has(p, ul, ol, h1, h2, h3, pre) { white-space: normal; }
+.learning { display: flex; gap: 1rem; align-items: center; }
+.status { padding: 0.15rem 0.6rem; border-radius: 1rem; background: var(--soft); font-size: 0.85rem; }
+.status-learned { color: var(--ok); }
+.status-stale { color: var(--warn); }
+.changes pre span.added { color: var(--ok); }
+.changes pre span.removed { color: var(--warn); }
+.checks .check { display: grid; gap: 0.5rem; justify-items: start; margin-block-end: 1.5rem; }
+.checks textarea { width: 100%; font: inherit; padding: 0.5rem; border-radius: 0.4rem; border: 1px solid var(--line); background: var(--soft); color: var(--text); }
