@@ -312,3 +312,19 @@ def test_a_question_carries_the_guides_diagrams_and_an_answer_draws_them(paths: 
         assert request.diagrams == available_diagrams(FactStore(connection))
     finally:
         connection.close()
+
+
+def test_a_failing_diagram_list_neither_blocks_the_answer_nor_holds_the_slot(
+    paths: Paths, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import codetrail.bridge
+
+    def broken(store: object) -> list[str]:
+        raise OSError("database locked")
+
+    monkeypatch.setattr(codetrail.bridge, "available_diagrams", broken)
+    client, headers = make_client(paths, FakeAssistant())
+    for question in ("First?", "Second?"):
+        response = client.post("/bridge/questions", json={"question": question}, headers=headers)
+        assert response.status_code == 200
+        assert events(response.text)[-1]["type"] == "done"

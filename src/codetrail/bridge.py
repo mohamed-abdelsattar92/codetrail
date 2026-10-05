@@ -110,6 +110,7 @@ def bridge_router(
         page = guide.read_page(question.page_id) if question.page_id else None
         if question.page_id and page is None:
             return JSONResponse({"error": "That page doesn't exist."}, 404)
+        diagrams = _available_diagrams()  # before the claim: nothing between claim and stream may fail
         token = state.claim()  # no await before this point, so two requests can't both pass
         if token is None:
             return JSONResponse({"error": "Another question is still being answered."}, 429)
@@ -120,7 +121,7 @@ def bridge_router(
             page_title=page.title if page else "",
             page_body=page.body[:PAGE_CONTEXT_CHARACTERS] if page else "",
             page_facts=[str(fact.get("id")) for fact in (page.meta.get("facts") or [])] if page else [],
-            diagrams=_available_diagrams(),
+            diagrams=diagrams,
         )
         return StreamingResponse(_stream(request, manifest.commit, token), media_type="application/x-ndjson")
 
@@ -170,11 +171,15 @@ def bridge_router(
             connection.close()
 
     def _available_diagrams() -> list[str]:
-        connection = connect(data / "codetrail.db")
+        """The diagrams an answer may place; none if they can't be read, since the answer works without them."""
         try:
-            return available_diagrams(FactStore(connection))
-        finally:
-            connection.close()
+            connection = connect(data / "codetrail.db")
+            try:
+                return available_diagrams(FactStore(connection))
+            finally:
+                connection.close()
+        except Exception:  # an optional extra: a locked or newer database mustn't stop the question
+            return []
 
     def _html(body: str) -> str:
         connection = connect(data / "codetrail.db")

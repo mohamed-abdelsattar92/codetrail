@@ -7,6 +7,7 @@ limit, modules roll up to their folders, one level at a time, with the number of
 
 from __future__ import annotations
 
+import re
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import PurePosixPath
@@ -123,6 +124,9 @@ def resources_diagram(store: FactStore, scope: str, max_nodes: int) -> Diagram:
 
 
 MAX_AVAILABLE = 15  # of each kind, so the list stays a short part of a question's prompt
+# A folder or project id listed for an answer: plain path characters only, so no repository name can carry
+# whitespace, braces or instructions into the prompt (a name with spaces couldn't be drawn anyway).
+LISTABLE = re.compile(r"[A-Za-z0-9._@+/:-]+")
 
 
 def available_diagrams(store: FactStore) -> list[str]:
@@ -148,6 +152,9 @@ def available_diagrams(store: FactStore) -> list[str]:
     terraform = sorted(
         {_location(entity.id).split("/", 1)[0] for entity in store.entities(EntityKind.TERRAFORM_MODULE)}
     )
+    scopes = [scope for scope in scopes if LISTABLE.fullmatch(scope)]
+    depending = {project for project in depending if LISTABLE.fullmatch(project)}
+    terraform = [scope for scope in terraform if LISTABLE.fullmatch(scope)]
     return (
         [f"{{{{diagram imports scope={scope}}}}}" for scope in scopes[:MAX_AVAILABLE]]
         + [f"{{{{diagram dependencies project={project}}}}}" for project in sorted(depending & set(projects))][
