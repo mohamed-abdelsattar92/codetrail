@@ -8,7 +8,7 @@ from codetrail.database import connect
 from codetrail.guide import Page
 from codetrail.learn import LearningState, check_hash, page_version
 
-CHECKS = [
+CHECKS: list[dict[str, object]] = [
     {"id": "a", "question": "Why A?", "rubric": [{"point": "p", "grounds": ["x"]}]},
     {"id": "b", "question": "Why B?", "rubric": [{"point": "q", "grounds": ["y"]}]},
 ]
