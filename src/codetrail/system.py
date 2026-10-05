@@ -63,8 +63,10 @@ NAMED_SERVICES = {
     "azurerm_container_app",
 }
 CONFIG_NAMES = {"package.json", "Package.swift", "Makefile", "justfile", "pyproject.toml"}
-CONFIG_PATTERN = re.compile(r".*(\.toml|generator[-_.a-z]*\.ya?ml|\.openapi-generator[-_.a-z]*)$")
-PBXPROJ_PACKAGE = re.compile(r'relativePath\s*=\s*"?([^";]+)"?;')
+# Both patterns are matched from one position only (after the last "generator", at the line's start), so a hostile
+# name or line costs linear time.
+GENERATOR_TAIL = re.compile(r"[-_.a-z]*\.ya?ml|[-_.a-z]*")
+PBXPROJ_PACKAGE = re.compile(r'\s*relativePath\s*=\s*"?([^";]+)"?;')
 WORD = re.compile(r"[a-z0-9]+")
 TOKEN_SPLIT = re.compile(r"[\s\"'`=,;:()<>\[\]{}]+")
 
@@ -259,7 +261,7 @@ class _System:
             if app is None or content is None:
                 continue
             for number, line in enumerate(content.decode("utf-8", "replace").splitlines(), start=1):
-                match = PBXPROJ_PACKAGE.search(line)
+                match = PBXPROJ_PACKAGE.match(line)
                 package_folder = _normal(app.folder, match.group(1)) if match else None
                 package_part = self.parts.get(f"part:{package_folder}") if package_folder else None
                 if package_part is not None:
@@ -292,7 +294,7 @@ class _System:
                     evidence.setdefault(part.id, (copy, None))
             for path in self.files:
                 name = PurePosixPath(path).name
-                if name not in CONFIG_NAMES and not CONFIG_PATTERN.fullmatch(name):
+                if not _config_file(name):
                     continue
                 part = self.owner(path)
                 if part is None or part.id in evidence:
@@ -416,6 +418,16 @@ class _System:
             for part in sorted(self.parts.values(), key=lambda part: part.id)
         ]
         return SystemFacts(entities, sorted(self.out, key=lambda relation: relation.key), self.warnings, self.counts)
+
+
+def _config_file(name: str) -> bool:
+    """A file that may name a contract: a known build file, any TOML, or an OpenAPI generator's configuration."""
+    if name in CONFIG_NAMES or name.endswith(".toml"):
+        return True
+    head, found, tail = name.rpartition("generator")
+    if not found or not (match := GENERATOR_TAIL.fullmatch(tail)):
+        return False
+    return match.group().endswith((".yml", ".yaml")) or head.endswith(".openapi-")
 
 
 def _folder(folder: str) -> str:

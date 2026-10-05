@@ -183,3 +183,32 @@ def test_hostile_facts_never_raise() -> None:
     ]
     found = derive(hostile, [Relation("project:a\nb {{x}}", RelationKind.DEPENDS_ON, "nowhere")], {}, lambda p: None)
     assert isinstance(found, SystemFacts)
+
+
+def test_hostile_lines_and_names_take_linear_time() -> None:
+    import time
+
+    line = b"relativePath = " * 20_000  # no `;`: a backtracking pattern would rescan the line from every match
+    files = {**FILES, ("generator" * 2_000) + "x": "b9"}
+    started = time.monotonic()
+    derive(ENTITIES, RELATIONS, files, reader({**CONTENT, "apps/ios/Shop.xcodeproj/project.pbxproj": line}))
+    assert time.monotonic() - started < 2
+
+
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [
+        ("Makefile", True),
+        ("buf.gen.toml", True),
+        ("openapi-generator-config.yaml", True),
+        ("generator.yml", True),
+        (".openapi-generator-ignore", True),
+        ("README.md", False),
+        ("generator.json", False),
+        ("generator-Config.yaml", False),
+    ],
+)
+def test_the_files_that_may_name_a_contract(name: str, expected: bool) -> None:
+    from codetrail.system import _config_file
+
+    assert _config_file(name) is expected
