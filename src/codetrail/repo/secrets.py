@@ -2,8 +2,8 @@
 
 gitleaks always runs with Codetrail's own configuration, ignores `gitleaks:allow` comments and `.gitleaksignore`
 files, and never sees GITLEAKS_* settings, so nothing in a target can switch the scan off. Findings carry the path,
-the rule and the line, never the value. A missing or failing gitleaks raises, so callers fail closed, with what it
-printed. A mise shim is resolved to its binary first, since gitleaks runs in an empty folder where no version is set.
+the rule and the line, never the value. A missing, failing or stuck gitleaks raises, so callers fail closed, with what
+it printed. A mise shim is resolved to its binary first, since gitleaks runs in an empty folder where no version is set.
 """
 
 from __future__ import annotations
@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from importlib.resources import as_file, files
 from pathlib import Path
 
+from codetrail.config import ToolsSettings
 from codetrail.errors import CodetrailError
 from codetrail.repo.rules import on_disk_key
 
@@ -26,6 +27,7 @@ COMMON_FLAGS = (
     "--gitleaks-ignore-path", os.devnull, "--log-level", "error",
 )  # fmt: skip
 POINT_AT_ANOTHER = "To run a particular gitleaks, set [tools] gitleaks in the configuration to its absolute path."
+RAISE_THE_TIMEOUT = "For a large repository, raise [tools] gitleaks_timeout_seconds in the configuration."
 ESCAPE_SEQUENCES = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]|[^\x20-\x7e]")
 MAX_EXPLANATION = 300
 
@@ -38,8 +40,9 @@ class Finding:
 
 
 class SecretScanner:
-    def __init__(self, executable: str) -> None:
-        self._executable = executable
+    def __init__(self, tools: ToolsSettings) -> None:
+        self._executable = tools.gitleaks
+        self._timeout_seconds = tools.gitleaks_timeout_seconds
 
     def scan_directory(self, root: Path) -> list[Finding]:
         """Every finding under `root`, with paths relative to it."""
@@ -63,9 +66,16 @@ class SecretScanner:
             report = Path(folder) / "report.json"
             command = [executable, *arguments, "--config", str(config), *COMMON_FLAGS, "--report-path", str(report)]
             # An empty working directory: `gitleaks stdin` would load ./.gitleaksignore from wherever it runs.
-            result = subprocess.run(  # noqa: S603
-                command, input=input, capture_output=True, env=environment, check=False, cwd=folder
-            )
+            try:
+                result = subprocess.run(  # noqa: S603
+                    command, input=input, capture_output=True, env=environment, check=False, cwd=folder,
+                    timeout=self._timeout_seconds,
+                )  # fmt: skip
+            except subprocess.TimeoutExpired:
+                raise CodetrailError(
+                    f"gitleaks didn't finish within {self._timeout_seconds:g} seconds "
+                    f"([tools] gitleaks_timeout_seconds); the scan didn't complete. {RAISE_THE_TIMEOUT}"
+                ) from None
             if result.returncode != 0 or not report.exists():
                 raise CodetrailError(
                     f"gitleaks failed (exit code {result.returncode}); the scan didn't complete. "
@@ -87,10 +97,18 @@ class SecretScanner:
         if mise.name != "mise":
             return found
         # A shim picks the version from its working directory, and gitleaks runs in an empty one, so ask mise here.
-        result = subprocess.run(  # noqa: S603
-            [str(mise), "which", shim.name],
-            stdin=subprocess.DEVNULL, capture_output=True, env=environment, check=False,
-        )  # fmt: skip
+        try:
+            result = subprocess.run(  # noqa: S603
+                [str(mise), "which", shim.name],
+                stdin=subprocess.DEVNULL, capture_output=True, env=environment, check=False,
+                timeout=self._timeout_seconds,
+            )  # fmt: skip
+        except subprocess.TimeoutExpired:
+            raise CodetrailError(
+                f"{found} is a mise shim, and mise didn't say which gitleaks it runs here within "
+                f"{self._timeout_seconds:g} seconds ([tools] gitleaks_timeout_seconds); the scan didn't run. "
+                f"Check the mise configuration in the folder Codetrail was started from. {POINT_AT_ANOTHER}"
+            ) from None
         binary = Path(result.stdout.decode("utf-8", "replace").strip())
         if result.returncode != 0 or not binary.is_absolute():
             # Only mise's own error lines: it quotes the configuration line it couldn't parse on the lines after.

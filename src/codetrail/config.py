@@ -65,6 +65,7 @@ class Settings(BaseModel):
 
 class ToolsSettings(Settings):
     gitleaks: str = "gitleaks"
+    gitleaks_timeout_seconds: float = Field(default=600, gt=0, le=86_400)  # each gitleaks and `mise which` run
 
 
 class BridgeSettings(Settings):

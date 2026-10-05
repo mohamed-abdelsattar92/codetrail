@@ -9,6 +9,7 @@ import uvicorn
 from starlette.types import ASGIApp
 
 from codetrail.config import Paths, check_containment, load_global, load_target
+from codetrail.lock import target_in_use
 from codetrail.web.app import create_app
 from codetrail.web.security import SessionState
 
@@ -34,10 +35,11 @@ def prepare_server(paths: Paths, name: str) -> Server:
 
 
 def serve(paths: Paths, name: str, open_browser: bool) -> None:
-    server = prepare_server(paths, name)
-    print(f"Codetrail is serving {name} at http://{server.host}:{server.port}/", flush=True)
-    print(f"Sign in (this link works once, for a short time): {server.url}", flush=True)
-    if open_browser:
-        webbrowser.open(server.url)
-    # No access log: the sign-in link's code would be written to it.
-    uvicorn.run(server.app, host=server.host, port=server.port, log_level="warning", access_log=False)
+    with target_in_use(paths, name):  # for as long as it serves, so the target isn't removed under it
+        server = prepare_server(paths, name)
+        print(f"Codetrail is serving {name} at http://{server.host}:{server.port}/", flush=True)
+        print(f"Sign in (this link works once, for a short time): {server.url}", flush=True)
+        if open_browser:
+            webbrowser.open(server.url)
+        # No access log: the sign-in link's code would be written to it.
+        uvicorn.run(server.app, host=server.host, port=server.port, log_level="warning", access_log=False)

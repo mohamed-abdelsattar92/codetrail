@@ -13,7 +13,7 @@ import secrets
 import threading
 import time
 from collections.abc import Callable, Iterator
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from importlib.resources import files
 from pathlib import Path
 from typing import Any
@@ -23,7 +23,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Res
 from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from pydantic import BaseModel, ConfigDict, Field
-from starlette.types import ASGIApp
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from codetrail.assistant import Assistant
 from codetrail.assistant.estimate import CallEstimate, UpdateEstimate, estimate_call, tokens_text, when_text
@@ -39,6 +39,7 @@ from codetrail.generate.scope import sources_changed
 from codetrail.guide import PAGE_ID, GuideRepository, Page, parse_page
 from codetrail.learn import LearningState, page_checks
 from codetrail.learn.routes import learning_router
+from codetrail.lock import TargetBusy, target_in_use
 from codetrail.repo.signal import Signal, behind
 from codetrail.search import Result, SearchIndex, guide_documents
 from codetrail.update import run_update
@@ -53,7 +54,7 @@ from codetrail.web.navigation import (
     steps_of,
 )
 from codetrail.web.render import render_body
-from codetrail.web.security import SESSION_COOKIE, SecurityMiddleware, SessionState, login_response
+from codetrail.web.security import OPEN_PATHS, SESSION_COOKIE, SecurityMiddleware, SessionState, login_response
 from codetrail.web.target_view import TargetView
 
 LANGUAGE_SETTING = "language"
@@ -63,6 +64,33 @@ logger = logging.getLogger(__name__)
 class LanguageChoice(BaseModel):
     model_config = ConfigDict(extra="forbid")
     language: str = Field(max_length=16)
+
+
+class TargetInUseMiddleware:
+    """Each request holds the target's in-use lock, so no removal runs under it and none recreates a removed target.
+
+    `serve` holds the lock too, but on the settings file it opened; an editor may have replaced that file since."""
+
+    def __init__(self, app: ASGIApp, paths: Paths, name: str) -> None:
+        self.app = app
+        self.paths = paths
+        self.name = name
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http" or scope["path"].startswith(OPEN_PATHS):  # no session, and no target data
+            await self.app(scope, receive, send)
+            return
+        held = ExitStack()
+        try:
+            held.enter_context(target_in_use(self.paths, self.name))
+        except TargetBusy as error:
+            await PlainTextResponse(str(error), 409)(scope, receive, send)
+            return
+        except CodetrailError as error:
+            await PlainTextResponse(str(error), 410)(scope, receive, send)
+            return
+        with held:  # a streamed answer finishes before the app returns, so the lock covers it too
+            await self.app(scope, receive, send)
 
 
 def create_app(
@@ -442,7 +470,7 @@ def create_app(
             lambda: language().code,
             settings.bridge.max_question_chars,
             settings.diagrams.max_nodes,
-            settings.tools.gitleaks,
+            settings.tools,
             settings.prices,
             max(
                 settings.providers.claude_code.timeout_seconds,
@@ -460,12 +488,12 @@ def create_app(
             lambda: language().code,
             settings.bridge.max_question_chars,
             settings.learn.grading_cooldown_seconds,
-            settings.tools.gitleaks,
+            settings.tools,
             settings.prices,
         )
     )
     app.mount("/static", StaticFiles(directory=str(files("codetrail.web").joinpath("static"))), name="static")
-    return SecurityMiddleware(app, session=session, port=settings.server.port)
+    return SecurityMiddleware(TargetInUseMiddleware(app, paths, name), session=session, port=settings.server.port)
 
 
 def _environment(templates: str, language: Language) -> Environment:
