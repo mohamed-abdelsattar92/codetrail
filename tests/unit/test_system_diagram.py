@@ -144,3 +144,33 @@ def test_the_parts_are_listed_by_kind_with_their_connections(store: FactStore) -
     site = listed["app"][0]
     assert (site.depends_on, site.runs_on) == (["ui"], ["Cloudflare"])
     assert listed["contract"][0].called_by == ["site"]
+
+
+def test_a_contract_shared_by_many_services_and_callers_draws_linearly(store: FactStore) -> None:
+    import time
+
+    from codetrail.web.diagrams import system_parts
+
+    services = [part(f"s{index}/api", "service", f"api{index}") for index in range(2_000)]
+    clients = [part(f"c{index}/web", "app", f"web{index}") for index in range(2_000)]
+    contract = "part:contracts/openapi.yaml"
+    evidence = {"evidence": "explicit"}
+    relations = [
+        *(Relation(f"part:s{index}/api", RelationKind.IMPLEMENTS, contract, evidence) for index in range(2_000)),
+        *(Relation(f"part:c{index}/web", RelationKind.CALLS_VIA, contract, evidence) for index in range(2_000)),
+    ]
+    store.record("f", [*PARTS, *services, *clients], [*RELATIONS, *relations])
+    started = time.monotonic()
+    diagram = system_diagram(store, None, max_nodes=10_000)
+    listed = dict(system_parts(store))
+    assert time.monotonic() - started < 5
+    assert len(diagram.mermaid.splitlines()) < 9_000  # each call is one arrow to the contract, not one per service
+    assert all(len(row.called_by) <= 1 for row in listed["service"])
+
+
+def test_the_roll_up_never_draws_more_than_the_limit(store: FactStore) -> None:
+    services = [part(f"top{index}/api", "service", f"api{index}") for index in range(50)]
+    store.record("g", [*PARTS, *services], RELATIONS)
+    diagram = system_diagram(store, None, max_nodes=10)
+    assert len(diagram.nodes) <= 10
+    assert any(node.label.startswith("other parts (") for node in diagram.nodes)

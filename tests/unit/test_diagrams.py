@@ -122,3 +122,7 @@ def test_folder_names_that_could_carry_text_into_a_prompt_are_never_listed(store
     store.record("c", [module(f"{hostile}/a.py"), module(f"{hostile}/b.py"), module("ok/a.py"), module("ok/b.py")], [])
     found = available_diagrams(store)
     assert found == ["{{diagram imports scope=ok}}"]
+
+
+def test_control_and_format_characters_are_dropped_from_labels() -> None:
+    assert escape_label("a\x01b\x7fc​d‮e") == "abcde"  # Mermaid's YAML refuses them in a shape's label

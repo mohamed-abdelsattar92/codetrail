@@ -8,6 +8,7 @@ limit, modules roll up to their folders, one level at a time, with the number of
 from __future__ import annotations
 
 import re
+import unicodedata
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import PurePosixPath
@@ -25,8 +26,13 @@ ESCAPES = {
 
 def escape_label(text: str, fallback: str = "?") -> str:
     """A label Mermaid reads as plain text; an empty one (Mermaid refuses `[""]`) becomes the fallback."""
-    flattened = " ".join(text.split()) or " ".join(fallback.split()) or "?"
+    flattened = " ".join(_printable(text).split()) or " ".join(_printable(fallback).split()) or "?"
     return "".join(ESCAPES.get(character, character) for character in flattened)
+
+
+def _printable(text: str) -> str:
+    """Without control and format characters: Mermaid's YAML refuses them in a shape's label, failing the diagram."""
+    return "".join(character for character in text if unicodedata.category(character) not in ("Cc", "Cf"))
 
 
 def _node(node_id: str, label: str, key: str) -> str:
@@ -153,9 +159,9 @@ ARROW_LABELS = {RelationKind.IMPLEMENTS: "implements", RelationKind.CALLS_VIA: "
 def system_diagram(store: FactStore, focus: str | None, max_nodes: int) -> Diagram:
     """How the repository's parts connect (design 17.4), or, with `focus`, the parts in a folder and their neighbours.
 
-    A client that calls through a contract a service implements gets an arrow to that service, labelled with the
-    contract. Matched connections are dashed. Above `max_nodes`, libraries roll up into their parent folders, then
-    every part but the platforms into its top-level folder.
+    A client that calls through a contract that one service implements gets an arrow to that service, labelled
+    with the contract. Matched connections are dashed. Above `max_nodes`, libraries roll up into their parent
+    folders, then every part but the platforms into its top-level folder, then the smallest groups into one.
     """
     parts = {entity.id: entity for entity in store.entities(EntityKind.PART)}
     relations = [
@@ -169,10 +175,11 @@ def system_diagram(store: FactStore, focus: str | None, max_nodes: int) -> Diagr
     edges: dict[tuple[str, str], tuple[str, bool]] = {}  # (source, target) -> (label, matched)
     for relation in relations:
         matched = relation.attributes.get("evidence") == "matched"
-        if relation.kind is RelationKind.CALLS_VIA and relation.target_id in implementers:
+        if relation.kind is RelationKind.CALLS_VIA and len(implementers.get(relation.target_id, [])) == 1:
+            # One service behind the contract: the call is drawn to it. With several, it stays on the contract, so
+            # arrows never grow as callers times services.
             contract = str(parts[relation.target_id].attributes.get("name", ""))
-            for service in implementers[relation.target_id]:
-                edges.setdefault((relation.source_id, service), (contract, matched))
+            edges.setdefault((relation.source_id, implementers[relation.target_id][0]), (contract, matched))
             continue
         label = "matched by name" if matched else ARROW_LABELS.get(relation.kind, "")
         edges.setdefault((relation.source_id, relation.target_id), (label, matched))
@@ -210,6 +217,15 @@ def system_diagram(store: FactStore, focus: str | None, max_nodes: int) -> Diagr
             links[folder_key] = f"/areas/{folder}"
             for key in keys:
                 group[key] = folder_key
+    sizes = Counter(group.values())
+    if len(sizes) > max_nodes:  # still too many: the largest groups stay, the rest fold into one node
+        kept = {key for key, _ in sizes.most_common(max_nodes - 1)}
+        folded = [key for key in shown if group[key] not in kept]
+        labels["group:other"] = f"other parts ({len(folded)})"
+        kinds["group:other"] = "library"
+        links["group:other"] = "/system"
+        for key in folded:
+            group[key] = "group:other"
     counted: Counter[tuple[str, str]] = Counter()
     merged: dict[tuple[str, str], tuple[str, bool]] = {}
     for (source, target), (label, matched) in edges.items():
@@ -263,7 +279,7 @@ class SystemPart:
 def system_parts(store: FactStore) -> list[tuple[str, list[SystemPart]]]:
     """Every part, grouped by kind in PART_KINDS order: what it depends on, what calls it and where it runs.
 
-    A part that calls through a contract counts as calling the contract and every service that implements it.
+    A part that calls through a contract counts as calling the contract, and the service behind it when there's one.
     """
     parts = {entity.id: entity for entity in store.entities(EntityKind.PART)}
     names = {key: str(entity.attributes.get("name") or key) for key, entity in parts.items()}
@@ -282,8 +298,9 @@ def system_parts(store: FactStore) -> list[tuple[str, list[SystemPart]]]:
         source, target = relation.source_id, relation.target_id
         if relation.kind is RelationKind.DEPENDS_ON:
             depends_on.setdefault(source, set()).add(names[target])
-        elif relation.kind is RelationKind.CALLS_VIA:
-            for called in {target, *implementers.get(target, set())}:
+        elif relation.kind is RelationKind.CALLS_VIA:  # a lone implementer is called too; several stay on the contract
+            services = implementers.get(target, set())
+            for called in {target, *services} if len(services) == 1 else {target}:
                 called_by.setdefault(called, set()).add(names[source])
         elif relation.kind is RelationKind.DEPLOYED_ON:
             runs_on.setdefault(source, set()).add(names[target])
