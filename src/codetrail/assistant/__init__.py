@@ -18,6 +18,15 @@ class AssistantError(CodetrailError):
 
 
 @dataclass(frozen=True)
+class PlanWindow:
+    """How much of a subscription's usage window is used (0 to 1), and when it resets (seconds since the epoch)."""
+
+    window: str  # "five_hour", "seven_day"...
+    utilization: float
+    resets_at: int
+
+
+@dataclass(frozen=True)
 class Usage:
     """What one call used: tokens, and its cost in dollars when known (the provider's figure, or tokens x prices)."""
 
@@ -27,6 +36,7 @@ class Usage:
     cached_input_tokens: int = 0
     output_tokens: int = 0
     cost_usd: float | None = None
+    plan_windows: tuple[PlanWindow, ...] = ()
 
 
 @dataclass(frozen=True)

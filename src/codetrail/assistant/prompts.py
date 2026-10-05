@@ -240,6 +240,16 @@ You are answering the reader's question about the repository, live, in Codetrail
 """
 
 
+# Claude Code attaches the file an @path in a prompt names, before any tool call and past the guard (a probe proved
+# it). Prompts carry repository text, so every adapter turns each @ into a fullwidth at sign the model reads but no
+# program acts on.
+FULLWIDTH_AT = "\uff20"
+
+
+def neutralize(prompt: str) -> str:
+    return prompt.replace("@", FULLWIDTH_AT)
+
+
 def fence(text: str) -> str:
     """Wraps untrusted text between random boundaries it can't contain, so it can't close its own block."""
     boundary = f"data-{secrets.token_hex(8)}"

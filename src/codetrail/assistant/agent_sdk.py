@@ -38,9 +38,10 @@ from codetrail.assistant import (
     Verdict,
 )
 from codetrail.assistant.guard import ALLOWED_TOOLS, ToolGuard
-from codetrail.assistant.prompts import (
+from codetrail.assistant.prompts import (  # noqa: F401  # FULLWIDTH_AT for its tests
     ANSWER_RULES,
     DIGEST_SCHEMA,
+    FULLWIDTH_AT,
     GRADE_RULES,
     GRADE_SCHEMA,
     GROUND_RULES,
@@ -50,19 +51,13 @@ from codetrail.assistant.prompts import (
     answer_prompt,
     digest_prompt,
     grade_prompt,
+    neutralize,
     page_prompt,
     plan_prompt,
 )
 from codetrail.config import GenerationSettings, ModelSettings
 
 CALL_TIMEOUT_SECONDS = 900
-# Claude Code attaches the file an @path in a prompt names, before any tool call and past the guard (a probe proved
-# it). Prompts carry repository text, so every @ becomes a fullwidth at sign the model reads but Claude Code ignores.
-FULLWIDTH_AT = "\uff20"
-
-
-def neutralize(prompt: str) -> str:
-    return prompt.replace("@", FULLWIDTH_AT)
 
 
 def sdk_hook(guard: ToolGuard) -> Any:

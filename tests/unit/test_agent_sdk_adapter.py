@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from codetrail.assistant.agent_sdk import FULLWIDTH_AT, AgentSdkClaude
+from codetrail.assistant.agent_sdk import AgentSdkClaude
 from codetrail.assistant.guard import ToolGuard
-from codetrail.assistant.prompts import GROUND_RULES, PAGE_SCHEMA
+from codetrail.assistant.prompts import FULLWIDTH_AT, GROUND_RULES, PAGE_SCHEMA
 from codetrail.config import GenerationSettings, ModelSettings
 
 

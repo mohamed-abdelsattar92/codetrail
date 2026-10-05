@@ -81,6 +81,13 @@ class ClaudeSettings(Settings):
     retry_attempts: int = Field(default=2, ge=0, le=5)
 
 
+class ClaudeCodeSettings(Settings):
+    command: str = "claude"
+    auth: Literal["subscription", "api_key"] = "subscription"
+    timeout_seconds: int = Field(default=900, gt=0)
+    hook_timeout_seconds: int = Field(default=30, gt=0)
+
+
 class ExtractSettings(Settings):
     max_file_bytes: int = Field(default=1_000_000, gt=0)
     max_attribute_chars: int = Field(default=300, ge=10)
