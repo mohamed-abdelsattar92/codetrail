@@ -181,7 +181,7 @@ msgid "Nothing to show yet."
 msgstr ""
 
 #, python-format
-msgid "Plan usage (%(provider)s, %(window)s): %(used)s%%, as of %(when)s UTC."
+msgid "Plan usage (%(provider)s, %(window)s): %(used)s%%, as of %(when)s."
 msgstr ""
 
 msgid "Pointed to by"

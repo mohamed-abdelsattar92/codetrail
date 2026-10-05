@@ -25,7 +25,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from starlette.types import ASGIApp
 
 from codetrail.assistant import Assistant
-from codetrail.assistant.estimate import CallEstimate, UpdateEstimate, estimate_call, tokens_text
+from codetrail.assistant.estimate import CallEstimate, UpdateEstimate, estimate_call, tokens_text, when_text
 from codetrail.assistant.routing import build_assistant
 from codetrail.assistant.status import require_ready
 from codetrail.bridge import bridge_router
@@ -355,6 +355,7 @@ def _environment(templates: str, language: Language) -> Environment:
     )
     environment.install_gettext_translations(language.translations, newstyle=True)  # type: ignore[attr-defined]
     environment.filters["tokens"] = tokens_text
+    environment.filters["utc"] = when_text
     environment.filters["dollars"] = lambda value: "" if value is None else f"${value:.2f}"
     return environment
 

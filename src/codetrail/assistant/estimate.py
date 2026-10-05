@@ -152,6 +152,11 @@ def _dollars(lines: list[EstimateLine], expected: bool) -> float | None:
     return total
 
 
+def when_text(observed_at: str) -> str:
+    """A recorded UTC time for people: 2026-10-05 06:38 UTC."""
+    return observed_at[:16].replace("T", " ") + " UTC"
+
+
 def tokens_text(tokens: int) -> str:
     """A token count for people: 950, 12k, 1.4M."""
     if tokens >= 1_000_000:
@@ -184,5 +189,5 @@ def describe(estimate: UpdateEstimate) -> list[str]:
             lines.append(f"{provider}: {method}, billed to that account at its prices.")
     for reading in estimate.plan_usage:
         lines.append(f"Plan usage ({reading.provider}, {reading.window.replace('_', ' ')}): "
-                     f"{reading.utilization:.0%}, as of {reading.observed_at} UTC.")  # fmt: skip
+                     f"{reading.utilization:.0%}, as of {when_text(reading.observed_at)}.")  # fmt: skip
     return lines
