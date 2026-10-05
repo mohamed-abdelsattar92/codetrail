@@ -245,6 +245,58 @@ def system_diagram(store: FactStore, focus: str | None, max_nodes: int) -> Diagr
     return Diagram("\n".join(lines) + "\n", nodes, rolled_up, arrows)
 
 
+PART_KINDS = ("service", "app", "library", "contract", "infrastructure", "platform")
+
+
+@dataclass(frozen=True)
+class SystemPart:
+    """A part as the system page lists it, with the names of the parts it connects to."""
+
+    id: str
+    name: str
+    folder: str
+    depends_on: list[str]
+    called_by: list[str]
+    runs_on: list[str]
+
+
+def system_parts(store: FactStore) -> list[tuple[str, list[SystemPart]]]:
+    """Every part, grouped by kind in PART_KINDS order: what it depends on, what calls it and where it runs.
+
+    A part that calls through a contract counts as calling the contract and every service that implements it.
+    """
+    parts = {entity.id: entity for entity in store.entities(EntityKind.PART)}
+    names = {key: str(entity.attributes.get("name") or key) for key, entity in parts.items()}
+    relations = [
+        relation for kind in SYSTEM_RELATIONS for relation in store.relations(kind)
+        if relation.source_id in parts and relation.target_id in parts
+    ]  # fmt: skip
+    implementers: dict[str, set[str]] = {}
+    for relation in relations:
+        if relation.kind is RelationKind.IMPLEMENTS:
+            implementers.setdefault(relation.target_id, set()).add(relation.source_id)
+    depends_on: dict[str, set[str]] = {}
+    called_by: dict[str, set[str]] = {}
+    runs_on: dict[str, set[str]] = {}
+    for relation in relations:
+        source, target = relation.source_id, relation.target_id
+        if relation.kind is RelationKind.DEPENDS_ON:
+            depends_on.setdefault(source, set()).add(names[target])
+        elif relation.kind is RelationKind.CALLS_VIA:
+            for called in {target, *implementers.get(target, set())}:
+                called_by.setdefault(called, set()).add(names[source])
+        elif relation.kind is RelationKind.DEPLOYED_ON:
+            runs_on.setdefault(source, set()).add(names[target])
+    grouped: dict[str, list[SystemPart]] = {}
+    for key, entity in sorted(parts.items(), key=lambda item: names[item[0]].lower()):
+        kind = str(entity.attributes.get("kind"))
+        grouped.setdefault(kind if kind in PART_KINDS else "library", []).append(
+            SystemPart(key, names[key], _part_folder(entity), sorted(depends_on.get(key, set())),
+                       sorted(called_by.get(key, set())), sorted(runs_on.get(key, set())))
+        )  # fmt: skip
+    return [(kind, grouped[kind]) for kind in PART_KINDS if kind in grouped]
+
+
 def _within(folder: str, scope: str) -> bool:
     return folder == scope or folder.startswith(scope + "/")
 

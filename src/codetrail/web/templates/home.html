@@ -1,6 +1,15 @@
 {% extends "base.html" %}
 {% from "layout/icons.html" import icon %}
 {% block content %}
+{% macro system_card() %}
+{% if system %}
+<section class="card" aria-labelledby="system-title">
+  <p class="card-label" id="system-title">{{ _("Your system") }}</p>
+  <p class="card-title">{% trans count=system.parts %}{{ count }} part{% pluralize %}{{ count }} parts{% endtrans %} · {% trans count=system.connections %}{{ count }} connection{% pluralize %}{{ count }} connections{% endtrans %}, {{ _("drawn from the code") }}</p>
+  <div class="card-row"><a class="button" href="/system">{{ _("See how it fits together") }} {{ icon("arrow") }}</a></div>
+</section>
+{% endif %}
+{% endmacro %}
 {% macro since_last_update() %}
   <div class="stat">
     <span class="card-label">{{ _("Since the last update") }}</span>
@@ -33,6 +42,7 @@
   <p class="faint">{% trans name=target %}Or from a terminal: <code>codetrail update {{ name }}</code>{% endtrans %}</p>
 </section>
 {% if snapshot %}<div class="stats">{{ since_last_update() }}</div>{% endif %}
+{{ system_card() }}
 {% else %}
 
 {% if continue_reading %}
@@ -94,6 +104,8 @@
   <p class="muted">{{ _("Ask a question from any page (press A) and save the answers worth keeping. They'll be here.") }}</p>
   {% endif %}
 </section>
+
+{{ system_card() }}
 
 <section>
   <h2>{{ _("Areas") }}</h2>

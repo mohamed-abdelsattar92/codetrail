@@ -11,6 +11,12 @@ msgstr[0] ""
 msgstr[1] ""
 
 #, python-format
+msgid "%(count)s connection"
+msgid_plural "%(count)s connections"
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
 msgid "%(count)s file"
 msgid_plural "%(count)s files"
 msgstr[0] ""
@@ -19,6 +25,12 @@ msgstr[1] ""
 #, python-format
 msgid "%(count)s merge landed"
 msgid_plural "%(count)s merges landed"
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
+msgid "%(count)s part"
+msgid_plural "%(count)s parts"
 msgstr[0] ""
 msgstr[1] ""
 
@@ -72,6 +84,9 @@ msgid ""
 "Answers you saved to the guide, newest first. They aren't rewritten when "
 "the code changes; a mark shows when the files they were written from have"
 " changed."
+msgstr ""
+
+msgid "Apps"
 msgstr ""
 
 msgid "Area"
@@ -137,6 +152,9 @@ msgstr ""
 msgid "Call"
 msgstr ""
 
+msgid "Called by"
+msgstr ""
+
 msgid "Cancel"
 msgstr ""
 
@@ -181,6 +199,12 @@ msgstr ""
 msgid "Continue where you left off"
 msgstr ""
 
+msgid "Contract"
+msgstr ""
+
+msgid "Contracts"
+msgstr ""
+
 msgid "Cost each"
 msgstr ""
 
@@ -194,6 +218,9 @@ msgid "Decisions"
 msgstr ""
 
 msgid "Dependencies of"
+msgstr ""
+
+msgid "Depends on"
 msgstr ""
 
 msgid "Digest"
@@ -253,6 +280,9 @@ msgstr ""
 msgid "Found in"
 msgstr ""
 
+msgid "Found in a file you can open"
+msgstr ""
+
 msgid "Go ahead"
 msgstr ""
 
@@ -274,6 +304,9 @@ msgstr ""
 msgid "Go to your progress"
 msgstr ""
 
+msgid "Go to your system"
+msgstr ""
+
 msgid "Guide"
 msgstr ""
 
@@ -287,6 +320,9 @@ msgid "Imports"
 msgstr ""
 
 msgid "In this path"
+msgstr ""
+
+msgid "Infrastructure"
 msgstr ""
 
 msgid "Keep the answers worth keeping"
@@ -304,6 +340,15 @@ msgstr ""
 msgid "Learned, but changed since"
 msgstr ""
 
+msgid "Legend"
+msgstr ""
+
+msgid "Libraries"
+msgstr ""
+
+msgid "Library"
+msgstr ""
+
 msgid "Mark read"
 msgstr ""
 
@@ -313,6 +358,9 @@ msgstr ""
 msgid "Mark unread"
 msgstr ""
 
+msgid "Matched by name: likely, not certain"
+msgstr ""
+
 msgid "Menu"
 msgstr ""
 
@@ -320,6 +368,9 @@ msgid "More"
 msgstr ""
 
 msgid "Next"
+msgstr ""
+
+msgid "No connections between the parts were found."
 msgstr ""
 
 msgid "No decisions found"
@@ -372,6 +423,12 @@ msgstr ""
 msgid "Pages"
 msgstr ""
 
+msgid "Part"
+msgstr ""
+
+msgid "Parts"
+msgstr ""
+
 msgid "Passed"
 msgstr ""
 
@@ -383,6 +440,12 @@ msgstr ""
 
 #, python-format
 msgid "Plan usage (%(provider)s, %(window)s): %(used)s%%, as of %(when)s."
+msgstr ""
+
+msgid "Platform"
+msgstr ""
+
+msgid "Platforms"
 msgstr ""
 
 msgid "Pointed to by"
@@ -419,6 +482,9 @@ msgid "Results"
 msgstr ""
 
 msgid "Run your first update"
+msgstr ""
+
+msgid "Runs on"
 msgstr ""
 
 msgid "Save to guide"
@@ -468,10 +534,22 @@ msgstr ""
 msgid "See every result for “{query}”"
 msgstr ""
 
+msgid "See how it fits together"
+msgstr ""
+
+msgid "See the whole system"
+msgstr ""
+
 msgid "See your progress"
 msgstr ""
 
 msgid "Send"
+msgstr ""
+
+msgid "Service or app"
+msgstr ""
+
+msgid "Services"
 msgstr ""
 
 msgid "Show these shortcuts"
@@ -495,6 +573,9 @@ msgstr ""
 msgid "Switch theme"
 msgstr ""
 
+msgid "System"
+msgstr ""
+
 msgid "The assistant is reading the code…"
 msgstr ""
 
@@ -508,7 +589,15 @@ msgstr ""
 msgid "The last update used ~%(tokens)s tokens (%(cost)s at API prices)."
 msgstr ""
 
+msgid "The parts in this folder and the parts they connect to."
+msgstr ""
+
 msgid "The repository's architecture decision records, as Codetrail found them."
+msgstr ""
+
+msgid ""
+"The repository's parts and how they connect, drawn from facts: nothing "
+"here is the assistant's guess."
 msgstr ""
 
 msgid "The update failed:"
@@ -541,6 +630,11 @@ msgstr ""
 msgid ""
 "Too many modules to show one by one: folders are shown, with the number "
 "of imports on each arrow."
+msgstr ""
+
+msgid ""
+"Too many parts to show one by one: libraries, then folders, are grouped, "
+"with the number of connections on each arrow. Every part is listed below."
 msgstr ""
 
 msgid "Unread"
@@ -584,6 +678,12 @@ msgstr ""
 msgid "What each box links to"
 msgstr ""
 
+msgid "Where it fits"
+msgstr ""
+
+msgid "Why each arrow is there"
+msgstr ""
+
 msgid "You're caught up."
 msgstr ""
 
@@ -605,10 +705,16 @@ msgstr ""
 msgid "Your saved answers"
 msgstr ""
 
+msgid "Your system"
+msgstr ""
+
 msgid "a starting guess"
 msgstr ""
 
 msgid "billed to that account."
+msgstr ""
+
+msgid "calls through"
 msgstr ""
 
 msgid "changed"
@@ -617,11 +723,26 @@ msgstr ""
 msgid "default model"
 msgstr ""
 
+msgid "depends on"
+msgstr ""
+
+msgid "drawn from the code"
+msgstr ""
+
 msgid "free"
+msgstr ""
+
+msgid "implements"
+msgstr ""
+
+msgid "is deployed on"
 msgstr ""
 
 msgctxt "text direction"
 msgid "ltr"
+msgstr ""
+
+msgid "matched by name:"
 msgstr ""
 
 msgid "no charge; the work counts against your plan's usage limits."
@@ -631,6 +752,9 @@ msgid "no price configured"
 msgstr ""
 
 msgid "pages, by passing their checks"
+msgstr ""
+
+msgid "source"
 msgstr ""
 
 msgid "sources changed"

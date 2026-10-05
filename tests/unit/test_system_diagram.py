@@ -132,3 +132,15 @@ def test_no_parts_draw_nothing(tmp_path: Path) -> None:
 
 def test_the_system_diagram_is_offered_first(store: FactStore) -> None:
     assert available_diagrams(store)[0] == "{{diagram system}}"
+
+
+def test_the_parts_are_listed_by_kind_with_their_connections(store: FactStore) -> None:
+    from codetrail.web.diagrams import system_parts
+
+    listed = dict(system_parts(store))
+    assert list(listed) == ["service", "app", "library", "contract", "infrastructure", "platform"]
+    api = listed["service"][0]
+    assert (api.name, api.called_by, api.runs_on) == ("api", ["site"], ["Google Cloud"])
+    site = listed["app"][0]
+    assert (site.depends_on, site.runs_on) == (["ui"], ["Cloudflare"])
+    assert listed["contract"][0].called_by == ["site"]

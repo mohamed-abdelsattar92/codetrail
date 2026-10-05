@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Your system") }}{% endblock %}
+{% block content %}
+<div class="wide">
+<header class="page-head">
+  <h1>{{ _("Your system") }}</h1>
+  <p class="muted">{{ _("The repository's parts and how they connect, drawn from facts: nothing here is the assistant's guess.") }}</p>
+</header>
+
+<section>
+  {% if diagram.rolled_up %}<p class="muted">{{ _("Too many parts to show one by one: libraries, then folders, are grouped, with the number of connections on each arrow. Every part is listed below.") }}</p>{% endif %}
+  {% include "diagram.html" %}
+  {% include "system_legend.html" %}
+</section>
+
+<section>
+  <h2>{{ _("Parts") }}</h2>
+  {% set headings = {"service": _("Services"), "app": _("Apps"), "library": _("Libraries"), "contract": _("Contracts"), "infrastructure": _("Infrastructure"), "platform": _("Platforms")} %}
+  {% for kind, rows in parts %}
+  <h3>{{ headings.get(kind, kind) }}</h3>
+  <table class="system-parts">
+    <thead><tr><th>{{ _("Part") }}</th><th>{{ _("Folder") }}</th><th>{{ _("Depends on") }}</th><th>{{ _("Called by") }}</th><th>{{ _("Runs on") }}</th></tr></thead>
+    <tbody>
+    {% for row in rows %}
+    <tr>
+      <td lang="en" dir="ltr"><a href="/facts/{{ row.id }}">{{ row.name }}</a></td>
+      <td lang="en" dir="ltr">{% if row.folder %}<a href="/areas/{{ row.folder }}">{{ row.folder }}/</a>{% else %}—{% endif %}</td>
+      <td lang="en" dir="ltr">{{ row.depends_on | join(", ") or "—" }}</td>
+      <td lang="en" dir="ltr">{{ row.called_by | join(", ") or "—" }}</td>
+      <td lang="en" dir="ltr">{{ row.runs_on | join(", ") or "—" }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endfor %}
+</section>
+
+<section>
+  <h2>{{ _("Why each arrow is there") }}</h2>
+  {% include "system_arrows.html" %}
+</section>
+</div>
+{% endblock %}

@@ -16,7 +16,7 @@ AXE = (Path(__file__).parent / "vendor" / "axe.min.js").read_text()
 PAGES = [
     "/", "/progress", "/answers", "/digests", "/decisions", "/search?q=retry", "/pages/areas/app",
     "/pages/concepts/retries?path=paths/start", "/pages/paths/start", "/facts/module:app/main.py",
-    "/source/app/main.py", "/areas/app", "/nowhere",
+    "/source/app/main.py", "/areas/app", "/system", "/areas/infra", "/nowhere",
 ]  # fmt: skip
 
 

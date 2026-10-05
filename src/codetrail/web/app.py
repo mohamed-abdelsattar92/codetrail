@@ -43,7 +43,7 @@ from codetrail.lock import TargetBusy, target_in_use
 from codetrail.repo.signal import Signal, behind
 from codetrail.search import Result, SearchIndex, guide_documents
 from codetrail.update import run_update
-from codetrail.web.diagrams import dependencies_diagram, imports_diagram
+from codetrail.web.diagrams import dependencies_diagram, imports_diagram, system_diagram, system_parts
 from codetrail.web.i18n import Language, installed_languages
 from codetrail.web.navigation import (
     Navigation,
@@ -218,6 +218,7 @@ def create_app(
     def render(template: str, status_code: int = 200, **context: Any) -> HTMLResponse:
         current = language()
         context.setdefault("active", "")
+        context.setdefault("has_system", has_system())
         if "nav" not in context:
             context["nav"] = navigation(guide.pages() if guide.root.exists() else [])
         html = (
@@ -227,6 +228,13 @@ def create_app(
                     estimates=call_estimates(), **context)
         )  # fmt: skip
         return HTMLResponse(html, status_code=status_code)
+
+    def has_system() -> bool:
+        """Whether the facts hold any parts: the sidebar links to the system page only then."""
+        if not (view.data / "codetrail.db").exists():
+            return False
+        with view.store() as store:
+            return bool(store.entities(EntityKind.PART))
 
     def not_found() -> HTMLResponse:
         return render("error.html", status_code=404)
@@ -251,9 +259,14 @@ def create_app(
         counts: list[tuple[str, int]] = []
         snapshot = None
         last_update = None
+        system = None
         if (view.data / "codetrail.db").exists():
             with view.store() as store:
                 snapshot = store.latest_snapshot()
+                diagram = system_diagram(store, None, settings.diagrams.max_nodes)
+                if diagram.nodes:
+                    parts = len(store.entities(EntityKind.PART))
+                    system = {"parts": parts, "connections": len(diagram.arrows)}
                 kinds: dict[str, int] = {}
                 for entity in store.entities():
                     kinds[str(entity.kind)] = kinds.get(str(entity.kind), 0) + 1
@@ -272,8 +285,19 @@ def create_app(
             "home.html", nav=nav, active="home", signal=current_signal(), areas=view.areas(), counts=counts,
             snapshot=snapshot, guide_pages=guide_pages, latest_digest=digests[0] if digests else None,
             unread_digests=unread_digests, stale_pages=stale, learned=learned, last_update=last_update,
-            continue_reading=continue_reading(pages, nav.statuses),
+            continue_reading=continue_reading(pages, nav.statuses), system=system, has_system=system is not None,
         )  # fmt: skip
+
+    @app.get("/system", response_class=HTMLResponse)
+    def system() -> HTMLResponse:
+        if not (view.data / "codetrail.db").exists():
+            return not_found()
+        with view.store() as store:
+            diagram = system_diagram(store, None, settings.diagrams.max_nodes)
+            parts = system_parts(store)
+        if not parts:
+            return not_found()
+        return render("system.html", active="system", diagram=diagram, parts=parts, has_system=True)
 
     @app.get("/progress", response_class=HTMLResponse)
     def progress() -> HTMLResponse:
@@ -399,14 +423,16 @@ def create_app(
                 if project.id.removeprefix("project:").startswith(prefix) or project.id == f"project:{scope}"
             ]
             imports = imports_diagram(store, scope, settings.diagrams.max_nodes)
+            system = system_diagram(store, scope, settings.diagrams.max_nodes)
             decisions = [
                 decision
                 for decision in store.entities(EntityKind.DECISION)
                 if str(decision.attributes.get("path", "")).startswith(prefix)
             ]
         return render(
-            "area.html", scope=scope, files=files_here, projects=projects, imports=imports, decisions=decisions
-        )
+            "area.html", scope=scope, files=files_here, projects=projects, imports=imports, decisions=decisions,
+            system=system,
+        )  # fmt: skip
 
     @app.get("/facts/{fact_id:path}", response_class=HTMLResponse)
     def fact(fact_id: str) -> HTMLResponse:

@@ -1,0 +1,17 @@
+{% set connections = {"depends_on": _("depends on"), "implements": _("implements"), "calls_via": _("calls through"), "deployed_on": _("is deployed on")} %}
+{% if diagram.arrows %}
+<ul class="list system-arrows">
+  {% for arrow in diagram.arrows %}
+  <li>
+    <span class="grow"><span lang="en" dir="ltr">{{ arrow.source }}</span> {{ connections.get(arrow.kind, arrow.kind) }} <span lang="en" dir="ltr">{{ arrow.target }}</span></span>
+    {% if arrow.evidence == "matched" %}
+      <span class="faint">{{ _("matched by name:") }} <span lang="en" dir="ltr">{{ arrow.names | join(" · ") }}</span>{% if arrow.link %} (<a href="{{ arrow.link }}" lang="en" dir="ltr">{{ _("source") }}</a>){% endif %}</span>
+    {% elif arrow.link %}
+      <a class="faint" href="{{ arrow.link }}" lang="en" dir="ltr">{{ arrow.link.removeprefix("/source/") }}</a>
+    {% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="muted">{{ _("No connections between the parts were found.") }}</p>
+{% endif %}
