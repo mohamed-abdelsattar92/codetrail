@@ -113,7 +113,7 @@ class AgentSdkClaude:
         )
         result: ResultMessage | None = None
         with anyio.fail_after(CALL_TIMEOUT_SECONDS):
-            async for message in query(prompt=answer_prompt(request), options=options):
+            async for message in query(prompt=neutralize(answer_prompt(request)), options=options):
                 if isinstance(message, StreamEvent):
                     event = message.event
                     delta = event.get("delta") or {}
