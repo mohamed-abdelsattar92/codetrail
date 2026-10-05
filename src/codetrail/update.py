@@ -73,6 +73,7 @@ def run_update(paths: Paths, name: str, claude: Claude | None = None, facts_only
                 visible=lambda path: rules.reason(path) is None and path not in excluded,
                 max_pages=target.generation.max_pages_per_update,
                 concurrency=target.generation.concurrency,
+                max_budget_usd=target.generation.max_budget_usd_per_update,
                 previous_commit=previous.commit if previous else None,
                 diff=diff,
             )

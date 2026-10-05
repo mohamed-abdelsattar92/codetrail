@@ -21,7 +21,13 @@ class ToolGuard:
         self.files_read: list[str] = []
 
     def decide(self, tool: str, arguments: Mapping[str, Any]) -> str | None:
-        """None to allow the call, or the reason it is refused."""
+        """None to allow the call, or the reason it is refused; any error refuses (fails closed)."""
+        try:
+            return self._decide(tool, arguments)
+        except Exception:
+            return "The request couldn't be checked, so it is refused."
+
+    def _decide(self, tool: str, arguments: Mapping[str, Any]) -> str | None:
         if tool == ANSWER_TOOL:
             return None
         if tool not in ALLOWED_TOOLS:
@@ -42,17 +48,27 @@ class ToolGuard:
             return f"{folder} isn't inside the repository."
         for key in ("pattern", "glob") if tool == "Glob" else ("glob",):
             pattern = arguments.get(key)
-            if isinstance(pattern, str) and (pattern.startswith(("/", "~")) or ".." in pattern.split("/")):
-                return f"The pattern {pattern} reaches outside the repository."
+            # Braces could expand to .. or an absolute path before the pattern is resolved; refuse them outright.
+            if isinstance(pattern, str) and (
+                pattern.startswith(("/", "~")) or ".." in pattern or any(char in pattern for char in "{}\\\0")
+            ):
+                return f"The pattern {pattern} could reach outside the repository."
         return None
 
     def _inside(self, path: str) -> Path | None:
-        candidate = Path(path).expanduser()
+        if "\0" in path or path.startswith("~"):
+            return None
+        candidate = Path(path)
         resolved = (candidate if candidate.is_absolute() else self.root / candidate).resolve()
         return resolved if resolved == self.root or resolved.is_relative_to(self.root) else None
 
     async def hook(self, input_data: Mapping[str, Any], tool_use_id: str | None, context: Any) -> dict[str, Any]:
-        reason = self.decide(str(input_data.get("tool_name", "")), input_data.get("tool_input") or {})
+        arguments = input_data.get("tool_input")
+        if not isinstance(arguments, Mapping):
+            arguments = {"invalid": True}
+        reason = self.decide(str(input_data.get("tool_name", "")), arguments)
+        if reason is None and arguments.get("invalid") is True and len(arguments) == 1:
+            reason = "The request couldn't be checked, so it is refused."
         if reason is None:
             return {}
         return {
