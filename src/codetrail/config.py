@@ -132,6 +132,8 @@ class ExtractSettings(Settings):
     max_file_bytes: int = Field(default=1_000_000, gt=0)
     max_attribute_chars: int = Field(default=300, ge=10)
     max_tsconfig_paths: int = Field(default=100, gt=0, le=10_000)  # path patterns and targets read from a tsconfig
+    max_workflow_steps: int = Field(default=5000, gt=0, le=100_000)  # steps read from one workflow file
+    max_resource_paths: int = Field(default=20, gt=0, le=1000)  # path attributes kept on one Terraform resource
 
 
 class ServerSettings(Settings):

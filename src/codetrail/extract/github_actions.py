@@ -1,8 +1,9 @@
 """The github_actions extractor: deploy evidence from GitHub Actions workflows, and nothing else (design 17.2).
 
-Workflows are read with `yaml.safe_load`. Each step that deploys (a known command, or a known deploy action) becomes a
-`deployment` fact with its kind, its target name when one is given, the folder it runs in and its line. Step text,
-`env` values and `secrets.*` references are never recorded: only the kind, a plain target name and a folder.
+Workflows are read with a SafeLoader that refuses aliases. Each step that deploys (a known command, or a known deploy
+action) becomes a `deployment` fact with its kind, its target name when one is given, the folder it runs in and its
+line, which comes from the parser. Step text, `env` values and `secrets.*` references are never recorded: only the
+kind, a plain target name, a job id in GitHub's grammar and a folder of plain path segments.
 """
 
 from __future__ import annotations
@@ -17,8 +18,10 @@ import yaml
 from codetrail.extract import FileFacts, Resolution
 from codetrail.facts import Entity, EntityKind, Relation, Source
 
-# A target name is kept only when it's a plain name, so nothing secret-shaped or templated reaches a fact.
+# Only plain names reach a fact, so nothing secret-shaped, templated or instruction-like does.
 PLAIN_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9-]{0,62}")
+JOB_ID = re.compile(r"[A-Za-z_][A-Za-z0-9_-]{0,99}")
+SEGMENT = re.compile(r"[A-Za-z0-9._-]+")
 COMMANDS = [
     ("cloudflare", re.compile(r"\bwrangler(?:@[\w.^~-]+)?\s+(?:deploy|publish)\b")),
     (
@@ -27,9 +30,13 @@ COMMANDS = [
     ),
     ("terraform", re.compile(r"\bterraform\s+apply\b")),
     ("fly", re.compile(r"\bfly(?:ctl)?\s+deploy\b")),
-    ("npm_script", re.compile(r"\b(?:npm\s+run|pnpm(?:\s+run)?|yarn(?:\s+run)?)\s+deploy\b")),
+    ("npm_script", re.compile(r"\b(?:npm\s+run|pnpm\s+run|yarn(?:\s+run)?)\s+deploy\b")),  # `pnpm deploy` copies files
 ]
-MAX_STEPS = 5000  # per workflow file: more is not a real workflow
+ACTIONS = {
+    "cloudflare/wrangler-action": "cloudflare",
+    "google-github-actions/deploy-cloudrun": "google_cloud",
+    "superfly/flyctl-actions": "fly",
+}
 
 
 class _NoAliases(yaml.SafeLoader):
@@ -41,16 +48,12 @@ class _NoAliases(yaml.SafeLoader):
         return super().compose_node(parent, index)
 
 
-ACTIONS = {
-    "cloudflare/wrangler-action": "cloudflare",
-    "google-github-actions/deploy-cloudrun": "google_cloud",
-    "superfly/flyctl-actions": "fly",
-}
-
-
 class GitHubActionsExtractor:
     name = "github_actions"
     version = 1
+
+    def __init__(self, max_steps: int = 5000) -> None:
+        self._max_steps = max_steps
 
     def handles(self, path: str) -> bool:
         return path.startswith(".github/workflows/") and path.endswith((".yml", ".yaml")) and path.count("/") == 2
@@ -59,15 +62,21 @@ class GitHubActionsExtractor:
         pass
 
     def extract(self, path: str, content: bytes) -> FileFacts:
-        text = content.decode("utf-8")
-        data = yaml.load(text, Loader=_NoAliases)  # noqa: S506 - a SafeLoader that also refuses aliases
+        loader = _NoAliases(content.decode("utf-8"))
+        try:
+            root = loader.get_single_node()
+            data = loader.construct_document(root) if root is not None else None
+        finally:
+            loader.dispose()
         jobs = data.get("jobs") if isinstance(data, dict) else None
-        if not isinstance(jobs, dict):
+        if not isinstance(jobs, dict) or root is None:
             return FileFacts(path)
-        lines = text.splitlines()
+        lines = _step_lines(root)
         entities: list[Entity] = []
         visited = 0
         for job_name, job in jobs.items():
+            if not isinstance(job_name, str) or not JOB_ID.fullmatch(job_name):
+                continue  # GitHub's job-id grammar; anything else isn't a job, and its text never reaches a fact
             if not isinstance(job, dict) or not isinstance(job.get("steps"), list):
                 continue
             defaults = job.get("defaults")
@@ -75,21 +84,19 @@ class GitHubActionsExtractor:
             job_folder = _folder(run_defaults.get("working-directory")) if isinstance(run_defaults, dict) else ""
             for index, step in enumerate(job["steps"]):
                 visited += 1
-                if visited > MAX_STEPS:
+                if visited > self._max_steps:
                     return FileFacts(path, tuple(entities))
-                if not isinstance(step, dict):
-                    continue
-                found = _deploy(step)
+                found = _deploy(step) if isinstance(step, dict) else None
                 if found is None:
                     continue
                 kind, target = found
                 folder = _folder(step.get("working-directory")) if "working-directory" in step else job_folder
-                attributes: dict[str, Any] = {"kind": kind, "job": str(job_name)}
+                attributes: dict[str, Any] = {"kind": kind, "job": job_name}
                 if folder is not None:  # an unusable folder is no folder: no arrow is drawn on a guess
                     attributes["folder"] = folder
                 if target and PLAIN_NAME.fullmatch(target):
                     attributes["target"] = target
-                line = _line_of(lines, step)
+                line = lines.get((job_name, index))
                 entities.append(Entity(f"deployment:{path}#{job_name}/{index}", EntityKind.DEPLOYMENT, attributes,
                                        (Source(path, line, line) if line else Source(path),)))  # fmt: skip
         return FileFacts(path, tuple(entities))
@@ -98,14 +105,36 @@ class GitHubActionsExtractor:
         return Resolution(list[Relation]())
 
 
+def _step_lines(root: yaml.Node) -> dict[tuple[str, int], int]:
+    """Each step's line, from the parser's own positions: exact, and one pass over the document."""
+    lines: dict[tuple[str, int], int] = {}
+    jobs = _value(root, "jobs")
+    if not isinstance(jobs, yaml.MappingNode):
+        return lines
+    for key, job in jobs.value:
+        steps = _value(job, "steps")
+        if isinstance(key, yaml.ScalarNode) and isinstance(steps, yaml.SequenceNode):
+            for index, step in enumerate(steps.value):
+                lines[(str(key.value), index)] = step.start_mark.line + 1
+    return lines
+
+
+def _value(node: yaml.Node, name: str) -> yaml.Node | None:
+    if not isinstance(node, yaml.MappingNode):
+        return None
+    return next((value for key, value in node.value if isinstance(key, yaml.ScalarNode) and key.value == name), None)
+
+
 def _folder(value: Any) -> str | None:
-    """A working directory as a repository folder ("" is the root); None when it's templated, absolute or escaping."""
+    """A working directory as a repository folder ("" is the root), or None unless every part is a plain segment."""
     if value is None:
         return ""
-    if not isinstance(value, str) or "$" in value or value.startswith("/"):
+    if not isinstance(value, str) or value.startswith("/"):
         return None
     parts = [part for part in PurePosixPath(value).parts if part != "."]
-    return None if ".." in parts else "/".join(parts)
+    if any(part == ".." or not SEGMENT.fullmatch(part) for part in parts):
+        return None  # templated, escaping, or not a plain folder name
+    return "/".join(parts)
 
 
 def _deploy(step: Mapping[str, Any]) -> tuple[str, str | None] | None:
@@ -122,16 +151,4 @@ def _deploy(step: Mapping[str, Any]) -> tuple[str, str | None] | None:
             match = pattern.search(run)
             if match:
                 return kind, match.groupdict().get("target")
-    return None
-
-
-def _line_of(lines: list[str], step: Mapping[str, Any]) -> int | None:
-    """The line where the step's `uses` or `run` key starts, found by its first words (never stored)."""
-    for key in ("uses", "run", "name"):
-        value = step.get(key)
-        if isinstance(value, str) and value.strip():
-            first = value.strip().splitlines()[0][:40]
-            for number, line in enumerate(lines, start=1):
-                if first in line:
-                    return number
     return None

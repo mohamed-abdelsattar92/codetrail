@@ -104,3 +104,23 @@ resource "archive_file" "bad" {
     assert paths["resource:infra/app/google_cloudfunctions2_function.api"] == ["services/api"]
     assert paths["resource:infra/app/docker_image.web"] == ["apps/web", "infra/app/Dockerfile"]
     assert paths["resource:infra/app/archive_file.bad"] is None  # interpolated, absolute, escaping or a URL
+
+
+def test_paths_come_only_from_plain_attributes(tmp_path: Path) -> None:
+    tf = """resource "local_file" "conf" {
+  # path = "from/a/comment"
+  content = <<EOT
+path = "inside/a/heredoc"
+EOT
+  source = "user:token@host:repo"
+  filename = "x"
+  build {
+    context = "../web"
+  }
+}
+"""
+    (tmp_path / "infra").mkdir()
+    (tmp_path / "infra/main.tf").write_text(tf)
+    found = run_extractors(tmp_path, ["infra/main.tf"], [TerraformExtractor()])
+    [resource] = [entity for entity in found.entities if entity.id.startswith("resource:")]
+    assert resource.attributes.get("paths") == ["web"]

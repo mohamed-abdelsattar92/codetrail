@@ -75,10 +75,10 @@ def build_extractors(target: TargetConfig, extract: ExtractSettings | None = Non
         "python": PythonExtractor(),
         "adr": AdrExtractor(target.adr.paths),
         "openapi": OpenApiExtractor(target.openapi.paths),
-        "terraform": TerraformExtractor(),
+        "terraform": TerraformExtractor(extract.max_resource_paths),
         "swift": SwiftExtractor(),
         "typescript": TypeScriptExtractor(extract.max_tsconfig_paths),
-        "github_actions": GitHubActionsExtractor(),
+        "github_actions": GitHubActionsExtractor(extract.max_workflow_steps),
     }
     return [available[name] for name in target.extractors]
 
