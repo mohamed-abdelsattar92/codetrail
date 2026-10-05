@@ -6,6 +6,7 @@ import { setUpDiagrams } from "./diagram.js";
 import { setUpLearning } from "./learning.js";
 import { setUpOutline } from "./outline.js";
 import { setUpPalette } from "./palette.js";
+import { setUpResize } from "./resize.js";
 import { setUpShortcuts } from "./shortcuts.js";
 import { setUpTheme } from "./theme.js";
 import { setUpUpdate } from "./update.js";
@@ -26,5 +27,6 @@ setUpPalette();
 setUpUpdate();
 setUpShortcuts();
 setUpOutline();
+setUpResize();
 setUpDiagrams();
 document.documentElement.dataset.ready = "true"; // every handler is in place

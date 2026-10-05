@@ -265,3 +265,57 @@
     display: none;
   }
 }
+
+/* Resize handles on the sidebar's and the Ask panel's inner edges (design section 16.1). */
+.resize-handle {
+  position: fixed;
+  z-index: 26;
+  inline-size: 9px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.resize-handle::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: 4px;
+  inline-size: 1px;
+  background: transparent;
+  transition: background var(--duration) var(--ease);
+}
+
+.resize-handle:hover::after,
+.resize-handle:focus-visible::after,
+.resize-handle.dragging::after {
+  inset-inline-start: 3px;
+  inline-size: 3px;
+  background: var(--accent);
+}
+
+.resize-handle:focus-visible {
+  box-shadow: none;
+}
+
+.resize-sidebar {
+  inset-block: var(--header-height) 0;
+  inset-inline-start: calc(var(--sidebar-width) - 5px);
+}
+
+.ask-panel .resize-panel {
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: -5px;
+}
+
+body.resizing {
+  cursor: col-resize;
+  user-select: none;
+}
+
+@media (max-width: 900px) {
+  .resize-handle,
+  .ask-panel .resize-panel {
+    display: none;
+  }
+}

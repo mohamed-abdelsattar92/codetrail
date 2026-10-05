@@ -202,6 +202,9 @@ msgstr ""
 msgid "Digests"
 msgstr ""
 
+msgid "Drag to resize; double-click to reset"
+msgstr ""
+
 msgid "Each update writes a digest of what changed since the last one."
 msgstr ""
 
@@ -404,6 +407,12 @@ msgid "Read"
 msgstr ""
 
 msgid "Refreshing the facts (free)…"
+msgstr ""
+
+msgid "Resize the Ask panel"
+msgstr ""
+
+msgid "Resize the sidebar"
 msgstr ""
 
 msgid "Results"
