@@ -115,3 +115,11 @@ def test_package_urls_lose_their_credentials(tmp_path: Path) -> None:
     extraction = run(tmp_path, {"X/Package.swift": manifest})
     entities = {entity.id: entity for entity in extraction.entities}
     assert entities["package:swift/lib"].attributes == {"url": "https://git.example/Lib.git"}
+
+
+def test_scp_style_urls_lose_their_credentials(tmp_path: Path) -> None:
+    url = "me:hunter2@git.example:team/Lib.git"
+    manifest = f'let package = Package(name: "X", dependencies: [.package(url: "{url}", from: "1.0.0")])'
+    extraction = run(tmp_path, {"X/Package.swift": manifest})
+    entities = {entity.id: entity for entity in extraction.entities}
+    assert entities["package:swift/lib"].attributes == {"url": "git.example:team/Lib.git"}

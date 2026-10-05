@@ -52,6 +52,9 @@ def _balanced(text: str, start: int, opening: str, closing: str) -> str | None:
 
 
 def _without_credentials(url: str) -> str:
+    if "://" not in url:  # scp-style: [user[:password]@]host:path
+        authority = url.split("/", 1)[0]
+        return url[authority.rindex("@") + 1 :] if "@" in authority else url
     parts = urlsplit(url)
     if "@" not in parts.netloc:
         return url

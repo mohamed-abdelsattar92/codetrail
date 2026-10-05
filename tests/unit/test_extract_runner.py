@@ -128,5 +128,14 @@ class Long(Words):
 def test_long_text_attributes_are_cut(tmp_path: Path) -> None:
     """Text from a target file reaches prompts and pages, so it's bounded (Phase 7 review, finding 3)."""
     paths = write(tmp_path, {"a.txt": "red"})
-    extraction = run_extractors(tmp_path, paths, [Long()], max_attribute_chars=10)
-    assert dict(extraction.entities[0].attributes) == {"text": "x" * 9 + "…", "list": ["y" * 9 + "…"]}
+    extraction = run_extractors(tmp_path, paths, [Long()], max_attribute_chars=20)
+    assert dict(extraction.entities[0].attributes) == {"text": "x" * 19 + "…", "list": ["y" * 19 + "…"]}
+
+
+def test_facts_with_overlong_ids_are_skipped_with_a_warning(tmp_path: Path) -> None:
+    """Ids carry target text too, so they share the attribute limit (Phase 7 review, notes)."""
+    paths = write(tmp_path, {"a.txt": "red", ("b" * 40) + ".txt": "red"})
+    extraction = run_extractors(tmp_path, paths, [Words()], max_attribute_chars=30)
+    assert "module:a.txt" in {entity.id for entity in extraction.entities}
+    assert all(len(entity.id) <= 30 for entity in extraction.entities)
+    assert f"words: {'b' * 40}.txt: skipped a fact whose id is longer than 30 characters" in extraction.warnings
