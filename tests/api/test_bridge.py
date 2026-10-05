@@ -218,3 +218,17 @@ def test_an_answers_usage_is_recorded(paths: Paths) -> None:
     connection = connect(paths.target_data("t") / "codetrail.db")
     rows = connection.execute("SELECT kind, provider, cost_usd FROM assistant_calls").fetchall()
     assert [tuple(row) for row in rows] == [("answer", "claude_code", 0.02)]
+
+
+def test_a_buffered_answer_is_only_shown_after_its_scan(paths: Paths) -> None:
+    """Codex and local models answer in one final chunk, which never goes out as text before the scan (15.5)."""
+    token = fake_github_token(22)
+    claude = FakeAssistant(answers=[[AnswerChunk(f"The key is {token}.", done=True)]])
+    client, headers = make_client(paths, claude)
+    found = events(client.post("/bridge/questions", json={"question": "Any keys?"}, headers=headers).text)
+    assert [event["type"] for event in found] == ["error"]
+    assert token not in json.dumps(found)
+    clean = FakeAssistant(answers=[[AnswerChunk("All clear.", done=True)]])
+    client, headers = make_client(paths, clean)
+    found = events(client.post("/bridge/questions", json={"question": "Any keys?"}, headers=headers).text)
+    assert [event["type"] for event in found] == ["done"] and "All clear." in str(found[0]["html"])

@@ -116,7 +116,7 @@ async def test_grading_offers_no_tools(source: Path) -> None:
 async def test_an_answer_is_buffered_then_finished(source: Path) -> None:
     endpoint = Endpoint([reply("Hello there.")])
     chunks = [chunk async for chunk in adapter(source, endpoint).answer(QuestionRequest("shop", "What?", "en"))]
-    assert [chunk.text for chunk in chunks] == ["Hello there.", ""] and chunks[-1].done
+    assert [chunk.text for chunk in chunks] == ["Hello there."] and chunks[-1].done
 
 
 @pytest.mark.anyio
@@ -151,3 +151,23 @@ def test_the_real_client_ignores_proxies_and_redirects(source: Path, monkeypatch
     assistant = LocalAssistant(source, {}, LocalSettings(), GenerationSettings())
     assert assistant.client.follow_redirects is False
     assert assistant.client._trust_env is False
+
+
+@pytest.mark.anyio
+async def test_a_long_unclosed_fence_is_parsed_quickly(source: Path) -> None:
+    import time
+
+    endpoint = Endpoint([reply("```" + " " * 200_000), reply(json.dumps(PAGE))])
+    started = time.monotonic()
+    assert (await adapter(source, endpoint).write_page(page_request())).body == "A page."
+    assert time.monotonic() - started < 1
+
+
+@pytest.mark.anyio
+async def test_tool_calls_per_turn_are_capped(source: Path) -> None:
+    many = [("read", {"path": "app/main.py"})] * 50
+    endpoint = Endpoint([reply(calls=many), reply(json.dumps(PAGE))])
+    await adapter(source, endpoint).write_page(page_request())
+    results = [message["content"] for message in endpoint.requests[1]["messages"] if message["role"] == "tool"]
+    assert len(results) == 50
+    assert sum(result.startswith("Refused: too many") for result in results) == 30

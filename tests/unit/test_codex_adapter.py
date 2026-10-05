@@ -155,6 +155,6 @@ async def test_an_answer_is_buffered_until_codex_finishes(source: Path, tmp_path
     events = [message("Hello there."), turn()]
     program = make_program(tmp_path / "bin", "fake-codex", events)
     chunks = [chunk async for chunk in adapter(source, program).answer(QuestionRequest("shop", "What?", "en"))]
-    assert [chunk.text for chunk in chunks] == ["Hello there.", ""]
+    assert [chunk.text for chunk in chunks] == ["Hello there."]
     assert chunks[-1].done and chunks[-1].usage.output_tokens == 80
     assert "--output-schema" not in program.record["argv"]

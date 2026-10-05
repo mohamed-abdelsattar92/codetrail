@@ -27,7 +27,10 @@ INSTALL = {
     "/login using your Claude subscription.",
     "codex": "Install Codex (`npm install -g @openai/codex`), then run `codex login` and choose Sign in with ChatGPT.",
 }
-CODEX_WARNING = "Codex reads outside the repository's allowed files (design section 15.5)."
+CODEX_WARNING = (
+    "Codex reads outside the repository's allowed files (design section 15.5). Its isolation from your Codex "
+    "settings is tested against a stand-in, and checked live only where Codex is installed (`just test-live`)."
+)
 
 
 @dataclass(frozen=True)

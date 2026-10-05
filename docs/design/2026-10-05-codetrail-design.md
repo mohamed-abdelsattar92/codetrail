@@ -571,7 +571,7 @@ The assistant is whatever plans, writes and answers (section 6.9); the kinds of 
 
 Each kind of call names its provider and model in the target's `[models]` table, as `provider:model`; a value with no known provider prefix is a `claude_code` model, so earlier configurations keep working. A model name may itself contain colons (`local:qwen3:14b`).
 
-Every adapter streams answers as text, returns structured drafts checked against the same JSON schemas, and returns a `Usage` (input, cached input and output tokens, the model, and the provider's own cost figure when it gives one). `codex` and `local` have no turn or dollar limit of their own, so Codetrail stops them when they pass `max_tokens_per_call` or `timeout_seconds`. `local` validates the final JSON against the schema and retries once with the errors. Prompts, schemas, the `@` neutralizing and the fences are shared by all three.
+Every adapter streams answers as text, returns structured drafts checked against the same JSON schemas, and returns a `Usage` (input, cached input and output tokens, the model, and the provider's own cost figure when it gives one). `codex` and `local` have no turn or dollar limit of their own, so Codetrail stops them when they pass `max_tokens_per_call` or `timeout_seconds`. Codex reports tokens only at the end of each turn, so its token limit applies per turn, and `timeout_seconds` bounds a long turn. `local` handles at most 20 tool calls in one turn and refuses the rest. `local` validates the final JSON against the schema and retries once with the errors. Prompts, schemas, the `@` neutralizing and the fences are shared by all three.
 
 ### 15.2 Sign-in
 - Each provider has `auth = "subscription"` (the default) or `"api_key"`.
