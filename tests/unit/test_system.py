@@ -265,3 +265,11 @@ def test_repeated_mentions_and_names_take_linear_time() -> None:
     started = time.monotonic()
     derive([root, *contracts, *services, *targets], [], files, lambda path: content.get(path))
     assert time.monotonic() - started < 5
+
+
+def test_a_root_module_that_shares_its_folder_with_code_draws_no_arrow() -> None:
+    root = entity("project:.", EntityKind.PROJECT, "pyproject.toml", name="root")
+    module = entity("terraform_module:.", EntityKind.TERRAFORM_MODULE, "main.tf")
+    bucket = entity("resource:./aws_s3_bucket.b", EntityKind.RESOURCE, "main.tf", type="aws_s3_bucket", module=".")
+    found = derive([root, module, bucket], [], {"pyproject.toml": "p", "main.tf": "t"}, lambda path: None)
+    assert not [r for r in found.relations if r.kind is RelationKind.DEPLOYED_ON]  # the code part isn't the module

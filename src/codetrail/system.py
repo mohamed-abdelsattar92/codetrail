@@ -126,6 +126,7 @@ class _System:
         self.seen: set[tuple[str, str, str]] = set()
         self.warnings: list[str] = []
         self.counts: Counter[str] = Counter()
+        self.owners: dict[str, Part | None] = {}  # folder -> its owner, once code and infrastructure parts are known
 
     # Parts --------------------------------------------------------------------------------------------------------
     def add_part(self, part: Part) -> None:
@@ -206,13 +207,23 @@ class _System:
     def owner(self, path: str) -> Part | None:
         """The innermost code or infrastructure part whose folder holds `path`."""
         folder = path
-        while True:  # one lookup per folder level, so no repository's size makes this slow
+        visited: list[str] = []
+        while True:  # one lookup per folder level, remembered, so neither size nor depth makes this slow
+            if folder in self.owners:
+                found = self.owners[folder]
+                break
+            visited.append(folder)
             part = self.parts.get(f"part:{folder or '.'}")
             if part is not None and part.kind not in ("contract", "platform") and part.folder == folder:
-                return part
+                found = part
+                break
             if not folder:
-                return None
+                found = None
+                break
             folder = folder.rpartition("/")[0]
+        for each in visited:
+            self.owners[each] = found
+        return found
 
     # Connections --------------------------------------------------------------------------------------------------
     def connect(
@@ -357,6 +368,8 @@ class _System:
             elif entity.kind is EntityKind.RESOURCE:
                 kind = str(entity.attributes.get("type", ""))
                 module = self.parts.get(f"part:{_folder(str(entity.attributes.get('module', ''))) or '.'}")
+                if module is not None and module.kind != "infrastructure":
+                    module = None  # its folder's id went to a code part: no arrow on a guess
                 platform_key = next(
                     (value for prefix, value in RESOURCE_PLATFORMS.items() if kind.startswith(prefix)), None
                 )
