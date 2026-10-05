@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from codetrail.database import connect
-from codetrail.facts import Entity, EntityKind, Source
+from codetrail.facts import Entity, EntityKind, Relation, RelationKind, Source
 from codetrail.facts.store import FactStore
 from codetrail.generate.validate import ValidationContext, parse_rationale, validate_page
 from codetrail.repo.mirror import refresh_mirror
@@ -35,7 +35,10 @@ def context(tmp_path: Path) -> ValidationContext:
     store.record(head, [
         Entity("decision:ADR-0007", EntityKind.DECISION, {}, (Source("docs/adr/0007-rest.md"),)),
         Entity("project:.", EntityKind.PROJECT, {}, (Source("pyproject.toml"),)),
-    ], [])  # fmt: skip
+        Entity("project:docs", EntityKind.PROJECT, {}, (Source("docs/pyproject.toml"),)),
+        Entity("module:app/main.py", EntityKind.MODULE, {"name": "app.main"}, (Source("app/main.py"),)),
+        Entity("package:pypi/fastapi", EntityKind.PACKAGE),
+    ], [Relation("project:.", RelationKind.DEPENDS_ON, "package:pypi/fastapi", {"group": "main"})])  # fmt: skip
     manifest = SourceManifest(head, {"docs/adr/0007-rest.md": "a" * 40, "app/main.py": "b" * 40})
     COMMITS["fix"] = git(checkout, "rev-parse", "HEAD~1")
     COMMITS["secret"] = git(checkout, "rev-parse", "HEAD")
@@ -80,6 +83,9 @@ def test_a_quote_from_a_commit_passes(context: ValidationContext) -> None:
         ("{{diagram imports scope=nowhere}}", "nowhere"),
         ("{{diagram dependencies project=project:missing}}", "project:missing"),
         ("{{diagram sequence scope=app}}", "diagram"),
+        ("{{diagram imports scope=docs}}", "would draw nothing"),  # files, but no modules there
+        ("{{diagram resources scope=app}}", "would draw nothing"),  # no Terraform there
+        ("{{diagram dependencies project=project:docs}}", "would draw nothing"),  # a project with no dependencies
         ("", "empty"),
     ],
 )

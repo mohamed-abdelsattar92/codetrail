@@ -30,3 +30,16 @@ def test_digest_commits_and_fact_changes_are_fenced() -> None:
     prompt = digest_prompt(DigestRequest("shop", f"abc {INJECTED}", f"+ module {INJECTED}"))
     assert len([body for body in fenced(prompt) if INJECTED in body]) == 2
     assert INJECTED not in FENCED.sub("", prompt)
+
+
+def test_an_answer_is_told_which_diagrams_it_can_place() -> None:
+    from codetrail.assistant import QuestionRequest
+    from codetrail.assistant.prompts import answer_prompt
+
+    request = QuestionRequest(
+        "shop", "Draw the architecture", "en", diagrams=["{{diagram imports scope=services/api}}"]
+    )
+    prompt = answer_prompt(request)
+    assert "{{diagram imports scope=services/api}}" in prompt
+    assert "only these" in prompt
+    assert "Diagrams you can place" not in answer_prompt(QuestionRequest("shop", "Hi", "en"))
