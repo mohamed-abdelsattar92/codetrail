@@ -1,6 +1,7 @@
 // The Ask panel (design section 16.4): this session's answers, a question about the page being read, and saving
 // answers to the guide. A question is sent only by the Send button, which shows its estimate; nothing else spends.
 import { getJSON, post, recall, remember, usedText } from "./api.js";
+import { drawDiagramsIn } from "./diagram.js";
 
 const panel = document.querySelector("[data-ask]");
 const thread = panel?.querySelector("[data-ask-thread]");
@@ -78,6 +79,7 @@ async function loadSessionAnswers() {
     for (const answer of answers) {
       const { answer: body, actions } = item(answer.question, panel.dataset.language);
       body.innerHTML = answer.html; // rendered and sanitized on the server, raw HTML disabled
+      drawDiagramsIn(body);
       addSaveButton(actions, answer.id, answer.question);
     }
     thread.scrollTop = thread.scrollHeight;
@@ -149,6 +151,7 @@ async function send(event) {
           status.textContent = "";
         } else if (message.type === "done") {
           answer.innerHTML = message.html; // rendered on the server with raw HTML disabled
+          drawDiagramsIn(answer); // diagrams drawn from facts, as on the guide's pages
           addSaveButton(actions, message.answer_id, question);
           const used = document.createElement("span");
           used.textContent = usedText(status, message.usage);

@@ -198,7 +198,7 @@ checks: [...]                         # section 8.2
 At large scale, an index from facts to pages in SQLite, rebuilt from front matter, would replace scanning the pages; it isn't built until a target needs it.
 
 ### 4.4 Diagrams
-A diagram is a named query over facts within a scope (for example the imports inside `services/api/app`, or the infrastructure resources and their references), rendered to Mermaid text by Codetrail. Above a node limit in configuration it rolls up to directories or packages, with counts on the edges, and links to drill down. Every node and edge links to its fact. Claude never writes Mermaid.
+A diagram is a named query over facts within a scope (for example the imports inside `services/api/app`, or the infrastructure resources and their references), rendered to Mermaid text by Codetrail. Above a node limit in configuration it rolls up to directories or packages, with counts on the edges, and links to drill down. Every node and edge links to its fact. Claude never writes Mermaid. The Mermaid Codetrail writes always parses: labels are escaped, a blank label falls back to the fact's path, and an arrow is labelled only when it has a label (a browser test parses every diagram kind, with hostile names, through the vendored Mermaid). A diagram that would draw nothing is refused when a page is checked and left out when a page is shown.
 
 ### 4.5 Not facts
 Commit history (read through `repo` for each update's range) and document bodies (ADRs, READMEs, design documents, which Claude reads when needed). An ADR's metadata (number, title, status, supersedes, path) is a fact, so documented rationale can link to it.
@@ -338,7 +338,7 @@ Server-rendered with FastAPI and Jinja2, served by uvicorn; Markdown rendered on
 
 ### 7.3 The bridge
 - `POST /bridge/questions` takes a question and optionally the page being read, and streams the answer with `fetch` (not `EventSource`, which can't send the token header). The page shows the stream as plain text; when it ends, the server sends the rendered, sanitized HTML that replaces it.
-- The assistant configured for `answer` receives the question, the current page and its facts, and the read-only tools through the guard, and is told to answer in the chosen language, given as its validated language code. The Ask button shows the question's estimate (section 15.4).
+- The assistant configured for `answer` receives the question, the current page and its facts, the diagram placeholders this guide's facts can draw (so an answer can place real diagrams, and only those), and the read-only tools through the guard, and is told to answer in the chosen language, given as its validated language code. The Ask button shows the question's estimate (section 15.4).
 - `POST /bridge/answers/{id}/save` writes the answer to `answers/<id>.md` with front matter recording the question, its language, the snapshot and the files read. It passes the same validation as pages, except that a documented quote that can't be verified is turned into an inferred block rather than rejected. Then it's committed. Saved answers are never regenerated; they get the "sources changed" notice.
 - `POST /bridge/checks/{page}/{check}` grades an answer to a check (section 8.2).
 - Limits from configuration: question length, one question in flight per session, `max_turns`. Closing the page cancels the run. If Claude fails mid-answer, the stream ends with an error event and nothing is saved.

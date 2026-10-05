@@ -107,6 +107,7 @@ class QuestionRequest:
     page_title: str = ""
     page_body: str = ""
     page_facts: list[str] = field(default_factory=list)
+    diagrams: list[str] = field(default_factory=list)  # placeholders Codetrail can draw from this guide's facts
 
 
 @dataclass(frozen=True)

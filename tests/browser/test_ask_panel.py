@@ -42,3 +42,21 @@ def test_the_panel_closed_stays_closed(page: Page, site: Site) -> None:
     page.locator("[data-ask-close]").click()
     page.goto(f"{site.url}/")
     expect(page.locator("[data-ask]")).to_be_hidden()
+
+
+def test_an_answer_with_a_diagram_draws_it_in_the_panel(page: Page, site: Site, errors: list[str]) -> None:
+    from codetrail.assistant import AnswerChunk
+
+    site.claude.answers.insert(0, [AnswerChunk("The app's modules:\n\n{{diagram imports scope=app}}\n"),
+                                   AnswerChunk(done=True)])  # fmt: skip
+    site.sign_in(page, "/pages/areas/app")
+    page.locator("[data-ask-open]").first.click()
+    page.locator("#ask-question").fill("Draw the architecture")
+    page.locator("[data-ask-form] button[type=submit]").click()
+    answer = page.locator(".ask-answer").first
+    expect(answer.locator(".diagram-svg svg")).to_be_visible()
+    expect(answer.locator("pre.diagram")).to_be_hidden()  # the Mermaid source gives way to the drawing
+    page.goto(f"{site.url}/pages/concepts/ledger")  # the session's answers come back drawn too
+    ready(page)
+    expect(page.locator(".ask-answer").first.locator(".diagram-svg svg")).to_be_visible()
+    assert errors == []
