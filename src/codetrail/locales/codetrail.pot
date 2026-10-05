@@ -1,6 +1,12 @@
 #, python-format
-msgid "%(count)s commit"
-msgid_plural "%(count)s commits"
+msgid "%(count)s changed since you learned it"
+msgid_plural "%(count)s changed since you learned them"
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
+msgid "%(count)s commit behind"
+msgid_plural "%(count)s commits behind"
 msgstr[0] ""
 msgstr[1] ""
 
@@ -11,8 +17,14 @@ msgstr[0] ""
 msgstr[1] ""
 
 #, python-format
-msgid "%(count)s merge landed since the last update"
-msgid_plural "%(count)s merges landed since the last update"
+msgid "%(count)s merge landed"
+msgid_plural "%(count)s merges landed"
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
+msgid "%(count)s unread digest"
+msgid_plural "%(count)s unread digests"
 msgstr[0] ""
 msgstr[1] ""
 
@@ -27,7 +39,22 @@ msgid "%(expected)s to %(maximum)s"
 msgstr ""
 
 #, python-format
+msgid "%(learned)s of %(total)s"
+msgstr ""
+
+#, python-format
 msgid "%(learned)s of %(total)s learned"
+msgstr ""
+
+msgid ""
+"A page is learned when you pass its checks. When an update changes a page"
+" you learned, it shows here until you learn it again."
+msgstr ""
+
+msgid "Actions"
+msgstr ""
+
+msgid "All saved answers"
 msgstr ""
 
 msgid ""
@@ -38,16 +65,53 @@ msgstr ""
 msgid "An update is running."
 msgstr ""
 
-msgid "Areas"
+msgid "Answers you save appear here."
 msgstr ""
 
-msgid "Areas touched:"
+msgid ""
+"Answers you saved to the guide, newest first. They aren't rewritten when "
+"the code changes; a mark shows when the files they were written from have"
+" changed."
+msgstr ""
+
+msgid "Area"
+msgstr ""
+
+msgid "Areas"
 msgstr ""
 
 msgid "Ask"
 msgstr ""
 
+msgid "Ask a question"
+msgstr ""
+
+msgid ""
+"Ask a question from any page (press A) and save the answers worth "
+"keeping. They'll be here."
+msgstr ""
+
+msgid ""
+"Ask a question from any page (press A), then choose Save to guide. Saved "
+"answers become part of the guide, and search finds them."
+msgstr ""
+
 msgid "Ask about the code"
+msgstr ""
+
+msgid "Ask about this page"
+msgstr ""
+
+#, python-brace-format
+msgid "Ask about: “{query}”"
+msgstr ""
+
+msgid "Ask anything about the code. Save the answers worth keeping."
+msgstr ""
+
+msgid ""
+"Ask anything about the code. Your question goes with the page you're "
+"reading. Save the answers worth keeping."
 msgstr ""
 
 #, python-format
@@ -64,13 +128,22 @@ msgstr ""
 msgid "Before the update"
 msgstr ""
 
+msgid "Breadcrumbs"
+msgstr ""
+
+msgid "Browse the code"
+msgstr ""
+
 msgid "Call"
 msgstr ""
 
 msgid "Cancel"
 msgstr ""
 
-msgid "Catch up"
+msgid "Changed since you learned it"
+msgstr ""
+
+msgid "Changed since you learned them"
 msgstr ""
 
 msgid "Check my answer"
@@ -79,7 +152,33 @@ msgstr ""
 msgid "Check your understanding"
 msgstr ""
 
+msgid "Close"
+msgstr ""
+
+msgid "Close the palette, the panel or a dialog"
+msgstr ""
+
+msgid ""
+"Codetrail looks for architecture decision records where the target's "
+"settings say they live."
+msgstr ""
+
+msgid ""
+"Codetrail reads the code for free, then your assistant writes the guide: "
+"concept pages, guided paths and checks. You'll see the estimate before "
+"anything is spent."
+msgstr ""
+
+msgid "Concept"
+msgstr ""
+
 msgid "Concepts"
+msgstr ""
+
+msgid "Continue"
+msgstr ""
+
+msgid "Continue where you left off"
 msgstr ""
 
 msgid "Cost each"
@@ -88,24 +187,53 @@ msgstr ""
 msgid "Couldn't check for new commits just now."
 msgstr ""
 
+msgid "Couldn’t save the answer."
+msgstr ""
+
 msgid "Decisions"
 msgstr ""
 
 msgid "Dependencies of"
 msgstr ""
 
+msgid "Digest"
+msgstr ""
+
+msgid "Digests"
+msgstr ""
+
+msgid "Each update writes a digest of what changed since the last one."
+msgstr ""
+
 msgctxt "language name"
 msgid "English"
+msgstr ""
+
+msgid "Enlarge the diagram"
+msgstr ""
+
+msgid "Every path learned"
 msgstr ""
 
 #, python-format
 msgid "Expected: ~%(expected)s tokens; at most ~%(maximum)s."
 msgstr ""
 
+msgid "Fact"
+msgstr ""
+
 msgid "Facts"
 msgstr ""
 
+msgid "Facts:"
+msgstr ""
+
 msgid "Files"
+msgstr ""
+
+msgid ""
+"Files this answer was written from have changed since. Saved answers "
+"aren't rewritten; ask again for a fresh one."
 msgstr ""
 
 msgid ""
@@ -113,7 +241,7 @@ msgid ""
 "again at the next update."
 msgstr ""
 
-msgid "Folders"
+msgid "Folder"
 msgstr ""
 
 msgid "For example: how does a request reach the database?"
@@ -125,7 +253,25 @@ msgstr ""
 msgid "Go ahead"
 msgstr ""
 
-msgid "Guided paths"
+msgid "Go home"
+msgstr ""
+
+msgid "Go to decisions"
+msgstr ""
+
+msgid "Go to digests"
+msgstr ""
+
+msgid "Go to progress"
+msgstr ""
+
+msgid "Go to saved answers"
+msgstr ""
+
+msgid "Go to your progress"
+msgstr ""
+
+msgid "Guide"
 msgstr ""
 
 msgid "Home"
@@ -137,17 +283,16 @@ msgstr ""
 msgid "Imports"
 msgstr ""
 
-msgid "Kind"
+msgid "In this path"
+msgstr ""
+
+msgid "Keep the answers worth keeping"
+msgstr ""
+
+msgid "Keyboard shortcuts"
 msgstr ""
 
 msgid "Language"
-msgstr ""
-
-#, python-format
-msgid "Last update: commit %(commit)s, %(when)s."
-msgstr ""
-
-msgid "Latest digest:"
 msgstr ""
 
 msgid "Learned"
@@ -159,12 +304,38 @@ msgstr ""
 msgid "Mark read"
 msgstr ""
 
-msgid "No decisions found."
+msgid "Mark this page read, or unread"
+msgstr ""
+
+msgid "Mark unread"
+msgstr ""
+
+msgid "Menu"
+msgstr ""
+
+msgid "More"
+msgstr ""
+
+msgid "Next"
+msgstr ""
+
+msgid "No decisions found"
+msgstr ""
+
+msgid "No digest yet."
+msgstr ""
+
+msgid "No digests yet"
+msgstr ""
+
+msgid ""
+"No shortcut spends anything: questions are sent by their Send button, and"
+" updates start only when you choose Go ahead."
 msgstr ""
 
 #, python-format
 msgid ""
-"No update yet. Run <code>codetrail update %(name)s</code> to read the "
+"No sources yet. Run <code>codetrail update %(name)s</code> to read the "
 "repository."
 msgstr ""
 
@@ -178,10 +349,33 @@ msgstr ""
 msgid "Nothing in the guide matches “%(query)s”."
 msgstr ""
 
-msgid "Nothing to catch up on."
+#, python-brace-format
+msgid "Nothing in the guide matches “{query}”."
 msgstr ""
 
-msgid "Nothing to show yet."
+msgid "Nothing to learn yet"
+msgstr ""
+
+msgid "On this page"
+msgstr ""
+
+#, python-format
+msgid "Or from a terminal: <code>codetrail update %(name)s</code>"
+msgstr ""
+
+msgid "Outside the paths"
+msgstr ""
+
+msgid "Pages"
+msgstr ""
+
+msgid "Passed"
+msgstr ""
+
+msgid "Path"
+msgstr ""
+
+msgid "Paths"
 msgstr ""
 
 #, python-format
@@ -194,6 +388,15 @@ msgstr ""
 msgid "Points to"
 msgstr ""
 
+msgid "Previous"
+msgstr ""
+
+msgid "Previous or next page in the path"
+msgstr ""
+
+msgid "Progress"
+msgstr ""
+
 msgid "Provider and model"
 msgstr ""
 
@@ -203,7 +406,23 @@ msgstr ""
 msgid "Refreshing the facts (free)…"
 msgstr ""
 
+msgid "Results"
+msgstr ""
+
+msgid "Run your first update"
+msgstr ""
+
 msgid "Save to guide"
+msgstr ""
+
+#, python-format
+msgid "Saved answer, asked %(when)s at commit %(commit)s."
+msgstr ""
+
+msgid "Saved answers"
+msgstr ""
+
+msgid "Saved · open it"
 msgstr ""
 
 msgid "Search"
@@ -212,10 +431,59 @@ msgstr ""
 msgid "Search isn't available right now. The rest of the guide still works."
 msgstr ""
 
+msgid "Search isn’t available right now."
+msgstr ""
+
+msgid "Search or ask"
+msgstr ""
+
+msgid "Search or ask…"
+msgstr ""
+
 msgid "Search the guide"
 msgstr ""
 
+msgid "Search the guide, or ask a question"
+msgstr ""
+
+msgid "Search the guide, or ask a question…"
+msgstr ""
+
+msgid "Search, or ask a question"
+msgstr ""
+
+msgid "Searching…"
+msgstr ""
+
+#, python-brace-format
+msgid "See every result for “{query}”"
+msgstr ""
+
+msgid "See your progress"
+msgstr ""
+
+msgid "Send"
+msgstr ""
+
+msgid "Show these shortcuts"
+msgstr ""
+
 msgid "Since the last update"
+msgstr ""
+
+msgid "Skip to content"
+msgstr ""
+
+msgid "Source"
+msgstr ""
+
+msgid "Steps"
+msgstr ""
+
+msgid "Steps learned"
+msgstr ""
+
+msgid "Switch theme"
 msgstr ""
 
 msgid "The assistant is reading the code…"
@@ -224,7 +492,14 @@ msgstr ""
 msgid "The facts are refreshed. Writing the guide will call:"
 msgstr ""
 
-msgid "The guide"
+msgid "The guide matches the branch."
+msgstr ""
+
+#, python-format
+msgid "The last update used ~%(tokens)s tokens (%(cost)s at API prices)."
+msgstr ""
+
+msgid "The repository's architecture decision records, as Codetrail found them."
 msgstr ""
 
 msgid "The update failed:"
@@ -234,6 +509,15 @@ msgstr ""
 msgid ""
 "The update stops at its budget of %(budget)s or %(tokens)s tokens, "
 "whichever comes first."
+msgstr ""
+
+msgid "Theme: dark (switch to system)"
+msgstr ""
+
+msgid "Theme: light (switch to dark)"
+msgstr ""
+
+msgid "Theme: system (switch to light)"
 msgstr ""
 
 msgid "There's nothing here. It may be excluded, or not in the guide yet."
@@ -250,10 +534,24 @@ msgid ""
 "of imports on each arrow."
 msgstr ""
 
-msgid "Up to date with the branch."
+msgid "Unread"
+msgstr ""
+
+msgid "Up to date"
 msgstr ""
 
 msgid "Update the guide"
+msgstr ""
+
+msgid "Update the guide (shows the estimate first)"
+msgstr ""
+
+msgid ""
+"Update the guide and its guided paths appear here, with what you've "
+"learned on each."
+msgstr ""
+
+msgid "Update the guide…"
 msgstr ""
 
 msgid "Updated."
@@ -265,10 +563,37 @@ msgstr ""
 msgid "Used"
 msgstr ""
 
+msgid "What changed"
+msgstr ""
+
+msgid "What changed in the repository at each update, and why, newest first."
+msgstr ""
+
 msgid "What changed since you learned this page"
 msgstr ""
 
 msgid "What each box links to"
+msgstr ""
+
+msgid "You're caught up."
+msgstr ""
+
+msgid "You've learned every guided path. Updates will tell you what changes."
+msgstr ""
+
+msgid "Your answer"
+msgstr ""
+
+msgid "Your guide to"
+msgstr ""
+
+msgid "Your progress"
+msgstr ""
+
+msgid "Your question"
+msgstr ""
+
+msgid "Your saved answers"
 msgstr ""
 
 msgid "a starting guess"
@@ -277,7 +602,7 @@ msgstr ""
 msgid "billed to that account."
 msgstr ""
 
-msgid "changed since you learned it"
+msgid "changed"
 msgstr ""
 
 msgid "default model"
@@ -296,6 +621,24 @@ msgstr ""
 msgid "no price configured"
 msgstr ""
 
+msgid "pages, by passing their checks"
+msgstr ""
+
+msgid "sources changed"
+msgstr ""
+
+msgid "to close"
+msgstr ""
+
+msgid "to move"
+msgstr ""
+
+msgid "to open"
+msgstr ""
+
 msgid "tokens"
+msgstr ""
+
+msgid "unread"
 msgstr ""
 

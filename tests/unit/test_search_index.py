@@ -127,7 +127,9 @@ def test_a_snippet_centres_on_a_match_far_into_the_text() -> None:
     index.rebuild([document("concepts/long", "Long", "filler " * 200 + "needle at the end")])
     [result] = index.search("needle", 200, 10)
     assert [piece for piece, matched in result.snippet if matched] == ["needle"]
-    assert len("".join(piece for piece, _ in result.snippet)) <= 200
+    text = "".join(piece for piece, _ in result.snippet)
+    assert len(text) <= 200
+    assert text.startswith("…filler ")  # an ellipsis, then a whole word
 
 
 def test_markup_in_a_document_stays_text_in_its_snippet() -> None:

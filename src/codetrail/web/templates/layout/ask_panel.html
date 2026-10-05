@@ -1,0 +1,24 @@
+{% from "macros.html" import cost with context %}
+{% from "layout/icons.html" import icon %}
+<aside class="ask-panel" data-ask {% if page is defined and page.id %}data-page-id="{{ page.id }}"{% endif %}
+       data-language="{{ language.code }}"
+       data-label-save="{{ _('Save to guide') }}" data-label-saved="{{ _('Saved · open it') }}"
+       data-label-save-failed="{{ _('Couldn’t save the answer.') }}"
+       aria-labelledby="ask-title" hidden>
+  <div class="ask-head">
+    <h2 id="ask-title">{{ _("Ask about the code") }}</h2>
+    <button type="button" class="icon-button" data-ask-close aria-label="{{ _('Close') }}">{{ icon("close") }}</button>
+  </div>
+  <div class="ask-thread" data-ask-thread aria-live="polite">
+    <p class="ask-intro" data-ask-intro>{% if page is defined and page.id %}{{ _("Ask anything about the code. Your question goes with the page you're reading. Save the answers worth keeping.") }}{% else %}{{ _("Ask anything about the code. Save the answers worth keeping.") }}{% endif %}</p>
+  </div>
+  <form class="ask-form" data-ask-form>
+    <label class="visually-hidden" for="ask-question">{{ _("Your question") }}</label>
+    <textarea id="ask-question" name="question" rows="3" maxlength="4000" required placeholder="{{ _('For example: how does a request reach the database?') }}"></textarea>
+    <div class="ask-form-row">
+      <p class="ask-status" data-ask-status data-label-reading="{{ _('The assistant is reading the code…') }}"
+         data-label-used="{{ _('Used') }}" data-label-tokens="{{ _('tokens') }}"></p>
+      <button type="submit" class="button primary">{{ _("Send") }} {{ cost(estimates.get("answer")) }}</button>
+    </div>
+  </form>
+</aside>

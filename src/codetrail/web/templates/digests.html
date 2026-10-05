@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Digests") }}{% endblock %}
+{% block content %}
+<div class="wide">
+<header class="page-head">
+  <h1>{{ _("Digests") }}</h1>
+  <p class="muted">{{ _("What changed in the repository at each update, and why, newest first.") }}</p>
+</header>
+{% if digests %}
+<ul class="list" lang="en" dir="ltr">
+  {% for digest in digests %}
+  <li><a class="grow" href="/pages/{{ digest.id }}">{{ digest.title }}</a>
+    {% if digest.id in unread %}<span class="pill pill-read" lang="{{ language.code }}" dir="{{ language.direction }}">{{ _("unread") }}</span>{% endif %}
+    <span class="faint">{{ (digest.meta.get("written_at") if digest.meta.get("written_at") is string else "")[:10] }}</span></li>
+  {% endfor %}
+</ul>
+{% else %}
+<section class="empty">
+  <h2>{{ _("No digests yet") }}</h2>
+  <p>{{ _("Each update writes a digest of what changed since the last one.") }}</p>
+</section>
+{% endif %}
+</div>
+{% endblock %}

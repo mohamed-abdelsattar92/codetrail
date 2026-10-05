@@ -1,4 +1,6 @@
+{% from "layout/icons.html" import icon %}
 <figure class="diagram-block" lang="en" dir="ltr">
+  <div class="diagram-tools"><button type="button" class="icon-button" data-diagram-enlarge aria-pressed="false" aria-label="{{ _('Enlarge the diagram') }}" title="{{ _('Enlarge the diagram') }}">{{ icon("expand") }}</button></div>
   <pre class="diagram">{{ diagram.mermaid }}</pre>
   <figcaption>
     <details><summary>{{ _("What each box links to") }}</summary>

@@ -1,18 +1,34 @@
 {% extends "base.html" %}
+{% from "layout/icons.html" import icon %}
 {% from "macros.html" import cost with context %}
 {% block title %}{{ page.title }}{% endblock %}
 {% block content %}
+<div class="reading">
+<nav aria-label="{{ _('Breadcrumbs') }}">
+  <ol class="breadcrumbs">
+    <li><a href="/">{{ _("Home") }}</a></li>
+    {% if in_path %}<li><a href="/pages/{{ in_path.id }}" lang="en" dir="ltr">{{ in_path.title }}</a></li>{% endif %}
+    <li>{% if page.kind == "area" %}{{ _("Area") }}{% elif page.kind == "concept" %}{{ _("Concept") }}{% elif page.kind == "path" %}{{ _("Path") }}{% elif page.kind == "digest" %}{{ _("Digest") }}{% elif page.kind == "answer" %}<a href="/answers">{{ _("Saved answers") }}</a>{% endif %}</li>
+  </ol>
+</nav>
 <article class="guide-page" lang="en" dir="ltr">
-  <h1>{{ page.title }}</h1>
+  <h1 {% if page.kind == "answer" %}dir="auto"{% endif %}>{{ page.title }}</h1>
   {% if page.kind == "digest" %}
-  <p class="muted">{% if page.meta.from_commit %}{{ page.meta.from_commit[:12] }} → {% endif %}{{ page.meta.to_commit[:12] }}</p>
-  {% else %}
-  <p class="muted">{{ page.kind }} · {{ page.meta.built_at[:12] if page.meta.built_at else "" }}</p>
+  <p class="faint">{% if page.meta.from_commit %}{{ page.meta.from_commit[:12] }} → {% endif %}{{ page.meta.to_commit[:12] }}</p>
+  {% elif page.kind == "answer" %}
+  <p class="faint" lang="{{ language.code }}" dir="{{ language.direction }}">{% trans when=(page.meta.get("asked_at") or "")[:10], commit=(page.meta.get("built_at") or "")[:12] %}Saved answer, asked {{ when }} at commit {{ commit }}.{% endtrans %}</p>
   {% endif %}
-  <p class="learning" lang="{{ language.code }}" dir="{{ language.direction }}">
-    <span class="status status-{{ status }}" data-status="{{ status }}">{% if status == "learned" %}{{ _("Learned") }}{% elif status == "stale" %}{{ _("Learned, but changed since") }}{% elif status == "read" %}{{ _("Read") }}{% else %}{{ _("Not read yet") }}{% endif %}</span>
-    {% if status == "unread" %}<button type="button" data-mark-read="{{ page.id }}">{{ _("Mark read") }}</button>{% endif %}
-  </p>
+  <div class="page-status" lang="{{ language.code }}" dir="{{ language.direction }}">
+    {% if page.kind not in ("digest", "answer", "path") %}
+    <span class="pill pill-{{ status }}" data-status="{{ status }}">{% if status == "learned" %}{{ icon("check") }} {{ _("Learned") }}{% elif status == "stale" %}{{ _("Learned, but changed since") }}{% elif status == "read" %}{{ _("Read") }}{% else %}{{ _("Not read yet") }}{% endif %}</span>
+    {% if status == "unread" %}<button type="button" class="button small" data-mark-read="{{ page.id }}">{{ _("Mark read") }} <kbd>M</kbd></button>
+    {% elif status == "read" %}<button type="button" class="button small" data-mark-unread="{{ page.id }}">{{ _("Mark unread") }} <kbd>M</kbd></button>{% endif %}
+    {% else %}
+    <span class="pill" data-status="{{ status }}">{% if status == "read" %}{{ _("Read") }}{% else %}{{ _("Not read yet") }}{% endif %}</span>
+    {% if status == "unread" and page.kind == "digest" %}<button type="button" class="button small" data-mark-read="{{ page.id }}">{{ _("Mark read") }} <kbd>M</kbd></button>{% endif %}
+    {% endif %}
+    <button type="button" class="button small" data-ask-open>{{ icon("ask") }} {{ _("Ask about this page") }} <kbd>A</kbd></button>
+  </div>
   {% if changes %}
   <details class="changes" open lang="{{ language.code }}" dir="{{ language.direction }}">
     <summary>{{ _("What changed since you learned this page") }}</summary>
@@ -21,8 +37,9 @@
   </details>
   {% endif %}
   {% if sources_changed %}
-  <p class="notice" lang="{{ language.code }}" dir="{{ language.direction }}">{{ _("Files this page was written from have changed since. It will be checked again at the next update.") }}</p>
+  <p class="notice" lang="{{ language.code }}" dir="{{ language.direction }}">{% if page.kind == "answer" %}{{ _("Files this answer was written from have changed since. Saved answers aren't rewritten; ask again for a fresh one.") }}{% else %}{{ _("Files this page was written from have changed since. It will be checked again at the next update.") }}{% endif %}</p>
   {% endif %}
+  <div class="prose">
   {% for segment in segments %}
     {% if segment.kind == "html" %}
       {{ segment.html }}
@@ -30,7 +47,7 @@
       <aside class="rationale {{ segment.label }}">
         <p class="rationale-label">
           {% if segment.label == "documented" %}Documented{% if segment.citation %} · {% if segment.link %}<a href="{{ segment.link }}">{{ segment.citation }}</a>{% else %}{{ segment.citation }}{% endif %}{% endif %}
-          {% else %}Inferred · Claude's reading of the code{% endif %}
+          {% else %}Inferred · the assistant's reading of the code{% endif %}
         </p>
         {{ segment.html }}
       </aside>
@@ -38,18 +55,37 @@
       {% with diagram=segment.diagram %}{% include "diagram.html" %}{% endwith %}
     {% endif %}
   {% endfor %}
+  </div>
+  {% if steps %}
+  <h2 lang="{{ language.code }}" dir="{{ language.direction }}">{{ _("Steps") }}</h2>
+  <ol class="list" lang="en" dir="ltr">
+    {% for step in steps %}
+    <li><a class="grow" href="/pages/{{ step }}?path={{ page.id }}">{{ titles.get(step, step) }}</a>{% if nav.statuses.get(step) == "learned" %}<span class="pill pill-learned">{{ icon("check") }}</span>{% endif %}</li>
+    {% endfor %}
+  </ol>
+  {% endif %}
 </article>
 {% if checks %}
 <section class="checks" lang="{{ language.code }}" dir="{{ language.direction }}">
   <h2>{{ _("Check your understanding") }}</h2>
   {% for check in checks %}
   <form class="check" data-check="{{ check.id }}" data-page="{{ page.id }}">
-    <p lang="en" dir="ltr"><strong>{{ check.question }}</strong>{% if check.passed %} <span class="ok">✓</span>{% endif %}</p>
-    <textarea name="answer" rows="3" maxlength="4000" required></textarea>
-    <button type="submit">{{ _("Check my answer") }} {{ cost(estimates.get("grade")) }}</button>
-    <p class="feedback" data-feedback dir="auto"></p>
+    <p class="check-question" lang="en" dir="ltr"><span>{{ check.question }}</span>{% if check.passed %}<span class="pill pill-learned">{{ icon("check") }} {{ _("Passed") }}</span>{% endif %}</p>
+    <label class="visually-hidden" for="answer-{{ check.id }}">{{ _("Your answer") }}</label>
+    <textarea id="answer-{{ check.id }}" name="answer" rows="3" maxlength="4000" required></textarea>
+    <div class="check-row">
+      <button type="submit" class="button">{{ _("Check my answer") }} {{ cost(estimates.get("grade")) }}</button>
+      <p class="feedback" data-feedback dir="auto" aria-live="polite"></p>
+    </div>
   </form>
   {% endfor %}
 </section>
 {% endif %}
+{% if previous or following %}
+<nav class="pager" aria-label="{{ _('In this path') }}">
+  {% if previous %}<a class="previous" href="/pages/{{ previous.id }}?path={{ in_path.id }}" data-pager-previous><small>{{ _("Previous") }} <kbd>[</kbd></small><span lang="en" dir="ltr">{{ previous.title }}</span></a>{% endif %}
+  {% if following %}<a class="next" href="/pages/{{ following.id }}?path={{ in_path.id }}" data-pager-next><small>{{ _("Next") }} <kbd>]</kbd></small><span lang="en" dir="ltr">{{ following.title }}</span></a>{% endif %}
+</nav>
+{% endif %}
+</div>
 {% endblock %}

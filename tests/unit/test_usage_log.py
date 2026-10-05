@@ -34,3 +34,33 @@ def test_calls_are_recorded_with_their_cost(tmp_path: Path) -> None:
     log.record("plan", Usage("claude_code", "claude-opus-5-5", 1, 0, 1, 0.01, (PlanWindow("five_hour", 0.09, 1),)))
     readings = {row["window"]: row["utilization"] for row in connection.execute("SELECT * FROM plan_usage")}
     assert readings == {"five_hour": 0.09, "seven_day": 0.63}
+
+
+def test_the_last_update_sums_its_plan_write_and_digest_calls(tmp_path: Path) -> None:
+    from codetrail.assistant.usage import last_update_usage
+
+    connection = connect(tmp_path / "codetrail.db")
+    assert last_update_usage(connection) is None
+
+    def call(at: str, kind: str, cost: float | None, tokens: int = 1000) -> None:
+        connection.execute(
+            "INSERT INTO assistant_calls (called_at, kind, provider, model, input_tokens, cached_input_tokens,"
+            " output_tokens, cost_usd) VALUES (?, ?, 'claude_code', 'm', ?, 0, 0, ?)",
+            (at, kind, tokens, cost),
+        )
+
+    def snapshot(at: str) -> None:
+        connection.execute("INSERT INTO snapshots (commit_sha, taken_at) VALUES ('c', ?)", (at,))
+
+    snapshot("2026-10-01T09:00:00+00:00")
+    call("2026-10-01T09:01:00+00:00", "plan", 1.0)
+    snapshot("2026-10-02T09:00:00+00:00")
+    call("2026-10-02T09:01:00+00:00", "plan", 0.5)
+    call("2026-10-02T09:02:00+00:00", "write", 0.25, tokens=3000)
+    call("2026-10-02T09:03:00+00:00", "answer", 9.0)  # a question, not part of the update
+    call("2026-10-02T09:04:00+00:00", "digest", None)
+    snapshot("2026-10-03T09:00:00+00:00")  # a facts-only update since: the last paid update is still the one above
+    usage = last_update_usage(connection)
+    assert usage is not None
+    assert (usage.tokens, usage.cost_usd, usage.calls) == (5000, 0.75, 3)
+    assert usage.finished_at == "2026-10-02T09:04:00+00:00"

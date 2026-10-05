@@ -1,0 +1,186 @@
+/* Element defaults. Logical properties only (inline-start and inline-end), so right-to-left languages mirror. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--text);
+  font: 400 16px/1.65 var(--font-sans);
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  color: var(--text);
+  line-height: 1.25;
+  letter-spacing: -0.011em;
+  overflow-wrap: anywhere;
+}
+
+h1 {
+  font-size: 2rem;
+  font-weight: 600;
+  letter-spacing: -0.022em;
+  margin-block: 0 var(--space-3);
+}
+
+h2 {
+  font-size: 1.3rem;
+  font-weight: 600;
+  margin-block: var(--space-10) var(--space-3);
+}
+
+h3 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin-block: var(--space-6) var(--space-2);
+}
+
+p {
+  margin-block: 0 var(--space-4);
+}
+
+a {
+  color: var(--accent-text);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+code,
+kbd,
+pre,
+samp {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+}
+
+:not(pre) > code {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 0.05em 0.35em;
+  overflow-wrap: anywhere;
+}
+
+pre {
+  overflow-x: auto;
+}
+
+kbd {
+  display: inline-block;
+  min-inline-size: 1.6em;
+  padding: 0 0.4em;
+  border: 1px solid var(--line-strong);
+  border-block-end-width: 2px;
+  border-radius: 5px;
+  background: var(--raised);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.6;
+  text-align: center;
+}
+
+mark {
+  background: var(--mark);
+  color: inherit;
+  border-radius: 3px;
+  padding-inline: 1px;
+}
+
+hr {
+  border: 0;
+  border-block-start: 1px solid var(--line);
+  margin-block: var(--space-8);
+}
+
+table {
+  border-collapse: collapse;
+  inline-size: 100%;
+}
+
+th,
+td {
+  text-align: start;
+  padding: var(--space-2) var(--space-3);
+  border-block-end: 1px solid var(--line);
+  vertical-align: top;
+}
+
+th {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+img,
+svg {
+  max-inline-size: 100%;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+:focus-visible {
+  outline: none;
+  box-shadow: var(--focus);
+  border-radius: var(--radius);
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.visually-hidden {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.skip-link {
+  position: absolute;
+  inset-inline-start: var(--space-3);
+  inset-block-start: -100px;
+  z-index: 100;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.skip-link:focus {
+  inset-block-start: var(--space-3);
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.faint {
+  color: var(--text-faint);
+  font-size: 0.875rem;
+}

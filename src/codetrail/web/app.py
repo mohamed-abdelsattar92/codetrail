@@ -29,6 +29,7 @@ from codetrail.assistant import Assistant
 from codetrail.assistant.estimate import CallEstimate, UpdateEstimate, estimate_call, tokens_text, when_text
 from codetrail.assistant.routing import build_assistant
 from codetrail.assistant.status import require_ready
+from codetrail.assistant.usage import last_update_usage
 from codetrail.bridge import bridge_router
 from codetrail.config import GlobalConfig, Paths, load_target, model_choice
 from codetrail.database import connect
@@ -43,6 +44,14 @@ from codetrail.search import Result, SearchIndex, guide_documents
 from codetrail.update import run_update
 from codetrail.web.diagrams import dependencies_diagram, imports_diagram
 from codetrail.web.i18n import Language, installed_languages
+from codetrail.web.navigation import (
+    Navigation,
+    answers_newest_first,
+    build_navigation,
+    continue_reading,
+    path_neighbours,
+    steps_of,
+)
 from codetrail.web.render import render_body
 from codetrail.web.security import SESSION_COOKIE, SecurityMiddleware, SessionState, login_response
 from codetrail.web.target_view import TargetView
@@ -159,8 +168,30 @@ def create_app(
         finally:
             connection.close()
 
+    def statuses_of(pages: list[Page]) -> tuple[dict[str, str], list[str]]:
+        """Each area's and concept's learning state, and the unread digests, newest first."""
+        if not (view.data / "codetrail.db").exists():
+            return {}, []
+        digests = sorted((page for page in pages if page.kind == "digest"), key=lambda page: str(page.meta.get(
+            "written_at", "")), reverse=True)  # fmt: skip
+        with learning() as state:
+            statuses = {page.id: state.status(page).state for page in pages if page.kind in ("area", "concept")}
+            return statuses, state.unread_digests([page.id for page in digests])
+
+    def navigation(pages: list[Page]) -> Navigation:
+        statuses, unread = statuses_of(pages)
+        manifest = view.manifest()
+        try:
+            branch = load_target(paths, name).branch
+        except CodetrailError:
+            branch = ""
+        return build_navigation(pages, statuses, unread, branch, manifest.commit if manifest else "")
+
     def render(template: str, status_code: int = 200, **context: Any) -> HTMLResponse:
         current = language()
+        context.setdefault("active", "")
+        if "nav" not in context:
+            context["nav"] = navigation(guide.pages() if guide.root.exists() else [])
         html = (
             environments[current.code]
             .get_template(template)
@@ -191,6 +222,7 @@ def create_app(
     def home() -> HTMLResponse:
         counts: list[tuple[str, int]] = []
         snapshot = None
+        last_update = None
         if (view.data / "codetrail.db").exists():
             with view.store() as store:
                 snapshot = store.latest_snapshot()
@@ -198,30 +230,58 @@ def create_app(
                 for entity in store.entities():
                     kinds[str(entity.kind)] = kinds.get(str(entity.kind), 0) + 1
                 counts = sorted(kinds.items())
-        all_pages = guide.pages()
-        guide_pages = [page for page in all_pages if page.kind in ("area", "concept")]
-        digests = sorted(guide.pages("digest"), key=lambda page: str(page.meta.get("written_at", "")))
-        unread_digests: list[Page] = []
-        stale: list[Page] = []
-        path_progress: list[tuple[Page, int, int]] = []
-        if (view.data / "codetrail.db").exists():
-            with learning() as state:
-                unread = set(state.unread_digests([page.id for page in digests]))
-                unread_digests = [page for page in reversed(digests) if page.id in unread]
-                statuses = {page.id: state.status(page).state for page in guide_pages}
-            stale = [page for page in guide_pages if statuses.get(page.id) == "stale"]
-            for path in guide.pages("path"):
-                steps = [str(step) for step in path.meta.get("steps") or []]
-                learned = sum(1 for step in steps if statuses.get(step) == "learned")
-                path_progress.append((path, learned, len(steps)))
+                last_update = last_update_usage(store.connection)
+        pages = guide.pages() if guide.root.exists() else []
+        nav = navigation(pages)
+        guide_pages = [page for page in pages if page.kind in ("area", "concept")]
+        digests = sorted((page for page in pages if page.kind == "digest"), key=lambda page: str(page.meta.get(
+            "written_at", "")), reverse=True)  # fmt: skip
+        _, unread = statuses_of(pages)
+        unread_digests = [page for page in digests if page.id in set(unread)]
+        learned = sum(1 for page in guide_pages if nav.statuses.get(page.id) == "learned")
+        stale = [page for page in guide_pages if nav.statuses.get(page.id) == "stale"]
         return render(
-            "home.html", signal=current_signal(), areas=view.areas(), counts=counts, snapshot=snapshot,
-            guide_pages=guide_pages, latest_digest=digests[-1] if digests else None,
-            unread_digests=unread_digests, stale_pages=stale, paths=path_progress,
+            "home.html", nav=nav, active="home", signal=current_signal(), areas=view.areas(), counts=counts,
+            snapshot=snapshot, guide_pages=guide_pages, latest_digest=digests[0] if digests else None,
+            unread_digests=unread_digests, stale_pages=stale, learned=learned, last_update=last_update,
+            continue_reading=continue_reading(pages, nav.statuses),
         )  # fmt: skip
 
+    @app.get("/progress", response_class=HTMLResponse)
+    def progress() -> HTMLResponse:
+        pages = guide.pages() if guide.root.exists() else []
+        nav = navigation(pages)
+        by_id = {page.id: page for page in pages}
+        paths_steps = [
+            (path, learned, total, [by_id[step] for step in steps_of(path) if step in by_id])
+            for path, learned, total in nav.paths
+        ]
+        unpathed = [
+            page for page in [*nav.areas, *nav.concepts]
+            if not any(page.id in steps_of(path) for path, _, _ in nav.paths)
+        ]  # fmt: skip
+        return render("progress.html", nav=nav, active="progress", paths_steps=paths_steps, unpathed=unpathed)
+
+    @app.get("/answers", response_class=HTMLResponse)
+    def saved_answers() -> HTMLResponse:
+        pages = guide.pages() if guide.root.exists() else []
+        manifest = view.manifest()
+        answers = [
+            (answer, manifest is not None and sources_changed(answer, manifest))
+            for answer in answers_newest_first(page for page in pages if page.kind == "answer")
+        ]
+        return render("answers.html", nav=navigation(pages), active="answers", answers=answers)
+
+    @app.get("/digests", response_class=HTMLResponse)
+    def digests() -> HTMLResponse:
+        pages = guide.pages() if guide.root.exists() else []
+        found = sorted((page for page in pages if page.kind == "digest"), key=lambda page: str(page.meta.get(
+            "written_at", "")), reverse=True)  # fmt: skip
+        _, unread = statuses_of(pages)
+        return render("digests.html", nav=navigation(pages), active="digests", digests=found, unread=set(unread))
+
     @app.get("/pages/{page_id:path}", response_class=HTMLResponse)
-    def guide_page(page_id: str) -> HTMLResponse:
+    def guide_page(page_id: str, path: str | None = None) -> HTMLResponse:
         if not PAGE_ID.fullmatch(page_id) or not (view.data / "codetrail.db").exists():
             return not_found()
         page = guide.read_page(page_id)
@@ -243,9 +303,16 @@ def create_app(
                     parse_page(page.id, before).body.splitlines(), page.body.splitlines(),
                     "when you learned it", "now", lineterm="",
                 ))  # fmt: skip
+        pages = guide.pages()
+        titles = {found.id: found.title for found in pages}
+        steps = [step for step in steps_of(page) if step in titles] if page.kind == "path" else []  # real pages only
+        in_path, previous, following = path_neighbours(
+            pages, page.id, path if path and PAGE_ID.fullmatch(path) else None
+        )
         return render(
-            "page.html", page=page, segments=segments, sources_changed=changed, status=status.state, checks=checks,
-            changes=changes,
+            "page.html", nav=navigation(pages), active=page.id, page=page, segments=segments, sources_changed=changed,
+            status=status.state, checks=checks, changes=changes, in_path=in_path, previous=previous,
+            following=following, titles=titles, steps=steps,
         )  # fmt: skip
 
     @app.get("/search", response_class=HTMLResponse)
@@ -342,7 +409,7 @@ def create_app(
             with view.store() as store:
                 found = store.entities(EntityKind.DECISION)
         found.sort(key=lambda decision: str(decision.attributes.get("number", "")))
-        return render("decisions.html", decisions=found)
+        return render("decisions.html", active="decisions", decisions=found)
 
     @app.post("/settings/language")
     def set_language(choice: LanguageChoice) -> Response:

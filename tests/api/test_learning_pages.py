@@ -119,7 +119,7 @@ def test_the_home_page_lists_paths_and_catch_up(paths: Paths) -> None:
     digests = [line for line in home.splitlines() if "/pages/digests/" in line]
     digest_id = digests[0].split('href="/pages/')[1].split('"')[0]
     client.post("/learn/read", json={"page_id": digest_id}, headers=headers)
-    assert "Nothing to catch up on." in client.get("/").text
+    assert "You're caught up." in client.get("/").text
 
 
 def test_grading_waits_for_its_cooldown(paths: Paths) -> None:
@@ -163,3 +163,12 @@ def test_the_check_button_shows_its_estimate_and_the_grade_its_usage(paths: Path
         "/learn/checks", json={"page_id": "areas/app", "check_id": "q1", "answer": "db"}, headers=headers
     )
     assert response.json()["usage"] == {"tokens": 3_300, "cost_usd": 0.01}
+
+
+def test_marking_unread(paths: Paths) -> None:
+    client, headers = make_client(paths, FakeAssistant())
+    assert client.post("/learn/unread", json={"page_id": "areas/app"}, headers={"origin": ORIGIN}).status_code == 403
+    client.post("/learn/read", json={"page_id": "areas/app"}, headers=headers)
+    assert client.post("/learn/unread", json={"page_id": "areas/app"}, headers=headers).status_code == 204
+    assert 'data-status="unread"' in client.get("/pages/areas/app").text
+    assert client.post("/learn/unread", json={"page_id": "areas/missing"}, headers=headers).status_code == 404

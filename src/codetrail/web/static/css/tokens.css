@@ -1,0 +1,146 @@
+/* Codetrail's design tokens (design section 16.2): every color, size and space the page uses.
+   Light by default; dark follows the system unless the reader chose a theme ([data-theme] on <html>). */
+
+@font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/static/vendor/inter/InterVariable.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Inter";
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/static/vendor/inter/InterVariable-Italic.woff2") format("woff2");
+}
+
+:root {
+  color-scheme: light;
+  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  --accent: #5b5bd6;
+  --accent-hover: #4b4bc4;
+  --accent-text: #4a48c0;
+  --accent-tint: #efeffd;
+  --on-accent: #ffffff;
+
+  --text: #1a1f36;
+  --text-muted: #5c6378;
+  --text-faint: #646b7f;
+
+  --page: #ffffff;
+  --sidebar: #f7f8fb;
+  --card: #f5f6fa;
+  --raised: #ffffff;
+  --hover: #eef0f6;
+
+  --line: #e3e6ee;
+  --line-strong: #cfd4e0;
+
+  --documented: #5b5bd6;
+  --documented-tint: #f3f3fe;
+  --inferred: #b26a00;
+  --inferred-tint: #fdf6ea;
+  --inferred-text: #8a5200;
+  --learned: #18774d;
+  --learned-tint: #e8f6ef;
+  --danger: #c0392b;
+  --mark: #fff1b8;
+
+  --shadow-float: 0 12px 32px rgb(16 24 64 / 0.14), 0 2px 6px rgb(16 24 64 / 0.08);
+  --focus: 0 0 0 3px rgb(91 91 214 / 0.35);
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  --radius: 8px;
+  --radius-card: 12px;
+
+  --header-height: 60px;
+  --sidebar-width: 272px;
+  --outline-width: 224px;
+  --panel-width: 420px;
+  --reading-width: 72ch;
+
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --duration: 180ms;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --accent: #9b9bf5;
+    --accent-hover: #b1b1f8;
+    --accent-text: #b4b4f9;
+    --accent-tint: #23264a;
+    --on-accent: #0f1220;
+    --text: #e6e8f0;
+    --text-muted: #a1a8bd;
+    --text-faint: #8b92a8;
+    --page: #0f1220;
+    --sidebar: #141829;
+    --card: #191e31;
+    --raised: #1b2035;
+    --hover: #22283f;
+    --line: #262c44;
+    --line-strong: #353c58;
+    --documented: #9b9bf5;
+    --documented-tint: #1c1f3c;
+    --inferred: #f0b255;
+    --inferred-tint: #2a2213;
+    --inferred-text: #f0b255;
+    --learned: #5fd39b;
+    --learned-tint: #12291f;
+    --danger: #ff8a7a;
+    --mark: #4a3f12;
+    --shadow-float: 0 16px 40px rgb(0 0 0 / 0.5), 0 2px 8px rgb(0 0 0 / 0.4);
+    --focus: 0 0 0 3px rgb(155 155 245 / 0.45);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --accent: #9b9bf5;
+  --accent-hover: #b1b1f8;
+  --accent-text: #b4b4f9;
+  --accent-tint: #23264a;
+  --on-accent: #0f1220;
+  --text: #e6e8f0;
+  --text-muted: #a1a8bd;
+  --text-faint: #8b92a8;
+  --page: #0f1220;
+  --sidebar: #141829;
+  --card: #191e31;
+  --raised: #1b2035;
+  --hover: #22283f;
+  --line: #262c44;
+  --line-strong: #353c58;
+  --documented: #9b9bf5;
+  --documented-tint: #1c1f3c;
+  --inferred: #f0b255;
+  --inferred-tint: #2a2213;
+  --inferred-text: #f0b255;
+  --learned: #5fd39b;
+  --learned-tint: #12291f;
+  --danger: #ff8a7a;
+  --mark: #4a3f12;
+  --shadow-float: 0 16px 40px rgb(0 0 0 / 0.5), 0 2px 8px rgb(0 0 0 / 0.4);
+  --focus: 0 0 0 3px rgb(155 155 245 / 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration: 0ms;
+  }
+}

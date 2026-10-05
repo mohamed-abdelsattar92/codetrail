@@ -1,9 +1,10 @@
 """The page's learning routes: marks and checks (design section 8).
 
-`POST /learn/read` marks a page or a digest read. `POST /learn/checks` sends the reader's answer to the assistant's
-grading (no tools) and records the attempt; the response carries the verdict and the feedback, never the rubric.
-Feedback that holds something gitleaks flags is replaced before it is stored or shown (design section 15.5), and the
-call's usage is recorded. One grading runs at a time. Every route sits behind the security middleware.
+`POST /learn/read` marks a page or a digest read, and `POST /learn/unread` takes a page's read mark back.
+`POST /learn/checks` sends the reader's answer to the assistant's grading (no tools) and records the attempt; the
+response carries the verdict and the feedback, never the rubric. Feedback that holds something gitleaks flags is
+replaced before it is stored or shown (design section 15.5), and the call's usage is recorded. One grading runs at a
+time. Every route sits behind the security middleware.
 """
 
 from __future__ import annotations
@@ -67,6 +68,18 @@ def learning_router(
                 learning.mark_digest_read(page.id)
             else:
                 learning.mark_read(page)
+        finally:
+            connection.close()
+        return Response(status_code=204)
+
+    @router.post("/learn/unread")
+    def mark_unread(mark: ReadMark) -> Response:
+        page = find_page(mark.page_id)
+        if page is None or page.kind == "digest":
+            return JSONResponse({"error": "That page doesn't exist."}, 404)
+        connection = connect(data / "codetrail.db")
+        try:
+            LearningState(connection).mark_unread(page)
         finally:
             connection.close()
         return Response(status_code=204)
