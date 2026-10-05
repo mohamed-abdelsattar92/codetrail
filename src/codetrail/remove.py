@@ -9,13 +9,14 @@ from pathlib import Path
 
 from codetrail.config import Paths, check_containment, validate_target_name
 from codetrail.errors import CodetrailError
-from codetrail.lock import target_lock
+from codetrail.lock import target_removal
 
 
 def remove_target(paths: Paths, name: str, confirm: Callable[[list[Path]], bool]) -> bool:
     """Shows `confirm` the target's existing locations and deletes them if it agrees; returns whether it did.
 
-    The settings file goes last, so a removal that fails part way leaves a target that can be removed again."""
+    The settings file goes last, and its lock is held until then: a removal that fails part way leaves a target
+    that can be removed again, and no command can start using the target meanwhile."""
     settings = paths.target_file(validate_target_name(name))
     if not settings.exists():
         raise CodetrailError(f"No target named {name!r}.")
@@ -26,9 +27,7 @@ def remove_target(paths: Paths, name: str, confirm: Callable[[list[Path]], bool]
     locations = [data, paths.target_state(name), paths.ignore_file(name), settings]
     if not confirm([location for location in locations if _exists(location)]):
         return False
-    if data.is_symlink():
-        data.unlink()  # before the lock, which would otherwise write its file wherever the link points
-    with target_lock(paths, name):  # creates the data folder if it's missing, so all locations are checked again
+    with target_removal(paths, name):  # refused while serve, update or files uses the target
         for location in locations:
             if location.is_dir() and not location.is_symlink():
                 shutil.rmtree(location)  # never follows a symlink inside the folder

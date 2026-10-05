@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from codetrail.config import Paths, check_containment, load_global, load_target
-from codetrail.lock import target_lock
+from codetrail.lock import target_in_use, target_lock
 from codetrail.repo.mirror import read_file_at, refresh_mirror
 from codetrail.repo.rules import ExclusionRules
 from codetrail.repo.secrets import SecretScanner
@@ -23,9 +23,10 @@ def ignore_lines(paths: Paths, name: str, target_file: bytes | None) -> list[str
 
 def refresh_source(paths: Paths, name: str) -> SourceManifest:
     """Refreshes the target's sources under its lock, after checking no folder would be made inside the target."""
-    check_containment(paths, load_target(paths, name).repository)
-    with target_lock(paths, name):
-        return refresh_while_locked(paths, name)
+    with target_in_use(paths, name):
+        check_containment(paths, load_target(paths, name).repository)
+        with target_lock(paths, name):
+            return refresh_while_locked(paths, name)
 
 
 def refresh_while_locked(paths: Paths, name: str) -> SourceManifest:
