@@ -126,3 +126,7 @@ def test_folder_names_that_could_carry_text_into_a_prompt_are_never_listed(store
 
 def test_control_and_format_characters_are_dropped_from_labels() -> None:
     assert escape_label("a\x01b\x7fc​d‮e") == "abcde"  # Mermaid's YAML refuses them in a shape's label
+
+
+def test_noncharacters_are_dropped_from_labels() -> None:
+    assert escape_label("a\uffffb\ufffec\ufdd0d") == "abcd"  # js-yaml refuses them as non-printable

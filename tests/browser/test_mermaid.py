@@ -20,7 +20,7 @@ pytestmark = pytest.mark.browser
 MERMAID = Path(str(files("codetrail.web").joinpath("static"))) / "vendor" / "mermaid.js"
 HOSTILE = ['a"b', "a<b>c", "a#b", "a%%b", "a`b", "a[b]", "a{b}", "a|b", "a;b", "a\\b", "a&b", "end", "graph", "x-->y",
            "click n1 call alert(1)", "%%{init: {}}%%", "naïve ünïcödé", "😀 emoji", "", "   ",
-           "a\x01b", "a\x7fb"]  # fmt: skip
+           "a\x01b", "a\x7fb", "a\uffffb"]  # fmt: skip
 
 
 @pytest.fixture

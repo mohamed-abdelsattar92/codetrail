@@ -31,8 +31,15 @@ def escape_label(text: str, fallback: str = "?") -> str:
 
 
 def _printable(text: str) -> str:
-    """Without control and format characters: Mermaid's YAML refuses them in a shape's label, failing the diagram."""
-    return "".join(character for character in text if unicodedata.category(character) not in ("Cc", "Cf"))
+    """Without control, format and surrogate characters or noncharacters (U+FDD0-U+FDEF, U+xFFFE and U+xFFFF):
+    Mermaid's YAML refuses them in a shape's label, failing the whole diagram."""
+    return "".join(
+        character
+        for character in text
+        if unicodedata.category(character) not in ("Cc", "Cf", "Cs")
+        and ord(character) & 0xFFFE != 0xFFFE
+        and not 0xFDD0 <= ord(character) <= 0xFDEF
+    )
 
 
 def _node(node_id: str, label: str, key: str) -> str:
