@@ -9,7 +9,7 @@ from pathlib import Path
 
 from codetrail.config import Paths, check_containment, validate_target_name
 from codetrail.errors import CodetrailError
-from codetrail.lock import target_removal
+from codetrail.lock import existing_target_lock, target_removal
 
 
 def remove_target(paths: Paths, name: str, confirm: Callable[[list[Path]], bool]) -> bool:
@@ -27,7 +27,8 @@ def remove_target(paths: Paths, name: str, confirm: Callable[[list[Path]], bool]
     locations = [data, paths.target_state(name), paths.ignore_file(name), settings]
     if not confirm([location for location in locations if _exists(location)]):
         return False
-    with target_removal(paths, name):  # refused while serve, update or files uses the target
+    # Refused while serve, update or files uses the target, or an update runs.
+    with target_removal(paths, name), existing_target_lock(paths, name):
         for location in locations:
             if location.is_dir() and not location.is_symlink():
                 shutil.rmtree(location)  # never follows a symlink inside the folder

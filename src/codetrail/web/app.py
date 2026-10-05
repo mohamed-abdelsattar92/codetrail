@@ -54,7 +54,7 @@ from codetrail.web.navigation import (
     steps_of,
 )
 from codetrail.web.render import render_body
-from codetrail.web.security import SESSION_COOKIE, SecurityMiddleware, SessionState, login_response
+from codetrail.web.security import OPEN_PATHS, SESSION_COOKIE, SecurityMiddleware, SessionState, login_response
 from codetrail.web.target_view import TargetView
 
 LANGUAGE_SETTING = "language"
@@ -77,7 +77,7 @@ class TargetInUseMiddleware:
         self.name = name
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http":
+        if scope["type"] != "http" or scope["path"].startswith(OPEN_PATHS):  # no session, and no target data
             await self.app(scope, receive, send)
             return
         held = ExitStack()

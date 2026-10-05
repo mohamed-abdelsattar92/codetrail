@@ -26,11 +26,42 @@ def target_lock(paths: Paths, name: str) -> Iterator[None]:
         try:
             fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as error:
-            raise TargetBusy(f"Target {name!r} is already updating; try again when that finishes.") from error
+            raise TargetBusy(_already_updating(name)) from error
         try:
             yield
         finally:
             fcntl.flock(handle, fcntl.LOCK_UN)
+
+
+@contextmanager
+def existing_target_lock(paths: Paths, name: str) -> Iterator[None]:
+    """Holds the update lock if the data folder has one, creating nothing and following no symlink.
+
+    For removal: an update holds it even when an editor has replaced the settings file its in-use lock is on."""
+    folder = paths.target_data(name)
+    descriptor = None
+    if folder.is_dir() and not folder.is_symlink():
+        try:
+            descriptor = os.open(folder / "update.lock", os.O_RDONLY | os.O_NOFOLLOW)
+        except FileNotFoundError:
+            pass
+        except OSError as error:
+            raise CodetrailError(f"Can't lock target {name!r} ({folder / 'update.lock'}): {error.strerror}.") from error
+    if descriptor is None:
+        yield
+        return
+    try:
+        try:
+            fcntl.flock(descriptor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as error:
+            raise TargetBusy(_already_updating(name)) from error
+        yield
+    finally:
+        os.close(descriptor)  # closing releases the lock
+
+
+def _already_updating(name: str) -> str:
+    return f"Target {name!r} is already updating; try again when that finishes."
 
 
 @contextmanager
