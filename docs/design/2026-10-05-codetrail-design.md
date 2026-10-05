@@ -629,7 +629,7 @@ The feel is a documentation site in the manner of Stripe's: calm, precise, with 
 - **Header:** the mark, "codetrail" and the target with its branch and commit; a search box ("Search or ask… ⌘K") that opens the palette; the Ask button; the light, dark or system theme switch; the language picker; and **?** for the shortcuts.
 - **Sidebar:** Home and Progress; Paths, each with a small progress bar; Areas; Concepts (the outline gives a concept no parent area, so they are listed apart); Saved answers (the newest five, then "All saved answers"); Digests; Decisions. The current page is highlighted; learned pages carry a check.
 - **Reading column:** breadcrumbs; the title with its status (not read, learned, sources changed); the content, with the diagram in a framed card that can be enlarged, and documented and inferred blocks as indigo and amber callouts; checks as cards; Previous and Next within the current path. The current path is the one the reader came from (links from a path carry `?path=<id>`, which is checked against the guide), otherwise the first path holding the page; a page in no path shows neither. Reading width is capped at about 72 characters.
-- **Outline:** "On this page", built from the page's headings, highlighting the section in view; hidden below about 1200 px.
+- **Outline:** "On this page", built from the page's headings, highlighting the section in view; hidden below about 1200 px. The article and its outline are one group, centered in the space beside the sidebar, so on a wide screen the text never hugs the sidebar and the outline stays next to the text; a page without an outline centers one wider column.
 - **Ask panel:** slides in from the inline end, over the outline column, without covering the reading column on wide screens (section 16.4).
 
 The **home page** leads with progress: the target's name, branch, commit and last update; a "Continue where you left off" card (the current path, its next unlearned page and a progress bar); three figures (how far the guide is behind the branch, with the Update button and the last update's actual cost, labelled as such, since a new estimate needs the facts refreshed first; pages learned, and how many changed since; the unread digest); your newest saved answers; then the areas.
@@ -703,6 +703,7 @@ Empty states invite rather than apologize ("Ask a question from any page and sav
 - `static/css/`: `tokens.css`, `base.css`, `layout.css`, `components.css`, `content.css` (guide pages, callouts, diagrams, code) and `print.css`, replacing `page.css`.
 - `static/js/`: plain ES modules, no bundler, loaded from `main.js` as `<script type="module">` (allowed by `script-src 'self'`): `api.js` (the token header, fetch), `ask.js`, `palette.js`, `shortcuts.js`, `update.js`, `learning.js`, `outline.js`, `theme.js`, `diagram.js`. They replace `page.js`, keeping its behaviour (streamed answers, grading, the estimate dialog, marking read, Mermaid).
 - `static/brand/`: the mark and favicon. `static/vendor/inter/`: the font files and their licence.
+- Static files are sent with `Cache-Control: no-cache`, so the browser revalidates them on every load and an upgraded Codetrail never shows its pages with the previous version's styles or script.
 - `src/codetrail/search.py`: the index and its queries; the routes live with the other page routes in `web`.
 
 ### 16.6 Configuration

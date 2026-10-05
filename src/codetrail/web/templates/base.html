@@ -23,10 +23,12 @@
   {% include "layout/header.html" %}
   <div class="shell">
     {% include "layout/sidebar.html" %}
-    <main id="content" class="content" tabindex="-1">
-      {% block content %}{% endblock %}
-    </main>
-    {% include "layout/outline.html" %}
+    <div class="page-area">
+      <main id="content" class="content" tabindex="-1">
+        {% block content %}{% endblock %}
+      </main>
+      {% include "layout/outline.html" %}
+    </div>
   </div>
   {% include "layout/ask_panel.html" %}
   {% include "layout/palette.html" %}

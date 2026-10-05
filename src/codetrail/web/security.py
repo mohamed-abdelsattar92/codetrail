@@ -100,12 +100,15 @@ class SecurityMiddleware:
         if scope["type"] != "http":
             return  # no websockets
         refusal = self._refusal(scope)
+        # Static files are revalidated on every load (cheap on 127.0.0.1), so after an upgrade the browser never mixes
+        # last version's styles or script with this version's pages.
+        extra = [(b"cache-control", b"no-cache")] if scope["path"].startswith("/static/") else []
 
         async def send_with_headers(message: Message) -> None:
             if message["type"] == "http.response.start":
-                names = {name for name, _ in SECURITY_HEADERS}
+                names = {name for name, _ in SECURITY_HEADERS + extra}
                 headers = [(name, value) for name, value in message.get("headers", []) if name not in names]
-                message["headers"] = headers + SECURITY_HEADERS
+                message["headers"] = headers + SECURITY_HEADERS + extra
             await send(message)
 
         if refusal is not None:

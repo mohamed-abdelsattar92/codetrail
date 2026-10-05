@@ -3,7 +3,7 @@
 import pytest
 from playwright.sync_api import Page, expect
 
-from tests.browser.conftest import Site
+from tests.browser.conftest import Site, ready
 
 pytestmark = pytest.mark.browser
 
@@ -20,6 +20,7 @@ def test_an_answer_stays_in_the_panel_across_pages_and_saves_to_the_guide(
     assert len(site.claude.requests) == 1
 
     page.goto(f"{site.url}/pages/concepts/ledger")
+    ready(page)
     expect(page.locator("[data-ask]")).to_be_visible()  # still open in this tab
     expect(page.locator(".ask-question")).to_have_text(["How often do charges retry?"])
 
