@@ -118,9 +118,9 @@ class LocalTools:
         needle = text.lower()
         found: list[str] = []
         for file in sorted(folder.rglob("*")):
-            relative = file.relative_to(self.root).as_posix()
-            if not file.is_file() or (pattern and not fnmatch.fnmatch(file.name, pattern)):
+            if not self._plain_file(file) or (pattern and not fnmatch.fnmatch(file.name, pattern)):
                 continue
+            relative = file.relative_to(self.root).as_posix()
             with file.open("rb") as handle:
                 content = handle.read(self.max_read_bytes).decode("utf-8", "replace")
             for number, line in enumerate(content.splitlines(), start=1):
@@ -135,8 +135,17 @@ class LocalTools:
         if reason is not None:
             raise _Refused(reason)
         folder = self._folder(path)
-        paths = sorted(file.relative_to(self.root).as_posix() for file in folder.glob(pattern) if file.is_file())
+        paths = sorted(
+            file.relative_to(self.root).as_posix() for file in folder.glob(pattern) if self._plain_file(file)
+        )
         return "\n".join(paths[:MAX_GLOB_PATHS]) or "No matches."
+
+    def _plain_file(self, file: Path) -> bool:
+        """A regular file inside the root, reached through no symlink: source/ never holds one, but don't rely on it."""
+        if file.is_symlink() or not file.is_file():
+            return False
+        resolved = file.resolve()
+        return resolved.is_relative_to(self.root) and resolved == file.absolute()
 
     def _folder(self, path: str) -> Path:
         reason = self.guard.decide("Grep", {"path": path})
