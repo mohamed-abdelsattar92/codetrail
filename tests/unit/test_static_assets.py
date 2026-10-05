@@ -32,3 +32,10 @@ def test_the_marks_are_inert_svg(svg: Path) -> None:
             assert not name.lower().startswith("on"), name
             assert "http" not in value or name == "xmlns", (name, value)
             assert "javascript:" not in value.lower()
+
+
+def test_axe_core_matches_its_recorded_sum() -> None:
+    vendor = REPOSITORY / "tests" / "browser" / "vendor"
+    [digest] = re.findall(r"([0-9a-f]{64})\s+axe\.min\.js", (vendor / "VERSION").read_text())
+    assert hashlib.sha256((vendor / "axe.min.js").read_bytes()).hexdigest() == digest
+    assert "Mozilla Public License" in (vendor / "LICENSE").read_text()

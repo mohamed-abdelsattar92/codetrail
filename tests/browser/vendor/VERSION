@@ -1,0 +1,7 @@
+axe-core 4.13.0
+source: https://registry.npmjs.org/axe-core/-/axe-core-4.13.0.tgz (package/axe.min.js, package/LICENSE)
+integrity of the tarball: sha512-UzGt8zg7Ny8djbYMhxl2zuEevVa7r2gJjYY5Lwr1xM7+XU2nd6CkIWFTVcCIbAP63vSz71NaVyyuSk9lHKcy0A==
+licence: Mozilla Public License 2.0 (LICENSE)
+used by tests only, through page.evaluate; never served by Codetrail
+sha256:
+  c24f097bd2f451d4f933e8bc7d8d539f8672a2ebcb5cc9f9f3eec8ca9470a0c1  axe.min.js
