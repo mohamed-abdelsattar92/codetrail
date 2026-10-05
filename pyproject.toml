@@ -62,14 +62,16 @@ pythonpath = ["."]
 markers = [
     "slow: end-to-end tests the pre-push hook skips; CI runs them",
     "live: tests that run the real providers installed here; run only by `just test-live`",
+    "browser: tests in a real browser (Playwright, headless Chromium); run by `just test-browser`",
 ]
-addopts = "-m 'not live'"
+addopts = "-m 'not live and not browser'"
 
 [dependency-groups]
 dev = [
     "babel==2.18.0",
     "mypy==2.4.0",
     "pytest==9.1.1",
+    "pytest-playwright==0.9.0",
     "ruff==0.16.10",
     "types-pyyaml==6.0.12.20260906",
 ]

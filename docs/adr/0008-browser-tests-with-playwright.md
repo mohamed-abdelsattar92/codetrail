@@ -46,7 +46,7 @@ Option A. `pytest-playwright` becomes a development dependency. The browser test
 
 ## Changes required
 - [x] Design: sections 11, 12, 14 and 16.7 (done in the design change that proposes this ADR).
-- [ ] `pyproject.toml` and `uv.lock`: `pytest-playwright` in the development group (Phase 11).
-- [ ] `justfile`: `test-browser`, included in `ci`; `setup` installs Chromium (Phase 11).
-- [ ] CI: install Chromium and run the browser tests (Phase 11).
-- [ ] `tests/browser/vendor/`: axe-core, its licence and `VERSION` (Phase 11).
+- [x] `pyproject.toml` and `uv.lock`: `pytest-playwright` in the development group (Phase 11).
+- [x] `justfile`: `test-browser`, included in `ci`; `setup` installs Chromium (Phase 11).
+- [x] CI: install Chromium and run the browser tests (Phase 11).
+- [x] `tests/browser/vendor/`: axe-core, its licence and `VERSION` (Phase 11).
