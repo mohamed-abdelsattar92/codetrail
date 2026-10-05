@@ -14,6 +14,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
+from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
@@ -86,6 +87,31 @@ class ClaudeCodeSettings(Settings):
     auth: Literal["subscription", "api_key"] = "subscription"
     timeout_seconds: int = Field(default=900, gt=0)
     hook_timeout_seconds: int = Field(default=30, gt=0)
+
+
+LOOPBACK_HOSTS = {"127.0.0.1", "::1", "localhost"}
+
+
+class LocalSettings(Settings):
+    base_url: str = "http://127.0.0.1:11434/v1"  # Ollama; LM Studio is http://127.0.0.1:1234/v1
+    max_turns: int = Field(default=30, gt=0)
+    max_tokens_per_call: int = Field(default=200_000, gt=0)
+    timeout_seconds: int = Field(default=900, gt=0)
+    max_read_bytes: int = Field(default=200_000, gt=0)
+
+    @field_validator("base_url")
+    @classmethod
+    def loopback_only(cls, base_url: str) -> str:
+        """Prompts carry the repository's text, so they go only to this machine (design section 15.5)."""
+        parts = urlsplit(base_url)
+        if (
+            parts.scheme not in ("http", "https")
+            or parts.username
+            or parts.password
+            or (parts.hostname not in LOOPBACK_HOSTS)
+        ):
+            raise ValueError(f"{base_url!r} isn't a loopback address (127.0.0.1, ::1 or localhost, with no user).")
+        return base_url
 
 
 class CodexSettings(Settings):
