@@ -228,3 +228,20 @@ def test_asset_imports_are_neither_modules_nor_unresolved(tmp_path: Path) -> Non
     found = run(tmp_path, {"site/src/x.ts": code, "site/src/icons.json": "{}"})
     assert edges(found, RelationKind.IMPORTS) == set()
     assert found.unresolved.get("typescript", 0) == 0
+
+
+def test_many_unclosed_script_tags_are_read_in_linear_time(tmp_path: Path) -> None:
+    import time
+
+    hostile = "---\n---\n" + "<script>x" * 40_000  # every opening would rescan the rest with a lazy regex
+    started = time.monotonic()
+    found = run(tmp_path, {"site/src/pages/x.astro": hostile})
+    assert time.monotonic() - started < 2
+    assert "module:site/src/pages/x.astro" in ids(found, EntityKind.MODULE)
+
+
+def test_scripts_are_found_case_insensitively_with_their_lines(tmp_path: Path) -> None:
+    page = '---\n---\n<p>a</p>\n<SCRIPT type="module">\nimport "./b";\n</Script>\n'
+    found = run(tmp_path, {"site/a.astro": page, "site/b.ts": ""})
+    [relation] = [r for r in found.relations if r.kind is RelationKind.IMPORTS]
+    assert (relation.target_id, relation.sources[0].start_line) == ("module:site/b.ts", 5)

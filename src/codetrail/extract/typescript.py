@@ -50,7 +50,6 @@ ASTRO_CONFIG = re.compile(r"astro\.config\.(mjs|js|ts|mts|cjs)")
 PAGE_SUFFIXES = (".astro", ".md", ".mdx")
 METHODS = ("GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS", "ALL")
 FENCE = re.compile(rb"\A---[ \t]*\r?\n(.*?)\r?\n---[ \t]*(\r?\n|\Z)", re.S)
-SCRIPT = re.compile(rb"<script\b[^>]*>(.*?)</script>", re.S | re.I)
 GROUPS = {"dependencies": "main", "devDependencies": "dev", "peerDependencies": "peer"}
 # Wrangler binding tables, and the key that names each binding.
 BINDINGS = {
@@ -300,8 +299,7 @@ class TypeScriptExtractor:
         fence = FENCE.match(content)
         if fence:
             blocks.append((fence.group(1), content[: fence.start(1)].count(b"\n")))
-        for script in SCRIPT.finditer(content):
-            blocks.append((script.group(1), content[: script.start(1)].count(b"\n")))
+        blocks += _scripts(content)
         for block, offset in blocks:
             yield self._parsers[TYPESCRIPT].parse(block), offset
 
@@ -391,6 +389,21 @@ class TypeScriptExtractor:
         options = [candidate, *(stem + suffix for suffix in RESOLVE_SUFFIXES),
                    *(f"{candidate}/index{suffix}" for suffix in RESOLVE_SUFFIXES)]  # fmt: skip
         return next((f"module:{option}" for option in options if f"module:{option}" in known), None)
+
+
+def _scripts(content: bytes) -> list[tuple[bytes, int]]:
+    """The code inside each <script> element and the lines before it, found in one pass (no backtracking regex)."""
+    lower = content.lower()
+    found: list[tuple[bytes, int]] = []
+    position = 0
+    while (opening := lower.find(b"<script", position)) != -1:
+        start = lower.find(b">", opening)
+        end = lower.find(b"</script>", start) if start != -1 else -1
+        if end == -1:
+            break  # no closing tag after this one, so none after any later opening either
+        found.append((content[start + 1 : end], content[: start + 1].count(b"\n")))
+        position = end + len(b"</script>")
+    return found
 
 
 def _string_value(node: Node | None) -> str | None:
