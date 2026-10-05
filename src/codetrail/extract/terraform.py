@@ -27,9 +27,13 @@ def module_id(folder: str) -> str:
     return f"terraform_module:{folder}"
 
 
+PATH_ATTRIBUTE = re.compile(r'\b(?:source_dir|source|context|dockerfile|path|working_dir)\s*=\s*"([^"\n]*)"')
+MAX_PATHS = 20
+
+
 class TerraformExtractor:
     name = "terraform"
-    version = 1
+    version = 2  # resources record their `paths`
 
     def __init__(self) -> None:
         self._parser = Parser(HCL)
@@ -55,8 +59,11 @@ class TerraformExtractor:
             source = (Source(path, line, block.end_point[0] + 1),)
             if kind == "resource" and len(labels) == 2:
                 resource = f"resource:{folder}/{labels[0]}.{labels[1]}"
-                entities.append(Entity(resource, EntityKind.RESOURCE,
-                                       {"type": labels[0], "name": labels[1], "module": folder}, source))  # fmt: skip
+                attributes: dict[str, object] = {"type": labels[0], "name": labels[1], "module": folder}
+                found = _paths(folder, (block.text or b"").decode("utf-8", "replace"))
+                if found:
+                    attributes["paths"] = found
+                entities.append(Entity(resource, EntityKind.RESOURCE, attributes, source))
                 references.append(Reference(module, RelationKind.CONTAINS, resource, source))
                 text = (block.text or b"").decode("utf-8", "replace")
                 for match in sorted(set(REFERENCE.findall(text))):
@@ -85,6 +92,22 @@ class TerraformExtractor:
                     unresolved += 1  # a registry, remote or missing module
                 # a resource name that matches no resource (a data source, a provider attribute) is not a reference
         return Resolution(relations, unresolved)
+
+
+def _paths(folder: str, text: str) -> list[str]:
+    """Path-like attribute values in the repository, resolved lexically against the module's folder.
+
+    Values containing `$` (interpolation), absolute paths and paths climbing above the repository are dropped.
+    """
+    found: set[str] = set()
+    for value in PATH_ATTRIBUTE.findall(text):
+        if not value or "$" in value or value.startswith("/") or "://" in value:
+            continue
+        joined = posixpath.normpath(posixpath.join(folder, value))
+        if joined == ".." or joined.startswith("../"):
+            continue
+        found.add("" if joined == "." else joined)
+    return sorted(found)[:MAX_PATHS]
 
 
 def _block_head(block: Node) -> tuple[str, list[str]]:
