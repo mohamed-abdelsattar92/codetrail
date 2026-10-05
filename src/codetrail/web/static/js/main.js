@@ -27,3 +27,4 @@ setUpUpdate();
 setUpShortcuts();
 setUpOutline();
 setUpDiagrams();
+document.documentElement.dataset.ready = "true"; // every handler is in place

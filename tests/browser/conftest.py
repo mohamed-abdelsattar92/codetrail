@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 import uvicorn
-from playwright.sync_api import ConsoleMessage, Page
+from playwright.sync_api import ConsoleMessage, Page, expect
 
 from codetrail.assistant import AnswerChunk, PageDraft, PageRequest, PlanDraft
 from codetrail.assistant.estimate import CallEstimate, EstimateLine, UpdateEstimate
@@ -67,6 +67,12 @@ class Site:
         page.goto(f"{self.url}/login?code={self.session.issue_login_code()}")
         if path != "/":
             page.goto(f"{self.url}{path}")
+        ready(page)
+
+
+def ready(page: Page) -> None:
+    """Waits until the page's script has set up every handler, as a reader's next key press would need."""
+    expect(page.locator("html")).to_have_attribute("data-ready", "true")
 
 
 def free_port() -> int:

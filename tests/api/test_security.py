@@ -151,6 +151,8 @@ def test_static_files_need_no_session_but_carry_the_headers(client: TestClient) 
     response = client.get("/static/page.js")
     assert response.status_code == 200
     assert_security_headers(response)
+    # Revalidated on every load, so an upgraded Codetrail never shows a page with last version's styles or script.
+    assert response.headers["cache-control"] == "no-cache"
 
 
 def test_a_forged_cookie_is_refused(client: TestClient) -> None:

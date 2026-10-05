@@ -71,7 +71,8 @@
   --sidebar-width: 272px;
   --outline-width: 224px;
   --panel-width: 420px;
-  --reading-width: 72ch;
+  --article-width: 46rem;
+  --wide-width: 72rem;
 
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
   --duration: 180ms;

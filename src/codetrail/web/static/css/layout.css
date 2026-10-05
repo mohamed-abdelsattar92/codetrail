@@ -74,8 +74,23 @@
 
 .shell {
   display: grid;
-  grid-template-columns: var(--sidebar-width) minmax(0, 1fr) var(--outline-width);
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
   min-block-size: calc(100vh - var(--header-height));
+}
+
+/* The article and its outline are one group, centered in the space beside the sidebar, so on a wide screen the text
+   doesn't hug the sidebar and the outline stays next to what it outlines. A page with no outline centers one wider
+   column instead. */
+.page-area {
+  display: grid;
+  grid-template-columns: minmax(0, var(--article-width)) var(--outline-width);
+  justify-content: center;
+  column-gap: var(--space-12);
+  padding-inline: var(--space-12);
+}
+
+.page-area:not(:has(> .outline:not([hidden]))) {
+  grid-template-columns: minmax(0, var(--wide-width));
 }
 
 .sidebar {
@@ -91,7 +106,7 @@
 
 .content {
   min-inline-size: 0;
-  padding: var(--space-10) var(--space-12) var(--space-12);
+  padding-block: var(--space-10) var(--space-12);
 }
 
 .content:focus {
@@ -99,11 +114,12 @@
 }
 
 .reading {
-  max-inline-size: var(--reading-width);
+  max-inline-size: var(--article-width);
+  margin-inline: auto;
 }
 
 .wide {
-  max-inline-size: 64rem;
+  max-inline-size: var(--wide-width);
 }
 
 .outline {
@@ -112,7 +128,6 @@
   block-size: calc(100vh - var(--header-height));
   overflow-y: auto;
   padding-block: var(--space-10) var(--space-8);
-  padding-inline: 0 var(--space-5);
 }
 
 .outline-title {
@@ -174,14 +189,19 @@
     grid-template-columns: var(--sidebar-width) minmax(0, 1fr) var(--panel-width);
   }
 
+  body.ask-open .page-area {
+    grid-template-columns: minmax(0, var(--article-width));
+  }
+
   body.ask-open .outline {
-    visibility: hidden;
+    display: none;
   }
 }
 
 @media (max-width: 1200px) {
-  .shell {
-    grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  .page-area,
+  .page-area:not(:has(> .outline:not([hidden]))) {
+    grid-template-columns: minmax(0, var(--wide-width));
   }
 
   .outline {
@@ -224,8 +244,12 @@
     transform: none;
   }
 
+  .page-area {
+    padding-inline: var(--space-4);
+  }
+
   .content {
-    padding: var(--space-6) var(--space-4) var(--space-10);
+    padding-block: var(--space-6) var(--space-10);
   }
 }
 

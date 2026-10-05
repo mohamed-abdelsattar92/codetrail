@@ -6,7 +6,7 @@ import sys
 import pytest
 from playwright.sync_api import Page, expect
 
-from tests.browser.conftest import Site
+from tests.browser.conftest import Site, ready
 
 pytestmark = pytest.mark.browser
 MODIFIER = "Meta" if sys.platform == "darwin" else "Control"
@@ -72,8 +72,10 @@ def test_brackets_follow_the_path(page: Page, site: Site) -> None:
     site.sign_in(page, "/pages/concepts/retries?path=paths/start")
     page.keyboard.press("]")
     expect(page).to_have_url(re.compile(r"/pages/concepts/ledger\?path=paths/start$"))
+    ready(page)
     page.keyboard.press("[")
     expect(page).to_have_url(re.compile(r"/pages/concepts/retries\?path=paths/start$"))
+    ready(page)
     page.keyboard.press("[")
     expect(page).to_have_url(re.compile(r"/pages/areas/app\?path=paths/start$"))
 
@@ -84,6 +86,7 @@ def test_m_marks_a_page_read_then_unread(page: Page, site: Site) -> None:
     expect(status).to_have_attribute("data-status", "unread")
     page.keyboard.press("m")
     expect(status).to_have_attribute("data-status", "read")
+    ready(page)
     page.keyboard.press("m")
     expect(status).to_have_attribute("data-status", "unread")
 
@@ -139,5 +142,6 @@ def test_the_theme_switch_cycles_and_survives_a_reload(page: Page, site: Site) -
     expect(html).to_have_attribute("data-theme", "dark")
     page.reload()
     expect(html).to_have_attribute("data-theme", "dark")
+    ready(page)
     toggle.click()
     expect(html).not_to_have_attribute("data-theme", re.compile(".+"))
