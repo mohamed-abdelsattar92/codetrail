@@ -5,6 +5,10 @@ from pathlib import Path
 import pytest
 
 from codetrail.cli import main
+from codetrail.config import Paths
+from codetrail.errors import CodetrailError
+from codetrail.lock import target_removal
+from codetrail.server import serve
 from tests.fixtures.repos import make_repository, snapshot_tree
 
 
@@ -86,3 +90,37 @@ def test_remove_without_a_terminal_needs_yes(
 def test_removing_an_unknown_target_fails(environment: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert main(["target", "remove", "api", "--yes"]) == 1
     assert "No target named 'api'" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("command", [["update", "api", "--facts-only"], ["files", "api"]])
+def test_a_target_being_removed_is_not_refreshed(
+    environment: Path, checkout: Path, capsys: pytest.CaptureFixture[str], command: list[str]
+) -> None:
+    with target_removal(Paths.from_environment(), "api"):
+        assert main(command) == 1
+    assert "being removed" in capsys.readouterr().err
+
+
+def test_a_target_being_removed_is_not_served(
+    environment: Path, checkout: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("codetrail.server.uvicorn.run", lambda *arguments, **keywords: None)
+    paths = Paths.from_environment()
+    with target_removal(paths, "api"), pytest.raises(CodetrailError, match="being removed"):
+        serve(paths, "api", open_browser=False)
+
+
+def test_a_served_target_is_not_removed(
+    environment: Path, checkout: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    exits: list[int] = []
+    monkeypatch.setattr(
+        "codetrail.server.uvicorn.run",
+        lambda *arguments, **keywords: exits.append(main(["target", "remove", "api", "--yes"])),
+    )
+
+    assert main(["serve", "api", "--no-browser"]) == 0
+
+    assert exits == [1]
+    assert "in use: stop `codetrail serve` for it" in capsys.readouterr().err
+    assert (environment / "data" / "codetrail" / "api").exists()

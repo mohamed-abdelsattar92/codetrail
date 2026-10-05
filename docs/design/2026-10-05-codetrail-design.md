@@ -30,7 +30,7 @@ Codetrail is one uv project with one package, `src/codetrail/`, and tests in `te
 | Command | Does |
 |---|---|
 | `codetrail target add <name> <path> [--branch <branch>]` | Writes a target's configuration with defaults |
-| `codetrail target remove <name> [--yes]` | Lists everything Codetrail keeps for the target (its settings, ignore file, data and state folders), asks, then deletes them; never the repository |
+| `codetrail target remove <name> [--yes]` | Lists everything Codetrail keeps for the target (its settings, ignore file, data and state folders), asks, then deletes them; never the repository. Refused while `serve`, `update` or `files` uses the target |
 | `codetrail files <target>` | Refreshes the target's sources and lists exactly the files Codetrail can see |
 | `codetrail update <target> [--yes] [--facts-only]` | Refreshes the sources, the facts and the guide, after showing the estimate (section 15.4) |
 | `codetrail providers` | Shows each assistant provider, whether it is installed and signed in, and how (section 15.2) |
@@ -489,6 +489,7 @@ Security checks fail closed; an aborted update leaves nothing half-written; one 
 |---|---|
 | Ignore rules can't load; gitleaks missing, failing or stuck; the tool guard errors | The refresh fails; the guard denies |
 | A second update for the same target | A lock file (`fcntl.flock`, released if the process dies) makes it report "already updating" |
+| Removing a target that is in use | `serve` (for as long as it runs), `update` and `files` hold a shared `flock` on the target's settings file; `target remove` takes it exclusively, refuses while it's held, and holds it until it deletes that file last. A command that opened the file just before a removal finished notices that it's gone and refuses, creating no folder. Since an editor may have replaced the file `serve` or an update locked, each request to the page (but `/login` and `/static/`) also takes the shared lock on the current file, answering 410 and recreating nothing after a removal, and removal also takes an existing `update.lock`, refusing while an update holds it |
 | A file fails to parse | A warning with its path; the update continues |
 | A transient assistant error (rate limit, overload, network) | Retried with backoff, `assistant.retry_attempts` times |
 | A provider's program is missing, signed out, or signed in differently from `auth` | The action is refused before it starts, naming the command to run |

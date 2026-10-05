@@ -8,7 +8,7 @@ import pytest
 
 from codetrail.config import Paths, write_target
 from codetrail.errors import CodetrailError
-from codetrail.lock import target_lock
+from codetrail.lock import target_in_use, target_lock
 from codetrail.remove import remove_target
 
 
@@ -128,7 +128,15 @@ def test_folders_inside_the_repository_are_never_removed(paths: Paths, tmp_path:
     assert moved.target_file("shop").exists()
 
 
-def test_a_target_that_is_updating_is_not_removed(paths: Paths, tmp_path: Path) -> None:
+def test_a_target_in_use_is_not_removed(paths: Paths, tmp_path: Path) -> None:
+    locations = add(paths, tmp_path, "shop")
+    with target_in_use(paths, "shop"), pytest.raises(CodetrailError, match="in use"):
+        remove_target(paths, "shop", lambda found: True)
+    assert all(location.exists() for location in locations)
+
+
+def test_an_updating_target_is_not_removed_even_if_its_settings_were_replaced(paths: Paths, tmp_path: Path) -> None:
+    """An editor that renames a new settings file into place leaves the update's in-use lock on the old one."""
     locations = add(paths, tmp_path, "shop")
     with target_lock(paths, "shop"), pytest.raises(CodetrailError, match="already updating"):
         remove_target(paths, "shop", lambda found: True)
