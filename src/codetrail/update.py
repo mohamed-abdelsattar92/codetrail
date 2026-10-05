@@ -113,7 +113,7 @@ def run_update(
                 manifest=manifest,
                 source_root=source,
                 mirror=mirror,
-                scanner=SecretScanner(settings.tools.gitleaks),
+                scanner=SecretScanner(settings.tools),
                 visible=lambda path: rules.reason(path) is None and path not in excluded,
                 max_pages=target.generation.max_pages_per_update,
                 concurrency=target.generation.concurrency,
