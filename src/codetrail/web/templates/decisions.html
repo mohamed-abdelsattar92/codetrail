@@ -1,20 +1,30 @@
 {% extends "base.html" %}
 {% block title %}{{ _("Decisions") }}{% endblock %}
 {% block content %}
-<h1>{{ _("Decisions") }}</h1>
+<div class="wide">
+<header class="page-head">
+  <h1>{{ _("Decisions") }}</h1>
+  <p class="muted">{{ _("The repository's architecture decision records, as Codetrail found them.") }}</p>
+</header>
 {% if decisions %}
 <table class="decisions" lang="en" dir="ltr">
-  <tr><th>#</th><th>Title</th><th>Status</th><th>Date</th></tr>
+  <thead><tr><th>#</th><th>Title</th><th>Status</th><th>Date</th></tr></thead>
+  <tbody>
   {% for decision in decisions %}
   <tr>
     <td><a href="/facts/{{ decision.id }}">{{ decision.attributes.number }}</a></td>
     <td><a href="/source/{{ decision.attributes.path }}">{{ decision.attributes.title }}</a></td>
-    <td>{{ decision.attributes.get("status", "") }}</td>
-    <td>{{ decision.attributes.get("date", "") }}</td>
+    <td>{% if decision.attributes.get("status") %}<span class="pill">{{ decision.attributes.get("status", "") }}</span>{% endif %}</td>
+    <td class="faint">{{ decision.attributes.get("date", "") }}</td>
   </tr>
   {% endfor %}
+  </tbody>
 </table>
 {% else %}
-<p>{{ _("No decisions found.") }}</p>
+<section class="empty">
+  <h2>{{ _("No decisions found") }}</h2>
+  <p>{{ _("Codetrail looks for architecture decision records where the target's settings say they live.") }}</p>
+</section>
 {% endif %}
+</div>
 {% endblock %}

@@ -66,9 +66,9 @@ def client(paths: Paths, session: SessionState, locales: Path) -> TestClient:
 def test_home_shows_areas_counts_and_the_signal(client: TestClient) -> None:
     page = client.get("/").text
     assert '<html lang="en" dir="ltr">' in page
-    assert "Up to date with the branch." in page
+    assert "Up to date" in page
     assert 'href="/areas/services"' in page
-    assert "module</span>: 3" in page
+    assert '<span lang="en" dir="ltr">module</span> 3' in page
 
 
 def test_an_area_shows_its_diagrams_and_files(client: TestClient) -> None:
@@ -139,7 +139,7 @@ def test_the_language_needs_the_token(client: TestClient) -> None:
 
 
 def test_static_files_are_served_with_the_policy(client: TestClient) -> None:
-    response = client.get("/static/page.js")
+    response = client.get("/static/js/main.js")
     assert response.status_code == 200
     assert "script-src 'self'" in response.headers["content-security-policy"]
     assert client.get("/static/vendor/mermaid.js").status_code == 200

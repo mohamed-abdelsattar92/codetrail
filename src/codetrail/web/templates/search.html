@@ -1,24 +1,30 @@
 {% extends "base.html" %}
+{% from "layout/icons.html" import icon %}
 {% block title %}{{ _("Search") }}{% endblock %}
 {% block content %}
-<h1>{{ _("Search") }}</h1>
-<form action="/search" method="get" role="search">
-  <input type="search" name="q" value="{{ query }}" maxlength="1000" aria-label="{{ _('Search the guide') }}">
-  <button type="submit">{{ _("Search") }}</button>
-</form>
+<div class="wide">
+<header class="page-head">
+  <h1>{{ _("Search") }}</h1>
+  <form class="search-box full" action="/search" method="get" role="search">
+    {{ icon("search") }}
+    <input type="search" name="q" value="{{ query }}" maxlength="1000" aria-label="{{ _('Search the guide') }}">
+    <button type="submit" class="button small">{{ _("Search") }}</button>
+  </form>
+</header>
 {% if not available %}
 <p class="notice">{{ _("Search isn't available right now. The rest of the guide still works.") }}</p>
 {% elif query and not results %}
-<p>{% trans query=query %}Nothing in the guide matches “{{ query }}”.{% endtrans %}</p>
+<p class="muted">{% trans query=query %}Nothing in the guide matches “{{ query }}”.{% endtrans %}</p>
 {% endif %}
 {% if results %}
 <ol class="results" lang="en" dir="ltr">
   {% for result in results %}
   <li>
-    <a href="{{ result.document.link }}">{{ result.document.title }}</a> <span class="muted">{{ result.document.kind }}</span>
-    {% if result.snippet %}<p>{% for text, matched in result.snippet %}{% if matched %}<mark>{{ text }}</mark>{% else %}{{ text }}{% endif %}{% endfor %}</p>{% endif %}
+    <a href="{{ result.document.link }}">{{ result.document.title }}</a> <span class="kind">{{ result.document.kind }}</span>
+    {% if result.snippet %}<p class="snippet">{% for text, matched in result.snippet %}{% if matched %}<mark>{{ text }}</mark>{% else %}{{ text }}{% endif %}{% endfor %}</p>{% endif %}
   </li>
   {% endfor %}
 </ol>
 {% endif %}
+</div>
 {% endblock %}

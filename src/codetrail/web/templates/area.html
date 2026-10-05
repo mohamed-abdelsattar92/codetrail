@@ -1,8 +1,12 @@
 {% extends "base.html" %}
 {% block title %}{{ scope }}{% endblock %}
 {% block content %}
-<h1 lang="en" dir="ltr">{{ scope }}/</h1>
-<p class="muted">{% trans count=files|length %}{{ count }} visible file{% pluralize %}{{ count }} visible files{% endtrans %}</p>
+<div class="wide">
+<header class="page-head">
+  <p class="eyebrow">{{ _("Folder") }}</p>
+  <h1 lang="en" dir="ltr">{{ scope }}/</h1>
+  <p class="muted">{% trans count=files|length %}{{ count }} visible file{% pluralize %}{{ count }} visible files{% endtrans %}</p>
+</header>
 
 {% for project, diagram in projects %}
 <section>
@@ -22,7 +26,7 @@
 {% if decisions %}
 <section>
   <h2>{{ _("Decisions") }}</h2>
-  <ul lang="en" dir="ltr">{% for decision in decisions %}<li><a href="/facts/{{ decision.id }}">{{ decision.attributes.number }}. {{ decision.attributes.title }}</a></li>{% endfor %}</ul>
+  <ul class="list" lang="en" dir="ltr">{% for decision in decisions %}<li><a class="grow" href="/facts/{{ decision.id }}">{{ decision.attributes.number }}. {{ decision.attributes.title }}</a></li>{% endfor %}</ul>
 </section>
 {% endif %}
 
@@ -30,4 +34,5 @@
   <h2>{{ _("Files") }}</h2>
   <ul class="files" lang="en" dir="ltr">{% for path in files %}<li><a href="/source/{{ path }}">{{ path }}</a></li>{% endfor %}</ul>
 </section>
+</div>
 {% endblock %}

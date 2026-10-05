@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% from "layout/icons.html" import icon %}
+{% block title %}{{ _("Progress") }}{% endblock %}
+{% block content %}
+<div class="wide">
+<header class="page-head">
+  <h1>{{ _("Your progress") }}</h1>
+  <p class="muted">{{ _("A page is learned when you pass its checks. When an update changes a page you learned, it shows here until you learn it again.") }}</p>
+</header>
+{% if not paths_steps and not unpathed %}
+<section class="empty">
+  <h2>{{ _("Nothing to learn yet") }}</h2>
+  <p>{{ _("Update the guide and its guided paths appear here, with what you've learned on each.") }}</p>
+  <button type="button" class="button primary" data-update-button>{{ _("Update the guide") }}</button>
+</section>
+{% endif %}
+{% for path, learned, total, steps in paths_steps %}
+<section aria-labelledby="path-{{ loop.index }}">
+  <div class="section-head">
+    <h2 id="path-{{ loop.index }}" lang="en" dir="ltr"><a href="/pages/{{ path.id }}">{{ path.title }}</a></h2>
+    <span class="faint">{% trans learned=learned, total=total %}{{ learned }} of {{ total }} learned{% endtrans %}</span>
+  </div>
+  <span class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="{{ total }}" aria-valuenow="{{ learned }}" aria-labelledby="path-{{ loop.index }}"><span style="inline-size: {{ ((learned / total * 100) if total else 0) | round | int }}%"></span></span>
+  <ol class="list spaced" lang="en" dir="ltr">
+    {% for step in steps %}
+    {% set state = nav.statuses.get(step.id, "unread") %}
+    <li><a class="grow" href="/pages/{{ step.id }}?path={{ path.id }}">{{ step.title }}</a>
+      <span class="pill pill-{{ state }}" lang="{{ language.code }}" dir="{{ language.direction }}">{% if state == "learned" %}{{ icon("check") }} {{ _("Learned") }}{% elif state == "stale" %}{{ _("Changed since you learned it") }}{% elif state == "read" %}{{ _("Read") }}{% else %}{{ _("Not read yet") }}{% endif %}</span></li>
+    {% endfor %}
+  </ol>
+</section>
+{% endfor %}
+{% if unpathed %}
+<section>
+  <h2>{{ _("Outside the paths") }}</h2>
+  <ul class="list" lang="en" dir="ltr">
+    {% for page in unpathed %}
+    {% set state = nav.statuses.get(page.id, "unread") %}
+    <li><a class="grow" href="/pages/{{ page.id }}">{{ page.title }}</a>
+      <span class="pill pill-{{ state }}" lang="{{ language.code }}" dir="{{ language.direction }}">{% if state == "learned" %}{{ icon("check") }} {{ _("Learned") }}{% elif state == "stale" %}{{ _("Changed since you learned it") }}{% elif state == "read" %}{{ _("Read") }}{% else %}{{ _("Not read yet") }}{% endif %}</span></li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+</div>
+{% endblock %}

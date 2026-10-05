@@ -1,0 +1,23 @@
+<dialog class="shortcuts-dialog" data-shortcuts aria-labelledby="shortcuts-title">
+  <div class="dialog-body">
+    <h2 id="shortcuts-title">{{ _("Keyboard shortcuts") }}</h2>
+    <table>
+      <tbody>
+        <tr><td><kbd>⌘</kbd> <kbd>K</kbd> · <kbd>/</kbd></td><td>{{ _("Search, or ask a question") }}</td></tr>
+        <tr><td><kbd>A</kbd></td><td>{{ _("Ask about this page") }}</td></tr>
+        <tr><td><kbd>G</kbd> <kbd>H</kbd></td><td>{{ _("Go home") }}</td></tr>
+        <tr><td><kbd>G</kbd> <kbd>P</kbd></td><td>{{ _("Go to your progress") }}</td></tr>
+        <tr><td><kbd>G</kbd> <kbd>S</kbd></td><td>{{ _("Go to saved answers") }}</td></tr>
+        <tr><td><kbd>G</kbd> <kbd>D</kbd></td><td>{{ _("Go to digests") }}</td></tr>
+        <tr><td><kbd>G</kbd> <kbd>R</kbd></td><td>{{ _("Go to decisions") }}</td></tr>
+        <tr><td><kbd>[</kbd> · <kbd>]</kbd></td><td>{{ _("Previous or next page in the path") }}</td></tr>
+        <tr><td><kbd>M</kbd></td><td>{{ _("Mark this page read, or unread") }}</td></tr>
+        <tr><td><kbd>U</kbd></td><td>{{ _("Update the guide (shows the estimate first)") }}</td></tr>
+        <tr><td><kbd>?</kbd></td><td>{{ _("Show these shortcuts") }}</td></tr>
+        <tr><td><kbd>Esc</kbd></td><td>{{ _("Close the palette, the panel or a dialog") }}</td></tr>
+      </tbody>
+    </table>
+    <p class="faint">{{ _("No shortcut spends anything: questions are sent by their Send button, and updates start only when you choose Go ahead.") }}</p>
+  </div>
+  <div class="dialog-actions"><button type="button" class="button" data-shortcuts-close>{{ _("Close") }}</button></div>
+</dialog>

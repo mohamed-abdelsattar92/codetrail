@@ -1,0 +1,12 @@
+<dialog class="estimate-dialog" data-estimate-dialog aria-labelledby="estimate-title">
+  <div class="dialog-body" data-estimate-body></div>
+  <div class="dialog-actions">
+    <button type="button" class="button" data-estimate-cancel>{{ _("Cancel") }}</button>
+    <button type="button" class="button primary" data-estimate-go>{{ _("Go ahead") }}</button>
+  </div>
+</dialog>
+<div class="toast" role="status" data-update-status
+     data-label-preparing="{{ _('Refreshing the facts (free)…') }}"
+     data-label-running="{{ _('Updating…') }}"
+     data-label-done="{{ _('Updated.') }}"
+     data-label-failed="{{ _('The update failed:') }}"></div>

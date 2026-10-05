@@ -73,8 +73,14 @@ def _snippet(text: str, query: str, max_chars: int) -> list[tuple[str, bool]]:
 
     hits = [match for match in WORD.finditer(text) if matches(match.group())]
     start = max(0, hits[0].start() - SNIPPET_CHARS // 3) if hits else 0
+    if start > 0:  # begin at a word, not inside one
+        space = text.find(" ", start)
+        start = space + 1 if 0 <= space < (hits[0].start() if hits else len(text)) else start
     end = min(len(text), start + SNIPPET_CHARS)
-    segments: list[tuple[str, bool]] = []
+    if end < len(text):
+        space = text.rfind(" ", start, end)
+        end = space if space > (hits[0].end() if hits else start) else end
+    segments: list[tuple[str, bool]] = [("…", False)] if start > 0 else []
     position = start
     for hit in hits:
         if hit.start() < start or hit.end() > end:
@@ -85,6 +91,8 @@ def _snippet(text: str, query: str, max_chars: int) -> list[tuple[str, bool]]:
         position = hit.end()
     if position < end:
         segments.append((text[position:end], False))
+    if end < len(text):
+        segments.append(("…", False))
     return segments
 
 

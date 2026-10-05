@@ -1,0 +1,243 @@
+/* The shell (design section 16.1): a header, then the sidebar, the reading column and the outline.
+   Below 1200px the outline goes; below 900px the sidebar moves behind the menu button. */
+
+.topbar {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  block-size: var(--header-height);
+  padding-inline: var(--space-5);
+  border-block-end: 1px solid var(--line);
+  background: color-mix(in srgb, var(--page) 88%, transparent);
+  backdrop-filter: saturate(1.4) blur(10px);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.brand:hover {
+  text-decoration: none;
+}
+
+.brand img {
+  inline-size: 24px;
+  block-size: 24px;
+}
+
+.target {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding-inline-start: var(--space-4);
+  border-inline-start: 1px solid var(--line);
+  color: var(--text);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-inline-size: 0;
+}
+
+.target-meta {
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  font-weight: 400;
+}
+
+.topbar-search {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  min-inline-size: 0;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.topbar .menu-button {
+  display: none;
+}
+
+.shell {
+  display: grid;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr) var(--outline-width);
+  min-block-size: calc(100vh - var(--header-height));
+}
+
+.sidebar {
+  position: sticky;
+  inset-block-start: var(--header-height);
+  block-size: calc(100vh - var(--header-height));
+  overflow-y: auto;
+  padding: var(--space-5) var(--space-3) var(--space-10);
+  border-inline-end: 1px solid var(--line);
+  background: var(--sidebar);
+  overscroll-behavior: contain;
+}
+
+.content {
+  min-inline-size: 0;
+  padding: var(--space-10) var(--space-12) var(--space-12);
+}
+
+.content:focus {
+  outline: none;
+}
+
+.reading {
+  max-inline-size: var(--reading-width);
+}
+
+.wide {
+  max-inline-size: 64rem;
+}
+
+.outline {
+  position: sticky;
+  inset-block-start: var(--header-height);
+  block-size: calc(100vh - var(--header-height));
+  overflow-y: auto;
+  padding-block: var(--space-10) var(--space-8);
+  padding-inline: 0 var(--space-5);
+}
+
+.outline-title {
+  margin: 0 0 var(--space-2);
+  color: var(--text-faint);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.outline ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-inline-start: 1px solid var(--line);
+}
+
+.outline a {
+  display: block;
+  margin-inline-start: -1px;
+  padding: 3px var(--space-3);
+  border-inline-start: 2px solid transparent;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+.outline .depth-3 a {
+  padding-inline-start: var(--space-6);
+}
+
+.outline a:hover {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.outline a[aria-current="location"] {
+  border-inline-start-color: var(--accent);
+  color: var(--accent-text);
+  font-weight: 500;
+}
+
+[dir="rtl"] .icon-flip {
+  transform: scaleX(-1);
+}
+
+.footer {
+  margin-block-start: var(--space-12);
+  padding-block-start: var(--space-5);
+  border-block-start: 1px solid var(--line);
+  color: var(--text-faint);
+  font-size: 0.8rem;
+}
+
+/* With the Ask panel open on a wide screen, the page makes room for it instead of being covered. */
+@media (min-width: 1201px) {
+  body.ask-open .shell {
+    grid-template-columns: var(--sidebar-width) minmax(0, 1fr) var(--panel-width);
+  }
+
+  body.ask-open .outline {
+    visibility: hidden;
+  }
+}
+
+@media (max-width: 1200px) {
+  .shell {
+    grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  }
+
+  .outline {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
+  .topbar .menu-button {
+    display: inline-flex;
+  }
+
+  .target,
+  .topbar-actions .language,
+  .search-hint {
+    display: none;
+  }
+
+  .shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .sidebar {
+    position: fixed;
+    inset-block: var(--header-height) 0;
+    inset-inline-start: 0;
+    z-index: 25;
+    inline-size: min(var(--sidebar-width), 86vw);
+    block-size: auto;
+    transform: translateX(-100%);
+    transition: transform var(--duration) var(--ease);
+    box-shadow: var(--shadow-float);
+  }
+
+  [dir="rtl"] .sidebar {
+    transform: translateX(100%);
+  }
+
+  body.menu-open .sidebar {
+    transform: none;
+  }
+
+  .content {
+    padding: var(--space-6) var(--space-4) var(--space-10);
+  }
+}
+
+@media (max-width: 560px) {
+  .topbar {
+    gap: var(--space-2);
+    padding-inline: var(--space-3);
+  }
+
+  .brand span,
+  .topbar-actions .button span,
+  .topbar-actions [data-shortcuts-open] {
+    display: none;
+  }
+}

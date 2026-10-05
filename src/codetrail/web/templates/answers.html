@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Saved answers") }}{% endblock %}
+{% block content %}
+<div class="wide">
+<header class="page-head">
+  <h1>{{ _("Saved answers") }}</h1>
+  <p class="muted">{{ _("Answers you saved to the guide, newest first. They aren't rewritten when the code changes; a mark shows when the files they were written from have changed.") }}</p>
+</header>
+{% if answers %}
+<ul class="list">
+  {% for answer, changed in answers %}
+  <li><a class="grow" href="/pages/{{ answer.id }}" dir="auto">{{ answer.title }}</a>
+    {% if changed %}<span class="pill pill-changed">{{ _("sources changed") }}</span>{% endif %}
+    <span class="faint">{{ (answer.meta.get("asked_at") if answer.meta.get("asked_at") is string else "")[:10] }}</span></li>
+  {% endfor %}
+</ul>
+{% else %}
+<section class="empty">
+  <h2>{{ _("Keep the answers worth keeping") }}</h2>
+  <p>{{ _("Ask a question from any page (press A), then choose Save to guide. Saved answers become part of the guide, and search finds them.") }}</p>
+  <button type="button" class="button primary" data-ask-open>{{ _("Ask a question") }}</button>
+</section>
+{% endif %}
+</div>
+{% endblock %}

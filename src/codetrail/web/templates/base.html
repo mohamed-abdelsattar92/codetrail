@@ -1,44 +1,36 @@
-{% from "macros.html" import cost with context %}<!doctype html>
+{% from "macros.html" import cost with context %}{% from "layout/icons.html" import icon %}<!doctype html>
 <html lang="{{ language.code }}" dir="{{ language.direction }}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="codetrail-token" content="{{ token }}">
+  <meta name="color-scheme" content="light dark">
   <title>{% block title %}{{ target }}{% endblock %} · Codetrail</title>
-  <link rel="stylesheet" href="/static/page.css">
+  <link rel="icon" href="/static/brand/favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="/static/vendor/inter/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/static/css/tokens.css">
+  <link rel="stylesheet" href="/static/css/base.css">
+  <link rel="stylesheet" href="/static/css/layout.css">
+  <link rel="stylesheet" href="/static/css/components.css">
+  <link rel="stylesheet" href="/static/css/content.css">
+  <link rel="stylesheet" href="/static/css/print.css" media="print">
+  <script src="/static/js/theme-init.js"></script>
   <script src="/static/vendor/mermaid.js" defer></script>
-  <script src="/static/page.js" defer></script>
+  <script type="module" src="/static/js/main.js"></script>
 </head>
 <body>
-  <header class="top">
-    <a class="brand" href="/">Codetrail · <span lang="en" dir="ltr">{{ target }}</span></a>
-    <nav>
-      <a href="/">{{ _("Home") }}</a>
-      <a href="/decisions">{{ _("Decisions") }}</a>
-    </nav>
-    <form class="language" data-language-form>
-      <label>{{ _("Language") }}
-        <select name="language">
-          {% for option in languages %}
-          <option value="{{ option.code }}" {% if option.code == language.code %}selected{% endif %}>{{ option.name }}</option>
-          {% endfor %}
-        </select>
-      </label>
-    </form>
-  </header>
-  <main>
-    {% block content %}{% endblock %}
-  </main>
-  <section class="ask" data-ask {% if page is defined and page.id %}data-page-id="{{ page.id }}"{% endif %}>
-    <h2>{{ _("Ask about the code") }}</h2>
-    <form data-ask-form>
-      <textarea name="question" rows="3" maxlength="4000" required placeholder="{{ _('For example: how does a request reach the database?') }}"></textarea>
-      <button type="submit">{{ _("Ask") }} {{ cost(estimates.get("answer")) }}</button>
-    </form>
-    <p class="muted" data-ask-status data-label-reading="{{ _('The assistant is reading the code…') }}"
-       data-label-used="{{ _('Used') }}" data-label-tokens="{{ _('tokens') }}"></p>
-    <div class="answer" data-answer lang="{{ language.code }}" dir="auto"></div>
-    <button type="button" data-save-answer hidden>{{ _("Save to guide") }}</button>
-  </section>
+  <a class="skip-link" href="#content">{{ _("Skip to content") }}</a>
+  {% include "layout/header.html" %}
+  <div class="shell">
+    {% include "layout/sidebar.html" %}
+    <main id="content" class="content" tabindex="-1">
+      {% block content %}{% endblock %}
+    </main>
+    {% include "layout/outline.html" %}
+  </div>
+  {% include "layout/ask_panel.html" %}
+  {% include "layout/palette.html" %}
+  {% include "layout/shortcuts.html" %}
+  {% include "layout/update_dialog.html" %}
 </body>
 </html>

@@ -1,0 +1,47 @@
+{% from "layout/icons.html" import icon %}
+<nav class="sidebar" id="sidebar" aria-label="{{ _('Guide') }}">
+  <ul class="nav-list">
+    <li><a class="nav-link" href="/" {% if active == "home" %}aria-current="page"{% endif %}>{{ icon("home") }}<span class="label">{{ _("Home") }}</span></a></li>
+    <li><a class="nav-link" href="/progress" {% if active == "progress" %}aria-current="page"{% endif %}>{{ icon("progress") }}<span class="label">{{ _("Progress") }}</span></a></li>
+  </ul>
+
+  {% if nav.paths %}
+  <h2 class="nav-heading">{{ _("Paths") }}</h2>
+  <ul class="nav-list" lang="en" dir="ltr">
+    {% for path, learned, total in nav.paths %}
+    <li><a class="nav-link nav-path" href="/pages/{{ path.id }}" {% if active == path.id %}aria-current="page"{% endif %}>
+      <span class="label">{{ path.title }}<span class="bar" role="presentation"><span style="inline-size: {{ ((learned / total * 100) if total else 0) | round | int }}%"></span></span></span>
+      <span class="count">{{ learned }}/{{ total }}</span></a></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+
+  {% for heading, pages in [(_("Areas"), nav.areas), (_("Concepts"), nav.concepts)] %}
+  {% if pages %}
+  <h2 class="nav-heading">{{ heading }}</h2>
+  <ul class="nav-list" lang="en" dir="ltr">
+    {% for page in pages %}
+    <li><a class="nav-link" href="/pages/{{ page.id }}" {% if active == page.id %}aria-current="page"{% endif %}><span class="label">{{ page.title }}</span>{% if nav.statuses.get(page.id) == "learned" %}<span class="check" title="{{ _('Learned') }}">{{ icon("check") }}</span>{% elif nav.statuses.get(page.id) == "stale" %}<span class="dot" title="{{ _('Changed since you learned it') }}"></span>{% endif %}</a></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% endfor %}
+
+  <h2 class="nav-heading">{{ _("Saved answers") }}</h2>
+  <ul class="nav-list" data-nav-answers>
+    {% for answer in nav.answers %}
+    <li><a class="nav-link" href="/pages/{{ answer.id }}" {% if active == answer.id %}aria-current="page"{% endif %}><span class="label" dir="auto">{{ answer.title }}</span></a></li>
+    {% else %}
+    <li class="nav-empty" data-nav-empty>{{ _("Answers you save appear here.") }}</li>
+    {% endfor %}
+    {% if nav.answer_count %}
+    <li><a class="nav-link" href="/answers" {% if active == "answers" %}aria-current="page"{% endif %}><span class="label">{{ _("All saved answers") }}</span><span class="count">{{ nav.answer_count }}</span></a></li>
+    {% endif %}
+  </ul>
+
+  <h2 class="nav-heading">{{ _("More") }}</h2>
+  <ul class="nav-list">
+    <li><a class="nav-link" href="/digests" {% if active == "digests" %}aria-current="page"{% endif %}>{{ icon("digest") }}<span class="label">{{ _("Digests") }}</span>{% if nav.unread_digests %}<span class="dot" title="{{ _('Unread') }}"></span>{% endif %}</a></li>
+    <li><a class="nav-link" href="/decisions" {% if active == "decisions" %}aria-current="page"{% endif %}>{{ icon("decision") }}<span class="label">{{ _("Decisions") }}</span></a></li>
+  </ul>
+</nav>

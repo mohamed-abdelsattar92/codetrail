@@ -1,0 +1,25 @@
+{% from "layout/icons.html" import icon %}
+<dialog class="palette" data-palette aria-label="{{ _('Search or ask') }}"
+        data-group-pages="{{ _('Pages') }}" data-group-answers="{{ _('Saved answers') }}"
+        data-group-decisions="{{ _('Decisions') }}" data-group-facts="{{ _('Facts') }}"
+        data-group-actions="{{ _('Actions') }}"
+        data-action-ask="{{ _('Ask about: “{query}”') }}" data-action-all="{{ _('See every result for “{query}”') }}"
+        data-action-update="{{ _('Update the guide…') }}" data-action-progress="{{ _('Go to progress') }}"
+        data-action-theme="{{ _('Switch theme') }}"
+        data-label-searching="{{ _('Searching…') }}" data-label-empty="{{ _('Nothing in the guide matches “{query}”.') }}"
+        data-label-unavailable="{{ _('Search isn’t available right now.') }}">
+  <div class="palette-field">
+    {{ icon("search") }}
+    <input type="text" data-palette-input role="combobox" aria-expanded="false" aria-controls="palette-list"
+           aria-autocomplete="list" aria-label="{{ _('Search the guide, or ask a question') }}"
+           placeholder="{{ _('Search the guide, or ask a question…') }}" autocomplete="off" spellcheck="false" maxlength="1000">
+    <kbd>Esc</kbd>
+  </div>
+  <ul class="palette-list" id="palette-list" role="listbox" data-palette-list aria-label="{{ _('Results') }}"></ul>
+  <p class="palette-status" data-palette-status aria-live="polite"></p>
+  <div class="palette-footer" aria-hidden="true">
+    <span><kbd>↑</kbd> <kbd>↓</kbd> {{ _("to move") }}</span>
+    <span><kbd>Enter</kbd> {{ _("to open") }}</span>
+    <span><kbd>Esc</kbd> {{ _("to close") }}</span>
+  </div>
+</dialog>

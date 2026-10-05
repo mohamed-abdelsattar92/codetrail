@@ -82,7 +82,9 @@ def guide_documents(guide: GuideRepository, store: FactStore | None) -> list[Doc
 
 ---
 
-## Branch 2: `feature/page-shell` — the shell, the visual system and the new pages
+## Branch 2: `feature/page-shell` — the shell, the visual system, the new pages and their scripts
+
+Task 12's modules moved into this branch while building it: the shell's Ask panel, palette and dialogs need their script to work at all, so shipping them apart would leave `develop` with a page that can't ask questions. Branch 3 keeps the browser tests.
 
 ### Task 6: assets
 **Files:** `static/vendor/inter/` (`InterVariable.woff2`, `InterVariable-Italic.woff2`, `LICENSE.txt`, `VERSION` with SHA-256 sums), `static/brand/mark.svg`, `static/brand/favicon.svg`, `docs/images/logo.svg`; test `tests/unit/test_static_assets.py`.
@@ -123,7 +125,7 @@ def answers_newest_first(pages: list[Page]) -> list[Page]   # malformed asked_at
 
 ---
 
-## Branch 3: `feature/page-interaction` — the palette, shortcuts, the Ask panel and browser tests
+## Branch 3: `feature/browser-tests` — browser and accessibility tests
 
 ### Task 12: the modules
 **Files:** `static/js/{main,api,ask,palette,shortcuts,update,learning,outline,theme,diagram}.js`, and the classic `static/js/theme-init.js` loaded in `<head>` (only `light`, `dark` or `system` accepted); remove `static/page.js`.
