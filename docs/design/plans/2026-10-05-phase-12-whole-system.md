@@ -32,15 +32,15 @@
 **Files:** `pyproject.toml`, `uv.lock` (`tree-sitter-typescript==0.23.2`, `tree-sitter-javascript==0.25.0`).
 ### Task 2: the extractor
 **Files:** `src/codetrail/extract/typescript.py`; `src/codetrail/facts/__init__.py` (`EntityKind.WORKER`); `config.py` (extractor name, default list); `update.py` (`build_extractors`); tests `tests/unit/test_typescript_extractor.py`.
-**Interfaces:** `TypeScriptExtractor` (name `typescript`, version 1); projects `project:<folder>`, packages `package:npm/<name>`, modules `module:<path>` with `project`, routes `route:<folder> <METHOD> <path>` with `project`, workers `worker:<folder>` with `name`, `main`, `bindings` (list of `{type, name}`).
-- [ ] Tests: imports (relative with extensions and `index`, `tsconfig` `paths`, bare to package, workspace to project, `import()`, `require`, re-exports, type-only imports); Astro code blocks and `<script>`; pages and endpoints with `[slug]` and `[...rest]`; `package.json` groups and workspaces (npm, pnpm, Yarn); Wrangler TOML, JSON and JSONC with every binding type and no `vars` values; skips for `*.d.ts`, `*.min.js`, `dist/`, `build/`, `.astro/`; unparseable files.
+**Interfaces:** `TypeScriptExtractor` (name `typescript`, version 1); projects `project:<folder>`, packages `package:npm/<name>`, modules `module:<path>` with `project`, routes `route:<folder> <METHOD> <path>` with `project`, workers `worker:<folder>` with `name`, `main`, `bindings` (flat strings such as `d1:DB`); `run_extractors` turns an exception in `prepare` or `resolve` into a warning.
+- [ ] Tests: an oversized binding name is cut; `extends` and escaping or absolute paths are never followed; a hostile `tsconfig.json` (`paths` a number) doesn't fail the update; `[env.*.vars]`, ids and Hyperdrive connection strings never reach facts; imports (relative with extensions and `index`, `tsconfig` `paths`, bare to package, workspace to project, `import()`, `require`, re-exports, type-only imports); Astro code blocks and `<script>`; pages and endpoints with `[slug]` and `[...rest]`; `package.json` groups and workspaces (npm, pnpm, Yarn); Wrangler TOML, JSON and JSONC with every binding type and no `vars` values; skips for `*.d.ts`, `*.min.js`, `dist/`, `build/`, `.astro/`; unparseable files.
 ### Task 3: finish
 - [ ] Design 5.2 table already updated; README extractors line; `just ci`; security review; merge develop; finish.
 
 ## Branch 2: `feature/deploy-evidence`
 ### Task 4: `github_actions`
 **Files:** `src/codetrail/extract/github_actions.py`, `EntityKind.DEPLOYMENT`, config, `build_extractors`; test `tests/unit/test_github_actions_extractor.py`.
-- [ ] Tests: each deploy form (commands and actions), target names, `working-directory` at step, job-defaults and root level, line numbers, and that no step text, `env` or `secrets.*` appears in any fact.
+- [ ] Tests: each deploy form (commands and actions), target names (and none from `${{ … }}`, `$VAR` or a flag), `working-directory` at step, job-defaults and root level, line numbers, and that no step text, `env` or `secrets.*` appears in any fact.
 ### Task 5: Terraform paths
 **Files:** `src/codetrail/extract/terraform.py` (version 2); test `tests/unit/test_terraform_extractor.py`.
 - [ ] Tests: `paths` from `source_dir`, `source`, `context`, `dockerfile`, `path`, `working_dir`, resolved against the module folder; non-path strings ignored.
