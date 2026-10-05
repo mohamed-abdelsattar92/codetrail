@@ -35,7 +35,7 @@ def test_update_records_and_reports_changes(environment: Path, capsys: pytest.Ca
 
     assert main(["update", "api", "--facts-only"]) == 0
     first = capsys.readouterr().out
-    assert "Facts: 6 entities" in first
+    assert "Facts: 7 entities" in first  # six extracted, and the service as a part (design 17.3)
     assert "decision: +1" in first
     assert "module: +3" in first
     assert (environment / "data" / "codetrail" / "api" / "codetrail.db").exists()

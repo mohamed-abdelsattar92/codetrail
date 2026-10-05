@@ -231,7 +231,7 @@ The interface is English first and switches language from the page. Each languag
 
 ## Status
 
-Every phase in the [design](docs/design/2026-10-05-codetrail-design.md) is built and tested.
+Phases 0 to 11 of the [design](docs/design/2026-10-05-codetrail-design.md) are built and tested; phase 12 is under way.
 
 ```mermaid
 flowchart LR
@@ -246,6 +246,7 @@ flowchart LR
     P8 --> P9["9 · Cost estimates ✓"]
     P9 --> P10["10 · Getting started ✓"]
     P10 --> P11["11 · The page's design ✓"]
+    P11 --> P12["12 · The whole system"]
 ```
 
 | Phase | What you can do | Status |
@@ -262,6 +263,7 @@ flowchart LR
 | 9. Cost estimates | An estimate before every paid action | Done |
 | 10. Getting started | This README, and the [getting-started guide](docs/getting-started.md) | Done |
 | 11. The page's design | A new look with progress first, search, a command palette, shortcuts, an Ask panel, and pages for progress, saved answers and digests; tested in a real browser | Done |
+| 12. The whole system | Facts for TypeScript, JavaScript and Astro code, deploy evidence from GitHub Actions, and the system pass: a repository's services, apps, libraries, contracts and infrastructure, and how they connect (`codetrail update` prints the count per rule). The system diagram and page come next | In progress |
 
 Codex and local models are tested against stand-ins and Codetrail's own tests; Claude Code is also tested live. Codex's provider decision is [ADR 0006](docs/adr/0006-assistant-providers-and-subscriptions.md).
 
