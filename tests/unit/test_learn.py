@@ -86,3 +86,17 @@ def test_learned_pages_are_listed(learning: LearningState) -> None:
     for check in CHECKS:
         learning.record_attempt(page(), check, "a", "pass", "", "en", "c1")
     assert learning.learned_page_ids() == {"concepts/x"}
+
+
+def test_marking_unread_undoes_a_read(learning: LearningState) -> None:
+    learning.mark_read(page())
+    learning.mark_unread(page())
+    assert learning.status(page()).state == "unread"
+
+
+def test_marking_unread_leaves_a_learned_page_learned(learning: LearningState) -> None:
+    current = page()
+    for check in CHECKS:
+        learning.record_attempt(current, check, "answer", "pass", "Good.", "en", "c1")
+    learning.mark_unread(current)
+    assert learning.status(current).state == "learned"

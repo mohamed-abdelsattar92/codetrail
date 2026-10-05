@@ -59,6 +59,12 @@ class LearningState:
             (page.id, page_version(page), _now()),
         )
 
+    def mark_unread(self, page: Page) -> None:
+        """Takes back a read mark; a learned page stays learned, since that came from its checks."""
+        self.connection.execute(
+            "UPDATE page_marks SET read_version = NULL, read_at = NULL WHERE page_id = ?", (page.id,)
+        )
+
     def record_attempt(
         self,
         page: Page,

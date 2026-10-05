@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import sqlite3
 from collections.abc import Mapping
+from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from codetrail.assistant import Usage
@@ -57,3 +58,30 @@ class UsageLog:
                     (usage.provider, window.window, window.utilization, window.resets_at, now),
                 )
         return cost or 0.0
+
+
+@dataclass(frozen=True)
+class UpdateUsage:
+    tokens: int
+    cost_usd: float  # what was reported or priced; calls with no price count as zero
+    calls: int
+    finished_at: str
+
+
+def last_update_usage(connection: sqlite3.Connection) -> UpdateUsage | None:
+    """What the latest update that wrote the guide used: its plan, write and digest calls (design section 16.1).
+
+    Those calls follow the update's own snapshot, so they run from the last snapshot taken before the latest of them.
+    """
+    finished = connection.execute(
+        "SELECT MAX(called_at) FROM assistant_calls WHERE kind IN ('plan', 'write', 'digest')"
+    ).fetchone()[0]
+    if finished is None:
+        return None
+    start = connection.execute("SELECT MAX(taken_at) FROM snapshots WHERE taken_at <= ?", (finished,)).fetchone()[0]
+    row = connection.execute(
+        "SELECT COALESCE(SUM(input_tokens + cached_input_tokens + output_tokens), 0), COALESCE(SUM(cost_usd), 0),"
+        " COUNT(*) FROM assistant_calls WHERE kind IN ('plan', 'write', 'digest') AND called_at BETWEEN ? AND ?",
+        (start or "", finished),
+    ).fetchone()
+    return UpdateUsage(int(row[0]), round(float(row[1]), 4), int(row[2]), str(finished))
