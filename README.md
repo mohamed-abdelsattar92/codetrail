@@ -187,7 +187,7 @@ When a page you learned is rewritten, it shows a diff of what changed since you 
 ## Using it
 
 > [!IMPORTANT]
-> `target add`, `files`, `update` and `serve` work today: `update` writes the guide (outline, area and concept pages with checks, digests), and the page shows it with the facts, diagrams, sources, decisions and the "you're behind" signal. `update --facts-only` skips Claude.
+> Every phase is built. `target add`, `files`, `update` and `serve` work: `update` extracts facts (Python, ADRs, OpenAPI, Terraform, Swift) and writes the guide (outline, guided paths, area and concept pages with checks, digests); the page shows it with diagrams, sources, decisions, the "you're behind" signal, questions to Claude, graded checks and progress. `update --facts-only` skips Claude.
 
 ```bash
 # Install from this repository (needs uv; gitleaks on your PATH)
@@ -240,8 +240,8 @@ flowchart LR
     P2 --> P3["3 · The page, without Claude ✓"]
     P3 --> P4["4 · Generation ✓"]
     P4 --> P5["5 · Bridge ✓"]
-    P5 --> P6["6 · Learning"]:::next
-    P4 --> P7["7 · More extractors"]
+    P5 --> P6["6 · Learning ✓"]
+    P4 --> P7["7 · More extractors ✓"]
     classDef next stroke-width:3px
 ```
 
@@ -253,8 +253,8 @@ flowchart LR
 | 3. The page, without Claude | A grounded map of Hamesh that says when it's behind, at no Claude cost | Done |
 | 4. Generation | The guide: digests, area and concept pages | Done |
 | 5. Bridge | Ask from any page and save the answers | Done |
-| 6. Learning | Paths, checks, progress and staleness | Planned |
-| 7. More extractors | OpenAPI, Terraform and Swift packages in the guide | Planned |
+| 6. Learning | Paths, checks, progress and staleness | Done |
+| 7. More extractors | OpenAPI, Terraform and Swift packages in the guide | Done |
 
 ## Developing Codetrail
 

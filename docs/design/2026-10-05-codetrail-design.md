@@ -227,8 +227,8 @@ class Extractor(Protocol):
 | 2 | `python` | `*.py`, `pyproject.toml` | projects, modules, packages; `contains`, `imports`, `depends_on` | tree-sitter-python, `tomllib` |
 | 2 | `adr` | `[adr] paths` globs | decisions (number, title, status, date); `supersedes` | Markdown headings and status lines (standard library) |
 | 7 | `openapi` | configured OpenAPI documents | routes, schemas; `uses_schema` | `json` |
-| 7 | `terraform` | `*.tf` | resources, modules, environments; `references` | tree-sitter HCL grammar |
-| 7 | `swift_packages` | `Package.swift`, `import` lines in `*.swift` | Swift targets; `depends_on`, `imports` | tree-sitter Swift grammar |
+| 7 | `terraform` | `*.tf` | modules (one per folder), resources; `contains`, `references` (between resources, and module calls to folders) | tree-sitter HCL grammar |
+| 7 | `swift` | `Package.swift`, `import` lines in `*.swift` | Swift packages (as projects), targets and external packages; `contains`, `depends_on`, `imports` | `Package.swift` read by pattern (never executed); tree-sitter Swift grammar for imports |
 
 The tree-sitter grammars come under decision 9's tree-sitter choice. Hamesh's SQL migrations, workflows, landing page and the design, PRD and slice documents are not extracted until a page needs them; Claude reads the documents for the "why".
 
