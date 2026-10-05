@@ -180,6 +180,10 @@ def update_target(paths: Paths, name: str, facts_only: bool = False, yes: bool =
     extraction, diff = result.extraction, result.diff
     print(f"Updated {name} at commit {result.manifest.commit[:12]} (snapshot {result.snapshot.id}).")
     print(f"Facts: {len(extraction.entities)} entities, {len(extraction.relations)} relations.")
+    if extraction.system:
+        print(
+            "System connections: " + ", ".join(f"{rule} {count}" for rule, count in sorted(extraction.system.items()))
+        )
     if diff.is_empty:
         print("No changes since the last update.")
     else:

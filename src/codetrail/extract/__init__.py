@@ -60,6 +60,7 @@ class Extraction:
     relations: list[Relation]
     warnings: list[str]
     unresolved: dict[str, int]
+    system: dict[str, int] = field(default_factory=dict)  # connections the system pass found, per rule
 
 
 DEFAULT_MAX_FILE_BYTES = 1_000_000
@@ -149,14 +150,50 @@ def run_extractors(
     )
 
 
-def _cut_attributes(facts: FileFacts, limit: int) -> FileFacts:
+def check_facts(
+    entities: Sequence[Entity], relations: Sequence[Relation], limit: int
+) -> tuple[list[Entity], list[Relation], list[str]]:
+    """The checks `run_extractors` applies, for facts made outside an extractor (the system pass, design 17.3).
+
+    Attributes must be plain JSON and are cut to `limit` characters; a fact whose id is longer is dropped, and so is
+    every relation whose ends are no longer both kept. Warnings name no content.
+    """
+    kept: list[Entity] = []
+    warnings: list[str] = []
+    for entity in entities:
+        try:
+            json.dumps(dict(entity.attributes))
+        except TypeError, ValueError:
+            warnings.append(f"system: a fact's attributes weren't plain data ({entity.kind})")
+            continue
+        if len(entity.id) > limit:
+            warnings.append(f"system: skipped a fact whose id is longer than {limit} characters ({entity.kind})")
+            continue
+        kept.append(replace(entity, attributes=_cut(entity.attributes, limit)))
+    ids = {entity.id for entity in kept}
+    related = []
+    for relation in relations:
+        try:
+            json.dumps(dict(relation.attributes))
+        except TypeError, ValueError:
+            continue
+        if relation.source_id in ids and relation.target_id in ids:
+            related.append(replace(relation, attributes=_cut(relation.attributes, limit)))
+    return kept, related, warnings
+
+
+def _cut(attributes: Mapping[str, Any], limit: int) -> dict[str, Any]:
     def cut(value: Any) -> Any:
         if isinstance(value, str) and len(value) > limit:
             return value[: limit - 1] + "…"
         return [cut(item) for item in value] if isinstance(value, list) else value
 
+    return {key: cut(value) for key, value in attributes.items()}
+
+
+def _cut_attributes(facts: FileFacts, limit: int) -> FileFacts:
     def cut_all(attributes: Mapping[str, Any]) -> dict[str, Any]:
-        return {key: cut(value) for key, value in attributes.items()}
+        return _cut(attributes, limit)
 
     return replace(
         facts,

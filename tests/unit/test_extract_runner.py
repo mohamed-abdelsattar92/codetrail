@@ -162,3 +162,19 @@ def test_an_extractor_failing_to_prepare_or_resolve_is_a_warning(tmp_path: Path)
     assert any("resolve-breaks" in warning and "TypeError" in warning for warning in extraction.warnings)
     assert ("module:a.txt", "module:b.txt") in {(r.source_id, r.target_id) for r in extraction.relations}
     assert not any("hostile" in warning or "number" in warning for warning in extraction.warnings)  # no content
+
+
+def test_derived_facts_get_the_same_checks() -> None:
+    from codetrail.extract import check_facts
+
+    entities = [
+        Entity("part:ok", EntityKind.PART, {"name": "x" * 500, "list": ["y" * 500]}),
+        Entity("part:" + "z" * 400, EntityKind.PART, {}),
+        Entity("part:odd", EntityKind.PART, {"bad": object()}),
+    ]
+    relations = [Relation("part:ok", RelationKind.DEPENDS_ON, "part:odd", {"source": "s" * 500})]
+    kept, related, warnings = check_facts(entities, relations, 300)
+    assert [entity.id for entity in kept] == ["part:ok"]
+    assert len(kept[0].attributes["name"]) == 300 and len(kept[0].attributes["list"][0]) == 300
+    assert related == []  # its target was dropped, so the relation goes too
+    assert len(warnings) == 2 and not any("zzz" in warning for warning in warnings)

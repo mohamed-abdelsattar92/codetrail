@@ -6,8 +6,9 @@ rewritten stays affected, because that is derived from its front matter (design 
 
 from __future__ import annotations
 
-from collections.abc import Callable
-from dataclasses import dataclass
+from collections.abc import Callable, Mapping
+from dataclasses import dataclass, replace
+from pathlib import Path, PurePosixPath
 
 import anyio
 
@@ -27,7 +28,7 @@ from codetrail.config import (
 )
 from codetrail.database import connect
 from codetrail.errors import CodetrailError
-from codetrail.extract import Extraction, Extractor, run_extractors
+from codetrail.extract import Extraction, Extractor, check_facts, run_extractors
 from codetrail.extract.adr import AdrExtractor
 from codetrail.extract.github_actions import GitHubActionsExtractor
 from codetrail.extract.openapi import OpenApiExtractor
@@ -46,6 +47,7 @@ from codetrail.repo.refresh import TARGET_IGNORE_FILE, ignore_lines, refresh_whi
 from codetrail.repo.rules import ExclusionRules
 from codetrail.repo.secrets import SecretScanner
 from codetrail.repo.source import SourceManifest
+from codetrail.system import derive
 
 
 @dataclass(frozen=True)
@@ -67,6 +69,39 @@ def _calls(target: TargetConfig, work: PlannedWork) -> list[tuple[str, str, str,
         ("write", *write, work.pages_expected, work.page_calls_max),
         ("digest", *digest, int(work.digest_expected), int(work.digest_possible)),
     ]
+
+
+def system_reader(source: Path, files: Mapping[str, str], max_bytes: int) -> Callable[[str], bytes | None]:
+    """The system pass's only way to files: an allowed path, inside `source/`, a plain file within the size cap."""
+    root = source.resolve()
+
+    def read(path: str) -> bytes | None:
+        if path not in files:
+            return None
+        file = source / PurePosixPath(path)
+        try:
+            if file.is_symlink() or not file.resolve().is_relative_to(root) or not file.is_file():
+                return None
+            return file.read_bytes() if file.stat().st_size <= max_bytes else None
+        except OSError:
+            return None
+
+    return read
+
+
+def with_system(extraction: Extraction, source: Path, files: Mapping[str, str], extract: ExtractSettings) -> Extraction:
+    """The extraction with the system pass's parts and connections, checked like extracted facts (design 17.3)."""
+    found = derive(
+        extraction.entities, extraction.relations, files, system_reader(source, files, extract.max_file_bytes)
+    )
+    entities, relations, warnings = check_facts(found.entities, found.relations, extract.max_attribute_chars)
+    return replace(
+        extraction,
+        entities=sorted([*extraction.entities, *entities], key=lambda entity: entity.id),
+        relations=sorted([*extraction.relations, *relations], key=lambda relation: relation.key),
+        warnings=[*extraction.warnings, *found.warnings, *warnings],
+        system=dict(found.counts),
+    )
 
 
 def build_extractors(target: TargetConfig, extract: ExtractSettings | None = None) -> list[Extractor]:
@@ -110,6 +145,7 @@ def run_update(
                 source, manifest.files, build_extractors(target, settings.extract), settings.extract.max_file_bytes,
                 settings.extract.max_attribute_chars,
             )  # fmt: skip
+            extraction = with_system(extraction, source, manifest.files, settings.extract)
             connection = connect(data / "codetrail.db")
             try:
                 store = FactStore(connection)

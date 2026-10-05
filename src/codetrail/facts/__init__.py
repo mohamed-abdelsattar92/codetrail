@@ -26,6 +26,7 @@ class EntityKind(StrEnum):
     SWIFT_TARGET = "swift_target"
     WORKER = "worker"
     DEPLOYMENT = "deployment"
+    PART = "part"
 
 
 class RelationKind(StrEnum):
@@ -35,6 +36,9 @@ class RelationKind(StrEnum):
     SUPERSEDES = "supersedes"
     USES_SCHEMA = "uses_schema"
     REFERENCES = "references"
+    IMPLEMENTS = "implements"
+    CALLS_VIA = "calls_via"
+    DEPLOYED_ON = "deployed_on"
 
 
 @dataclass(frozen=True)
