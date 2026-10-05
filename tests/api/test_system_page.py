@@ -9,12 +9,12 @@ from codetrail.config import GlobalConfig, Paths, write_target
 from codetrail.update import run_update
 from codetrail.web.app import create_app
 from codetrail.web.security import SessionState
-from tests.fixtures.repos import MIXED_REPOSITORY, make_repository
+from tests.fixtures.repos import MIXED_REPOSITORY, Commit, make_repository
 
 ORIGIN = "http://127.0.0.1:8765"
 
 
-def client_for(tmp_path: Path, files: dict[str, str]) -> TestClient:
+def client_for(tmp_path: Path, files: Commit) -> TestClient:
     paths = Paths(config_dir=tmp_path / "config", data_dir=tmp_path / "data", state_dir=tmp_path / "state")
     write_target(paths, "shop", make_repository(tmp_path / "target", [files]), "develop")
     run_update(paths, "shop", facts_only=True)
