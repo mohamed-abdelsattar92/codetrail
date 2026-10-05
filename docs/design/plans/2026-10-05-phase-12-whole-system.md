@@ -40,19 +40,20 @@
 ## Branch 2: `feature/deploy-evidence`
 ### Task 4: `github_actions`
 **Files:** `src/codetrail/extract/github_actions.py`, `EntityKind.DEPLOYMENT`, config, `build_extractors`; test `tests/unit/test_github_actions_extractor.py`.
-- [ ] Tests: each deploy form (commands and actions), target names (and none from `${{ … }}`, `$VAR` or a flag), `working-directory` at step, job-defaults and root level, line numbers, and that no step text, `env` or `secrets.*` appears in any fact.
+- [ ] Tests: each deploy form (commands and actions), target names (and none from `${{ … }}`, `$VAR` or a flag), no folder for a templated, absolute or escaping `working-directory`, `working-directory` at step, job-defaults and root level, line numbers, and that no step text, `env` or `secrets.*` appears in any fact.
 ### Task 5: Terraform paths
 **Files:** `src/codetrail/extract/terraform.py` (version 2); test `tests/unit/test_terraform_extractor.py`.
-- [ ] Tests: `paths` from `source_dir`, `source`, `context`, `dockerfile`, `path`, `working_dir`, resolved against the module folder; non-path strings ignored.
+- [ ] Tests: `paths` from `source_dir`, `source`, `context`, `dockerfile`, `path`, `working_dir`, resolved against the module folder; non-path strings ignored; values containing `$`, absolute paths and paths climbing above the repository dropped.
 
 ## Branch 3: `feature/system-pass`
 ### Task 6: parts and connections
 **Files:** `src/codetrail/system.py`; `facts/__init__.py` (`EntityKind.PART`; `RelationKind.IMPLEMENTS`, `CALLS_VIA`, `DEPLOYED_ON`); `update.py` (run the pass after the extractors, print rule counts); tests `tests/unit/test_system.py`, `tests/integration/test_system_update.py`.
 **Interfaces:** `derive(entities, relations, files: Mapping[str, str], read: Callable[[str], bytes | None]) -> SystemFacts(entities, relations, warnings, counts)`.
-- [ ] Tests: each part kind and its signal; innermost part; each connection rule explicit and matched; contract by path and by same blob; service implements, others call; no parts; hostile names; the pass never raises.
+- [ ] Tests: the reader refuses a path outside the allowed files and a file over the size cap; derived facts get the attribute cut and the id limit; each part kind and its signal; innermost part; each connection rule explicit and matched; contract by path and by same blob; service implements, others call; no parts; hostile names; the pass never raises.
 
 ## Branch 4: `feature/system-diagram`
 ### Task 7: the diagram
+- [ ] Tests: the Mermaid parse test with hostile names for every shape (`(…)`, `[[…]]`, `([…])`, the document shape) and for solid and dashed labelled arrows; node ids always generated.
 **Files:** `web/diagrams.py` (`system_diagram(store, focus, max_nodes)`), `web/render.py`, `generate/validate.py`, `available_diagrams`, prompts; tests in `test_diagrams.py`, `test_validate.py`, `tests/browser/test_mermaid.py`.
 ### Task 8: the page
 **Files:** `web/app.py` (`/system`, home card, area focus), templates `system.html`, `home.html`, `area.html`, sidebar, shortcuts (**G** then **Y**), CSS; tests `tests/api/test_system_page.py`, browser and accessibility scans.
