@@ -14,7 +14,7 @@ from playwright.sync_api import Page
 from codetrail.database import connect
 from codetrail.facts import Entity, EntityKind, Relation, RelationKind, Source
 from codetrail.facts.store import FactStore
-from codetrail.web.diagrams import Diagram, dependencies_diagram, imports_diagram, resources_diagram
+from codetrail.web.diagrams import Diagram, dependencies_diagram, imports_diagram, resources_diagram, system_diagram
 
 pytestmark = pytest.mark.browser
 MERMAID = Path(str(files("codetrail.web").joinpath("static"))) / "vendor" / "mermaid.js"
@@ -50,7 +50,22 @@ def store(tmp_path: Path) -> Iterator[FactStore]:
         Entity("resource:infra/aws_s3_bucket.notes", EntityKind.RESOURCE, {"module": "infra"}, (Source("infra/s.tf"),)),
     ]
     relations.append(Relation("terraform_module:infra", RelationKind.CONTAINS, "resource:infra/aws_s3_bucket.notes"))
-    store.record("c1", [*entities, swift, python, *packages, *terraform], relations)
+    kinds = ["service", "app", "library", "contract", "infrastructure", "platform"]
+    parts = [
+        Entity(
+            f"part:sys/p{index}", EntityKind.PART, {"kind": kinds[index % 6], "name": name, "folder": f"sys/p{index}"}
+        )
+        for index, name in enumerate(HOSTILE)
+    ]
+    for index in range(1, len(HOSTILE)):
+        kind = [RelationKind.DEPENDS_ON, RelationKind.IMPLEMENTS, RelationKind.CALLS_VIA, RelationKind.DEPLOYED_ON][
+            index % 4
+        ]
+        evidence = "matched" if index % 3 == 0 else "explicit"
+        relations.append(Relation(f"part:sys/p{index}", kind, f"part:sys/p{index - 1}", {"evidence": evidence}))
+    relations.append(Relation("part:sys/p1", RelationKind.CALLS_VIA, "part:sys/p3", {"evidence": "explicit"}))
+    relations.append(Relation("part:sys/p0", RelationKind.IMPLEMENTS, "part:sys/p3", {"evidence": "explicit"}))
+    store.record("c1", [*entities, swift, python, *packages, *terraform, *parts], relations)
     yield store
     connection.close()
 
@@ -62,6 +77,9 @@ def all_diagrams(store: FactStore) -> list[tuple[str, Diagram]]:
         ("swift dependencies without groups", dependencies_diagram(store, "project:apps/ios/Packages/APIClient")),
         ("python dependencies with a hostile group", dependencies_diagram(store, "project:services/api")),
         ("resources", resources_diagram(store, "infra", max_nodes=100)),
+        ("system with every shape and dashed, labelled arrows", system_diagram(store, None, max_nodes=100)),
+        ("system rolled up", system_diagram(store, None, max_nodes=4)),
+        ("system focused", system_diagram(store, "sys/p3", max_nodes=100)),
     ]
 
 
