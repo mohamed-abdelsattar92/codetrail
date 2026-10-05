@@ -161,6 +161,31 @@ def test_a_binary_mise_names_outside_its_own_installs_is_refused(tmp_path: Path)
         SecretScanner(str(shim)).scan_text("x")
 
 
+def test_a_path_mise_names_that_climbs_out_of_its_installs_is_refused(tmp_path: Path) -> None:
+    installed_gitleaks(tmp_path / "target" / "gitleaks")
+    climbing = tmp_path / "mise" / "installs" / "gitleaks" / ".." / ".." / ".." / "target" / "gitleaks"
+    shim = fake_mise(tmp_path, f'echo "{climbing}"; exit 0')
+    with pytest.raises(CodetrailError, match=r"isn't one of mise's own installs"):
+        SecretScanner(str(shim)).scan_text("x")
+
+
+def test_a_link_in_mises_installs_to_a_program_elsewhere_is_refused(tmp_path: Path) -> None:
+    planted = installed_gitleaks(tmp_path / "target" / "gitleaks")
+    link = tmp_path / "mise" / "installs" / "gitleaks" / "9" / "gitleaks"
+    link.parent.mkdir(parents=True)
+    link.symlink_to(planted)
+    shim = fake_mise(tmp_path, f'echo "{link}"; exit 0')
+    with pytest.raises(CodetrailError, match=r"isn't one of mise's own installs"):
+        SecretScanner(str(shim)).scan_text("x")
+
+
+def test_a_refused_path_reaches_the_message_without_control_characters(tmp_path: Path) -> None:
+    shim = fake_mise(tmp_path, r"printf '/tmp/\033[2Jgitleaks\n'; exit 0")
+    with pytest.raises(CodetrailError, match=r"isn't one of mise's own installs") as raised:
+        SecretScanner(str(shim)).scan_text("x")
+    assert "\033" not in str(raised.value)
+
+
 def test_a_mise_error_never_repeats_a_configuration_line(tmp_path: Path) -> None:
     token = fake_github_token()
     shim = fake_mise(

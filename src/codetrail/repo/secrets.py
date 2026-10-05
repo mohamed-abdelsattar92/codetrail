@@ -102,12 +102,13 @@ class SecretScanner:
             )
         # A trusted mise configuration in the folder, perhaps a target's, can name any program with a path: version.
         installs = (shim.parent.parent / "installs" / shim.name).resolve()
-        if not binary.resolve().is_relative_to(installs) or not binary.is_file():
+        resolved = binary.resolve()  # checked and run as one path, so no link can change in between
+        if not resolved.is_relative_to(installs) or not resolved.is_file():
             raise CodetrailError(
-                f"mise named {binary} as gitleaks here, which isn't one of mise's own installs in {installs}; "
-                f"Codetrail won't run it. {POINT_AT_ANOTHER}"
+                f"mise named {_explanation(result.stdout)} as gitleaks here, which isn't one of mise's own installs "
+                f"in {installs}; Codetrail won't run it. {POINT_AT_ANOTHER}"
             )
-        return str(binary)
+        return str(resolved)
 
 
 def _explanation(stderr: bytes, prefix: str = "") -> str:
