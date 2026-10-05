@@ -26,7 +26,7 @@ from codetrail.repo.source import SourceManifest
 MARKER = re.compile(r"^>\s*\[!(documented|inferred)\]\s*(\S*)\s*$")
 FACT_LINK = re.compile(r"\[\[([a-z_]+:[^\]\s]+)\]\]")
 DIAGRAM = re.compile(r"^\{\{\s*diagram\b(.*?)\}\}\s*$")
-DIAGRAM_KINDS = {"imports": "scope", "dependencies": "project"}
+DIAGRAM_KINDS = {"imports": "scope", "dependencies": "project", "resources": "scope"}
 FILE_CITATION = re.compile(r"^(?P<path>[^#\s]+)#L(?P<start>\d+)(?:-L(?P<end>\d+))?$")
 COMMIT_CITATION = re.compile(r"^commit:(?P<sha>[0-9a-f]{7,40})$")
 MAX_CITED_LINES = 40
@@ -141,7 +141,7 @@ def _check_diagram(arguments: str, context: ValidationContext) -> list[str]:
     kind, (key, value) = parts[0], parts[1].split("=", 1)
     if key != DIAGRAM_KINDS[kind]:
         return [f"The {kind} diagram takes {DIAGRAM_KINDS[kind]}=, not {key}=."]
-    if kind == "imports" and not any(in_scope(path, [value]) for path in context.manifest.files):
+    if kind in ("imports", "resources") and not any(in_scope(path, [value]) for path in context.manifest.files):
         return [f"The diagram scope {value} holds no visible file."]
     if kind == "dependencies":
         project = context.store.entity(value)

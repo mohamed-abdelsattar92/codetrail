@@ -115,6 +115,10 @@ class AdrSettings(Settings):
     paths: list[str] = ["docs/adr/*.md"]
 
 
+class OpenApiSettings(Settings):
+    paths: list[str] = ["**/openapi.json", "**/openapi.yaml", "**/openapi.yml"]
+
+
 class GenerationSettings(Settings):
     max_pages_per_update: int = Field(default=20, ge=0)
     concurrency: int = Field(default=2, gt=0, le=8)
@@ -134,8 +138,11 @@ class ModelSettings(Settings):
 class TargetConfig(Settings):
     repository: Path
     branch: str
-    extractors: list[Literal["python", "adr"]] = ["python", "adr"]
+    extractors: list[Literal["python", "adr", "openapi", "terraform", "swift"]] = [
+        "python", "adr", "openapi", "terraform", "swift",
+    ]  # fmt: skip
     adr: AdrSettings = AdrSettings()
+    openapi: OpenApiSettings = OpenApiSettings()
     generation: GenerationSettings = GenerationSettings()
     models: ModelSettings = ModelSettings()
 

@@ -46,12 +46,14 @@ def imports_diagram(store: FactStore, scope: str, max_nodes: int) -> Diagram:
     prefix = scope.rstrip("/") + "/"
     modules = {
         entity.id: entity
-        for entity in store.entities(EntityKind.MODULE)
-        if entity.id.removeprefix("module:").startswith(prefix)
+        for kind in (EntityKind.MODULE, EntityKind.SWIFT_TARGET)
+        for entity in store.entities(kind)
+        if _location(entity.id).startswith(prefix)
     }
     edges = [
         (relation.source_id, relation.target_id)
-        for relation in store.relations(RelationKind.IMPORTS)
+        for kind in (RelationKind.IMPORTS, RelationKind.DEPENDS_ON)
+        for relation in store.relations(kind)
         if relation.source_id in modules and relation.target_id in modules
     ]
     if len(modules) <= max_nodes:
@@ -59,7 +61,7 @@ def imports_diagram(store: FactStore, scope: str, max_nodes: int) -> Diagram:
         labels = {module_id: str(entity.attributes.get("name", module_id)) for module_id, entity in modules.items()}
         links = {module_id: f"/facts/{module_id}" for module_id in modules}
         return _render(group, labels, links, Counter(edges), rolled_up=False, counted=False)
-    paths = {module_id: PurePosixPath(module_id.removeprefix("module:")).parent for module_id in modules}
+    paths = {module_id: PurePosixPath(_location(module_id)).parent for module_id in modules}
     depth = max(len(path.parts) for path in paths.values())
     while depth > 1 and len({_truncate(path, depth) for path in paths.values()}) > max_nodes:
         depth -= 1
@@ -87,6 +89,32 @@ def dependencies_diagram(store: FactStore, project_id: str) -> Diagram:
         lines.append(f'    {ids[project_id]} -->|"{group}"| {ids[relation.target_id]}')
     nodes = [DiagramNode(ids[key], label, f"/facts/{key}") for key, label in sorted(labels.items())]
     return Diagram("\n".join(lines) + "\n", nodes)
+
+
+def resources_diagram(store: FactStore, scope: str, max_nodes: int) -> Diagram:
+    """Terraform modules under the folder `scope`, the modules they call and, when they fit, their resources."""
+    prefix = scope.rstrip("/") + "/"
+    modules = {
+        entity.id: entity for entity in store.entities(EntityKind.TERRAFORM_MODULE)
+        if (_location(entity.id) + "/").startswith(prefix) or prefix.startswith(_location(entity.id) + "/")
+    }  # fmt: skip
+    resources = {
+        entity.id: entity for entity in store.entities(EntityKind.RESOURCE)
+        if f"terraform_module:{entity.attributes.get('module')}" in modules
+    }  # fmt: skip
+    nodes = dict(modules) if len(modules) + len(resources) > max_nodes else {**modules, **resources}
+    labels = {key: (f"{_location(key)}/" if key in modules else _location(key).rsplit("/", 1)[-1]) for key in nodes}
+    edges: Counter[tuple[str, str]] = Counter()
+    for relation in store.relations(RelationKind.REFERENCES) + store.relations(RelationKind.CONTAINS):
+        if relation.source_id in nodes and relation.target_id in nodes:
+            edges[(relation.source_id, relation.target_id)] += 1
+    return _render({key: key for key in nodes}, labels, {key: f"/facts/{key}" for key in nodes}, edges,
+                   rolled_up=len(nodes) < len(modules) + len(resources), counted=False)  # fmt: skip
+
+
+def _location(fact_id: str) -> str:
+    """A path-based fact id's path: module:<path>, swift_target:<folder>/<name>, terraform_module:<folder>..."""
+    return fact_id.split(":", 1)[1]
 
 
 def _truncate(path: PurePosixPath, depth: int) -> PurePosixPath:

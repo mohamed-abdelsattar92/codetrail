@@ -258,7 +258,8 @@ def facts_summary(store: FactStore, manifest: SourceManifest) -> str:
         key = "/".join(parts[:2]) if len(parts) > 2 else parts[0] if len(parts) > 1 else "(root)"
         folders[key] = folders.get(key, 0) + 1
     lines += [f"- {folder}: {count}" for folder, count in sorted(folders.items())]
-    for kind in (EntityKind.PROJECT, EntityKind.DECISION, EntityKind.PACKAGE):
+    for kind in (EntityKind.PROJECT, EntityKind.DECISION, EntityKind.PACKAGE, EntityKind.ROUTE,
+                 EntityKind.TERRAFORM_MODULE, EntityKind.SWIFT_TARGET):  # fmt: skip
         lines.append(f"\n{kind} facts:")
         lines += [f"- {entity.id} {json.dumps(dict(entity.attributes))}" for entity in store.entities(kind)]
     modules: dict[str, int] = {}
