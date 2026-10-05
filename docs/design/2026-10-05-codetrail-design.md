@@ -25,13 +25,14 @@ Not goals: answering one-off questions better than Claude Code (need A); a hoste
 ## 2. Architecture
 
 ### 2.1 Shape
-Codetrail is one uv project with one package, `src/codetrail/`, and tests in `tests/`. Its command line (argparse, standard library) has four commands:
+Codetrail is one uv project with one package, `src/codetrail/`, and tests in `tests/`. Its command line (argparse, standard library) has five commands:
 
 | Command | Does |
 |---|---|
 | `codetrail target add <name> <path> [--branch <branch>]` | Writes a target's configuration with defaults |
 | `codetrail files <target>` | Refreshes the target's sources and lists exactly the files Codetrail can see |
-| `codetrail update <target>` | Refreshes the sources, the facts and the guide |
+| `codetrail update <target> [--yes] [--facts-only]` | Refreshes the sources, the facts and the guide, after showing the estimate (section 15.4) |
+| `codetrail providers` | Shows each assistant provider, whether it is installed and signed in, and how (section 15.2) |
 | `codetrail serve <target>` | Serves the page and the bridge on `127.0.0.1` and opens the browser |
 
 During development it runs as `uv run codetrail` behind `just` recipes. For daily use the founder installs it with `uv tool install --editable .` from this repository; later releases install from a tag. Nothing is installed into or written to a target.
@@ -45,11 +46,11 @@ One module per part of the system. Every other module reads the target only thro
 | `repo` | The mirror, the materialized sources, the exclusion rules, filtered logs and diffs | git, `pathspec`, gitleaks |
 | `extract` | The extractor interface and one extractor per stack | `repo` |
 | `facts` | The SQLite fact store with validity ranges, and diffs between snapshots | — |
-| `claude` | The interface Codetrail needs from Claude; the Agent SDK adapter; the fake; the tool guard | Claude Agent SDK |
-| `generate` | Outline, pages, digests, checks, validation and the update budget | `facts`, `claude`, `guide` |
+| `assistant` | The interface Codetrail needs from an assistant; the `claude_code`, `codex` and `local` adapters; the fake; the tool guard; usage, prices and estimates (section 15) | the providers' programs, httpx |
+| `generate` | Outline, pages, digests, checks, validation and the update budget | `facts`, `assistant`, `guide` |
 | `guide` | Reads and writes the knowledge base: Markdown with YAML front matter in its own git repository | git, PyYAML |
 | `web` | FastAPI routers for the pages, diagrams from facts, the "you're behind" signal, interface languages | `guide`, `facts`, `learn` |
-| `bridge` | FastAPI router for questions, streamed answers, grading and "save to guide" | `claude`, `guide`, `learn` |
+| `bridge` | FastAPI router for questions, streamed answers, grading and "save to guide" | `assistant`, `guide`, `learn` |
 | `learn` | Progress, check attempts, staleness and settings in SQLite | `facts`, `guide` |
 
 ### 2.3 Where things live
@@ -290,22 +291,23 @@ Affected pages are ranked by how many of their facts changed, with pages the fou
 ### 6.8 All or nothing
 Facts are recorded first: they are true whatever happens to the guide. Pages are written into the guide's working tree and committed once, at the end of the update. If the update is interrupted, crashes or loses Claude's sign-in, the uncommitted changes are discarded; pages not written stay affected, because that is derived from their front matter, and the digest covers the commits since the last digest's `to_commit`, not since the last snapshot. An update refuses to start while the guide has uncommitted changes. `codetrail update --facts-only` refreshes the facts without calling Claude.
 
-### 6.9 The Claude interface
+### 6.9 The assistant interface
 ```python
-class Claude(Protocol):
-    def plan(self, request: PlanRequest) -> PlanDraft: ...
-    def write_page(self, request: PageRequest) -> PageDraft: ...  # includes the files read
-    def answer(self, request: QuestionRequest) -> AsyncIterator[AnswerEvent]: ...
-    def grade(self, request: GradeRequest) -> Verdict: ...
+class Assistant(Protocol):
+    async def plan(self, request: PlanRequest) -> PlanDraft: ...
+    async def write_page(self, request: PageRequest) -> PageDraft: ...  # includes the files read
+    async def write_digest(self, request: DigestRequest) -> DigestDraft: ...
+    def answer(self, request: QuestionRequest) -> AsyncIterator[AnswerChunk]: ...
+    async def grade(self, request: GradeRequest) -> Verdict: ...
 ```
-The Agent SDK adapter is the only code that imports the SDK. The fake replays scripted responses and records every request. The adapter:
+Every draft carries the call's `Usage`. Each provider's adapter is the only code that knows that provider (section 15.1). The fake replays scripted responses and records every request. Every adapter:
 - runs with `source/` as its working directory;
 - loads no settings, hooks, MCP servers or `CLAUDE.md` from anywhere, so a target's own `.claude/` files, which are materialized like any other file, have no effect;
 - allows Read, Grep and Glob (none for `grade`), and passes every tool call through the tool guard.
 
 **Tool guard:** denies by default; allows only the listed tools; resolves each path to its real location and refuses anything outside `source/` or matching the exclusion rules; logs every allowed read.
 
-**Settled by the Phase 4 spike:** the Agent SDK runs under the founder's Claude Code sign-in with no API key. The guard runs as a PreToolUse hook, because hooks see every call, read-only ones included, while a permission callback can be skipped for them. Structured answers come back through the SDK's `StructuredOutput` tool, which the guard allows: it reads nothing and takes no path. Codetrail's own system prompt replaces Claude Code's, and each call has `max_turns` and a cost limit (`max_budget_usd_per_call`).
+**Settled by the Phase 4 spike, and kept by the `claude_code` adapter (section 15):** the guard runs as a PreToolUse hook, because hooks see every call, read-only ones included, while a permission callback can be skipped for them. Structured answers come back through Claude Code's `StructuredOutput` tool, which the guard allows: it reads nothing and takes no path. Codetrail's own system prompt replaces Claude Code's, and each call has `max_turns` and a cost limit (`max_budget_usd_per_call`).
 
 ## 7. The page and the bridge
 
@@ -333,7 +335,7 @@ Server-rendered with FastAPI and Jinja2, served by uvicorn; Markdown rendered on
 
 ### 7.3 The bridge
 - `POST /bridge/questions` takes a question and optionally the page being read, and streams the answer with `fetch` (not `EventSource`, which can't send the token header). The page shows the stream as plain text; when it ends, the server sends the rendered, sanitized HTML that replaces it.
-- Claude receives the question, the current page and its facts, and the read-only tools through the guard, and is told to answer in the chosen language, given as its validated language code.
+- The assistant configured for `answer` receives the question, the current page and its facts, and the read-only tools through the guard, and is told to answer in the chosen language, given as its validated language code. The Ask button shows the question's estimate (section 15.4).
 - `POST /bridge/answers/{id}/save` writes the answer to `answers/<id>.md` with front matter recording the question, its language, the snapshot and the files read. It passes the same validation as pages, except that a documented quote that can't be verified is turned into an inferred block rather than rejected. Then it's committed. Saved answers are never regenerated; they get the "sources changed" notice.
 - `POST /bridge/checks/{page}/{check}` grades an answer to a check (section 8.2).
 - Limits from configuration: question length, one question in flight per session, `max_turns`. Closing the page cancels the run. If Claude fails mid-answer, the stream ends with an error event and nothing is saved.
@@ -350,7 +352,12 @@ Server-rendered with FastAPI and Jinja2, served by uvicorn; Markdown rendered on
 | Cross-site request forgery | Every `POST` needs an `Origin` equal to the served origin and an `X-Codetrail-Token` header matching the per-session token, which the page reads from a `<meta>` tag. Tokens come from `secrets.token_urlsafe(32)`. |
 | Script injection through repository content or Claude's output | Jinja2 autoescaping; Markdown with raw HTML disabled; only `http(s)` and relative links (markdown-it-py's link validation drops `javascript:`, `data:` and others); Mermaid labels escaped and Mermaid's `securityLevel: "strict"`; a CSP of `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'` (inline styles only because Mermaid injects `<style>` into its SVGs); `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`. |
 | Prompt injection through repository content | Claude has read-only tools over `source/` and no network; every `@` in a prompt becomes a fullwidth `＠`, because Claude Code attaches the file an `@path` names before any tool call (a probe proved it); documented rationale is verified; grading has no tools at all; output is rendered inertly as above. |
-| Running up Claude cost | The update budget, one question in flight, `max_turns`, and question length limits. |
+| Running up cost | An estimate before every paid action, and from the page an update only with a fresh estimate id, as the reader's consent (section 15.4); the update budget, the update cooldown, one question in flight, `max_turns`, token limits for `codex` and `local`, and question length limits. |
+| A provider reading the reader's credentials, or another key in the environment | Codetrail never reads keys or tokens; providers get an allowlisted environment (section 15.2). |
+| Codex reading or running anything the reader can, including the target's excluded files through Codetrail's data folder | Off unless a target opts in; an empty `HOME`, `/bin/sh`, the reader's Codex configuration and the target's `AGENTS.md` switched off; outputs scanned; documented (section 15.5). |
+| Claude Code's guard hook failing | Claude Code's own permission rules confine reads to `source/` independently; the hook refuses with exit code 2 on any error (section 15.1). |
+| A local model's patterns or the network path to it | Grep is plain text; the endpoint is loopback only, with no proxy and no redirects (section 15.5). |
+| A provider program found through a relative `PATH` entry | Absolute paths only; `source/` files are never executable (section 15.5). |
 | Secrets reaching Claude or the page | Section 3, enforced twice: materialization and the tool guard. |
 | Free text reaching Claude's prompt | The language code and page id are validated against the installed catalogs and the guide. |
 
@@ -395,6 +402,7 @@ The global file `~/.config/codetrail/config.toml`:
 [server]
 port = 8765
 login_code_ttl_seconds = 60
+estimate_ttl_seconds = 300
 
 [ui]
 default_language = "en"
@@ -402,9 +410,43 @@ default_language = "en"
 [bridge]
 max_question_chars = 4000
 max_turns = 20
+max_budget_usd = 1.0
 
-[claude]
+[learn]
+grading_cooldown_seconds = 10
+max_budget_usd = 0.25
+
+[assistant]
 retry_attempts = 3
+
+[providers.claude_code]
+command = "claude"
+auth = "subscription"          # or "api_key"
+
+[providers.codex]
+command = "codex"
+auth = "subscription"          # or "api_key"
+max_tokens_per_call = 400_000
+timeout_seconds = 900
+
+[providers.local]
+base_url = "http://127.0.0.1:11434/v1"   # loopback only; LM Studio is http://127.0.0.1:1234/v1
+max_turns = 30
+max_tokens_per_call = 200_000
+timeout_seconds = 900
+max_read_bytes = 200_000
+
+[prices]                       # USD per million tokens, API list prices, for estimates only
+"claude-opus-5-5" = { input = 4.0, output = 20.0, cached_input = 0.4 }
+"claude-sonnet-5-5" = { input = 2.0, output = 10.0, cached_input = 0.2 }
+
+[estimates]                    # starting tokens per call, until Codetrail has its own history
+history_size = 20
+plan = { input = 60_000, output = 8_000 }
+page = { input = 120_000, output = 6_000 }
+digest = { input = 40_000, output = 3_000 }
+answer = { input = 30_000, output = 1_500 }
+grade = { input = 4_000, output = 500 }
 
 [signal]
 cache_seconds = 60
@@ -434,9 +476,13 @@ Security checks fail closed; an aborted update leaves nothing half-written; one 
 | Ignore rules can't load; gitleaks missing or failing; the tool guard errors | The refresh fails; the guard denies |
 | A second update for the same target | A lock file (`fcntl.flock`, released if the process dies) makes it report "already updating" |
 | A file fails to parse | A warning with its path; the update continues |
-| A transient Claude error (rate limit, overload, network) | Retried with backoff, `claude.retry_attempts` times |
-| Claude's sign-in fails | The update stops with instructions to sign in again |
+| A transient assistant error (rate limit, overload, network) | Retried with backoff, `assistant.retry_attempts` times |
+| A provider's program is missing, signed out, or signed in differently from `auth` | The action is refused before it starts, naming the command to run |
+| A provider's sign-in fails mid-update | The update stops with instructions to sign in again |
+| `codex` or `local` passes its token or time limit | The process is stopped; the page fails and stays affected |
+| A page, digest or answer contains something gitleaks flags | It fails like a validation error, naming the rule only |
 | A page fails validation twice or hits `max_turns` | The previous page stays; listed in the summary; still affected |
+| The plan's usage limit is reached | The provider's refusal ends the action; the estimate showed the usage beforehand |
 | Interruption, crash or sign-in loss mid-update | Uncommitted guide changes discarded; snapshot not advanced; `source/` rebuilt if its marker doesn't match |
 | Uncommitted edits in the guide | The update refuses to start |
 | Invalid configuration or `outline.yaml` | Refused at startup or update, naming the key |
@@ -454,7 +500,8 @@ Test first, always (decision 12). Suites in `tests/unit`, `tests/integration`, `
 - **Extractors:** each against small fixture files, including unparseable ones and unresolvable references.
 - **The fake Claude** records every request, so tests assert what Claude was given (no excluded content in any prompt). Hostile scripts try to read `.env`, `../`, an absolute path and the symlink, and to call Bash, Edit, Write and web tools; the guard refuses each.
 - **Generation:** validation of documented quotes, fact links and diagram placeholders; the retry; the budget and ranking; all-or-nothing on interruption; affected and "sources changed" detection.
-- **The real adapter:** its permission callback and result mapping are unit-tested by calling them directly. An opt-in `just test-live` suite runs it against real Claude on a fixture repository; CI skips it.
+- **The real adapters:** `claude_code` and `codex` run against fake programs (small scripts that replay recorded streams and record their arguments, environment and stdin); `local` runs against a fake endpoint (httpx's mock transport). Tests assert the read-only flags, the allowlisted environment (no key in subscription mode), stdin prompts, limits, stopping at a token limit, and usage parsing. An opt-in `just test-live` suite runs each installed provider on a fixture repository; CI skips it.
+- **Estimates:** medians from history, starting values, the update's expected and maximum, refusal of an update without a fresh estimate id, and the command line's question and `--yes`.
 - **API tests** (FastAPI's test client): every refusal in section 7.4 (wrong `Host`; missing or wrong `Origin`; no session; bad token; reused or expired login code; non-loopback configuration; unknown language or page id); the security headers on every response; `<script>`, `javascript:` links and hostile Mermaid labels rendered inert; streaming, cancellation and saving answers.
 - **Learning:** every state transition, including *learned* → *stale* → *learned* through changed checks only; grading with pass, fail and a malformed verdict.
 - **Interface languages:** every catalog against English (keys, placeholders, plural forms); every catalog compiles; CI fails if the extracted template is out of date; `dir="rtl"` from the test catalog.
@@ -467,7 +514,9 @@ Recipes: `just test-quick` (unit and API, run by the pre-push hook), `just test`
 
 | Dependency | Use | Covered by |
 |---|---|---|
-| Python, uv, FastAPI (with pydantic), SQLite, tree-sitter and its grammars, Claude Agent SDK, Mermaid | Core stack | Decision 9 |
+| Python, uv, FastAPI (with pydantic), SQLite, tree-sitter and its grammars, Mermaid | Core stack | Decision 9 |
+| httpx at runtime | The `local` provider's client | ADR 0006 |
+| Claude Code, Codex, Ollama or LM Studio, as the reader's own installed programs (not Python dependencies) | Assistant providers | ADR 0006 |
 | mise, just, lefthook, gitleaks (as a hook), git-flow-next, Node and pnpm for commitlint, ruff, mypy, pytest | Engineering setup | Decision 11 |
 | `pathspec` | Gitignore-style matching | ADR 0001 |
 | gitleaks at runtime | Content scanning on every update | ADR 0002 |
@@ -490,16 +539,72 @@ Each phase is usable on its own, has its own implementation plan, and ends with 
 | 5. Bridge | Questions, streamed answers in the chosen language, "save to guide" | Ask from any page and keep the answers | — |
 | 6. Learning | Paths, checks and grading, progress, staleness, the catch-up path | The course, and knowing when learning went stale | — |
 | 7. More extractors | `openapi`, then `terraform`, then `swift_packages` | Hamesh's contract, infrastructure and iOS packages in the guide | Can start after Phase 4, alongside 5 and 6 |
+| 8. Providers and sign-in | The `assistant` interface; the `claude_code`, `codex` and `local` adapters; the allowlisted environment; `codetrail providers`; usage records; output scanning | Any of the three assistants, on the reader's own subscription | ADR 0006 |
+| 9. Cost estimates | Prices, starting values and history; the update, question and grading estimates; the page's dialog, the estimate id, and the command line's question | No paid action without its estimate first | Phase 8 |
+| 10. Getting started | A generic README with screenshots of Codetrail's guide to itself, and the install guide | Anyone can install and run Codetrail on their own repository | Phase 9 |
 
 ## 14. Answers to the brainstorm's open questions
 
 | Question | Answer |
 |---|---|
 | Default home of a target's knowledge base | Codetrail's data folder, its own git repository (section 2.3) |
-| Agent SDK sign-in or API key | Settled by the spike that opens Phase 4; `claude -p` is the fallback (section 6.9) |
+| Agent SDK sign-in or API key | The reader's own `claude -p` with their subscription, an API key only by choice (section 15.2, ADR 0006) |
 | The fact model | Section 4 |
 | The extractor interface and Hamesh's first extractors | Section 5 |
 | How the page is built | Server-rendered (section 7.1) |
 | Checks and staleness | Sections 8.2 and 8.3 |
 | Phase order | Section 13 |
 | Browser tests | None at first (section 11) |
+
+## 15. Assistant providers, sign-in and cost estimates
+
+Added on 5 October 2026 ([ADR 0006](../adr/0006-assistant-providers-and-subscriptions.md)). Codetrail works with more than one assistant, uses the reader's own subscription, and never starts paid work without first saying what it will cost.
+
+### 15.1 Providers
+The assistant is whatever plans, writes and answers (section 6.9); the kinds of call, each configured in the target's `[models]`, are `plan`, `write`, `digest`, `answer` and `grade`. Three providers implement it, each in its own adapter; nothing outside an adapter knows which one runs.
+
+| Provider | Runs | Read-only by | Reports |
+|---|---|---|---|
+| `claude_code` | The reader's own `claude` program: `claude -p` in `source/`, the prompt on stdin, `--output-format stream-json` | Two independent layers. First, Claude Code's own permissions: `--tools Read,Grep,Glob`, allow rules scoped to the working folder (`Read(./**)`, `Grep(./**)`, `Glob(./**)`) and `--permission-mode dontAsk`, which refuses anything not allowed. Second, Codetrail's tool guard as a PreToolUse hook, started by the absolute path of Codetrail's own Python, with a timeout; it refuses with exit code 2 on any error of its own, since Claude Code runs a tool when a hook fails any other way (a probe on 5 October 2026 read `/etc/hosts` through a broken hook, and the permission layer alone refused it). No settings, MCP servers or slash commands of the reader's or the target's (`--setting-sources ""`, `--strict-mcp-config`, `--disable-slash-commands`) | Tokens, an estimated cost, the structured output, every tool call, and the plan's usage windows |
+| `codex` | The reader's own `codex` program: `codex exec - --sandbox read-only --output-schema <file> --json --ephemeral --skip-git-repo-check` in `source/`, with the reader's Codex configuration switched off (`-c` overrides for MCP servers, notifications, project instructions and the shell environment) | Codex's read-only sandbox only: its tools are shell commands, so it can read and run anything the reader can (section 15.5). Off unless a target opts in with `[assistant] allow_codex = true` | Tokens, the structured output, the commands it ran |
+| `local` | Codetrail's own tool loop against an OpenAI-compatible chat endpoint on the reader's machine: Ollama (`http://127.0.0.1:11434/v1`, the default) or LM Studio (`http://127.0.0.1:1234/v1`) | Read, Grep (a plain-text search, never a regular expression) and Glob implemented by Codetrail over `source/`, through the tool guard; the endpoint must be a loopback address | Tokens; the cost is zero |
+
+Each kind of call names its provider and model in the target's `[models]` table, as `provider:model`; a value with no known provider prefix is a `claude_code` model, so earlier configurations keep working. A model name may itself contain colons (`local:qwen3:14b`).
+
+Every adapter streams answers as text, returns structured drafts checked against the same JSON schemas, and returns a `Usage` (input, cached input and output tokens, the model, and the provider's own cost figure when it gives one). `codex` and `local` have no turn or dollar limit of their own, so Codetrail stops them when they pass `max_tokens_per_call` or `timeout_seconds`. `local` validates the final JSON against the schema and retries once with the errors. Prompts, schemas, the `@` neutralizing and the fences are shared by all three.
+
+### 15.2 Sign-in
+- Each provider has `auth = "subscription"` (the default) or `"api_key"`.
+- Codetrail starts `claude` and `codex` with an environment built from an allowlist, and nothing else from its own environment reaches them:
+  - `claude`: `PATH`, `HOME`, `USER`, `LOGNAME`, `LANG`, `LC_*`, `TMPDIR`, `TERM`, and `CLAUDE_CONFIG_DIR` when set. On macOS its sign-in, kept in the Keychain, needs `USER` and `LOGNAME` (checked on 5 October 2026).
+  - `codex`: `PATH`, `LANG`, `LC_*`, `TMPDIR`, `TERM`, `SHELL=/bin/sh`, `CODEX_HOME` (the reader's, made absolute, so the sign-in still works), and `HOME` set to an empty temporary folder, so no shell profile runs and `~` leads nowhere.
+  - `PATH` loses any relative entry, and each program is resolved to an absolute path before it starts; `codetrail providers` shows it.
+- With `subscription`, no key is in that environment, so the program uses its own saved sign-in (`claude` then `/login`, or `codex login`). With `api_key`, the allowlist also passes the provider's key variables by name (`ANTHROPIC_API_KEY`; `OPENAI_API_KEY` and `CODEX_API_KEY`). Codetrail never reads, logs or stores a key or a token.
+- Before the first paid action of a process, and in `codetrail providers`, Codetrail runs `claude auth status --json` and `codex login status` with that environment and keeps only whether the program is signed in and how (`claude.ai` or an API key; the subscription's name). A missing program, a missing sign-in, or a sign-in that doesn't match `auth` refuses the action and names the command to run.
+- `local` needs no sign-in; its check asks the endpoint for its models.
+- Codetrail is for each person's own use of their own subscription. Anthropic allows a person to use the unmodified Claude Code with their own subscription and doesn't allow third-party products to offer claude.ai sign-in; Codetrail runs the reader's own `claude` and never sees its credentials (ADR 0006).
+
+### 15.3 Usage and plan limits
+- Every call's `Usage` is recorded in the target's database (`assistant_calls`: when, kind, provider, model, tokens, cost in dollars). The cost is the provider's figure when it gives one, otherwise tokens times the configured prices; `local` is zero. A call whose model has no configured price has no cost, only tokens.
+- `claude_code` streams rate-limit events with the use of each plan window (five hours, seven days) and when it resets. The latest reading per window is kept (`plan_usage`), with the time it was read, and shown with every estimate. Codex has no such reading; the page links to its usage page.
+- The update budget (`generation.max_budget_usd_per_update`) counts these costs for every provider.
+
+### 15.4 Estimates before paid work
+An estimate is shown before every action that calls a paid provider. It never calls the assistant itself.
+- **Tokens per call** are the median of the last `estimates.history_size` recorded calls of the same kind, provider and model, once there are three; before that, the starting values in `[estimates]`.
+- **An update** is estimated before it starts: the plan call (when the outline is new or facts are uncovered), the pages to rewrite (the affected pages, at most `max_pages_per_update`; on the first update, the maximum), and the digest (when commits came in). It is given as expected and at most, in tokens and in dollars at the configured prices, with each call's provider and model, the sign-in in use, and the latest plan usage.
+- **The page's Update button** fetches `GET /update/estimate` and shows it in a dialog. Proceeding sends the estimate's id with `POST /update`; an update without a fresh estimate id from the same session (valid `server.estimate_ttl_seconds`) is refused. The id records the reader's consent to that estimate, and is defence in depth against other websites, which can't read it. It doesn't stop another local program holding the session cookie (section 7.4); the update budget, the cooldown and one update at a time bound that.
+- **Questions and graded checks** show their estimate on the button, such as "Ask · ~15k tokens · ≤ $0.25", without an extra click; each has its hard limit (`bridge.max_budget_usd`, `learn.max_budget_usd`).
+- **`codetrail update`** prints the same estimate and asks before going on; `--yes` skips the question; without a terminal and without `--yes` it refuses. `--facts-only` calls no provider and shows no estimate.
+- After each action, its actual tokens and cost are shown next to the estimate.
+
+Prices are API list prices, in configuration with their sources, because they change. For a subscription, the dollars are what the same work would cost through the API; the real cost is the plan's usage, which the estimate shows as well.
+
+### 15.5 Security
+- The rules of sections 3 and 7.4 hold for every provider. What reaches a provider is what reached Claude before: prompts built from facts and guide pages, and `source/`.
+- **Codex isn't confined to `source/`.** Its read-only sandbox prevents writes, not reads, and its tools are shell commands. Text in the target can make it read the target's excluded files through Codetrail's own data folder (`../mirror.git`, the guide, the database), read the reader's own files (keys, other repositories), and run the target's code inside the sandbox; whatever it reads goes to the provider as context before any scan. Codetrail therefore keeps Codex off unless a target opts in (`[assistant] allow_codex = true`), says so in `codetrail providers` and in every estimate that uses it, gives it an empty `HOME`, `/bin/sh` and no `USER`, switches off the reader's Codex configuration and the target's `AGENTS.md`, and scans its outputs. `claude_code` stays the default.
+- **Every output is scanned for secrets** with gitleaks (Codetrail's configuration): pages, checks and digests before they are written to the guide, an answer before its final text is shown or saved, and grading feedback before it is stored. A finding fails the page like a validation error, or replaces the answer or feedback with a notice, naming the rule only. The scan is a last check, not confinement.
+- **`local` talks only to loopback.** The `base_url` is parsed and refused at startup unless its host is exactly `127.0.0.1`, `::1` or `localhost`, with no user information. The client ignores proxy settings and doesn't follow redirects. On a machine shared with other people, another account could listen on that port while the model server is down; `codetrail providers` shows the models the endpoint lists, so a stranger answering is noticed. Its file tools read at most `providers.local.max_read_bytes` per call, and Grep searches for plain text, so no pattern from the model can run away.
+- **Prompts go in on stdin**, never in the command line, where other processes could read them. The settings, schema and read-log files a call needs are created with `mkstemp` outside `source/` and removed afterwards.
+- **Processes are bounded:** each runs in its own process group, killed at `timeout_seconds` or on cancellation.
+- **Programs are found safely:** each provider's program is resolved to an absolute path with relative `PATH` entries removed, and files in `source/` are never executable.
