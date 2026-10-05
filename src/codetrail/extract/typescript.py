@@ -202,9 +202,9 @@ class TypeScriptExtractor:
         paths = options.get("paths", {})
         if (
             isinstance(paths, dict)
-            and sum(len(v) if isinstance(v, list) else 1 for v in paths.values()) > self._max_paths
+            and len(paths) + sum(len(v) for v in paths.values() if isinstance(v, list)) > self._max_paths
         ):
-            raise ValueError("too many paths")  # skipped with a warning: real configs have a handful
+            raise ValueError("too many paths")  # patterns and targets both count; real configs have a handful
         if isinstance(paths, dict):
             self._tsconfigs[folder] = (base, {str(key): [str(value) for value in values] for key, values in
                                               paths.items() if isinstance(values, list)})  # fmt: skip

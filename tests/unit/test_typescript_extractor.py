@@ -290,3 +290,13 @@ def test_absolute_worker_entries_and_base_urls_are_dropped(tmp_path: Path) -> No
     [worker] = [entity for entity in found.entities if entity.kind is EntityKind.WORKER]
     assert "main" not in worker.attributes
     assert edges(found, RelationKind.IMPORTS) == set()
+
+
+def test_empty_target_lists_count_towards_the_tsconfig_cap(tmp_path: Path) -> None:
+    paths: dict[str, list[str]] = {f"a{index}": [] for index in range(2000)}
+    files = {
+        "app/package.json": '{"name": "app"}',
+        "app/tsconfig.json": json.dumps({"compilerOptions": {"paths": paths}}),
+    }
+    found = run(tmp_path, files)
+    assert any("app/tsconfig.json" in warning for warning in found.warnings)

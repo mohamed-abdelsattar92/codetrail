@@ -14,12 +14,11 @@ from __future__ import annotations
 import re
 from collections.abc import Iterator, Mapping, Sequence
 from pathlib import PurePosixPath
-from urllib.parse import urlsplit
 
 import tree_sitter_swift
 from tree_sitter import Language, Parser
 
-from codetrail.extract import FileFacts, Reference, Resolution
+from codetrail.extract import FileFacts, Reference, Resolution, without_credentials
 from codetrail.facts import Entity, EntityKind, Relation, RelationKind, Source
 
 SWIFT = Language(tree_sitter_swift.language())
@@ -49,16 +48,6 @@ def _balanced(text: str, start: int, opening: str, closing: str) -> str | None:
             if depth == 0:
                 return text[start + 1 : index]
     return None
-
-
-def _without_credentials(url: str) -> str:
-    if "://" not in url:  # scp-style: [user[:password]@]host:path
-        authority = url.split("/", 1)[0]
-        return url[authority.rindex("@") + 1 :] if "@" in authority else url
-    parts = urlsplit(url)
-    if "@" not in parts.netloc:
-        return url
-    return parts._replace(netloc=parts.netloc.rsplit("@", 1)[1]).geturl()
 
 
 def _closing_brackets(text: str) -> dict[int, int]:
@@ -120,7 +109,7 @@ class SwiftExtractor:
         entities = [Entity(project, EntityKind.PROJECT, {"name": package_name, "language": "swift"}, source)]
         references: list[Reference] = []
         for url, rest in REMOTE_PACKAGE.findall(text):
-            url = _without_credentials(url)
+            url = without_credentials(url)
             external = package_id(url.rstrip("/").rsplit("/", 1)[-1])
             entities.append(Entity(external, EntityKind.PACKAGE, {"url": url}, source))
             version = VERSION.search(rest)
