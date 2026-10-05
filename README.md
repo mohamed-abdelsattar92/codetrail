@@ -52,11 +52,12 @@ Codetrail uses the assistant for meaning and code for structure: deterministic e
 | 📰 | **Digests** | One per update: what changed, why it matters, which pages changed. |
 | 🗺️ | **Area and concept pages** | Each component and each pattern, tool or decision, explained against the real code. |
 | 📈 | **Grounded diagrams** | Imports, dependencies and infrastructure drawn from extracted facts; every node links to its source. |
+| 🗺️ | **Your system** | One diagram of how the repository's services, apps, libraries, contracts and infrastructure connect and where they run, with the file and line behind every arrow. |
 | 📜 | **Documented versus inferred** | Rationale quoted from an ADR or commit is verified against the source; everything else is labelled as the assistant's reading. |
 | 💬 | **Ask from any page** | Questions go to your assistant with read-only tools; answers come into the page in your language. |
 | 📌 | **Save to guide** | Answers worth keeping become part of the guide instead of disappearing like chat history: they're in the sidebar, on the Saved answers page, and in search. |
 | 🔎 | **Search** | Press ⌘K or / on any page to search the guide's pages, saved answers, decisions and facts. It runs on your machine and costs nothing. |
-| ⌨️ | **Shortcuts** | Ask (A), go places (G then H, P, S, D or R), step through a path ([ and ]), mark read (M), update (U). None of them spends anything. |
+| ⌨️ | **Shortcuts** | Ask (A), go places (G then H, P, Y, S, D or R), step through a path ([ and ]), mark read (M), update (U). None of them spends anything. |
 | 🧭 | **Guided paths** | Ordered routes through the pages toward a goal, such as "how a request travels through the API". The home page picks up where you left off. |
 | ✅ | **Checks** | Open questions on each page, graded against a rubric grounded in the code. |
 | ♻️ | **Staleness** | When the code behind a page you learned changes, the page says so and shows what changed. |
@@ -81,6 +82,10 @@ These screenshots are Codetrail's guide to its own repository, written by Claude
 **Ask** from any page (press A): the panel opens beside the page you're reading and keeps this session's answers as you move around. **Send** shows the estimate first, and **Save to guide** keeps an answer for good.
 
 ![The Ask panel beside a page, with a question ready to send and its estimate on the button](docs/images/answer.png)
+
+**Your system** shows how the repository's parts fit together, drawn from facts: services and apps, the contracts between them, libraries, infrastructure and where each part runs. Under the diagram, every arrow says why it's there: the file and line that shows it, or, for a dashed arrow, the two names that matched. (This one is a small example repository.)
+
+![The system page: parts, contracts and platforms with solid and dashed arrows, and a legend](docs/images/system.png)
 
 **Update the guide** refreshes the facts for free, then shows the estimate. Nothing is spent until you choose **Go ahead**.
 
@@ -231,7 +236,7 @@ The interface is English first and switches language from the page. Each languag
 
 ## Status
 
-Phases 0 to 11 of the [design](docs/design/2026-10-05-codetrail-design.md) are built and tested; phase 12 is under way.
+Every phase in the [design](docs/design/2026-10-05-codetrail-design.md) is built and tested.
 
 ```mermaid
 flowchart LR
@@ -246,7 +251,7 @@ flowchart LR
     P8 --> P9["9 · Cost estimates ✓"]
     P9 --> P10["10 · Getting started ✓"]
     P10 --> P11["11 · The page's design ✓"]
-    P11 --> P12["12 · The whole system"]
+    P11 --> P12["12 · The whole system ✓"]
 ```
 
 | Phase | What you can do | Status |
@@ -263,7 +268,7 @@ flowchart LR
 | 9. Cost estimates | An estimate before every paid action | Done |
 | 10. Getting started | This README, and the [getting-started guide](docs/getting-started.md) | Done |
 | 11. The page's design | A new look with progress first, search, a command palette, shortcuts, an Ask panel, and pages for progress, saved answers and digests; tested in a real browser | Done |
-| 12. The whole system | Facts for TypeScript, JavaScript and Astro code, deploy evidence from GitHub Actions, and the system pass: a repository's services, apps, libraries, contracts and infrastructure, and how they connect (`codetrail update` prints the count per rule). The system diagram and page come next | In progress |
+| 12. The whole system | Facts for TypeScript, JavaScript and Astro code, deploy evidence from GitHub Actions, and the system pass: a repository's services, apps, libraries, contracts and infrastructure, and how they connect (`codetrail update` prints the count per rule); the system diagram on its own page, on the home page and on area pages, which pages and answers can also place | Done |
 
 Codex and local models are tested against stand-ins and Codetrail's own tests; Claude Code is also tested live. Codex's provider decision is [ADR 0006](docs/adr/0006-assistant-providers-and-subscriptions.md).
 
