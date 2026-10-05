@@ -52,8 +52,7 @@ class Document:
 @dataclass(frozen=True)
 class Result:
     document: Document
-    snippet: str                       # plain text, at most ~160 characters
-    highlights: list[tuple[int, int]]  # (start, end) ranges of matched words in `snippet`
+    snippet: list[tuple[str, bool]]    # plain-text segments, at most ~160 characters, and whether each matched
 
 def match_expression(query: str, max_chars: int) -> str | None   # None when no word is left
 class SearchIndex:
@@ -63,20 +62,20 @@ class SearchIndex:
     def search(self, query: str, max_chars: int, limit: int) -> list[Result]
 def guide_documents(guide: GuideRepository, store: FactStore | None) -> list[Document]
 ```
-- [ ] Tests for `match_expression`: words become `"word"` joined by spaces, the last as `"word"*`; inner `"` doubled; FTS5 operators (`AND`, `OR`, `NOT`, `NEAR`), `-`, `*`, `^`, `:`, parentheses stay literal; cut to `max_chars`; empty and punctuation-only queries give `None`; non-Latin words kept.
-- [ ] Tests for `SearchIndex`: a title match ranks above a body match (bm25 weights 10, 4, 1 for title, headings, text); prefix `retr` finds "retry"; `limit` respected; `rebuild` replaces everything; `add` replaces a document with the same id; every hostile query from the review focus returns a list without raising; snippets contain no markup characters from the source beyond the text itself, and each highlight range covers a matched word.
-- [ ] Tests for `guide_documents`: areas, concepts, paths, digests and answers from the guide; facts as `fact` documents titled by id with their kind; decisions as `decision` documents with number and title; malformed front matter (non-string title, missing fields) still gives a document; nothing is read from `source/`.
+- [ ] Tests for `match_expression`: words become `"word"` joined by spaces, the last as `"word"*`; inner `"` doubled; `'` kept as text (the expression is always a bound parameter, `MATCH ?`); FTS5 operators (`AND`, `OR`, `NOT`, `NEAR`), `-`, `*`, `^`, `:`, parentheses stay literal; cut to `max_chars`; empty and punctuation-only queries give `None`; non-Latin words kept.
+- [ ] Tests for `SearchIndex`: a title match ranks above a body match (bm25 weights 10, 4, 1 for title, headings, text); prefix `retr` finds "retry"; `limit` respected; `rebuild` replaces everything; `add` replaces a document with the same id; every hostile query from the review focus returns a list without raising; snippets join back to plain text from the document, and every matched segment is a matched word, also after an emoji.
+- [ ] Tests for `guide_documents`: areas, concepts, paths, digests and answers from the guide, title and body only (a word only in a check's rubric or an answer's front matter is never indexed); facts as `fact` documents titled by id with their kind; decisions as `decision` documents with number and title; malformed front matter (non-string title, missing fields) still gives a document; nothing is read from `source/`.
 - [ ] Implementation: `sqlite3.connect(":memory:", check_same_thread=False)`, a `threading.Lock` around every use, `CREATE VIRTUAL TABLE documents USING fts5(title, headings, text, id UNINDEXED, kind UNINDEXED, link UNINDEXED, tokenize='unicode61 remove_diacritics 2')`; results by `bm25(documents, 10.0, 4.0, 1.0)`; snippets built in Python from `text` around the first matched word, so ranges are exact and nothing is parsed as markup.
 
 ### Task 3: routes
 **Files:** `src/codetrail/web/app.py`, `src/codetrail/bridge.py`, `src/codetrail/update.py` (nothing; the app rebuilds after its job), test `tests/api/test_search.py`.
-**Interfaces:** `GET /search/results?q=` → `{"results": [{"title", "kind", "link", "snippet", "highlights": [[start, end], ...]}], "available": bool}`; `GET /search?q=` → `search.html`; the app keeps one `SearchIndex`, rebuilt at start-up, after the update job finishes (done or declined), and added to by a saved answer (the bridge takes an `on_saved(page: Page)` callback).
-- [ ] Tests: both routes need the session (403 without); results for a page title, a heading word, a saved answer and a fact; an excluded file's name and contents are never in results (fixture with `.env` content and a hidden path); an answer saved through the bridge is found at once; a failing index build leaves `available: false` and every other page working; the JSON route sends `Cache-Control: no-store`.
+**Interfaces:** `GET /search/results?q=` → `{"results": [{"title", "kind", "link", "snippet": [[text, matched], ...]}], "available": bool}`; `GET /search?q=` → `search.html`; the app keeps one `SearchIndex`, rebuilt at start-up, after the update job finishes (done or declined), and added to by a saved answer (the bridge takes an `on_saved(page: Page)` callback).
+- [ ] Tests: both routes need the session (403 without); `/search/results` also needs the token header (403 without); results for a page title, a heading word, a saved answer and a fact; an excluded file's name and contents are never in results (fixture with `.env` content and a hidden path); an answer saved through the bridge is found at once; a failing index build leaves `available: false` and every other page working; the JSON route sends `Cache-Control: no-store`; a query holding `'` works.
 
 ### Task 4: the session's answers
 **Files:** `src/codetrail/bridge.py`; test `tests/api/test_bridge.py`.
 **Interfaces:** `GET /bridge/answers` → `{"answers": [{"id", "question", "html", "asked_at"}]}`, oldest first; `BridgeState.answers` keeps at most `max_session_answers`, dropping the oldest.
-- [ ] Tests: lists unsaved answers with server-rendered HTML; a saved answer leaves the list; past the limit the oldest is dropped and saving it answers 404 "That answer is gone; ask again."; needs the session.
+- [ ] Tests: lists unsaved answers with server-rendered HTML; needs the token header; sends `Cache-Control: no-store`; a saved answer leaves the list; past the limit the oldest is dropped and saving it answers 404 "That answer is gone; ask again."; needs the session.
 
 ### Task 5: finish
 - [ ] Design and README current-state lines; `just ci`; security review; `git flow feature finish search`.
@@ -127,13 +126,13 @@ def answers_newest_first(pages: list[Page]) -> list[Page]   # malformed asked_at
 ## Branch 3: `feature/page-interaction` — the palette, shortcuts, the Ask panel and browser tests
 
 ### Task 12: the modules
-**Files:** `static/js/{main,api,ask,palette,shortcuts,update,learning,outline,theme,diagram}.js`; remove `static/page.js`.
+**Files:** `static/js/{main,api,ask,palette,shortcuts,update,learning,outline,theme,diagram}.js`, and the classic `static/js/theme-init.js` loaded in `<head>` (only `light`, `dark` or `system` accepted); remove `static/page.js`.
 **Interfaces:** `api.js` exports `post(url, data)`, `getJSON(url)`, `usedText(labels, usage)`; `ask.js` exports `openAsk(question?)`; `palette.js` exports `openPalette()`; `update.js` exports `startUpdate()`; `learning.js` exports `toggleRead()`; `theme.js` exports `cycleTheme()`.
 - [ ] Behaviour kept from `page.js`: streamed answers as text then server HTML, Save to guide, grading feedback as text, the estimate dialog and its id, marking read, the language picker, Mermaid in strict mode (theme follows light or dark).
 - [ ] New: the palette (debounced `GET /search/results`, groups, actions, ARIA combobox, highlights built with `textContent` and `<mark>` elements); the shortcuts map of design 16.4 with the typing and modifier rules; the Ask panel loading `GET /bridge/answers`, keeping open per tab in `sessionStorage`; the outline from `h2`/`h3` with `IntersectionObserver`; the theme switch in `localStorage` (try/catch); every storage access wrapped so the page works without it.
 
 ### Task 13: browser tests
-**Files:** `pyproject.toml`, `uv.lock` (`pytest-playwright` in `dev`), `justfile` (`test-browser`, `ci` includes it, `setup` installs Chromium), `.github/workflows/ci.yml`, `tests/browser/conftest.py` (a fixture repository updated with the fake assistant, `create_app` under uvicorn on a free port in a thread, a signed-in page), `tests/browser/vendor/axe.min.js` with licence and `VERSION`, `tests/browser/test_*.py`; `pytest` marker `browser`, excluded from `just test` and `test-quick`.
+**Files:** `pyproject.toml`, `uv.lock` (`pytest-playwright` in `dev`), `justfile` (`test-browser`, `ci` includes it, `setup` installs Chromium), `.github/workflows/ci.yml`, `tests/browser/conftest.py` (a fixture repository updated with the fake assistant, `create_app` under uvicorn bound to `127.0.0.1` on a free port in a thread, a page signed in through the real `/login?code=` link; never `bypass_csp`; axe-core through `page.evaluate` in its own contexts), `tests/browser/vendor/axe.min.js` with licence and `VERSION`, `tests/browser/test_*.py`; `pytest` marker `browser`, excluded from `just test` and `test-quick`.
 - [ ] Tests: ⌘K and `/` open the palette, typing finds a page, arrows and Enter open it, Esc closes; "Ask about" opens the panel with the text and sends nothing (the fake records no request); **A** opens the panel; G-then-H/P/S/D/R navigate; `[` and `]` follow the path; **M** marks read; **U** opens the estimate dialog and Cancel leaves the fake with no page request; **?** lists the shortcuts; no shortcut fires while typing in the Ask box, a check or the palette; an answer asked on one page is still in the panel on another; Save to guide adds it to the sidebar and to search; the theme switch flips `data-theme` and survives a reload; no console errors and no CSP violations on any page; axe-core finds no serious or critical issue on home, a guide page, progress, answers, search, a fact and a source page, in light and dark.
 
 ### Task 14: finish
