@@ -1,5 +1,6 @@
 """One update at a time per target (design section 10), and no removal while a target is in use."""
 
+import errno
 import fcntl
 from pathlib import Path
 
@@ -90,3 +91,18 @@ def test_a_removal_that_finishes_while_opening_is_noticed(
     with pytest.raises(CodetrailError, match="No target named 'shop'"), target_in_use(paths, target):
         pass
     assert not paths.data_dir.exists()
+
+
+def test_a_settings_path_that_cant_be_opened_is_reported(paths: Paths) -> None:
+    paths.target_file("shop").mkdir(parents=True)
+    with pytest.raises(CodetrailError, match="Can't lock target 'shop'"), target_in_use(paths, "shop"):
+        pass
+
+
+def test_a_filesystem_without_locks_is_reported(paths: Paths, target: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    def unsupported(handle: object, operation: int) -> None:
+        raise OSError(errno.ENOLCK, "No locks available")
+
+    monkeypatch.setattr(fcntl, "flock", unsupported)
+    with pytest.raises(CodetrailError, match="Can't lock target 'shop'"), target_removal(paths, target):
+        pass

@@ -57,11 +57,15 @@ def _settings_lock(paths: Paths, name: str, operation: int, busy: str) -> Iterat
         handle = settings.open("rb")
     except FileNotFoundError as error:
         raise CodetrailError(missing) from error
+    except OSError as error:
+        raise CodetrailError(f"Can't lock target {name!r} ({settings}): {error.strerror}.") from error
     with handle:
         try:
             fcntl.flock(handle, operation | fcntl.LOCK_NB)
         except BlockingIOError as error:
             raise TargetBusy(busy) from error
+        except OSError as error:  # a filesystem without locks, for one
+            raise CodetrailError(f"Can't lock target {name!r} ({settings}): {error.strerror}.") from error
         try:
             if not _is_current(handle.fileno(), settings):  # a removal finished between opening and locking
                 raise CodetrailError(missing)
