@@ -49,6 +49,10 @@ def client(session: SessionState) -> TestClient:
     def script() -> PlainTextResponse:
         return PlainTextResponse("// script")
 
+    @app.get("/cached")
+    def cached() -> PlainTextResponse:
+        return PlainTextResponse("cached", headers={"Cache-Control": "private, max-age=60"})
+
     app.add_middleware(SecurityMiddleware, session=session, port=PORT)
     return TestClient(app, base_url=ORIGIN, follow_redirects=False)
 
@@ -153,6 +157,25 @@ def test_static_files_need_no_session_but_carry_the_headers(client: TestClient) 
     assert_security_headers(response)
     # Revalidated on every load, so an upgraded Codetrail never shows a page with last version's styles or script.
     assert response.headers["cache-control"] == "no-cache"
+
+
+def test_a_signed_in_page_is_never_stored(client: TestClient, session: SessionState) -> None:
+    # Every page carries the write token in a <meta> tag; neither it nor the guide may stay in the disk cache.
+    response = signed_in(client, session).get("/")
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-store"
+
+
+@pytest.mark.parametrize(("host", "status"), [(f"127.0.0.1:{PORT}", 403), ("evil.example", 400)])
+def test_refusals_are_never_stored(client: TestClient, host: str, status: int) -> None:
+    response = client.get("/", headers={"host": host})
+    assert response.status_code == status
+    assert response.headers["cache-control"] == "no-store"
+
+
+def test_a_route_keeps_its_own_cache_control(client: TestClient, session: SessionState) -> None:
+    response = signed_in(client, session).get("/cached")
+    assert response.headers["cache-control"] == "private, max-age=60"
 
 
 def test_a_forged_cookie_is_refused(client: TestClient) -> None:

@@ -6,7 +6,8 @@
 - Every write (any method but GET and HEAD) needs an Origin equal to the served origin and the per-session token in
   the `X-Codetrail-Token` header (cross-site request forgery).
 - A request a browser marks as coming from another site or another port (`Sec-Fetch-Site`) is refused.
-- Every response, refusals included, carries the security headers.
+- Every response, refusals included, carries the security headers and `Cache-Control: no-store`, unless its route
+  sets its own; static files carry `no-cache`, so the browser revalidates them.
 Sessions live in memory and end with the process.
 """
 
@@ -101,14 +102,17 @@ class SecurityMiddleware:
             return  # no websockets
         refusal = self._refusal(scope)
         # Static files are revalidated on every load (cheap on 127.0.0.1), so after an upgrade the browser never mixes
-        # last version's styles or script with this version's pages.
-        extra = [(b"cache-control", b"no-cache")] if scope["path"].startswith("/static/") else []
+        # last version's styles or script with this version's pages. Everything else may carry the write token or the
+        # guide, so the browser never stores it, unless its route set its own policy (ASVS 14.3.2).
+        is_static = scope["path"].startswith("/static/")
+        replaced = {name for name, _ in SECURITY_HEADERS} | ({b"cache-control"} if is_static else set())
 
         async def send_with_headers(message: Message) -> None:
             if message["type"] == "http.response.start":
-                names = {name for name, _ in SECURITY_HEADERS + extra}
-                headers = [(name, value) for name, value in message.get("headers", []) if name not in names]
-                message["headers"] = headers + SECURITY_HEADERS + extra
+                headers = [(name, value) for name, value in message.get("headers", []) if name not in replaced]
+                if not any(name == b"cache-control" for name, _ in headers):
+                    headers.append((b"cache-control", b"no-cache" if is_static else b"no-store"))
+                message["headers"] = headers + SECURITY_HEADERS
             await send(message)
 
         if refusal is not None:
