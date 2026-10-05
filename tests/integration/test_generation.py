@@ -4,9 +4,10 @@ from pathlib import Path
 
 import pytest
 
-from codetrail.assistant import AssistantError, PageDraft, PageRequest, PlanDraft, PlanRequest
+from codetrail.assistant import AssistantError, PageDraft, PageRequest, PlanDraft, PlanRequest, Usage
 from codetrail.assistant.fake import FakeAssistant
 from codetrail.config import Paths, write_target
+from codetrail.database import connect
 from codetrail.errors import CodetrailError
 from codetrail.guide import GuideRepository
 from codetrail.update import run_update
@@ -196,3 +197,16 @@ def test_an_outline_without_paths_gets_them_planned(paths: Paths) -> None:
     request = claude.requests[0]
     assert isinstance(request, PlanRequest) and request.paths_only
     assert guide(paths).read_page("paths/start-here") is not None
+
+
+def test_each_calls_usage_is_recorded_and_counted(paths: Paths) -> None:
+    def priced_page(request: PageRequest) -> PageDraft:
+        draft = good_page(request)
+        usage = Usage("claude_code", "claude-sonnet-5-5", 1000, 0, 100, 0.25)
+        return PageDraft(draft.body, draft.checks, draft.files_read, 0.25, usage)
+
+    result = run_update(paths, "t", claude=FakeAssistant(plans=[PLAN], page_writer=priced_page))
+    assert result.generation is not None and result.generation.cost_usd == 0.5
+    connection = connect(paths.target_data("t") / "codetrail.db")
+    rows = connection.execute("SELECT kind, provider, cost_usd FROM assistant_calls").fetchall()
+    assert [tuple(row) for row in rows] == [("write", "claude_code", 0.25), ("write", "claude_code", 0.25)]

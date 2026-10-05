@@ -16,7 +16,17 @@ from pathlib import Path
 
 import anyio
 
-from codetrail.assistant import Assistant, AssistantError, DigestRequest, PageRequest, PlanRequest
+from codetrail.assistant import (
+    Assistant,
+    AssistantError,
+    DigestDraft,
+    DigestRequest,
+    PageDraft,
+    PageRequest,
+    PlanDraft,
+    PlanRequest,
+)
+from codetrail.assistant.usage import UsageLog
 from codetrail.errors import CodetrailError
 from codetrail.facts import EntityKind, FactDiff
 from codetrail.facts.store import FactStore
@@ -57,6 +67,7 @@ class GenerationContext:
     previous_commit: str | None  # the snapshot before this update, or None on the first
     diff: FactDiff
     learned: set[str] = field(default_factory=set)  # pages the reader has learned: rewritten first
+    usage: UsageLog | None = None  # records each call's usage; its costs count against the update's budget
 
 
 @dataclass
@@ -126,11 +137,11 @@ async def _outline(context: GenerationContext, claude: Assistant, result: Genera
     paths: list[OutlinePath] = []
     if not entries:
         draft = await claude.plan(PlanRequest(context.target, facts_summary(store, context.manifest), ""))
-        result.cost_usd += draft.cost_usd
+        result.cost_usd += _spent(context, "plan", draft)
         entries, problems = validate_outline(draft.pages, store, context.manifest)
         result.outline_problems += problems
         if not entries:
-            raise CodetrailError("Claude's outline had no page Codetrail could use: " + "; ".join(problems[:3]))
+            raise CodetrailError("The assistant's outline had no page Codetrail could use: " + "; ".join(problems[:3]))
         paths, problems = validate_paths(draft.paths, {entry.id for entry in entries})
         result.outline_problems += problems
     else:
@@ -141,7 +152,7 @@ async def _outline(context: GenerationContext, claude: Assistant, result: Genera
             current = json.dumps(outline_data(entries, paths), indent=1)
             draft = await claude.plan(PlanRequest(context.target, facts_summary(store, context.manifest), current,
                                                   uncovered[:200]))  # fmt: skip
-            result.cost_usd += draft.cost_usd
+            result.cost_usd += _spent(context, "plan", draft)
             added, problems = validate_outline(draft.pages, store, context.manifest, existing=entries)
             result.outline_problems += problems
             entries = [*entries, *added]
@@ -152,13 +163,20 @@ async def _outline(context: GenerationContext, claude: Assistant, result: Genera
             except AssistantError as error:
                 result.outline_problems.append(f"Guided paths couldn't be planned: {error}")
             else:
-                result.cost_usd += draft.cost_usd
+                result.cost_usd += _spent(context, "plan", draft)
                 paths, problems = validate_paths(draft.paths, {entry.id for entry in entries})
                 result.outline_problems += problems
     if outline_data(entries, paths) != stored:
         guide.write_outline(outline_data(entries, paths))
     _write_paths(context, entries, paths)
     return entries
+
+
+def _spent(context: GenerationContext, kind: str, draft: PlanDraft | PageDraft | DigestDraft) -> float:
+    """Records the call's usage and returns its cost, which counts against the update's budget."""
+    if context.usage is not None and draft.usage.provider:
+        return context.usage.record(kind, draft.usage)
+    return draft.cost_usd
 
 
 def _write_paths(context: GenerationContext, entries: Sequence[OutlineEntry], paths: Sequence[OutlinePath]) -> None:
@@ -194,7 +212,7 @@ async def _write_page(
     try:
         for _attempt in range(2):
             draft = await claude.write_page(request)
-            result.cost_usd += draft.cost_usd
+            result.cost_usd += _spent(context, "write", draft)
             problems = validate_page(draft.body, draft.checks, validation)
             if not problems:
                 meta = page_meta(entry, context.store, context.manifest, draft.files_read)
@@ -236,7 +254,7 @@ async def _write_digest(
         if result.cost_usd >= context.max_budget_usd:
             raise AssistantError("the update's budget is spent")
         draft = await claude.write_digest(request)
-        result.cost_usd += draft.cost_usd
+        result.cost_usd += _spent(context, "digest", draft)
         if validate_page(draft.body, None, validation):
             raise AssistantError("the digest failed validation")
         meta["title"], body = draft.title, draft.body

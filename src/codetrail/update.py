@@ -13,6 +13,7 @@ import anyio
 from codetrail.assistant import Assistant
 from codetrail.assistant.routing import build_assistant
 from codetrail.assistant.status import require_ready
+from codetrail.assistant.usage import UsageLog
 from codetrail.config import Paths, TargetConfig, check_containment, load_global, load_target
 from codetrail.database import connect
 from codetrail.extract import Extraction, Extractor, run_extractors
@@ -93,6 +94,7 @@ def run_update(paths: Paths, name: str, claude: Assistant | None = None, facts_o
                 previous_commit=previous.commit if previous else None,
                 diff=diff,
                 learned=LearningState(connection).learned_page_ids(),
+                usage=UsageLog(connection, settings.prices),
             )
             writer = claude or build_assistant(source, settings, target)
             generation = anyio.run(generate_guide, context, writer)

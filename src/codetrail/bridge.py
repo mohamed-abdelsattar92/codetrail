@@ -1,8 +1,10 @@
-"""The bridge: questions from the page, answered by Claude read-only, saved into the guide on request (design 7.3).
+"""The bridge: questions from the page, answered read-only by the assistant, saved to the guide on request (7.3).
 
-`POST /bridge/questions` streams newline-delimited JSON: `text` events while Claude writes, then `done` with the
-answer's id and its rendered HTML, or `error`. Answers stay in memory for the session until saved. One question runs
-at a time per session; closing the page cancels it. Every route sits behind the security middleware.
+`POST /bridge/questions` streams newline-delimited JSON: `text` events while the assistant writes, then `done` with
+the answer's id and its rendered HTML, or `error`. The whole answer is scanned for secrets before `done`; one that
+holds something gitleaks flags ends with `error` and isn't kept (design section 15.5). Its usage is recorded.
+Answers stay in memory for the session until saved. One question runs at a time per session; closing the page
+cancels it. Every route sits behind the security middleware.
 """
 
 from __future__ import annotations
@@ -11,18 +13,19 @@ import json
 import re
 import time
 import uuid
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncIterator, Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
+import anyio
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
 from codetrail.assistant import AnswerChunk, Assistant, AssistantError, QuestionRequest
-from codetrail.assistant.agent_sdk import CALL_TIMEOUT_SECONDS
-from codetrail.config import Paths
+from codetrail.assistant.usage import UsageLog
+from codetrail.config import Paths, Price
 from codetrail.database import connect
 from codetrail.errors import CodetrailError
 from codetrail.facts.store import FactStore
@@ -58,11 +61,12 @@ class BridgeState:
     answers: dict[str, Answer] = field(default_factory=dict)
     answering_since: float | None = None  # claimed in the request itself, so simultaneous questions are refused
     holder: str | None = None
+    abandon_after_seconds: float = 3600.0  # a slot held this long is treated as abandoned
 
     def claim(self) -> str | None:
         """Claims the one question slot and returns its token; a slot held well past a call's limit is abandoned."""
         now = time.monotonic()
-        if self.answering_since is not None and now - self.answering_since < CALL_TIMEOUT_SECONDS + 60:
+        if self.answering_since is not None and now - self.answering_since < self.abandon_after_seconds:
             return None
         self.answering_since, self.holder = now, uuid.uuid4().hex
         return self.holder
@@ -81,9 +85,12 @@ def bridge_router(
     max_question_chars: int,
     max_nodes: int,
     gitleaks: str,
+    prices: Mapping[str, Price],
+    call_timeout_seconds: float,
 ) -> APIRouter:
     router = APIRouter()
-    state = BridgeState()
+    state = BridgeState(abandon_after_seconds=call_timeout_seconds + 60)
+    scanner = SecretScanner(gitleaks)
     data = paths.target_data(name)
     guide = GuideRepository(data / "guide")
 
@@ -121,6 +128,17 @@ def bridge_router(
                         parts.append(chunk.text)
                         yield _event({"type": "text", "text": chunk.text})
                     if chunk.done:
+                        findings = await anyio.to_thread.run_sync(scanner.scan_text, "".join(parts))
+                        _record(chunk)
+                        if findings:
+                            yield _event(
+                                {
+                                    "type": "error",
+                                    "message": "The answer was withheld: it contains "
+                                    f"something that looks like a secret ({findings[0].rule}).",
+                                }
+                            )
+                            return
                         answer = Answer(request.question, request.language, "".join(parts), chunk.files_read, commit,
                                         datetime.now(UTC).isoformat(timespec="seconds"), chunk.cost_usd)  # fmt: skip
                         answer_id = uuid.uuid4().hex
@@ -132,6 +150,13 @@ def bridge_router(
                 yield _event({"type": "error", "message": f"The answer failed ({type(error).__name__})."})
         finally:
             state.release(token)
+
+    def _record(chunk: AnswerChunk) -> None:
+        connection = connect(data / "codetrail.db")
+        try:
+            UsageLog(connection, prices).record("answer", chunk.usage)
+        finally:
+            connection.close()
 
     def _html(body: str) -> str:
         connection = connect(data / "codetrail.db")

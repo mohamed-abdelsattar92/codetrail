@@ -5,13 +5,14 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from codetrail.assistant import PageDraft, PageRequest, PlanDraft, Verdict
+from codetrail.assistant import PageDraft, PageRequest, PlanDraft, Usage, Verdict
 from codetrail.assistant.fake import FakeAssistant
 from codetrail.config import GlobalConfig, Paths, write_target
+from codetrail.database import connect
 from codetrail.update import run_update
 from codetrail.web.app import create_app
 from codetrail.web.security import TOKEN_HEADER, SessionState
-from tests.fixtures.repos import Commit, add_commit, make_repository
+from tests.fixtures.repos import Commit, add_commit, fake_github_token, make_repository
 
 ORIGIN = "http://127.0.0.1:8765"
 RUBRIC_POINT = "the-rubric-point-text"
@@ -129,3 +130,20 @@ def test_grading_waits_for_its_cooldown(paths: Paths) -> None:
     body = {"page_id": "areas/app", "check_id": "q1", "answer": "x"}
     assert client.post("/learn/checks", json=body, headers=headers).status_code == 200
     assert client.post("/learn/checks", json=body, headers=headers).status_code == 429
+
+
+def test_feedback_holding_a_secret_is_withheld_and_usage_recorded(paths: Paths) -> None:
+    token = fake_github_token(31)
+    usage = Usage("claude_code", "claude-sonnet-5-5", 300, 0, 40, 0.01)
+    claude = FakeAssistant(verdicts=[Verdict("pass", [], f"Right; the key {token} works.", 0.01, usage)])
+    client, headers = make_client(paths, claude)
+    response = client.post(
+        "/learn/checks", json={"page_id": "areas/app", "check_id": "q1", "answer": "db"}, headers=headers
+    )
+    assert response.status_code == 200
+    assert token not in response.text and "looks like a secret" in response.json()["feedback"]
+    connection = connect(paths.target_data("t") / "codetrail.db")
+    stored = [row["feedback"] for row in connection.execute("SELECT feedback FROM check_attempts")]
+    assert stored and token not in stored[0]
+    rows = connection.execute("SELECT kind, cost_usd FROM assistant_calls").fetchall()
+    assert [tuple(row) for row in rows] == [("grade", 0.01)]

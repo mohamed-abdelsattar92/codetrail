@@ -282,6 +282,12 @@ def create_app(
             settings.bridge.max_question_chars,
             settings.diagrams.max_nodes,
             settings.tools.gitleaks,
+            settings.prices,
+            max(
+                settings.providers.claude_code.timeout_seconds,
+                settings.providers.codex.timeout_seconds,
+                settings.providers.local.timeout_seconds,
+            ),
         )
     )
     app.include_router(
@@ -292,6 +298,8 @@ def create_app(
             lambda: language().code,
             settings.bridge.max_question_chars,
             settings.learn.grading_cooldown_seconds,
+            settings.tools.gitleaks,
+            settings.prices,
         )
     )
     app.mount("/static", StaticFiles(directory=str(files("codetrail.web").joinpath("static"))), name="static")

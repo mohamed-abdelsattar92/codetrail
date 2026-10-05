@@ -10,15 +10,16 @@ import anyio
 import pytest
 from fastapi.testclient import TestClient
 
-from codetrail.assistant import AnswerChunk, AssistantError, QuestionRequest
+from codetrail.assistant import AnswerChunk, AssistantError, QuestionRequest, Usage
 from codetrail.assistant.fake import FakeAssistant
 from codetrail.config import GlobalConfig, Paths, write_target
+from codetrail.database import connect
 from codetrail.guide import GuideRepository
 from codetrail.lock import target_lock
 from codetrail.update import run_update
 from codetrail.web.app import create_app
 from codetrail.web.security import TOKEN_HEADER, SessionState
-from tests.fixtures.repos import Commit, make_repository
+from tests.fixtures.repos import Commit, fake_github_token, make_repository
 
 ORIGIN = "http://127.0.0.1:8765"
 FILES: Commit = {
@@ -198,3 +199,22 @@ def test_an_old_claim_cannot_release_a_newer_one() -> None:
     assert state.claim() is None
     state.release(second)
     assert state.claim() is not None
+
+
+def test_an_answer_holding_a_secret_is_withheld(paths: Paths) -> None:
+    token = fake_github_token(21)
+    claude = FakeAssistant(answers=[[AnswerChunk(f"The key is {token}."), AnswerChunk(done=True)]])
+    client, headers = make_client(paths, claude)
+    found = events(client.post("/bridge/questions", json={"question": "Any keys?"}, headers=headers).text)
+    assert found[-1]["type"] == "error" and "looks like a secret" in str(found[-1]["message"])
+    assert token not in str(found[-1])
+
+
+def test_an_answers_usage_is_recorded(paths: Paths) -> None:
+    usage = Usage("claude_code", "claude-sonnet-5-5", 500, 0, 50, 0.02)
+    claude = FakeAssistant(answers=[[AnswerChunk("Fine."), AnswerChunk(done=True, cost_usd=0.02, usage=usage)]])
+    client, headers = make_client(paths, claude)
+    client.post("/bridge/questions", json={"question": "Why?"}, headers=headers)
+    connection = connect(paths.target_data("t") / "codetrail.db")
+    rows = connection.execute("SELECT kind, provider, cost_usd FROM assistant_calls").fetchall()
+    assert [tuple(row) for row in rows] == [("answer", "claude_code", 0.02)]
