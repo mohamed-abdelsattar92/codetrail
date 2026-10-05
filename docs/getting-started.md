@@ -67,7 +67,7 @@ codetrail target add shop ~/code/shop --branch main
 codetrail files shop
 ```
 
-This lists every file Codetrail can see, then every file it hides and why. Some files are always hidden, whatever any setting says: `.env` files, Terraform variables, private keys and credential files, anything git ignores, anything gitleaks flags, and every symlink. To hide more, add gitignore-style rules to `~/.config/codetrail/targets/shop.ignore`, or commit a `.codetrailignore` to the repository:
+This lists every file Codetrail can see, then every file it hides and why. Codetrail reads only what is committed on the branch, so files git ignores and never committed don't exist for it. Some files are always hidden, whatever any setting says: `.env` files, Terraform variables, private keys and credential files, anything gitleaks flags, and every symlink. A file that was committed anyway, though `.gitignore` lists it, is visible unless one of those catches it, so list it in your ignore rules too. To hide more, add gitignore-style rules to `~/.config/codetrail/targets/shop.ignore`, or commit a `.codetrailignore` to the repository:
 
 ```gitignore
 # never read the fixtures or anything under legacy/
@@ -142,7 +142,7 @@ answer = "local:qwen3:14b"          # questions answered by a model on your mach
 grade = "claude_code:claude-sonnet-5-5"
 ```
 
-To use Codex for a target, opt in first. Codex's sandbox stops writes but not reads, so Codex can read files outside the repository's allowed set:
+To use Codex for a target, opt in first. Codex's sandbox stops writes but not reads, and its tools are shell commands. So Codex can read anything you can, including the files Codetrail hides (through Codetrail's own data folder) and your own keys, can run the repository's code inside its sandbox, and sends whatever it reads to OpenAI before Codetrail's scan sees it. Use it only for repositories where that's acceptable:
 
 ```toml
 [assistant]
