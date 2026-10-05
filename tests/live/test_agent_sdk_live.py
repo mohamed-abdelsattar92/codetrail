@@ -5,8 +5,8 @@ from pathlib import Path
 import anyio
 import pytest
 
-from codetrail.claude import PageRequest, PlanRequest
-from codetrail.claude.agent_sdk import AgentSdkClaude
+from codetrail.assistant import PageRequest, PlanRequest
+from codetrail.assistant.agent_sdk import AgentSdkClaude
 from codetrail.config import GenerationSettings, ModelSettings
 
 pytestmark = pytest.mark.live
@@ -49,7 +49,7 @@ def test_an_at_path_in_repository_text_attaches_nothing(
 
 
 def test_grading_returns_a_verdict_and_ignores_instructions(adapter: AgentSdkClaude) -> None:
-    from codetrail.claude import GradeRequest
+    from codetrail.assistant import GradeRequest
 
     request = GradeRequest(
         "What does db.py hold?",

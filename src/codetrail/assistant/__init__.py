@@ -1,6 +1,7 @@
-"""The interface Codetrail needs from Claude, shaped by Codetrail's tasks, not by any vendor (design section 6.9).
+"""The interface Codetrail needs from an assistant, shaped by Codetrail's tasks, not by any vendor (design 6.9, 15).
 
-The Agent SDK adapter is the only code that imports the SDK; tests use the fake.
+Each provider (Claude Code, Codex, a local model) has its own adapter, the only code that knows it; tests use the fake.
+Every draft carries the call's usage: its tokens, and its cost when the provider or the configured prices give one.
 """
 
 from __future__ import annotations
@@ -12,8 +13,20 @@ from typing import Any, Protocol
 from codetrail.errors import CodetrailError
 
 
-class ClaudeError(CodetrailError):
-    """Claude couldn't complete a task: an error, a limit reached, or no usable answer."""
+class AssistantError(CodetrailError):
+    """The assistant couldn't complete a task: an error, a limit reached, or no usable answer."""
+
+
+@dataclass(frozen=True)
+class Usage:
+    """What one call used: tokens, and its cost in dollars when known (the provider's figure, or tokens x prices)."""
+
+    provider: str = ""
+    model: str = ""
+    input_tokens: int = 0
+    cached_input_tokens: int = 0
+    output_tokens: int = 0
+    cost_usd: float | None = None
 
 
 @dataclass(frozen=True)
@@ -31,6 +44,7 @@ class PlanDraft:
     paths: list[dict[str, Any]] = field(default_factory=list)
     files_read: list[str] = field(default_factory=list)
     cost_usd: float = 0.0
+    usage: Usage = field(default_factory=Usage)
 
 
 @dataclass(frozen=True)
@@ -52,6 +66,7 @@ class PageDraft:
     checks: list[dict[str, Any]] = field(default_factory=list)
     files_read: list[str] = field(default_factory=list)
     cost_usd: float = 0.0
+    usage: Usage = field(default_factory=Usage)
 
 
 @dataclass(frozen=True)
@@ -68,6 +83,7 @@ class DigestDraft:
     body: str
     files_read: list[str] = field(default_factory=list)
     cost_usd: float = 0.0
+    usage: Usage = field(default_factory=Usage)
 
 
 @dataclass(frozen=True)
@@ -82,12 +98,13 @@ class QuestionRequest:
 
 @dataclass(frozen=True)
 class AnswerChunk:
-    """A piece of a streamed answer; the last one has `done` set, with the files read and the cost."""
+    """A piece of a streamed answer; the last one has `done` set, with the files read, the cost and the usage."""
 
     text: str = ""
     done: bool = False
     files_read: list[str] = field(default_factory=list)
     cost_usd: float = 0.0
+    usage: Usage = field(default_factory=Usage)
 
 
 @dataclass(frozen=True)
@@ -106,9 +123,10 @@ class Verdict:
     missed: list[str] = field(default_factory=list)
     feedback: str = ""
     cost_usd: float = 0.0
+    usage: Usage = field(default_factory=Usage)
 
 
-class Claude(Protocol):
+class Assistant(Protocol):
     async def plan(self, request: PlanRequest) -> PlanDraft: ...
 
     async def write_page(self, request: PageRequest) -> PageDraft: ...

@@ -1,4 +1,4 @@
-"""The tool guard: Claude may only read `source/`, with Read, Grep and Glob (design section 6.9).
+"""The tool guard: the assistant may only read `source/`, with Read, Grep and Glob (design section 6.9).
 
 It runs as a PreToolUse hook, which sees every tool call, read-only ones included, before it runs. Anything it can't
 place inside `source/` is refused; every file Read opens is recorded, and becomes the page's `files`.

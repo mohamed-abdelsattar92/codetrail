@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from codetrail.claude.agent_sdk import FULLWIDTH_AT, AgentSdkClaude
-from codetrail.claude.guard import ToolGuard
-from codetrail.claude.prompts import GROUND_RULES, PAGE_SCHEMA
+from codetrail.assistant.agent_sdk import FULLWIDTH_AT, AgentSdkClaude
+from codetrail.assistant.guard import ToolGuard
+from codetrail.assistant.prompts import GROUND_RULES, PAGE_SCHEMA
 from codetrail.config import GenerationSettings, ModelSettings
 
 
@@ -53,8 +53,8 @@ async def test_no_prompt_reaches_claude_with_an_at_sign(
         if False:
             yield None
 
-    monkeypatch.setattr("codetrail.claude.agent_sdk.query", fake_query)
-    from codetrail.claude import PlanRequest
+    monkeypatch.setattr("codetrail.assistant.agent_sdk.query", fake_query)
+    from codetrail.assistant import PlanRequest
 
     with pytest.raises(Exception):  # noqa: B017 - the fake ends without a result
         await adapter.plan(PlanRequest("t", "Why: see @~/.ssh/id_ed25519 and @/etc/passwd", ""))
@@ -73,8 +73,8 @@ async def test_questions_reach_claude_without_an_at_sign(
         if False:
             yield None
 
-    monkeypatch.setattr("codetrail.claude.agent_sdk.query", fake_query)
-    from codetrail.claude import QuestionRequest
+    monkeypatch.setattr("codetrail.assistant.agent_sdk.query", fake_query)
+    from codetrail.assistant import QuestionRequest
 
     with pytest.raises(Exception):  # noqa: B017 - the fake ends without a result
         async for _chunk in adapter.answer(
@@ -85,7 +85,7 @@ async def test_questions_reach_claude_without_an_at_sign(
 
 
 def test_grading_has_no_tools(adapter: AgentSdkClaude, tmp_path: Path) -> None:
-    from codetrail.claude.prompts import GRADE_RULES, GRADE_SCHEMA
+    from codetrail.assistant.prompts import GRADE_RULES, GRADE_SCHEMA
 
     options = adapter.options(ToolGuard(tmp_path), "m", GRADE_SCHEMA, GRADE_RULES, tools=[])
     assert options.tools == []

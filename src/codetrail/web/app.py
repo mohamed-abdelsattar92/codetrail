@@ -22,9 +22,9 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.types import ASGIApp
 
+from codetrail.assistant import Assistant
+from codetrail.assistant.agent_sdk import AgentSdkClaude
 from codetrail.bridge import bridge_router
-from codetrail.claude import Claude
-from codetrail.claude.agent_sdk import AgentSdkClaude
 from codetrail.config import GlobalConfig, Paths, load_target
 from codetrail.database import connect
 from codetrail.errors import CodetrailError
@@ -56,7 +56,7 @@ def create_app(
     settings: GlobalConfig,
     locales: Path | None = None,
     updater: Callable[[], object] | None = None,
-    claude_for: Callable[[], Claude] | None = None,
+    assistant_for: Callable[[], Assistant] | None = None,
 ) -> ASGIApp:
     """The page, wrapped in the security middleware outside everything, so every response passes through it.
 
@@ -75,7 +75,7 @@ def create_app(
         finally:
             connection.close()
 
-    def real_claude() -> Claude:
+    def real_claude() -> Assistant:
         target = load_target(paths, name)
         return AgentSdkClaude(
             paths.target_data(name) / "source", target.models, target.generation, settings.claude.retry_attempts,
@@ -278,7 +278,7 @@ def create_app(
         bridge_router(
             paths,
             name,
-            claude_for or real_claude,
+            assistant_for or real_claude,
             lambda: language().code,
             settings.bridge.max_question_chars,
             settings.diagrams.max_nodes,
@@ -289,7 +289,7 @@ def create_app(
         learning_router(
             paths,
             name,
-            claude_for or real_claude,
+            assistant_for or real_claude,
             lambda: language().code,
             settings.bridge.max_question_chars,
             settings.learn.grading_cooldown_seconds,

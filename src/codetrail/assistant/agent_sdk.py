@@ -24,9 +24,9 @@ from claude_agent_sdk import (
     query,
 )
 
-from codetrail.claude import (
+from codetrail.assistant import (
     AnswerChunk,
-    ClaudeError,
+    AssistantError,
     DigestDraft,
     DigestRequest,
     GradeRequest,
@@ -37,8 +37,8 @@ from codetrail.claude import (
     QuestionRequest,
     Verdict,
 )
-from codetrail.claude.guard import ALLOWED_TOOLS, ToolGuard
-from codetrail.claude.prompts import (
+from codetrail.assistant.guard import ALLOWED_TOOLS, ToolGuard
+from codetrail.assistant.prompts import (
     ANSWER_RULES,
     DIGEST_SCHEMA,
     GRADE_RULES,
@@ -134,7 +134,7 @@ class AgentSdkClaude:
                 elif isinstance(message, ResultMessage):
                     result = message
         if result is None or result.is_error:
-            raise ClaudeError(f"Claude didn't finish the answer ({result.subtype if result else 'no result'}).")
+            raise AssistantError(f"Claude didn't finish the answer ({result.subtype if result else 'no result'}).")
         yield AnswerChunk(done=True, files_read=guard.files_read, cost_usd=float(result.total_cost_usd or 0.0))
 
     async def plan(self, request: PlanRequest) -> PlanDraft:
@@ -183,16 +183,16 @@ class AgentSdkClaude:
                 if budget_usd is not None:
                     options = replace(options, max_budget_usd=budget_usd)
                 result = await self._query(neutralize(prompt), options)
-            except ClaudeError:
+            except AssistantError:
                 raise
             except Exception as error:  # the CLI process or the connection failed: worth another try
                 last_error = error
                 await anyio.sleep(2)
                 continue
             if result.is_error or not isinstance(result.structured_output, dict):
-                raise ClaudeError(f"Claude didn't finish the task ({result.subtype}).")
+                raise AssistantError(f"Claude didn't finish the task ({result.subtype}).")
             return result.structured_output, guard.files_read, float(result.total_cost_usd or 0.0)
-        raise ClaudeError(f"Claude couldn't be reached ({type(last_error).__name__}).")
+        raise AssistantError(f"Claude couldn't be reached ({type(last_error).__name__}).")
 
     @staticmethod
     async def _query(prompt: str, options: ClaudeAgentOptions) -> ResultMessage:
@@ -202,5 +202,5 @@ class AgentSdkClaude:
                 if isinstance(message, ResultMessage):
                     result = message
         if result is None:
-            raise ClaudeError("Claude ended without a result.")
+            raise AssistantError("Claude ended without a result.")
         return result

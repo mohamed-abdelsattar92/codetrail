@@ -17,7 +17,7 @@ def no_real_claude(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPat
     if request.node.get_closest_marker("live") is None:
 
         def refuse(*arguments: Any, **keywords: Any) -> Any:
-            raise AssertionError("A test tried to call the real Claude; use FakeClaude or mark the test live.")
+            raise AssertionError("A test tried to call the real Claude; use FakeAssistant or mark the test live.")
 
-        monkeypatch.setattr("codetrail.claude.agent_sdk.query", refuse)
+        monkeypatch.setattr("codetrail.assistant.agent_sdk.query", refuse)
     yield

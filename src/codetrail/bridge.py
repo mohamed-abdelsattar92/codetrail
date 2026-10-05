@@ -20,8 +20,8 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel, ConfigDict, Field
 
-from codetrail.claude import AnswerChunk, Claude, ClaudeError, QuestionRequest
-from codetrail.claude.agent_sdk import CALL_TIMEOUT_SECONDS
+from codetrail.assistant import AnswerChunk, Assistant, AssistantError, QuestionRequest
+from codetrail.assistant.agent_sdk import CALL_TIMEOUT_SECONDS
 from codetrail.config import Paths
 from codetrail.database import connect
 from codetrail.errors import CodetrailError
@@ -76,7 +76,7 @@ class BridgeState:
 def bridge_router(
     paths: Paths,
     name: str,
-    claude_for: Callable[[], Claude],
+    assistant_for: Callable[[], Assistant],
     language_of: Callable[[], str],
     max_question_chars: int,
     max_nodes: int,
@@ -116,7 +116,7 @@ def bridge_router(
         try:
             parts: list[str] = []
             try:
-                async for chunk in claude_for().answer(request):
+                async for chunk in assistant_for().answer(request):
                     if chunk.text:
                         parts.append(chunk.text)
                         yield _event({"type": "text", "text": chunk.text})
@@ -126,7 +126,7 @@ def bridge_router(
                         answer_id = uuid.uuid4().hex
                         state.answers[answer_id] = answer
                         yield _event({"type": "done", "answer_id": answer_id, "html": _html(answer.body)})
-            except ClaudeError as error:
+            except AssistantError as error:
                 yield _event({"type": "error", "message": str(error)})
             except Exception as error:  # details stay out of the page
                 yield _event({"type": "error", "message": f"The answer failed ({type(error).__name__})."})
@@ -163,7 +163,7 @@ def _save(answer: Answer, data: Any, guide: GuideRepository, gitleaks: str) -> s
     guide.ensure()
     manifest = SourceManifest.load(data / "source.json")
     if manifest is None:
-        raise ClaudeError("The sources are missing; run an update.")
+        raise AssistantError("The sources are missing; run an update.")
     connection = connect(data / "codetrail.db")
     try:
         store = FactStore(connection)
@@ -179,7 +179,7 @@ def _save(answer: Answer, data: Any, guide: GuideRepository, gitleaks: str) -> s
         "files": [{"path": path, "blob": manifest.files[path]} for path in answer.files_read if path in manifest.files],
     }  # fmt: skip
     if guide.has_uncommitted_changes():
-        raise ClaudeError("The guide has uncommitted edits; commit or discard them first.")
+        raise AssistantError("The guide has uncommitted edits; commit or discard them first.")
     try:
         guide.write_page(Page(page_id, meta, body))
         guide.commit(f"Save the answer to: {answer.question[:60]}")

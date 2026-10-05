@@ -1,13 +1,13 @@
-"""A fake Claude for tests: it replays scripted drafts and records every request it was given."""
+"""A fake assistant for tests: it replays scripted drafts and records every request it was given."""
 
 from __future__ import annotations
 
 from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass, field
 
-from codetrail.claude import (
+from codetrail.assistant import (
     AnswerChunk,
-    ClaudeError,
+    AssistantError,
     DigestDraft,
     DigestRequest,
     GradeRequest,
@@ -23,7 +23,7 @@ PageScript = Callable[[PageRequest], PageDraft]
 
 
 @dataclass
-class FakeClaude:
+class FakeAssistant:
     plans: list[PlanDraft] = field(default_factory=list)
     pages: dict[str, list[PageDraft | Exception]] = field(default_factory=dict)
     page_writer: PageScript | None = None
@@ -37,7 +37,7 @@ class FakeClaude:
     async def plan(self, request: PlanRequest) -> PlanDraft:
         self.requests.append(request)
         if not self.plans:
-            raise ClaudeError("The fake has no plan scripted.")
+            raise AssistantError("The fake has no plan scripted.")
         return self.plans.pop(0)
 
     async def write_page(self, request: PageRequest) -> PageDraft:
@@ -50,7 +50,7 @@ class FakeClaude:
             return draft
         if self.page_writer is not None:
             return self.page_writer(request)
-        raise ClaudeError(f"The fake has no page scripted for {request.page_id}.")
+        raise AssistantError(f"The fake has no page scripted for {request.page_id}.")
 
     async def write_digest(self, request: DigestRequest) -> DigestDraft:
         self.requests.append(request)

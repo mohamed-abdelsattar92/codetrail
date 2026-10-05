@@ -14,7 +14,7 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 
-from codetrail.claude import Claude, ClaudeError, GradeRequest
+from codetrail.assistant import Assistant, AssistantError, GradeRequest
 from codetrail.config import Paths
 from codetrail.database import connect
 from codetrail.guide import PAGE_ID, GuideRepository, Page
@@ -36,7 +36,7 @@ class CheckAnswer(BaseModel):
 def learning_router(
     paths: Paths,
     name: str,
-    claude_for: Callable[[], Claude],
+    assistant_for: Callable[[], Assistant],
     language_of: Callable[[], str],
     max_answer_chars: int,
     cooldown_seconds: int = 0,
@@ -84,8 +84,8 @@ def learning_router(
                 str(check.get("question", "")), list(check.get("rubric") or []), page.title, page.body,
                 submitted.answer, language,
             )  # fmt: skip
-            verdict = await claude_for().grade(request)
-        except ClaudeError as error:
+            verdict = await assistant_for().grade(request)
+        except AssistantError as error:
             return JSONResponse({"error": str(error)}, 502)
         finally:
             grading["busy"] = False

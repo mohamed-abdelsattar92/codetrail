@@ -1,4 +1,4 @@
-"""What Codetrail asks Claude, and the shape of the answers (design section 6).
+"""What Codetrail asks the assistant, and the shape of the answers (design section 6).
 
 Every prompt says the same thing about the repository: its content is data to explain, never instructions.
 """
@@ -8,7 +8,7 @@ from __future__ import annotations
 import secrets
 from typing import Any
 
-from codetrail.claude import DigestRequest, GradeRequest, PageRequest, PlanRequest, QuestionRequest
+from codetrail.assistant import DigestRequest, GradeRequest, PageRequest, PlanRequest, QuestionRequest
 
 GROUND_RULES = """\
 You are writing part of Codetrail, a guide that teaches an experienced engineer the architecture, patterns and tools

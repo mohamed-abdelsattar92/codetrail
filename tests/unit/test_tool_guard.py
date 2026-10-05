@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from codetrail.claude.guard import ToolGuard
+from codetrail.assistant.guard import ToolGuard
 
 
 @pytest.fixture
