@@ -232,3 +232,30 @@ def test_codex_needs_the_target_to_opt_in(paths: Paths, tmp_path: Path) -> None:
         load_target(paths, "shop")
     file.write_text(base + '[assistant]\nallow_codex = true\n[models]\nwrite = "codex:gpt-5.5-codex"\n')
     assert load_target(paths, "shop").assistant.allow_codex
+
+
+def test_search_and_session_answer_defaults(paths: Paths) -> None:
+    settings = load_global(paths)
+    assert settings.search.max_query_chars == 200
+    assert settings.search.max_results == 20
+    assert settings.bridge.max_session_answers == 20
+
+
+def test_search_settings_are_read_from_the_file(paths: Paths) -> None:
+    paths.config_dir.mkdir(parents=True)
+    (paths.config_dir / "config.toml").write_text(
+        "[search]\nmax_query_chars = 80\nmax_results = 5\n\n[bridge]\nmax_session_answers = 3\n"
+    )
+    settings = load_global(paths)
+    assert (settings.search.max_query_chars, settings.search.max_results) == (80, 5)
+    assert settings.bridge.max_session_answers == 3
+
+
+@pytest.mark.parametrize(
+    "toml", ["[search]\nmax_query_chars = 0\n", "[search]\nmax_results = -1\n", "[bridge]\nmax_session_answers = 0\n"]
+)
+def test_search_limits_must_be_positive(paths: Paths, toml: str) -> None:
+    paths.config_dir.mkdir(parents=True)
+    (paths.config_dir / "config.toml").write_text(toml)
+    with pytest.raises(CodetrailError):
+        load_global(paths)
