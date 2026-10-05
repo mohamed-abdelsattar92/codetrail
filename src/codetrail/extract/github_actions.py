@@ -29,6 +29,18 @@ COMMANDS = [
     ("fly", re.compile(r"\bfly(?:ctl)?\s+deploy\b")),
     ("npm_script", re.compile(r"\b(?:npm\s+run|pnpm(?:\s+run)?|yarn(?:\s+run)?)\s+deploy\b")),
 ]
+MAX_STEPS = 5000  # per workflow file: more is not a real workflow
+
+
+class _NoAliases(yaml.SafeLoader):
+    """safe_load, refusing YAML aliases, so a small file can't expand into an enormous one (a billion-laughs file)."""
+
+    def compose_node(self, parent: Any, index: Any) -> Any:
+        if self.check_event(yaml.events.AliasEvent):
+            raise yaml.YAMLError("aliases are not read")
+        return super().compose_node(parent, index)
+
+
 ACTIONS = {
     "cloudflare/wrangler-action": "cloudflare",
     "google-github-actions/deploy-cloudrun": "google_cloud",
@@ -48,12 +60,13 @@ class GitHubActionsExtractor:
 
     def extract(self, path: str, content: bytes) -> FileFacts:
         text = content.decode("utf-8")
-        data = yaml.safe_load(text)
+        data = yaml.load(text, Loader=_NoAliases)  # noqa: S506 - a SafeLoader that also refuses aliases
         jobs = data.get("jobs") if isinstance(data, dict) else None
         if not isinstance(jobs, dict):
             return FileFacts(path)
         lines = text.splitlines()
-        entities = []
+        entities: list[Entity] = []
+        visited = 0
         for job_name, job in jobs.items():
             if not isinstance(job, dict) or not isinstance(job.get("steps"), list):
                 continue
@@ -61,6 +74,9 @@ class GitHubActionsExtractor:
             run_defaults = defaults.get("run") if isinstance(defaults, dict) else None
             job_folder = _folder(run_defaults.get("working-directory")) if isinstance(run_defaults, dict) else ""
             for index, step in enumerate(job["steps"]):
+                visited += 1
+                if visited > MAX_STEPS:
+                    return FileFacts(path, tuple(entities))
                 if not isinstance(step, dict):
                     continue
                 found = _deploy(step)

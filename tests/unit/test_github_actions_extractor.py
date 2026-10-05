@@ -92,3 +92,21 @@ def test_no_step_text_env_or_secret_reaches_a_fact(tmp_path: Path) -> None:
 def test_a_workflow_that_isnt_a_mapping_adds_nothing(tmp_path: Path) -> None:
     found = run(tmp_path, {".github/workflows/odd.yml": "- just\n- a list\n", ".github/workflows/bad.yaml": "a: [\n"})
     assert found.entities == []
+
+
+def test_yaml_aliases_are_refused_so_no_file_can_expand(tmp_path: Path) -> None:
+    import time
+
+    steps = "\n".join("    - run: wrangler deploy" for _ in range(200))
+    jobs = "\n".join(f"  j{index}: *big" for index in range(2000))
+    bomb = f"x-big: &big\n  steps:\n{steps}\njobs:\n{jobs}\n"
+    started = time.monotonic()
+    found = run(tmp_path, {".github/workflows/bomb.yml": bomb})
+    assert time.monotonic() - started < 2
+    assert found.entities == [] and any("bomb.yml" in warning for warning in found.warnings)
+
+
+def test_steps_beyond_the_cap_are_ignored(tmp_path: Path) -> None:
+    steps = "\n".join("      - run: wrangler deploy" for _ in range(6000))
+    found = run(tmp_path, {".github/workflows/big.yml": f"jobs:\n  a:\n    steps:\n{steps}\n"})
+    assert len(found.entities) == 5000
