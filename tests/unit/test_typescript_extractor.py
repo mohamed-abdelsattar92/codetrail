@@ -245,3 +245,48 @@ def test_scripts_are_found_case_insensitively_with_their_lines(tmp_path: Path) -
     found = run(tmp_path, {"site/a.astro": page, "site/b.ts": ""})
     [relation] = [r for r in found.relations if r.kind is RelationKind.IMPORTS]
     assert (relation.target_id, relation.sources[0].start_line) == ("module:site/b.ts", 5)
+
+
+def test_a_tsconfig_with_too_many_paths_is_skipped_with_a_warning(tmp_path: Path) -> None:
+    paths = {f"p{index}/*": ["src/*"] for index in range(2000)}
+    files = {
+        "app/package.json": '{"name": "app"}',
+        "app/tsconfig.json": json.dumps({"compilerOptions": {"paths": paths}}),
+        "app/a.ts": 'import "./b";\n',
+        "app/b.ts": "",
+    }
+    found = run(tmp_path, files)
+    assert any("app/tsconfig.json" in warning for warning in found.warnings)
+    assert ("module:app/a.ts", "module:app/b.ts") in edges(found, RelationKind.IMPORTS)
+
+
+def test_credentials_in_dependency_specifiers_are_never_stored(tmp_path: Path) -> None:
+    package = {"name": "app", "dependencies": {"private": "git+https://user:s3cret@git.example/org/repo.git#v1",
+                                                "scp": "git@user:token@host:org/repo.git"}}  # fmt: skip
+    found = run(tmp_path, {"app/package.json": json.dumps(package)})
+    stored = json.dumps([dict(relation.attributes) for relation in found.relations])
+    assert "s3cret" not in stored and "token" not in stored
+    assert "git.example/org/repo.git" in stored
+
+
+def test_many_closed_scripts_are_read_quickly(tmp_path: Path) -> None:
+    import time
+
+    page = "---\n---\n" + "<script>\n</script>\n" * 60_000
+    started = time.monotonic()
+    run(tmp_path, {"site/x.astro": page})
+    assert time.monotonic() - started < 3
+
+
+def test_absolute_worker_entries_and_base_urls_are_dropped(tmp_path: Path) -> None:
+    files = {
+        "w/wrangler.json": '{"name": "w", "main": "/etc/x.ts"}',
+        "w/package.json": '{"name": "w"}',
+        "w/tsconfig.json": '{"compilerOptions": {"baseUrl": "/", "paths": {"@/*": ["/etc/*"]}}}',
+        "w/a.ts": 'import "@/x";\n',
+        "w/etc/x.ts": "",
+    }
+    found = run(tmp_path, files)
+    [worker] = [entity for entity in found.entities if entity.kind is EntityKind.WORKER]
+    assert "main" not in worker.attributes
+    assert edges(found, RelationKind.IMPORTS) == set()

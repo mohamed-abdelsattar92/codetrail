@@ -20,7 +20,7 @@ import tree_sitter_javascript
 import tree_sitter_typescript
 from tree_sitter import Language, Node, Parser
 
-from codetrail.extract import FileFacts, Reference, Resolution
+from codetrail.extract import FileFacts, Reference, Resolution, without_credentials
 from codetrail.facts import Entity, EntityKind, Relation, RelationKind, Source
 
 TYPESCRIPT = Language(tree_sitter_typescript.language_typescript())
@@ -109,7 +109,9 @@ def _folder(path: str) -> str:
 
 
 def _join(folder: str, relative: str) -> str | None:
-    """`folder/relative` normalized, or None when it climbs above the repository."""
+    """`folder/relative` normalized, or None when it is absolute or climbs above the repository."""
+    if relative.startswith("/"):
+        return None
     parts: list[str] = [part for part in folder.split("/") if part]
     for part in relative.split("/"):
         if part in ("", "."):
@@ -127,7 +129,8 @@ class TypeScriptExtractor:
     name = "typescript"
     version = 1
 
-    def __init__(self) -> None:
+    def __init__(self, max_tsconfig_paths: int = 100) -> None:
+        self._max_paths = max_tsconfig_paths
         self._roots: list[str] = []
         self._astro_roots: set[str] = set()
         self._tsconfigs: dict[str, tuple[str, dict[str, list[str]]]] = {}  # folder -> (base folder, paths)
@@ -185,8 +188,8 @@ class TypeScriptExtractor:
                     continue
                 package = f"package:npm/{package_name}"
                 entities.append(Entity(package, EntityKind.PACKAGE, {}, (Source(path),)))
-                references.append(Reference(project, RelationKind.DEPENDS_ON, package, (Source(path),),
-                                            {"specifier": str(specifier), "group": group}))  # fmt: skip
+                dependency = {"specifier": without_credentials(str(specifier)), "group": group}
+                references.append(Reference(project, RelationKind.DEPENDS_ON, package, (Source(path),), dependency))
         return FileFacts(path, tuple(entities), tuple(references))
 
     def _read_tsconfig(self, path: str, content: bytes) -> None:
@@ -197,6 +200,11 @@ class TypeScriptExtractor:
         folder = _folder(path)
         base = _join(folder, str(options.get("baseUrl", "."))) or folder
         paths = options.get("paths", {})
+        if (
+            isinstance(paths, dict)
+            and sum(len(v) if isinstance(v, list) else 1 for v in paths.values()) > self._max_paths
+        ):
+            raise ValueError("too many paths")  # skipped with a warning: real configs have a handful
         if isinstance(paths, dict):
             self._tsconfigs[folder] = (base, {str(key): [str(value) for value in values] for key, values in
                                               paths.items() if isinstance(values, list)})  # fmt: skip
@@ -395,13 +403,15 @@ def _scripts(content: bytes) -> list[tuple[bytes, int]]:
     """The code inside each <script> element and the lines before it, found in one pass (no backtracking regex)."""
     lower = content.lower()
     found: list[tuple[bytes, int]] = []
-    position = 0
+    position = lines = counted = 0
     while (opening := lower.find(b"<script", position)) != -1:
         start = lower.find(b">", opening)
         end = lower.find(b"</script>", start) if start != -1 else -1
         if end == -1:
             break  # no closing tag after this one, so none after any later opening either
-        found.append((content[start + 1 : end], content[: start + 1].count(b"\n")))
+        lines += content.count(b"\n", counted, start + 1)  # a running count: each byte counted once
+        counted = start + 1
+        found.append((content[start + 1 : end], lines))
         position = end + len(b"</script>")
     return found
 

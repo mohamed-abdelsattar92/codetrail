@@ -8,6 +8,7 @@ Per-file extraction keeps a later cache keyed by blob and extractor version poss
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path, PurePosixPath
@@ -62,6 +63,19 @@ class Extraction:
 
 
 DEFAULT_MAX_FILE_BYTES = 1_000_000
+URL_CREDENTIALS = re.compile(r"(://)[^/\s]*@")
+LOCAL_SPECIFIERS = ("npm:", "workspace:", "file:", "link:", "portal:", "patch:")
+
+
+def without_credentials(text: str) -> str:
+    """A specifier or URL without user or password: scheme://user:pass@host and user:pass@host:path."""
+    text = URL_CREDENTIALS.sub(r"\1", text)
+    authority = text.split("/", 1)[0]
+    if "://" not in text and "@" in authority and ":" in authority and not text.startswith(LOCAL_SPECIFIERS):
+        text = text[authority.rindex("@") + 1 :]
+    return text
+
+
 DEFAULT_MAX_ATTRIBUTE_CHARS = 300
 
 

@@ -125,3 +125,12 @@ def test_non_text_project_values_are_ignored(tmp_path: Path) -> None:
     extraction = extract(tmp_path, {"pyproject.toml": "[project]\nname = 2026-01-01\nrequires-python = 3\n"})
     [project] = [entity for entity in extraction.entities if entity.kind is EntityKind.PROJECT]
     assert dict(project.attributes) == {}
+
+
+def test_credentials_in_requirement_urls_are_never_stored(tmp_path: Path) -> None:
+    import json
+
+    toml = '[project]\nname = "x"\ndependencies = ["lib @ git+https://user:s3cret@git.example/org/lib.git"]\n'
+    found = run_extractors(tmp_path, write(tmp_path, {"pyproject.toml": toml}), [PythonExtractor()])
+    stored = json.dumps([dict(relation.attributes) for relation in found.relations])
+    assert "s3cret" not in stored and "git.example/org/lib.git" in stored
