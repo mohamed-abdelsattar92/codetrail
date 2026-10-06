@@ -230,13 +230,13 @@ class Extractor(Protocol):
 |---|---|---|---|---|
 | 2 | `python` | `*.py`, `pyproject.toml` | projects, modules, packages; `contains`, `imports`, `depends_on` | tree-sitter-python, `tomllib` |
 | 2 | `adr` | `[adr] paths` globs | decisions (number, title, status, date); `supersedes` | Markdown headings and status lines (standard library) |
-| 7 | `openapi` | configured OpenAPI documents | routes, schemas; `uses_schema` | `json` |
+| 7 | `openapi` | configured OpenAPI documents | routes, schemas; `uses_schema` | `json`, PyYAML (no aliases) |
 | 7 | `terraform` | `*.tf` | modules (one per folder), resources; `contains`, `references` (between resources, and module calls to folders) | tree-sitter HCL grammar |
 | 7 | `swift` | `Package.swift`, `import` lines in `*.swift` | Swift packages (as projects), targets and external packages; `contains`, `depends_on`, `imports` | `Package.swift` read by pattern (never executed); tree-sitter Swift grammar for imports |
 | 12 | `typescript` | `*.ts`, `*.tsx`, `*.js` and their variants, `*.astro`, `package.json`, Wrangler configs | projects, modules, npm packages, Astro routes, Workers; `contains`, `imports`, `depends_on` (section 17.1) | tree-sitter TypeScript, TSX and JavaScript grammars, `json`, `tomllib` |
-| 12 | `github_actions` | `.github/workflows/*.yml` and `*.yaml` | deployments (section 17.2) | PyYAML `safe_load` |
+| 12 | `github_actions` | `.github/workflows/*.yml` and `*.yaml` | deployments (section 17.2) | PyYAML (no aliases) |
 
-The tree-sitter grammars come under decision 9's tree-sitter choice. A repository's SQL migrations, workflows, landing page and its design, product and planning documents are not extracted until a page needs them; Claude reads the documents for the "why".
+Both YAML readers share one loader, `load_yaml_without_aliases` in `codetrail.extract`: PyYAML's SafeLoader, in one pass, refusing any alias, since aliases let a file under `extract.max_file_bytes` stand for an enormous tree (a billion-laughs file) or a loop, and neither format needs them. A document using one is skipped with a warning. The tree-sitter grammars come under decision 9's tree-sitter choice. A repository's SQL migrations, workflows, landing page and its design, product and planning documents are not extracted until a page needs them; Claude reads the documents for the "why".
 
 ## 6. Generation
 
