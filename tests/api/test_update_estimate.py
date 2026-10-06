@@ -103,3 +103,48 @@ def test_the_status_carries_the_estimate_rendered_for_the_dialog(paths: Paths) -
     assert "no charge" in html and "$10.00 or 5.0M tokens" in html
     page = client.get("/").text
     assert "data-estimate-dialog" in page and "Go ahead" in page
+
+
+def test_stopping_the_server_declines_a_waiting_estimate_and_waits_for_the_update(paths: Paths) -> None:
+    from fastapi.testclient import TestClient
+
+    from codetrail.web.app import create_app
+
+    decisions: list[bool] = []
+    finished: list[bool] = []
+
+    def updater(confirm: Callable[[UpdateEstimate], bool]) -> None:
+        decisions.append(confirm(ESTIMATE))
+        time.sleep(0.2)  # the update's cleanup, which the server waits for
+        finished.append(True)
+
+    session = SessionState(60)
+    app = create_app(paths, "t", session, GlobalConfig(), updater=updater)
+    with TestClient(app, base_url=ORIGIN, follow_redirects=False) as client:  # leaving it stops the server
+        assert client.get(f"/login?code={session.issue_login_code()}").status_code == 303
+        client.post("/update", headers={"origin": ORIGIN, TOKEN_HEADER: session.token})
+        wait_for(client, {"waiting"})
+    assert decisions == [False]
+    assert finished == [True]
+
+
+def test_an_update_preparing_when_the_server_stops_asks_nothing(paths: Paths) -> None:
+    from fastapi.testclient import TestClient
+
+    from codetrail.web.app import create_app
+
+    decisions: list[bool] = []
+
+    def updater(confirm: Callable[[UpdateEstimate], bool]) -> None:
+        time.sleep(0.5)  # refreshing the facts while the server stops
+        decisions.append(confirm(ESTIMATE))
+
+    session = SessionState(60)
+    settings = GlobalConfig(server=ServerSettings(estimate_ttl_seconds=10))
+    app = create_app(paths, "t", session, settings, updater=updater)
+    with TestClient(app, base_url=ORIGIN, follow_redirects=False) as client:
+        assert client.get(f"/login?code={session.issue_login_code()}").status_code == 303
+        client.post("/update", headers={"origin": ORIGIN, TOKEN_HEADER: session.token})
+        stopping = time.monotonic()
+    assert decisions == [False]
+    assert time.monotonic() - stopping < 5  # not the estimate's time to live

@@ -12,8 +12,8 @@ import logging
 import secrets
 import threading
 import time
-from collections.abc import Callable, Iterator
-from contextlib import ExitStack, contextmanager
+from collections.abc import AsyncIterator, Callable, Iterator
+from contextlib import ExitStack, asynccontextmanager, contextmanager
 from importlib.resources import files
 from pathlib import Path
 from typing import Any
@@ -106,14 +106,24 @@ def create_app(
 
     `updater` runs one update; the Update button runs it in a background thread (tests pass a fake one).
     """
-    app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
-    view = TargetView(paths, name)
-    guide = GuideRepository(paths.target_data(name) / "guide")
+    stopping = threading.Event()
     job = UpdateJob(
-        updater or (lambda confirm: run_update(paths, name, confirm=confirm)),
+        updater or (lambda confirm: run_update(paths, name, confirm=confirm, stop=stopping)),
+        stopping,
         settings.server.update_cooldown_seconds,
         settings.server.estimate_ttl_seconds,
     )
+
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+        try:
+            yield
+        finally:  # also when the server is cancelled rather than shut down (a hangup)
+            job.stop()
+
+    app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
+    view = TargetView(paths, name)
+    guide = GuideRepository(paths.target_data(name) / "guide")
 
     @contextmanager
     def learning() -> Iterator[LearningState]:
@@ -545,15 +555,19 @@ class UpdateJob:
 
     The update refreshes the facts (free), then waits with its estimate until the reader confirms it with the
     estimate's id, cancels it, or `estimate_ttl_seconds` pass; only a confirmation lets paid work start (design 15.4).
+    `stopping` is set when the server stops; `run` stops its paid work then (design 15.5).
     """
 
     def __init__(
         self,
         run: Callable[[Callable[[UpdateEstimate], bool]], object],
+        stopping: threading.Event,
         cooldown_seconds: int = 0,
         estimate_ttl_seconds: int = 300,
     ) -> None:
         self._run = run
+        self._stopping = stopping
+        self._thread: threading.Thread | None = None
         self._lock = threading.Lock()
         self._cooldown = cooldown_seconds
         self._ttl = estimate_ttl_seconds
@@ -570,6 +584,9 @@ class UpdateJob:
         if not estimate.lines:
             return True
         with self._lock:
+            if self._stopping.is_set():  # the server stopped while the facts were refreshed: nothing is asked
+                self._declined = True
+                return False
             self._decided.clear()
             self._decision = False
             self.estimate, self.estimate_id = estimate.as_json(), secrets.token_urlsafe(16)
@@ -602,14 +619,28 @@ class UpdateJob:
 
     def start(self) -> str | None:
         """Starts the update; returns why it can't (one running, or the last one finished too recently)."""
-        with self._lock:
+        with self._lock:  # stop() sets _stopping under it, so it joins every thread started here
+            if self._stopping.is_set():
+                return "The server is stopping."
             if self.state in ("preparing", "waiting", "running"):
                 return "An update is already running."
             if self._finished_at is not None and time.monotonic() - self._finished_at < self._cooldown:
                 return "An update finished a moment ago; wait a few minutes before the next."
             self.state, self.message, self._declined = "preparing", "", False
-        threading.Thread(target=self._work, daemon=True).start()
+            self._thread = threading.Thread(target=self._work, daemon=True)
+            self._thread.start()
         return None
+
+    def stop(self) -> None:
+        """Declines a waiting estimate, stops paid work and waits for the update's cleanup (design section 15.5).
+
+        The worker is a daemon thread, which the interpreter would kill at exit without running its cleanup.
+        """
+        with self._lock:  # under the lock, so _confirm either sees it before waiting or is woken by it
+            self._stopping.set()
+            self._decided.set()
+        if self._thread is not None:
+            self._thread.join()
 
     def _work(self) -> None:
         try:
