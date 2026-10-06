@@ -43,8 +43,8 @@ def run_git(
         except BaseException:
             # Stopped early (Ctrl-C, a hangup or terminate signal): SIGTERM lets git remove its lock files, which
             # SIGKILL would leave behind to fail every later command in that repository.
-            process.terminate()
             try:
+                process.terminate()
                 with suppress(subprocess.TimeoutExpired):
                     process.wait(STOP_WAIT_SECONDS)
             finally:

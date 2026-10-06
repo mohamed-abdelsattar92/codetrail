@@ -20,6 +20,7 @@ def stop_once(path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
         deadline = time.monotonic() + 10
         while not path.exists() and time.monotonic() < deadline:
             time.sleep(0.01)
+        assert path.exists(), f"{path.name} never appeared"  # raised out of run_git in place of the SystemExit
         raise SystemExit(1)
 
     monkeypatch.setattr(subprocess.Popen, "communicate", stopped)
