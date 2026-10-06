@@ -3,7 +3,8 @@
 The outline is planned on the first run and extended for new facts no page covers; affected pages are ranked and
 written within the budget, `concurrency` at a time; each draft is validated, retried once with its problems, and kept
 out of the guide if it fails again; a digest records what changed. Everything is committed once at the end, and any
-unexpected failure discards the uncommitted changes.
+unexpected failure discards the uncommitted changes. Each step is reported to `progress` as it happens, for the
+page's update panel.
 """
 
 from __future__ import annotations
@@ -51,6 +52,12 @@ MAX_FACT_LINES = 200
 PAGE_ATTEMPTS = 2  # a page that fails validation is written once more
 HISTORY_COMMITS = 25
 
+Progress = Callable[[dict[str, object]], None]  # one step of an update, such as {"step": "page", "title": ...}
+
+
+def no_progress(event: dict[str, object]) -> None:
+    """Reports nowhere: the command line prints its summary at the end instead."""
+
 
 @dataclass
 class GenerationContext:
@@ -70,6 +77,7 @@ class GenerationContext:
     learned: set[str] = field(default_factory=set)  # pages the reader has learned: rewritten first
     usage: UsageLog | None = None  # records each call's usage; its costs count against the update's budget
     max_tokens: int | None = None  # the update's token budget, which counts every provider, priced or not
+    progress: Progress = no_progress
 
 
 @dataclass
@@ -110,6 +118,7 @@ async def generate_guide(context: GenerationContext, claude: Assistant) -> Gener
             async with limiter:
                 if _budget_spent(context, result):  # the update's total budget, in dollars or tokens, is spent
                     result.left_for_later.append(entry.id)
+                    context.progress({"step": "page_later", "id": entry.id, "title": entry.title})
                     return
                 await _write_page(entry, context, claude, validation, result)
 
@@ -127,6 +136,8 @@ async def generate_guide(context: GenerationContext, claude: Assistant) -> Gener
             f"Update to {context.manifest.commit[:12]}: {len(result.written)} pages"
             + (", a digest" if result.digest else "")
         )
+        context.progress({"step": "committed", "pages": len(result.written), "failed": len(result.failed),
+                          "later": len(result.left_for_later)})  # fmt: skip
     except BaseException:
         guide.discard()
         raise
@@ -139,9 +150,11 @@ async def _outline(context: GenerationContext, claude: Assistant, result: Genera
     entries = outline_entries(stored)
     paths: list[OutlinePath] = []
     if not entries:
+        context.progress({"step": "plan"})
         draft = await claude.plan(PlanRequest(context.target, facts_summary(store, context.manifest), ""))
-        _spend(context, result, "plan", draft)
+        spent = _spend(context, result, "plan", draft)
         entries, problems = validate_outline(draft.pages, store, context.manifest)
+        context.progress({"step": "planned", "pages": len(entries), **spent})
         result.outline_problems += problems
         if not entries:
             raise CodetrailError("The assistant's outline had no page Codetrail could use: " + "; ".join(problems[:3]))
@@ -153,20 +166,24 @@ async def _outline(context: GenerationContext, claude: Assistant, result: Genera
         uncovered = [fact for fact in uncovered_facts(store, entries) if fact in new_facts]
         if uncovered:
             current = json.dumps(outline_data(entries, paths), indent=1)
+            context.progress({"step": "plan"})
             draft = await claude.plan(PlanRequest(context.target, facts_summary(store, context.manifest), current,
                                                   uncovered[:200]))  # fmt: skip
-            _spend(context, result, "plan", draft)
+            spent = _spend(context, result, "plan", draft)
             added, problems = validate_outline(draft.pages, store, context.manifest, existing=entries)
+            context.progress({"step": "planned", "pages": len(added), **spent})
             result.outline_problems += problems
             entries = [*entries, *added]
         if stored is not None and "paths" not in stored:  # an outline written before paths existed: plan them once
             current = json.dumps(outline_data(entries), indent=1)
+            context.progress({"step": "plan"})
             try:
                 draft = await claude.plan(PlanRequest(context.target, "", current, paths_only=True))
             except AssistantError as error:
                 result.outline_problems.append(f"Guided paths couldn't be planned: {error}")
             else:
-                _spend(context, result, "plan", draft)
+                spent = _spend(context, result, "plan", draft)
+                context.progress({"step": "planned", "pages": 0, **spent})
                 paths, problems = validate_paths(draft.paths, {entry.id for entry in entries})
                 result.outline_problems += problems
     if outline_data(entries, paths) != stored:
@@ -182,14 +199,16 @@ def _budget_spent(context: GenerationContext, result: GenerationResult) -> bool:
 
 def _spend(
     context: GenerationContext, result: GenerationResult, kind: str, draft: PlanDraft | PageDraft | DigestDraft
-) -> None:
-    """Records the call's usage, and adds its cost (which counts against the update's budget) and tokens."""
+) -> dict[str, object]:
+    """Records the call's usage, and adds its cost (which counts against the update's budget) and tokens.
+
+    Returns what the call used, for the progress report: its provider, model, tokens and counted cost."""
     usage = draft.usage
-    if context.usage is not None and usage.provider:
-        result.cost_usd += context.usage.record(kind, usage)
-    else:
-        result.cost_usd += draft.cost_usd
-    result.tokens += usage.input_tokens + usage.cached_input_tokens + usage.output_tokens
+    cost = context.usage.record(kind, usage) if context.usage is not None and usage.provider else draft.cost_usd
+    tokens = usage.input_tokens + usage.cached_input_tokens + usage.output_tokens
+    result.cost_usd += cost
+    result.tokens += tokens
+    return {"provider": usage.provider, "model": usage.model, "tokens": tokens, "cost_usd": cost}
 
 
 def _write_paths(context: GenerationContext, entries: Sequence[OutlineEntry], paths: Sequence[OutlinePath]) -> None:
@@ -223,21 +242,24 @@ async def _write_page(
     )  # fmt: skip
     problems: list[str] = []
     try:
-        for _attempt in range(PAGE_ATTEMPTS):
+        for attempt in range(1, PAGE_ATTEMPTS + 1):
+            context.progress({"step": "page", "id": entry.id, "title": entry.title, "attempt": attempt})
             draft = await claude.write_page(request)
-            _spend(context, result, "write", draft)
+            spent = _spend(context, result, "write", draft)
             problems = validate_page(draft.body, draft.checks, validation)
             if not problems:
                 meta = page_meta(entry, context.store, context.manifest, draft.files_read)
                 meta["checks"] = draft.checks
                 context.guide.write_page(Page(entry.id, meta, draft.body))
                 result.written.append(entry.id)
+                context.progress({"step": "page_written", "id": entry.id, "title": entry.title, **spent})
                 return
             request = replace(request, problems=problems, previous_body=draft.body)
+        reason = "; ".join(problems[:3])
     except AssistantError as error:
-        result.failed.append((entry.id, str(error)))
-        return
-    result.failed.append((entry.id, "; ".join(problems[:3])))
+        reason = str(error)
+    result.failed.append((entry.id, reason))
+    context.progress({"step": "page_failed", "id": entry.id, "title": entry.title, "reason": reason})
 
 
 async def _write_digest(
@@ -247,6 +269,7 @@ async def _write_digest(
     found = _digest_range(context, bool(result.written))
     if found is None:
         return
+    context.progress({"step": "digest"})
     since, commits = found
     page_id = f"digests/{datetime.now(UTC).strftime('%Y-%m-%d')}-{head[:12]}"
     meta = {"id": page_id, "kind": "digest", "generated": True, "from_commit": since, "to_commit": head,

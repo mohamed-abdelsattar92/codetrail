@@ -210,3 +210,41 @@ def test_each_calls_usage_is_recorded_and_counted(paths: Paths) -> None:
     connection = connect(paths.target_data("t") / "codetrail.db")
     rows = connection.execute("SELECT kind, provider, cost_usd FROM assistant_calls").fetchall()
     assert [tuple(row) for row in rows] == [("write", "claude_code", 0.25), ("write", "claude_code", 0.25)]
+
+
+def one_at_a_time(paths: Paths, budget_usd: float = 10.0) -> None:
+    file = paths.target_file("t")
+    file.write_text(file.read_text() + f"[generation]\nconcurrency = 1\nmax_budget_usd_per_update = {budget_usd}\n")
+
+
+def test_an_update_reports_each_step_as_it_goes(paths: Paths) -> None:
+    one_at_a_time(paths)
+    events: list[dict[str, object]] = []
+    run_update(paths, "t", claude=FakeAssistant(plans=[PLAN], page_writer=good_page), progress=events.append)
+    assert events[0] == {"step": "facts"}
+    assert events[1]["step"] == "facts_recorded" and int(str(events[1]["changes"])) > 0
+    no_usage = {"provider": "", "model": "", "tokens": 0}
+    assert events[2:] == [
+        {"step": "plan"},
+        {"step": "planned", "pages": 2, **no_usage, "cost_usd": 0.0},
+        {"step": "page", "id": "areas/api", "title": "The API", "attempt": 1},
+        {"step": "page_written", "id": "areas/api", "title": "The API", **no_usage, "cost_usd": 0.01},
+        {"step": "page", "id": "concepts/fastapi", "title": "Why FastAPI", "attempt": 1},
+        {"step": "page_written", "id": "concepts/fastapi", "title": "Why FastAPI", **no_usage, "cost_usd": 0.01},
+        {"step": "digest"},
+        {"step": "committed", "pages": 2, "failed": 0, "later": 0},
+    ]
+
+
+def test_the_steps_report_a_retry_a_failed_page_and_one_left_for_later(paths: Paths) -> None:
+    one_at_a_time(paths, budget_usd=0.01)
+    bad = PageDraft("Cites [[module:ghost.py]].", CHECKS, cost_usd=0.01)
+    events: list[dict[str, object]] = []
+    claude = FakeAssistant(plans=[PLAN], pages={"areas/api": [bad, bad]}, page_writer=good_page)
+    run_update(paths, "t", claude=claude, progress=events.append)
+    steps = [(event["step"], event.get("attempt")) for event in events[4:]]
+    assert steps == [("page", 1), ("page", 2), ("page_failed", None), ("page_later", None), ("committed", None)]
+    failed = events[6]
+    assert failed["title"] == "The API" and "ghost.py" in str(failed["reason"])
+    assert events[7] == {"step": "page_later", "id": "concepts/fastapi", "title": "Why FastAPI"}
+    assert events[-1] == {"step": "committed", "pages": 0, "failed": 1, "later": 1}

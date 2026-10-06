@@ -2,6 +2,7 @@
 // answers to the guide. A question is sent only by the Send button, which shows its estimate; nothing else spends.
 import { getJSON, post, recall, remember, usedText } from "./api.js";
 import { drawDiagramsIn } from "./diagram.js";
+import { hideUpdatePanel } from "./update.js";
 
 const panel = document.querySelector("[data-ask]");
 const thread = panel?.querySelector("[data-ask-thread]");
@@ -95,6 +96,7 @@ export function isAskOpen() {
 export function openAsk(question, focus = true) {
   if (!panel) return;
   if (focus) opener ??= document.activeElement;
+  hideUpdatePanel(); // Ask takes the side; the Update button shows a running update again
   panel.hidden = false;
   document.body.classList.add("ask-open");
   remember("sessionStorage", "codetrail.ask", "open");

@@ -138,3 +138,11 @@ def test_a_page_or_check_holding_a_secret_fails(context: ValidationContext) -> N
     problems = validate_page("A clean page.\n", checks, context)
     assert any("looks like a secret" in problem for problem in problems)
     assert not any(fake_github_token(12) in problem for problem in problems)  # the rule is named, never the value
+
+
+def test_a_page_holding_a_secret_gets_no_problem_that_quotes_it(context: ValidationContext) -> None:
+    token = fake_github_token(13)
+    body = f"It uses [[module:{token}]].\n\n{{{{diagram imports scope={token}}}}}\n"
+    problems = validate_page(body, GOOD_CHECKS, context)
+    assert problems and all("looks like a secret" in problem for problem in problems)
+    assert not any(token in problem for problem in problems)  # these reach the retry prompt, the CLI and the page

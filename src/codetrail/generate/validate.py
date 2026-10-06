@@ -81,6 +81,8 @@ def validate_page(body: str, checks: Sequence[Mapping[str, Any]] | None, context
     # The last check before anything is saved: a page or its checks must hold nothing that looks like a secret.
     for finding in context.scanner.scan_text(body + "\n" + json.dumps(list(checks or []), ensure_ascii=False)):
         problems.append(f"The page contains something that looks like a secret ({finding.rule}); leave it out.")
+    if problems:  # the other problems quote the draft, and they reach the retry prompt, the CLI and the page
+        return problems
     for block in parse_rationale(body):
         if block.kind == "documented":
             problems += _check_documented(block, context)
