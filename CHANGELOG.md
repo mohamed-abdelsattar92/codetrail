@@ -10,7 +10,7 @@ The first public release. Release notes: [docs/releases/v1.0.0.md](docs/releases
 
 **Reading a repository**
 - Targets: `codetrail target add` and `codetrail target remove`, and `codetrail files` to list exactly what Codetrail can see. Codetrail reads only committed files, from its own mirror, and never writes to the repository it teaches.
-- Exclusions before anything else: built-in secret patterns, the repository's ignore rules, your own exclusions, and a gitleaks scan of every file. What's excluded never reaches an extractor, the assistant or the page.
+- Exclusions before anything else: built-in secret patterns, the repository's ignore rules, your own exclusions, and a gitleaks scan of every file. What's excluded never reaches an extractor, the assistant or the page (except Codex, for a target that opts in to it).
 - Facts from deterministic extractors: Python, TypeScript, JavaScript and Astro, OpenAPI, Terraform, Swift packages, GitHub Actions deploy evidence, and architecture decision records. Facts are kept per snapshot with validity ranges, so every change can be diffed.
 - The system pass: the repository's services, apps, libraries, contracts and infrastructure, and how they connect, from facts alone.
 
@@ -39,6 +39,6 @@ The first public release. Release notes: [docs/releases/v1.0.0.md](docs/releases
 
 **Security**
 - The page and the bridge listen on 127.0.0.1 only, check `Host`, `Origin` and `Sec-Fetch-Site`, need a single-use login code and a per-session token, and send a strict content security policy.
-- The assistant gets read-only tools (Read, Grep, Glob) confined to the filtered sources: for Claude Code through two independent guards, and for local models through Codetrail's own tools. Codex can't be confined the same way, so it stays off unless a target opts in. Every provider gets an allowlisted environment: Codetrail never reads, stores or passes a key or token.
+- The assistant gets read-only tools (Read, Grep, Glob) confined to the filtered sources: for Claude Code through two independent guards, and for local models through Codetrail's own tools. Codex can't be confined the same way, so it stays off unless a target opts in. Every provider gets an allowlisted environment: Codetrail never reads, stores or passes a key or token, unless you set `auth = "api_key"`, when the provider's key variable is handed to its program by name.
 
 [1.0.0]: https://github.com/mohamed-abdelsattar92/codetrail/releases/tag/v1.0.0
