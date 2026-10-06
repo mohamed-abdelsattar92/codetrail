@@ -103,6 +103,8 @@ def test_a_rewritten_page_goes_stale_and_shows_what_changed(paths: Paths, tmp_pa
     client, headers = make_client(paths, FakeAssistant())
     client.post("/learn/checks", json={"page_id": "areas/app", "check_id": "q1", "answer": "db"}, headers=headers)
     add_commit(tmp_path / "target", {"app/extra.py": "from app import db\n"})
+    file = paths.target_file("t")
+    file.write_text(file.read_text() + "[generation]\nrevise_max_changes = 0\n")  # a whole rewrite, not a revision
     run_update(paths, "t", claude=FakeAssistant(page_writer=writer("What does extra import?")))  # type: ignore[arg-type]
     page = client.get("/pages/areas/app").text
     assert 'data-status="stale"' in page
