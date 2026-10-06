@@ -241,7 +241,7 @@ The interface is English first and switches language from the page. Each languag
 
 ## Status
 
-Every phase in the [design](docs/design/2026-10-05-codetrail-design.md) is built and tested.
+Codetrail 1.0.0 is the first public release ([release notes](docs/releases/v1.0.0.md), [changelog](CHANGELOG.md)). Every phase in the [design](docs/design/2026-10-05-codetrail-design.md) is built and tested.
 
 ```mermaid
 flowchart LR
@@ -303,6 +303,7 @@ Then `just ci` runs every check CI runs; `just lint`, `just format`, `just typec
 | Document | What's in it |
 |---|---|
 | [Getting started](docs/getting-started.md) | Install, connect an assistant, add a repository, build and read the guide |
+| [Changelog](CHANGELOG.md) | What changed in each release; the [1.0.0 release notes](docs/releases/v1.0.0.md) |
 | [Design](docs/design/2026-10-05-codetrail-design.md) | The whole system: architecture, exclusions, facts, generation, page and bridge, learning, providers and estimates, errors, testing, phases |
 | [Brainstorm decisions](docs/design/brainstorm-decisions.md) | The problem, every early decision and why |
 | [Architecture decision records](docs/adr/README.md) | Decisions that are hard to reverse |
