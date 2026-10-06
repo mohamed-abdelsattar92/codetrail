@@ -98,6 +98,13 @@ class FactStore:
         row = self.connection.execute("SELECT * FROM snapshots ORDER BY id DESC LIMIT 1").fetchone()
         return Snapshot(row["id"], row["commit_sha"], row["taken_at"]) if row else None
 
+    def first_snapshot(self, commit: str) -> Snapshot | None:
+        """The earliest snapshot taken at the commit (a newer Codetrail can take more at the same one)."""
+        row = self.connection.execute(
+            "SELECT * FROM snapshots WHERE commit_sha = ? ORDER BY id LIMIT 1", (commit,)
+        ).fetchone()
+        return Snapshot(row["id"], row["commit_sha"], row["taken_at"]) if row else None
+
     def previous_snapshot(self, snapshot: Snapshot) -> Snapshot | None:
         row = self.connection.execute(
             "SELECT * FROM snapshots WHERE id < ? ORDER BY id DESC LIMIT 1", (snapshot.id,)
@@ -136,6 +143,18 @@ class FactStore:
         query = "SELECT * FROM relations WHERE last_seen IS NULL" + (" AND kind = ?" if kind else "")
         query += " ORDER BY source_id, kind, target_id"
         return [_relation(row) for row in self.connection.execute(query, (str(kind),) if kind else ())]
+
+    def entities_at(self, snapshot_id: int) -> list[Entity]:
+        """Every entity as it was at the snapshot."""
+        query = ("SELECT * FROM entities WHERE first_seen <= ? AND (last_seen IS NULL OR last_seen >= ?)"
+                 " ORDER BY id")  # fmt: skip
+        return [_entity(row) for row in self.connection.execute(query, (snapshot_id, snapshot_id))]
+
+    def relations_at(self, snapshot_id: int) -> list[Relation]:
+        """Every relation as it was at the snapshot."""
+        query = ("SELECT * FROM relations WHERE first_seen <= ? AND (last_seen IS NULL OR last_seen >= ?)"
+                 " ORDER BY source_id, kind, target_id")  # fmt: skip
+        return [_relation(row) for row in self.connection.execute(query, (snapshot_id, snapshot_id))]
 
     def entity(self, entity_id: str) -> Entity | None:
         row = self.connection.execute(

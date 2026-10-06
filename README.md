@@ -151,6 +151,8 @@ sequenceDiagram
 
 From the page, an update panel shows each step as it happens: the facts refreshed, the outline planned, each page written with its provider, model, tokens and cost, or not written and why. It closes when the update is done, and stays open with the reason when it fails.
 
+An update writes only what changed. Pages your new commits touched go first, then pages catching up on older changes. A page with a few changes (20 or fewer, by default) is revised: the assistant rewrites only the sections those changes affect, so it reads and writes much less. A page that failed validation is skipped until its facts change, or until you run `codetrail update <target> --retry-failed`. The estimate lists each page it will write, and why.
+
 If an update is interrupted, the guide's uncommitted changes are discarded and nothing is half-written. Pages that failed or didn't fit in the budget are picked up by the next update.
 
 ## Your assistant, your subscription

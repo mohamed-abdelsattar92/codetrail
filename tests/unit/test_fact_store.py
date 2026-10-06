@@ -106,3 +106,15 @@ def test_queries_filter_by_kind(store: FactStore) -> None:
 def test_hashes_ignore_sources() -> None:
     assert A.hash == module("app/a.py", "app.a", line=99).hash
     assert A.hash != Entity(A.id, A.kind, {"name": "other"}, A.sources).hash
+
+
+def test_facts_read_as_they_were_at_an_older_snapshot(store: FactStore) -> None:
+    first, _ = store.record("c1", [A, B], [imports("app/a.py", "app/b.py")])
+    renamed = module("app/a.py", "app.renamed")
+    store.record("c2", [renamed], [])
+    assert store.entities_at(first.id) == [A, B]
+    assert [relation.key for relation in store.relations_at(first.id)] == [
+        ("module:app/a.py", "imports", "module:app/b.py")
+    ]
+    latest = store.latest_snapshot()
+    assert latest is not None and store.entities_at(latest.id) == [renamed] and store.relations_at(latest.id) == []

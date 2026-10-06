@@ -12,7 +12,8 @@ from tests.api.test_guide_pages import paths as paths  # the fixture
 ESTIMATE = UpdateEstimate(
     [EstimateLine(CallEstimate("write", "claude_code", "claude-sonnet-5-5", 120_000, 6_000, 0.3, False), 2, 5)],
     {"claude_code": "Claude subscription (max)"}, [], 10.0, 5_000_000,
-    [PageToWrite("<b>The API</b>", "update", 2), PageToWrite("Payments", "catching_up", 0)], ["The root"],
+    [PageToWrite("<b>The API</b>", "update", 2), PageToWrite("Payments", "catching_up", 0, revise=True)],
+    ["The root"],
 )  # fmt: skip
 
 
@@ -104,7 +105,7 @@ def test_the_status_carries_the_estimate_rendered_for_the_dialog(paths: Paths) -
     assert "~126k" in html and "$0.30" in html and "a starting guess" in html
     assert "no charge" in html and "$10.00 or 5.0M tokens" in html
     assert "“&lt;b&gt;The API&lt;/b&gt;”: 2 of its facts changed in this update" in html
-    assert "“Payments”: catching up, since its facts changed after it was written" in html
+    assert "“Payments” (revised): catching up, since its facts changed after it was written" in html
     assert "Skipped, since they failed last time and nothing in them changed: The root" in html
     page = client.get("/").text
     assert "data-estimate-dialog" in page and "Go ahead" in page

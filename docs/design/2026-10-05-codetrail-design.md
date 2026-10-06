@@ -102,6 +102,7 @@ paths = ["docs/adr/*.md"]
 max_pages_per_update = 20
 concurrency = 2
 max_turns = 30
+revise_max_changes = 20          # revise a page with at most this many changes in its scope; 0 rewrites every page
 
 [models]
 plan = "claude-opus-5-5"
@@ -181,6 +182,7 @@ kind: concept
 title: OpenAPI contract first
 generated: true
 built_at: 3f9c2e1                     # snapshot commit
+snapshot: 12                          # the snapshot it was written at: a revision is told what changed since
 facts:                                # facts the page explains directly
   - {id: "decision:ADR-0007", hash: "a41f…"}
 scope:                                # everything else it covers
@@ -263,6 +265,8 @@ On the first update, Claude receives a rolled-up view of the facts, the ADR list
 
 ### 6.3 Writing a page
 Claude receives the page's outline entry, the facts in its scope, the related ADR metadata, and the filtered git log for the scope (subjects and *Why* sections). It may use Read, Grep and Glob over `source/` and nothing else. The tool guard logs each file Claude opens with Read; those paths and their blob hashes become the page's `files`. Grep and Glob results are not recorded. The page and its checks come back in one call.
+
+**Revising instead of rewriting.** An affected page that exists, whose outline entry hasn't changed, and whose scope has at most `generation.revise_max_changes` changes (facts and links added, changed or removed, 20 by default) since the snapshot it was written at is revised. The assistant gets the page as it stands, its checks, those changes (from the facts' validity ranges, so a page that waited gets everything it missed) and the scope's recent history, and returns only the sections to replace, each by its heading line, plus new checks only if the old ones no longer fit. Codetrail puts the sections into the page (a section runs to the next heading of the same or a higher level; a heading the page doesn't have is added at the end; an empty text removes the section), keeps the files read for the page before, and validates the whole page as usual; the retry sees its own revision and the problems. No sections means nothing was wrong: the page's front matter is renewed for the cost of that call, so it isn't affected again. Diagrams are drawn from current facts at view time, so the prompt says a changed import or dependency needs no edit unless the text states something now wrong. A new page, a changed outline entry, more changes than the limit, or a page from before pages recorded their snapshot (the earliest snapshot at its commit is used, which can only show more changes) is written whole. Revisions are recorded and estimated as their own kind, `revise`, with the `write` model.
 
 ### 6.4 Page syntax
 Pages are CommonMark with three additions, which Codetrail processes before rendering:
@@ -458,6 +462,7 @@ max_read_bytes = 200_000
 history_size = 20
 plan = { input = 60_000, output = 8_000 }
 write = { input = 120_000, output = 6_000 }
+revise = { input = 40_000, output = 2_000 }
 digest = { input = 40_000, output = 3_000 }
 answer = { input = 30_000, output = 1_500 }
 grade = { input = 4_000, output = 500 }

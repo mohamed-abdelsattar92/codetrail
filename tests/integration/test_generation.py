@@ -227,13 +227,21 @@ def test_an_update_reports_each_step_as_it_goes(paths: Paths) -> None:
     assert events[0] == {"step": "facts"}
     assert events[1]["step"] == "facts_recorded" and int(str(events[1]["changes"])) > 0
     no_usage = {"provider": "", "model": "", "tokens": 0}
+    whole = {"revise": False, "unchanged": False}
     assert events[2:] == [
         {"step": "plan"},
         {"step": "planned", "pages": 2, **no_usage, "cost_usd": 0.0},
-        {"step": "page", "id": "areas/api", "title": "The API", "attempt": 1},
-        {"step": "page_written", "id": "areas/api", "title": "The API", **no_usage, "cost_usd": 0.01},
-        {"step": "page", "id": "concepts/fastapi", "title": "Why FastAPI", "attempt": 1},
-        {"step": "page_written", "id": "concepts/fastapi", "title": "Why FastAPI", **no_usage, "cost_usd": 0.01},
+        {"step": "page", "id": "areas/api", "title": "The API", "attempt": 1, "revise": False},
+        {"step": "page_written", "id": "areas/api", "title": "The API", **whole, **no_usage, "cost_usd": 0.01},
+        {"step": "page", "id": "concepts/fastapi", "title": "Why FastAPI", "attempt": 1, "revise": False},
+        {
+            "step": "page_written",
+            "id": "concepts/fastapi",
+            "title": "Why FastAPI",
+            **whole,
+            **no_usage,
+            "cost_usd": 0.01,
+        },
         {"step": "digest"},
         {"step": "committed", "pages": 2, "failed": 0, "later": 0},
     ]

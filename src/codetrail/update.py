@@ -41,6 +41,7 @@ from codetrail.facts import FactDiff, Snapshot
 from codetrail.facts.store import FactStore
 from codetrail.generate.failures import FailedPages
 from codetrail.generate.run import (
+    PAGE_ATTEMPTS,
     GenerationContext,
     GenerationResult,
     PlannedWork,
@@ -80,6 +81,7 @@ def _calls(target: TargetConfig, work: PlannedWork) -> list[tuple[str, str, str,
     return [
         ("plan", *plan, work.plan_calls, work.plan_calls),
         ("write", *write, work.pages_expected, work.page_calls_max),
+        ("revise", *write, work.revisions_expected, work.revisions_expected * PAGE_ATTEMPTS),  # the write model
         ("digest", *digest, int(work.digest_expected), int(work.digest_possible)),
     ]
 
@@ -224,14 +226,15 @@ def run_update(
                     progress=progress,
                     failed_pages=FailedPages(connection),
                     retry_failed=retry_failed,
+                    revise_max_changes=target.generation.revise_max_changes,
                 )
                 if confirm is not None:
                     work = planned_work(context)
                     estimate = estimate_update(connection, _calls(target, work), settings.estimates, settings.prices,
                                                sign_ins, target.generation.max_budget_usd_per_update,
                                                target.generation.max_tokens_per_update,
-                                               [PageToWrite(page.entry.title, page.reason, page.changed_now)
-                                                for page in work.pages],
+                                               [PageToWrite(page.entry.title, page.reason, page.changed_now,
+                                                            bool(page.changes)) for page in work.pages],
                                                [entry.title for entry in work.skipped])  # fmt: skip
                     if not confirm(estimate):
                         return UpdateResult(manifest, snapshot, diff, extraction, None, estimate, declined=True)

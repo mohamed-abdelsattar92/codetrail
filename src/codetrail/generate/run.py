@@ -42,7 +42,16 @@ from codetrail.generate.outline import (
     validate_outline,
     validate_paths,
 )
-from codetrail.generate.scope import affected_reason, changed_fact_count, facts_in_scope, page_meta, scope_hash
+from codetrail.generate.revise import apply_sections
+from codetrail.generate.scope import (
+    affected_reason,
+    changed_fact_count,
+    facts_in_scope,
+    page_meta,
+    page_snapshot,
+    scope_changes,
+    scope_hash,
+)
 from codetrail.generate.validate import ValidationContext, validate_page
 from codetrail.guide import GuideRepository, Page
 from codetrail.repo.history import Commit, commits_between, recent_commits
@@ -81,6 +90,7 @@ class GenerationContext:
     progress: Progress = no_progress
     failed_pages: FailedPages | None = None  # pages that failed validation, skipped until their scope changes
     retry_failed: bool = False  # try them anyway
+    revise_max_changes: int = 0  # an affected page with at most this many changes in its scope is revised (6.3)
 
 
 @dataclass
@@ -239,29 +249,49 @@ async def _write_page(
     validation: ValidationContext,
     result: GenerationResult,
 ) -> None:
+    """Writes the page, or revises it when it has `planned.changes`: the assistant returns only the sections to
+    replace, which go into the page as it stands; either way the whole page is validated, and retried once."""
     entry = planned.entry
-    request = PageRequest(
-        entry.id, entry.kind, entry.title, entry.scope_paths,
-        facts_text(context.store, entry), decisions_text(context.store), history_text(context, entry.scope_paths),
-    )  # fmt: skip
+    current = context.guide.read_page(entry.id) if planned.changes else None
+    revising = current is not None
+    history = history_text(context, entry.scope_paths)
+    if current is not None:
+        checks = [dict(check) for check in current.meta.get("checks") or []]
+        request = PageRequest(entry.id, entry.kind, entry.title, entry.scope_paths, "", "", history,
+                              current_body=current.body, current_checks=checks, changes=planned.changes)  # fmt: skip
+    else:
+        request = PageRequest(entry.id, entry.kind, entry.title, entry.scope_paths, facts_text(context.store, entry),
+                              decisions_text(context.store), history)  # fmt: skip
     problems: list[str] = []
     try:
         for attempt in range(1, PAGE_ATTEMPTS + 1):
             context.progress({"step": "page", "id": entry.id, "title": entry.title, "attempt": attempt,
-                              "reason": planned.reason, "changed": planned.changed_now})  # fmt: skip
+                              "reason": planned.reason, "changed": planned.changed_now,
+                              "revise": revising})  # fmt: skip
             draft = await claude.write_page(request)
-            spent = _spend(context, result, "write", draft)
-            problems = validate_page(draft.body, draft.checks, validation)
+            spent = _spend(context, result, "revise" if revising else "write", draft)
+            body, checks, files_read = draft.body, draft.checks, draft.files_read
+            if current is not None:
+                body = apply_sections(request.current_body, draft.sections)
+                checks = draft.checks or request.current_checks
+                earlier = [str(item.get("path")) for item in current.meta.get("files") or []]
+                files_read = list(dict.fromkeys(earlier + draft.files_read))
+            problems = validate_page(body, checks, validation)
             if not problems:
-                meta = page_meta(entry, context.store, context.manifest, draft.files_read)
-                meta["checks"] = draft.checks
-                context.guide.write_page(Page(entry.id, meta, draft.body))
+                meta = page_meta(entry, context.store, context.manifest, files_read)
+                meta["checks"] = checks
+                context.guide.write_page(Page(entry.id, meta, body))
                 result.written.append(entry.id)
                 if context.failed_pages is not None:
                     context.failed_pages.forget(entry.id)
-                context.progress({"step": "page_written", "id": entry.id, "title": entry.title, **spent})
+                unchanged = revising and not draft.sections and not draft.checks
+                context.progress({"step": "page_written", "id": entry.id, "title": entry.title, "revise": revising,
+                                  "unchanged": unchanged, **spent})  # fmt: skip
                 return
-            request = replace(request, problems=problems, previous_body=draft.body)
+            if current is not None:  # the retry sees its own revision in the page, and what's wrong with it
+                request = replace(request, problems=problems, current_body=body, current_checks=checks)
+            else:
+                request = replace(request, problems=problems, previous_body=draft.body)
         reason = "; ".join(problems[:3])
         if context.failed_pages is not None:  # its drafts failed validation: not worth paying for again unchanged
             context.failed_pages.record(entry.id, scope_hash(context.store, entry))
@@ -330,6 +360,7 @@ class PlannedPage:
     entry: OutlineEntry
     reason: str
     changed_now: int  # facts in its scope this update added, changed or removed
+    changes: list[str] = field(default_factory=list)  # set when the page is revised: what changed since it was written
 
 
 @dataclass(frozen=True)
@@ -360,10 +391,20 @@ def select_pages(context: GenerationContext, entries: Sequence[OutlineEntry]) ->
         kind = {"new": "new", "outline changed": "outline"}.get(reason, "update" if changed_now else "catching_up")
         rank = (not changed_now, entry.id not in context.learned, kind not in ("new", "outline"),
                 -changed_fact_count(entry, page, context.store))  # fmt: skip
-        affected.append((rank, PlannedPage(entry, kind, changed_now)))
+        affected.append((rank, PlannedPage(entry, kind, changed_now, _revision(context, entry, page, kind))))
     affected.sort(key=lambda item: item[0])
     planned = [page for _, page in affected]
     return PageSelection(planned[: context.max_pages], [page.entry for page in planned[context.max_pages :]], skipped)
+
+
+def _revision(context: GenerationContext, entry: OutlineEntry, page: Page | None, kind: str) -> list[str]:
+    """What changed in the page's scope since it was written, when there are few enough changes to revise it rather
+    than write it again; empty for a new page, a changed outline entry, or too many changes."""
+    if page is None or kind not in ("update", "catching_up") or not context.revise_max_changes:
+        return []
+    since = page_snapshot(context.store, page)
+    changes = scope_changes(context.store, entry, since) if since is not None else []
+    return changes if len(changes) <= context.revise_max_changes else []
 
 
 @dataclass(frozen=True)
@@ -371,12 +412,13 @@ class PlannedWork:
     """The paid calls an update will make, counted without making any (design section 15.4)."""
 
     plan_calls: int
-    pages_expected: int
+    pages_expected: int  # pages written whole
     page_calls_max: int  # each page may be written twice: the retry after a failed validation
     digest_expected: bool
     digest_possible: bool  # a digest also runs when commits came in and no page was written
     pages: list[PlannedPage] = field(default_factory=list)  # empty before the first outline
     skipped: list[OutlineEntry] = field(default_factory=list)
+    revisions_expected: int = 0  # pages revised (section 6.3), each also retried once at most
 
 
 def planned_work(context: GenerationContext) -> PlannedWork:
@@ -388,16 +430,17 @@ def planned_work(context: GenerationContext) -> PlannedWork:
     plan_calls = int(any(fact in new_facts for fact in uncovered_facts(context.store, entries)))
     plan_calls += int(stored is not None and "paths" not in stored)
     selection = select_pages(context, entries)
-    expected = len(selection.to_write)
-    maximum = context.max_pages if plan_calls else expected  # a plan can add pages
+    revisions = sum(1 for page in selection.to_write if page.changes)
+    expected = len(selection.to_write) - revisions
+    maximum = context.max_pages - revisions if plan_calls else expected  # a plan can add pages
 
     def digest_due(pages_written: bool) -> bool:
         found = _digest_range(context, pages_written)
         return found is not None and bool(found[1])
 
     possible = digest_due(True) or digest_due(False)
-    return PlannedWork(plan_calls, expected, maximum * PAGE_ATTEMPTS, digest_due(expected > 0), possible,
-                       selection.to_write, selection.skipped)  # fmt: skip
+    return PlannedWork(plan_calls, expected, maximum * PAGE_ATTEMPTS, digest_due(bool(selection.to_write)), possible,
+                       selection.to_write, selection.skipped, revisions)  # fmt: skip
 
 
 def facts_summary(store: FactStore, manifest: SourceManifest) -> str:

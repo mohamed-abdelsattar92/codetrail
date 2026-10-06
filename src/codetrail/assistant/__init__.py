@@ -71,15 +71,21 @@ class PageRequest:
     history: str
     problems: list[str] = field(default_factory=list)  # from a failed validation, for the retry
     previous_body: str = ""
+    # A revision (design 6.3): the page as it stands and what changed in its scope since it was written. With
+    # `changes`, the assistant returns only the sections to replace, and new checks only if the old ones don't fit.
+    current_body: str = ""
+    current_checks: list[dict[str, Any]] = field(default_factory=list)
+    changes: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
 class PageDraft:
-    body: str
+    body: str  # empty for a revision
     checks: list[dict[str, Any]] = field(default_factory=list)
     files_read: list[str] = field(default_factory=list)
     cost_usd: float = 0.0
     usage: Usage = field(default_factory=Usage)
+    sections: list[dict[str, Any]] = field(default_factory=list)  # a revision's sections: {"heading", "body"}
 
 
 @dataclass(frozen=True)

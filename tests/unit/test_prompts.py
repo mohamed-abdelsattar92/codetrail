@@ -50,3 +50,23 @@ def test_pages_are_told_about_the_system_diagram() -> None:
 
     assert "{{diagram system}}" in PAGE_SYNTAX
     assert "{{diagram system focus=<folder>}}" in PAGE_SYNTAX
+
+
+def revise_request() -> PageRequest:
+    return PageRequest(
+        "areas/x", "area", "X", ["x"], "", "", f"log {INJECTED}",
+        current_body=f"## How it works\n\nbody {INJECTED}", current_checks=[{"id": "q1", "question": INJECTED}],
+        changes=[f"added module module:x/a.py {INJECTED}"],
+    )  # fmt: skip
+
+
+def test_a_revision_gets_its_page_checks_changes_and_history_fenced() -> None:
+    from codetrail.assistant.prompts import page_task
+
+    prompt, schema = page_task(revise_request())
+    assert len([body for body in fenced(prompt) if INJECTED in body]) == 4
+    assert INJECTED not in FENCED.sub("", prompt)
+    assert "drawn from the current facts" in prompt
+    assert schema["required"] == ["sections", "checks"]
+    plain, page_schema = page_task(PageRequest("areas/x", "area", "X", ["x"], "facts", "", ""))
+    assert plain.startswith('Write the guide\'s page "X"') and page_schema["required"] == ["body", "checks"]

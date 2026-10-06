@@ -73,12 +73,12 @@ def test_times_read_as_minutes_in_utc() -> None:
 def test_the_estimate_names_each_page_with_why_and_the_skipped_ones() -> None:
     from codetrail.assistant.estimate import PageToWrite, UpdateEstimate, describe
 
-    pages = [PageToWrite("The API", "update", 2), PageToWrite("Payments", "catching_up", 0),
+    pages = [PageToWrite("The API", "update", 2), PageToWrite("Payments", "catching_up", 0, revise=True),
              PageToWrite("The ledger", "new", 3), PageToWrite("Retries", "outline", 0)]  # fmt: skip
     lines = describe(UpdateEstimate([], {}, [], 10.0, 5_000_000, pages, ["The root"]))
     assert "Pages, in the order they're written:" in lines
     assert "  The API: 2 of its facts changed in this update" in lines
-    assert "  Payments: catching up, since its facts changed after it was written" in lines
+    assert "  Payments (revised): catching up, since its facts changed after it was written" in lines
     assert "  The ledger: a new page" in lines
     assert "  Retries: its outline entry changed" in lines
     assert "Skipped, since they failed last time and nothing in them changed: The root" in lines

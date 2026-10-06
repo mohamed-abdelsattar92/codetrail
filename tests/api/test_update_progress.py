@@ -104,3 +104,18 @@ def test_each_page_line_says_why_its_written(paths: Paths) -> None:
     assert "Writing “Payments” (catching up: its facts changed after it was written)…" in html
     assert "Writing “The ledger” (a new page)…" in html
     assert "Writing “Retries” (its outline entry changed)…" in html
+
+
+def test_a_revision_says_so(paths: Paths) -> None:
+    steps: list[dict[str, object]] = [
+        {"step": "page", "id": "a", "title": "The API", "attempt": 1, "reason": "update", "changed": 2,
+         "revise": True},
+        {"step": "page_written", "id": "a", "title": "The API", "revise": True, "unchanged": False,
+         "provider": "", "model": "", "tokens": 0, "cost_usd": 0.0},
+        {"step": "page_written", "id": "b", "title": "Payments", "revise": True, "unchanged": True,
+         "provider": "", "model": "", "tokens": 0, "cost_usd": 0.0},
+    ]  # fmt: skip
+    html = started(paths, steps).get("/update/status").json()["log_html"]
+    assert "Revising “The API” (2 of its facts changed in this update)…" in html
+    assert "Revised “The API”." in html
+    assert "“Payments” needed no change." in html

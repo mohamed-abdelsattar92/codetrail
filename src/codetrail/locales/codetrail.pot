@@ -505,6 +505,26 @@ msgstr ""
 msgid "Results"
 msgstr ""
 
+#, python-format
+msgid "Revised “%(title)s”."
+msgstr ""
+
+#, python-format
+msgid ""
+"Revising “%(title)s” (catching up: its facts changed after it was "
+"written)…"
+msgstr ""
+
+#, python-format
+msgid "Revising “%(title)s” (one of its facts changed in this update)…"
+msgid_plural "Revising “%(title)s” (%(count)s of its facts changed in this update)…"
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
+msgid "Revising “%(title)s” again, with its problems…"
+msgstr ""
+
 msgid "Run your first update"
 msgstr ""
 
@@ -851,6 +871,9 @@ msgstr[1] ""
 msgid "pages, by passing their checks"
 msgstr ""
 
+msgid "revised"
+msgstr ""
+
 msgid "source"
 msgstr ""
 
@@ -876,6 +899,10 @@ msgstr ""
 msgid ""
 "“%(title)s” is skipped: it failed last time, and nothing in it changed "
 "since."
+msgstr ""
+
+#, python-format
+msgid "“%(title)s” needed no change."
 msgstr ""
 
 #, python-format

@@ -31,7 +31,7 @@
 <p>{{ _("Pages, in the order they’re written:") }}</p>
 <ol class="estimate-pages">
 {% for page in estimate.pages %}
-  <li>“{{ page.title }}”: {{ why(page) }}</li>
+  <li>“{{ page.title }}”{% if page.revise %} ({{ _("revised") }}){% endif %}: {{ why(page) }}</li>
 {% endfor %}
 </ol>
 {% endif %}

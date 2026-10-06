@@ -158,3 +158,14 @@ async def test_an_answer_is_buffered_until_codex_finishes(source: Path, tmp_path
     assert [chunk.text for chunk in chunks] == ["Hello there."]
     assert chunks[-1].done and chunks[-1].usage.output_tokens == 80
     assert "--output-schema" not in program.record["argv"]
+
+
+@pytest.mark.anyio
+async def test_a_revision_returns_its_sections(source: Path, tmp_path: Path) -> None:
+    from dataclasses import replace
+
+    sections = {"sections": [{"heading": "## A", "body": "New."}], "checks": []}
+    program = make_program(tmp_path / "bin", "fake-codex", [message(json.dumps(sections)), turn()])
+    request = replace(page_request(), current_body="## A\n\nOld.", changes=["added module module:app/b.py"])
+    draft = await adapter(source, program).write_page(request)
+    assert draft.sections == [{"heading": "## A", "body": "New."}]

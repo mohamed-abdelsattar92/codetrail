@@ -90,6 +90,7 @@ class PageToWrite:
     title: str
     reason: str
     changed: int = 0
+    revise: bool = False  # revised (design 6.3): only the sections the changes affect are rewritten
 
 
 @dataclass(frozen=True)
@@ -131,7 +132,8 @@ class UpdateEstimate:
             "expected_usd": self.expected_usd, "maximum_usd": self.maximum_usd,
             "budget_usd": self.budget_usd, "budget_tokens": self.budget_tokens,
             "sign_ins": self.sign_ins,
-            "pages": [{"title": page.title, "reason": page.reason, "changed": page.changed} for page in self.pages],
+            "pages": [{"title": page.title, "reason": page.reason, "changed": page.changed, "revise": page.revise}
+                      for page in self.pages],
             "skipped": self.skipped,
             "plan_usage": [{"provider": reading.provider, "window": reading.window,
                             "utilization": reading.utilization, "resets_at": reading.resets_at,
@@ -209,7 +211,7 @@ def describe(estimate: UpdateEstimate) -> list[str]:
                  f"or {tokens_text(estimate.budget_tokens)} tokens.")  # fmt: skip
     if estimate.pages:
         lines.append("Pages, in the order they're written:")
-        lines += [f"  {page.title}: {_why(page)}" for page in estimate.pages]
+        lines += [f"  {page.title}{' (revised)' if page.revise else ''}: {_why(page)}" for page in estimate.pages]
     if estimate.skipped:
         lines.append("Skipped, since they failed last time and nothing in them changed: " + ", ".join(estimate.skipped))
     for provider, method in estimate.sign_ins.items():
