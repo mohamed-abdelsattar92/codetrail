@@ -44,14 +44,13 @@ from codetrail.assistant.prompts import (
     GRADE_RULES,
     GRADE_SCHEMA,
     GROUND_RULES,
-    PAGE_SCHEMA,
     PAGE_SYNTAX,
     PLAN_SCHEMA,
     answer_prompt,
     digest_prompt,
     grade_prompt,
     neutralize,
-    page_prompt,
+    page_task,
     plan_prompt,
 )
 from codetrail.config import CodexSettings, GenerationSettings
@@ -98,10 +97,10 @@ class CodexAssistant:
         return PlanDraft(list(data.get("pages", [])), list(data.get("paths", [])), outcome.files_read, 0.0, usage)
 
     async def write_page(self, request: PageRequest) -> PageDraft:
-        data, outcome, usage = await self._run(
-            "write", GROUND_RULES + "\n" + PAGE_SYNTAX, page_prompt(request), PAGE_SCHEMA
-        )
-        return PageDraft(str(data.get("body", "")), list(data.get("checks", [])), outcome.files_read, 0.0, usage)
+        prompt, schema = page_task(request)  # a new page, or a revision's sections
+        data, outcome, usage = await self._run("write", GROUND_RULES + "\n" + PAGE_SYNTAX, prompt, schema)
+        return PageDraft(str(data.get("body", "")), list(data.get("checks", [])), outcome.files_read, 0.0, usage,
+                         list(data.get("sections", [])))  # fmt: skip
 
     async def write_digest(self, request: DigestRequest) -> DigestDraft:
         data, outcome, usage = await self._run(

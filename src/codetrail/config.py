@@ -191,6 +191,7 @@ class EstimateSettings(Settings):
     history_size: int = Field(default=20, ge=3)
     plan: TokenGuess = TokenGuess(input=60_000, output=8_000)
     write: TokenGuess = TokenGuess(input=120_000, output=6_000)
+    revise: TokenGuess = TokenGuess(input=40_000, output=2_000)
     digest: TokenGuess = TokenGuess(input=40_000, output=3_000)
     answer: TokenGuess = TokenGuess(input=30_000, output=1_500)
     grade: TokenGuess = TokenGuess(input=4_000, output=500)
@@ -234,6 +235,9 @@ class GenerationSettings(Settings):
     max_budget_usd_per_update: float = Field(default=10.0, gt=0)
     # Counts every provider, including models with no configured price (design section 15.3).
     max_tokens_per_update: int = Field(default=5_000_000, gt=0)
+    # An affected page with at most this many fact and link changes in its scope since it was written is revised:
+    # only the sections the changes affect are rewritten (design section 6.3). 0 writes every page whole.
+    revise_max_changes: int = Field(default=20, ge=0)
 
 
 PROVIDERS = ("claude_code", "codex", "local")

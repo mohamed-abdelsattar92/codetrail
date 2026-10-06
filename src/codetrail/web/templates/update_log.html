@@ -13,13 +13,15 @@
 {% elif step.step == "planned" %}
 <li class="update-line done">{% trans count=step.pages %}Planned one new page.{% pluralize %}Planned {{ count }} new pages.{% endtrans %}{{ used(step) }}</li>
 {% elif step.step == "page" %}
-<li class="update-line">{% if step.attempt == 1 %}{% trans title=step.title %}Writing “{{ title }}”…{% endtrans %}{% else %}{% trans title=step.title %}Writing “{{ title }}” again, with its problems…{% endtrans %}{% endif %}</li>
+<li class="update-line">{% if step.attempt != 1 and step.revise %}{% trans title=step.title %}Revising “{{ title }}” again, with its problems…{% endtrans %}{% elif step.attempt != 1 %}{% trans title=step.title %}Writing “{{ title }}” again, with its problems…{% endtrans %}{% elif step.revise and step.reason == "update" %}{% trans title=step.title, count=step.changed %}Revising “{{ title }}” (one of its facts changed in this update)…{% pluralize count %}Revising “{{ title }}” ({{ count }} of its facts changed in this update)…{% endtrans %}{% elif step.revise %}{% trans title=step.title %}Revising “{{ title }}” (catching up: its facts changed after it was written)…{% endtrans %}{% elif step.reason == "update" %}{% trans title=step.title, count=step.changed %}Writing “{{ title }}” (one of its facts changed in this update)…{% pluralize count %}Writing “{{ title }}” ({{ count }} of its facts changed in this update)…{% endtrans %}{% elif step.reason == "new" %}{% trans title=step.title %}Writing “{{ title }}” (a new page)…{% endtrans %}{% elif step.reason == "outline" %}{% trans title=step.title %}Writing “{{ title }}” (its outline entry changed)…{% endtrans %}{% elif step.reason == "catching_up" %}{% trans title=step.title %}Writing “{{ title }}” (catching up: its facts changed after it was written)…{% endtrans %}{% else %}{% trans title=step.title %}Writing “{{ title }}”…{% endtrans %}{% endif %}</li>
 {% elif step.step == "page_written" %}
-<li class="update-line done">{% trans title=step.title %}Wrote “{{ title }}”.{% endtrans %}{{ used(step) }}</li>
+<li class="update-line done">{% if step.unchanged %}{% trans title=step.title %}“{{ title }}” needed no change.{% endtrans %}{% elif step.revise %}{% trans title=step.title %}Revised “{{ title }}”.{% endtrans %}{% else %}{% trans title=step.title %}Wrote “{{ title }}”.{% endtrans %}{% endif %}{{ used(step) }}</li>
 {% elif step.step == "page_failed" %}
 <li class="update-line failed">{% trans title=step.title, reason=step.reason %}“{{ title }}” wasn’t written: {{ reason }}{% endtrans %}</li>
 {% elif step.step == "page_later" %}
 <li class="update-line">{% trans title=step.title %}“{{ title }}” waits for the next update: the budget is spent.{% endtrans %}</li>
+{% elif step.step == "page_skipped" %}
+<li class="update-line">{% trans title=step.title %}“{{ title }}” is skipped: it failed last time, and nothing in it changed since.{% endtrans %} {% trans name=target %}To write it anyway: <code>codetrail update {{ name }} --retry-failed</code>{% endtrans %}</li>
 {% elif step.step == "digest" %}
 <li class="update-line">{{ _("Writing the digest…") }}</li>
 {% elif step.step == "committed" %}

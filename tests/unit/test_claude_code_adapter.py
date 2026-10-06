@@ -214,3 +214,16 @@ def test_the_program_must_resolve_to_an_absolute_path(source: Path) -> None:
         ClaudeCodeAssistant(
             source, {}, ClaudeCodeSettings(command="bin/claude"), GenerationSettings(), environ={"PATH": "/usr/bin"}
         )
+
+
+@pytest.mark.anyio
+async def test_a_revision_asks_for_sections_and_returns_them(source: Path, tmp_path: Path) -> None:
+    from dataclasses import replace
+
+    sections = {"sections": [{"heading": "## How it works", "body": "New."}], "checks": []}
+    program = make_program(tmp_path / "bin", "fake-claude", [result(sections)])
+    request = replace(page_request(), current_body="## How it works\n\nOld.", changes=["added module module:app/b.py"])
+    draft = await adapter(source, program).write_page(request)
+    argv = program.record["argv"]
+    assert json.loads(argv[argv.index("--json-schema") + 1])["required"] == ["sections", "checks"]
+    assert draft.sections == [{"heading": "## How it works", "body": "New."}] and draft.body == ""

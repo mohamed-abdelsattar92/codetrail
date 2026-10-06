@@ -102,6 +102,7 @@ paths = ["docs/adr/*.md"]
 max_pages_per_update = 20
 concurrency = 2
 max_turns = 30
+revise_max_changes = 20          # revise a page with at most this many changes in its scope; 0 rewrites every page
 
 [models]
 plan = "claude-opus-5-5"
@@ -181,6 +182,7 @@ kind: concept
 title: OpenAPI contract first
 generated: true
 built_at: 3f9c2e1                     # snapshot commit
+snapshot: 12                          # the snapshot it was written at: a revision is told what changed since
 facts:                                # facts the page explains directly
   - {id: "decision:ADR-0007", hash: "a41f…"}
 scope:                                # everything else it covers
@@ -259,10 +261,12 @@ guide/
 ```
 
 ### 6.2 Outline
-On the first update, Claude receives a rolled-up view of the facts, the ADR list and the READMEs, and proposes the outline: every page's id, kind, title, scope and key facts, and the paths. Codetrail validates it (every fact id and scope must exist; ids are unique) and writes `outline.yaml`. The founder may edit it; Claude only adds to it. On later updates, facts in no page's scope go back to Claude, which extends a page's scope or proposes new pages.
+On the first update, Claude receives a rolled-up view of the facts, the ADR list and the READMEs, and proposes the outline: every page's id, kind, title, scope and key facts, and the paths. Codetrail validates it (every fact id and scope must exist; ids are unique; a title can't hold control characters, which a terminal would act on when the estimate lists it) and writes `outline.yaml`. The founder may edit it; Claude only adds to it. On later updates, facts in no page's scope go back to Claude, which extends a page's scope or proposes new pages.
 
 ### 6.3 Writing a page
 Claude receives the page's outline entry, the facts in its scope, the related ADR metadata, and the filtered git log for the scope (subjects and *Why* sections). It may use Read, Grep and Glob over `source/` and nothing else. The tool guard logs each file Claude opens with Read; those paths and their blob hashes become the page's `files`. Grep and Glob results are not recorded. The page and its checks come back in one call.
+
+**Revising instead of rewriting.** An affected page that exists, whose outline entry hasn't changed, and whose scope has at most `generation.revise_max_changes` changes (facts and links added, changed or removed, 20 by default) since the snapshot it was written at is revised. The assistant gets the page as it stands, its checks, those changes (from the facts' validity ranges, so a page that waited gets everything it missed) and the scope's recent history, and returns only the sections to replace, each by its heading line, plus new checks only if the old ones no longer fit. Codetrail puts the sections into the page (a section runs to the next heading of the same or a higher level; a heading the page doesn't have is added at the end; an empty text removes the section), keeps the files it didn't read again at the version the page was written from (so their "sources changed" flag stays true), and validates the whole page as usual; the retry sees its own revision and the problems, except a revision the secret scan flagged, which is retried from the page as it stood, with the problems only. Headings are matched with `@` restored, since the prompt shows it fullwidth. No sections means nothing was wrong: the page's front matter is renewed for the cost of that call, so it isn't affected again. Diagrams are drawn from current facts at view time, so the prompt says a changed import or dependency needs no edit unless the text states something now wrong. A new page, a changed outline entry, more changes than the limit, or a page from before pages recorded their snapshot (the earliest snapshot at its commit is used, which can only show more changes) is written whole. Revisions are recorded and estimated as their own kind, `revise`, with the `write` model.
 
 ### 6.4 Page syntax
 Pages are CommonMark with three additions, which Codetrail processes before rendering:
@@ -285,13 +289,13 @@ A page is saved only if:
 - every fact link names a current fact, and every diagram placeholder a known diagram and an existing scope;
 - the front matter and checks are complete (section 8.2).
 
-On failure Claude retries once with the errors. If it fails again, the previous page stays, the failure is listed in the update summary, and the page remains affected.
+On failure Claude retries once with the errors. If it fails again, the previous page stays, the failure is listed in the update summary, and the page remains affected. It is also remembered (the `page_failures` table) with the hash of its scope at the time: later updates skip it, and say so, until something in its scope changes or the reader runs `codetrail update <target> --retry-failed`. A provider error (a timeout, a limit) isn't remembered, since it says nothing about the page.
 
 ### 6.6 Digests
 Each update writes one digest from the filtered log and diffs and the fact diff: what changed, why (documented from commit *Why* sections and ADRs where they exist, inferred otherwise), and which pages changed, with links. Digests go through the same validation.
 
 ### 6.7 Budget and order
-Affected pages are ranked by how many of their facts changed, with pages the founder has learned first. At most `max_pages_per_update` are written, `concurrency` at a time, each within `max_turns`. The rest stay affected for the next update.
+Affected pages are written in this order: pages with facts in their scope that this update added, changed or removed; then pages the founder has learned; then new pages; then the backlog, pages whose facts changed in an earlier update that didn't rewrite them (because of the cap, or because a newer Codetrail extracted more of the code). Within each group, the page with the most changed facts goes first. At most `max_pages_per_update` are written, `concurrency` at a time, each within `max_turns`. The rest stay affected for the next update. The estimate counts pages with the same selection.
 
 ### 6.8 All or nothing
 Facts are recorded first: they are true whatever happens to the guide. Pages are written into the guide's working tree and committed once, at the end of the update. If the update is interrupted, crashes or loses Claude's sign-in, the uncommitted changes are discarded; pages not written stay affected, because that is derived from their front matter, and the digest covers the commits since the last digest's `to_commit`, not since the last snapshot. An update refuses to start while the guide has uncommitted changes. `codetrail update --facts-only` refreshes the facts without calling Claude.
@@ -458,6 +462,7 @@ max_read_bytes = 200_000
 history_size = 20
 plan = { input = 60_000, output = 8_000 }
 write = { input = 120_000, output = 6_000 }
+revise = { input = 40_000, output = 2_000 }
 digest = { input = 40_000, output = 3_000 }
 answer = { input = 30_000, output = 1_500 }
 grade = { input = 4_000, output = 500 }
@@ -613,9 +618,9 @@ Every adapter streams answers as text, returns structured drafts checked against
 ### 15.4 Estimates before paid work
 An estimate is shown before every action that calls a paid provider. It never calls the assistant itself.
 - **Tokens per call** are the median of the last `estimates.history_size` recorded calls of the same kind, provider and model, once there are three; before that, the starting values in `[estimates]`.
-- **An update** is estimated before it starts: the plan call (when the outline is new or facts are uncovered), the pages to rewrite (the affected pages, at most `max_pages_per_update`; on the first update, the maximum), and the digest (when commits came in). It is given as expected and at most, in tokens and in dollars at the configured prices, with each call's provider and model, the sign-in in use, and the latest plan usage.
+- **An update** is estimated before it starts: the plan call (when the outline is new or facts are uncovered), the pages to rewrite (the affected pages, at most `max_pages_per_update`; on the first update, the maximum), and the digest (when commits came in). It is given as expected and at most, in tokens and in dollars at the configured prices, with each call's provider and model, the sign-in in use, and the latest plan usage. It lists the pages it expects to write, in order, each with why: a new page, its outline entry changed, how many of its facts changed in this update, or catching up on facts that changed after it was written (section 6.7); and the pages skipped because they failed before (section 6.5).
 - **An update estimates after its free part.** `codetrail update` and the page's Update button both refresh the sources and facts first, which calls nothing; the estimate then counts the paid calls from the fresh facts. The page's update waits with its estimate (`GET /update/status` carries it, rendered on the server for the dialog) until the reader sends the estimate's id with `POST /update/confirm`, or `POST /update/cancel`; the id works once, and after `server.estimate_ttl_seconds` the update stops, having spent nothing. The id records the reader's consent to that estimate, and is defence in depth against other websites, which can't read it. It doesn't stop another local program holding the session cookie (section 7.4); the update budget, the cooldown and one update at a time bound that.
-- **The update panel shows each step as it happens.** The page's update opens a panel in the Ask panel's place, above it. Codetrail reports its own steps, the same for every provider: refreshing the facts and how many changed, planning the outline, each page started (and retried with its problems), written (with its provider, model, tokens and counted cost), not written (with the reason) or left for the next update, the digest, and the commit. `GET /update/status?after=N` returns the steps numbered after N, rendered on the server in the reader's language and autoescaped, since page titles and reasons come from the assistant and the repository; the server keeps the last `server.update_log_lines`, and clears them when an update starts. When the update is done the panel says so and closes, and the page reloads; when it fails or is cancelled, the panel stays open with the reason. The panel can be hidden while the update runs, and the Update button shows it again; a page opened during an update shows it with its steps so far. The model's own activity (the files it reads, its text) isn't shown yet.
+- **The update panel shows each step as it happens.** The page's update opens a panel in the Ask panel's place, above it. Codetrail reports its own steps, the same for every provider: refreshing the facts and how many changed, planning the outline, each page started with why it's written (and retried with its problems), skipped because it failed before, written (with its provider, model, tokens and counted cost), not written (with the reason) or left for the next update, the digest, and the commit. `GET /update/status?after=N` returns the steps numbered after N, rendered on the server in the reader's language and autoescaped, since page titles and reasons come from the assistant and the repository; the server keeps the last `server.update_log_lines`, and clears them when an update starts. When the update is done the panel says so and closes, and the page reloads; when it fails or is cancelled, the panel stays open with the reason. The panel can be hidden while the update runs, and the Update button shows it again; a page opened during an update shows it with its steps so far. The model's own activity (the files it reads, its text) isn't shown yet.
 - **Questions and graded checks** show their estimate on the button, such as "Ask · ~15k tokens · ≤ $0.25", without an extra click; each has its hard limit (`bridge.max_budget_usd`, `learn.max_budget_usd`).
 - **`codetrail update`** prints the same estimate and asks before going on; `--yes` skips the question; without a terminal and without `--yes` it refuses. `--facts-only` calls no provider and shows no estimate.
 - After each action, its actual tokens and cost are shown next to the estimate.

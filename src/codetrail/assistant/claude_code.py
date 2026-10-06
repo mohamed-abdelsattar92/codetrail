@@ -46,14 +46,13 @@ from codetrail.assistant.prompts import (
     GRADE_RULES,
     GRADE_SCHEMA,
     GROUND_RULES,
-    PAGE_SCHEMA,
     PAGE_SYNTAX,
     PLAN_SCHEMA,
     answer_prompt,
     digest_prompt,
     grade_prompt,
     neutralize,
-    page_prompt,
+    page_task,
     plan_prompt,
 )
 from codetrail.config import ClaudeCodeSettings, GenerationSettings
@@ -98,10 +97,10 @@ class ClaudeCodeAssistant:
         return PlanDraft(list(data.get("pages", [])), list(data.get("paths", [])), files, _cost(usage), usage)
 
     async def write_page(self, request: PageRequest) -> PageDraft:
-        data, files, usage = await self._run(
-            "write", page_prompt(request), PAGE_SCHEMA, GROUND_RULES + "\n" + PAGE_SYNTAX
-        )
-        return PageDraft(str(data.get("body", "")), list(data.get("checks", [])), files, _cost(usage), usage)
+        prompt, schema = page_task(request)  # a new page, or a revision's sections
+        data, files, usage = await self._run("write", prompt, schema, GROUND_RULES + "\n" + PAGE_SYNTAX)
+        return PageDraft(str(data.get("body", "")), list(data.get("checks", [])), files, _cost(usage), usage,
+                         list(data.get("sections", [])))  # fmt: skip
 
     async def write_digest(self, request: DigestRequest) -> DigestDraft:
         data, files, usage = await self._run(

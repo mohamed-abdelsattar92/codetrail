@@ -435,6 +435,9 @@ msgstr ""
 msgid "Pages"
 msgstr ""
 
+msgid "Pages, in the order they’re written:"
+msgstr ""
+
 msgid "Part"
 msgstr ""
 
@@ -500,6 +503,26 @@ msgid "Resize the sidebar"
 msgstr ""
 
 msgid "Results"
+msgstr ""
+
+#, python-format
+msgid "Revised “%(title)s”."
+msgstr ""
+
+#, python-format
+msgid ""
+"Revising “%(title)s” (catching up: its facts changed after it was "
+"written)…"
+msgstr ""
+
+#, python-format
+msgid "Revising “%(title)s” (one of its facts changed in this update)…"
+msgid_plural "Revising “%(title)s” (%(count)s of its facts changed in this update)…"
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
+msgid "Revising “%(title)s” again, with its problems…"
 msgstr ""
 
 msgid "Run your first update"
@@ -588,6 +611,9 @@ msgstr ""
 msgid "Skip to content"
 msgstr ""
 
+msgid "Skipped, since they failed last time and nothing in them changed:"
+msgstr ""
+
 msgid "Source"
 msgstr ""
 
@@ -660,6 +686,10 @@ msgstr ""
 msgid "This file isn't text, or is too large to show."
 msgstr ""
 
+#, python-format
+msgid "To write it anyway: <code>codetrail update %(name)s --retry-failed</code>"
+msgstr ""
+
 msgid "Tokens each"
 msgstr ""
 
@@ -727,6 +757,24 @@ msgid "Writing the digest…"
 msgstr ""
 
 #, python-format
+msgid "Writing “%(title)s” (a new page)…"
+msgstr ""
+
+#, python-format
+msgid "Writing “%(title)s” (catching up: its facts changed after it was written)…"
+msgstr ""
+
+#, python-format
+msgid "Writing “%(title)s” (its outline entry changed)…"
+msgstr ""
+
+#, python-format
+msgid "Writing “%(title)s” (one of its facts changed in this update)…"
+msgid_plural "Writing “%(title)s” (%(count)s of its facts changed in this update)…"
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
 msgid "Writing “%(title)s” again, with its problems…"
 msgstr ""
 
@@ -762,6 +810,9 @@ msgstr ""
 msgid "Your system"
 msgstr ""
 
+msgid "a new page"
+msgstr ""
+
 msgid "a starting guess"
 msgstr ""
 
@@ -769,6 +820,9 @@ msgid "billed to that account."
 msgstr ""
 
 msgid "calls through"
+msgstr ""
+
+msgid "catching up, since its facts changed after it was written"
 msgstr ""
 
 msgid "changed"
@@ -792,6 +846,9 @@ msgstr ""
 msgid "is deployed on"
 msgstr ""
 
+msgid "its outline entry changed"
+msgstr ""
+
 msgctxt "text direction"
 msgid "ltr"
 msgstr ""
@@ -805,7 +862,16 @@ msgstr ""
 msgid "no price configured"
 msgstr ""
 
+#, python-format
+msgid "one of its facts changed in this update"
+msgid_plural "%(count)s of its facts changed in this update"
+msgstr[0] ""
+msgstr[1] ""
+
 msgid "pages, by passing their checks"
+msgstr ""
+
+msgid "revised"
 msgstr ""
 
 msgid "source"
@@ -827,6 +893,16 @@ msgid "tokens"
 msgstr ""
 
 msgid "unread"
+msgstr ""
+
+#, python-format
+msgid ""
+"“%(title)s” is skipped: it failed last time, and nothing in it changed "
+"since."
+msgstr ""
+
+#, python-format
+msgid "“%(title)s” needed no change."
 msgstr ""
 
 #, python-format

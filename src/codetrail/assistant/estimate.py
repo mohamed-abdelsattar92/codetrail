@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import sqlite3
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from statistics import median
 
 from codetrail.assistant import Usage
@@ -83,6 +83,17 @@ class EstimateLine:
 
 
 @dataclass(frozen=True)
+class PageToWrite:
+    """A page the update expects to write, and why: "new", "outline" (its outline entry changed), "update" (`changed`
+    of its facts changed in this update) or "catching_up" (they changed in an earlier update)."""
+
+    title: str
+    reason: str
+    changed: int = 0
+    revise: bool = False  # revised (design 6.3): only the sections the changes affect are rewritten
+
+
+@dataclass(frozen=True)
 class UpdateEstimate:
     """What an update's paid calls are expected to use, and at most, before it starts (design section 15.4)."""
 
@@ -91,6 +102,8 @@ class UpdateEstimate:
     plan_usage: list[PlanUsageReading]
     budget_usd: float  # the update's own limits: generation.max_budget_usd_per_update
     budget_tokens: int  # and generation.max_tokens_per_update, which counts every provider
+    pages: list[PageToWrite] = field(default_factory=list)  # in the order they're written; empty before an outline
+    skipped: list[str] = field(default_factory=list)  # titles of pages that failed before and haven't changed
 
     @property
     def expected_tokens(self) -> int:
@@ -119,6 +132,9 @@ class UpdateEstimate:
             "expected_usd": self.expected_usd, "maximum_usd": self.maximum_usd,
             "budget_usd": self.budget_usd, "budget_tokens": self.budget_tokens,
             "sign_ins": self.sign_ins,
+            "pages": [{"title": page.title, "reason": page.reason, "changed": page.changed, "revise": page.revise}
+                      for page in self.pages],
+            "skipped": self.skipped,
             "plan_usage": [{"provider": reading.provider, "window": reading.window,
                             "utilization": reading.utilization, "resets_at": reading.resets_at,
                             "observed_at": reading.observed_at} for reading in self.plan_usage],
@@ -133,13 +149,24 @@ def estimate_update(
     sign_ins: Mapping[str, str],
     budget_usd: float,
     budget_tokens: int,
+    pages: list[PageToWrite] | None = None,
+    skipped: list[str] | None = None,
 ) -> UpdateEstimate:
     lines = [
         EstimateLine(estimate_call(connection, kind, provider, model, settings, prices), expected, maximum)
         for kind, provider, model, expected, maximum in calls
         if maximum > 0
     ]
-    return UpdateEstimate(lines, dict(sign_ins), plan_usage(connection), budget_usd, budget_tokens)
+    return UpdateEstimate(lines, dict(sign_ins), plan_usage(connection), budget_usd, budget_tokens, pages or [],
+                          skipped or [])  # fmt: skip
+
+
+def _why(page: PageToWrite) -> str:
+    if page.reason == "update":
+        return f"{page.changed} of its facts changed in this update"
+    reasons = {"new": "a new page", "outline": "its outline entry changed",
+               "catching_up": "catching up, since its facts changed after it was written"}  # fmt: skip
+    return reasons.get(page.reason, page.reason)
 
 
 def _dollars(lines: list[EstimateLine], expected: bool) -> float | None:
@@ -182,6 +209,11 @@ def describe(estimate: UpdateEstimate) -> list[str]:
                  f"~{tokens_text(estimate.maximum_tokens)}){money} at API prices. "
                  f"The update stops at its budget of ${estimate.budget_usd:.2f} "
                  f"or {tokens_text(estimate.budget_tokens)} tokens.")  # fmt: skip
+    if estimate.pages:
+        lines.append("Pages, in the order they're written:")
+        lines += [f"  {page.title}{' (revised)' if page.revise else ''}: {_why(page)}" for page in estimate.pages]
+    if estimate.skipped:
+        lines.append("Skipped, since they failed last time and nothing in them changed: " + ", ".join(estimate.skipped))
     for provider, method in estimate.sign_ins.items():
         if "subscription" in method.lower():
             lines.append(f"{provider}: {method}, so no charge; the work counts against your plan's usage limits.")

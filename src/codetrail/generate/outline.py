@@ -6,6 +6,7 @@ files, and fact ids that exist. The founder may edit `outline.yaml`; Claude only
 
 from __future__ import annotations
 
+import unicodedata
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import asdict, dataclass, field
 from typing import Any
@@ -16,6 +17,9 @@ from codetrail.guide import PAGE_ID
 from codetrail.repo.source import SourceManifest
 
 KIND_FOLDERS = {"area": "areas", "concept": "concepts"}
+
+
+CONTROL_CATEGORIES = ("Cc", "Cf", "Cs", "Zl", "Zp")  # characters a terminal acts on, or that hide text
 
 
 @dataclass(frozen=True)
@@ -67,7 +71,11 @@ def validate_outline(
         if len(known) != len(facts):
             problems.append(f"{page_id}: dropped facts that don't exist: {sorted(set(facts) - set(known))}.")
         scope_kinds = [str(kind) for kind in item.get("scope_kinds", []) if str(kind) in kinds]
-        entries.append(OutlineEntry(page_id, kind, str(item.get("title", page_id)).strip(), scope, scope_kinds, known))
+        title = str(item.get("title", page_id)).strip()
+        if any(unicodedata.category(character) in CONTROL_CATEGORIES for character in title):
+            problems.append(f"{page_id}: the title holds a control character.")  # a terminal would act on it
+            continue
+        entries.append(OutlineEntry(page_id, kind, title, scope, scope_kinds, known))
         seen.add(page_id)
     return entries, problems
 

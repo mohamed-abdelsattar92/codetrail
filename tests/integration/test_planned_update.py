@@ -11,7 +11,7 @@ from codetrail.assistant.fake import FakeAssistant
 from codetrail.config import Paths
 from codetrail.errors import CodetrailError
 from codetrail.update import run_update
-from tests.fixtures.repos import add_commit
+from tests.fixtures.repos import Commit, add_commit
 from tests.integration.test_generation import PLAN, good_page, guide
 from tests.integration.test_generation import paths as paths  # the fixture
 
@@ -50,7 +50,9 @@ def test_a_later_update_estimates_only_whats_affected(paths: Paths, tmp_path: Pa
     seen.clear()
     claude = FakeAssistant(page_writer=good_page)
     run_update(paths, "t", claude=claude, confirm=recorder(seen, True))
-    assert kinds(seen[0]) == {"write": (1, 2), "digest": (1, 1)}
+    assert kinds(seen[0]) == {"revise": (1, 2), "digest": (1, 1)}  # one new module: revised, not rewritten
+    [page] = seen[0].pages
+    assert (page.title, page.reason, page.revise) == ("The API", "update", True) and page.changed > 0
 
 
 def test_an_update_with_a_real_assistant_needs_a_confirmation(paths: Paths) -> None:
@@ -69,3 +71,15 @@ def test_the_token_budget_stops_an_update_whatever_the_price(paths: Paths) -> No
     result = run_update(paths, "t", claude=FakeAssistant(plans=[PLAN], page_writer=unpriced_page))
     assert result.generation is not None
     assert len(result.generation.written) == 1 and result.generation.left_for_later
+
+
+def test_a_plan_call_keeps_the_whole_page_cap_in_the_maximum(paths: Paths, tmp_path: Path) -> None:
+    run_update(paths, "t", claude=FakeAssistant(plans=[PLAN], page_writer=good_page), confirm=lambda estimate: True)
+    added: Commit = {"services/api/app/cache.py": "from app import db\n",
+                     "services/web/pyproject.toml": '[project]\nname = "web"\n'}  # fmt: skip
+    add_commit(tmp_path / "target", added, "feat: a cache, and a web service no page covers")
+    seen: list[UpdateEstimate] = []
+    run_update(paths, "t", claude=FakeAssistant(), confirm=recorder(seen, False))
+    estimate = kinds(seen[0])
+    assert estimate["plan"] == (1, 1) and estimate["revise"] == (1, 2)
+    assert estimate["write"][1] == 20 * 2  # new pages can push the revision out and take every slot

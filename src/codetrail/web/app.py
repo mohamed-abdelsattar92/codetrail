@@ -412,7 +412,8 @@ def create_app(
         if "estimate" in status:  # rendered here, in the reader's language and autoescaped, for the page's dialog
             status["estimate_html"] = environment.get_template("estimate.html").render(estimate=status["estimate"])
         steps, status["next"] = job.steps(after)
-        status["log_html"] = environment.get_template("update_log.html").render(steps=steps) if steps else ""
+        log = environment.get_template("update_log.html")
+        status["log_html"] = log.render(steps=steps, target=name) if steps else ""
         return JSONResponse(status)
 
     @app.post("/update/confirm")

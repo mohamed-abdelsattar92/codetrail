@@ -119,3 +119,9 @@ def test_stored_paths_must_live_under_paths() -> None:
     stored = {"paths": [{"id": "areas/api", "title": "x", "goal": "", "steps": ["areas/api"]},
                         {"id": "paths/ok", "title": "y", "goal": "", "steps": ["areas/api"]}]}  # fmt: skip
     assert [path.id for path in outline_paths(stored, {"areas/api"})] == ["paths/ok"]
+
+
+def test_a_title_a_terminal_would_act_on_is_dropped(store: FactStore, manifest: SourceManifest) -> None:
+    raw = [{"id": "areas/api", "kind": "area", "title": "The API\x1b[2A$0.01", "scope_paths": ["services/api"]}]
+    entries, problems = validate_outline(raw, store, manifest)
+    assert entries == [] and "control character" in problems[0] and "\x1b" not in problems[0]
