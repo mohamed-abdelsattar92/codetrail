@@ -529,7 +529,7 @@ Test first, always (decision 12). Suites in `tests/unit`, `tests/integration`, `
 - **End to end:** a fixture repository, `update` with the fake Claude, then the page through the test client: the behind signal, a page with its diagram, a graded check, and a source view refusing an excluded file.
 - **Browser tests** came with the page's redesign, when its JavaScript grew: Playwright for Python against `serve` with the fake assistant, and an axe-core scan of each page type (section 16.7, ADR 0008).
 
-Recipes: `just test-quick` (unit and API, run by the pre-push hook), `just test` (everything but live and browser), `just test-browser`, `just test-live`. `just ci` adds the browser tests, ruff, mypy strict and the repository checks.
+Recipes: `just test-quick` (unit, API and the hooks' tests, in parallel, run by the pre-push hook; ADR 0011), `just test` (everything but live and browser), `just test-browser`, `just test-live`. `just ci` adds the browser tests, ruff, mypy strict and the repository checks.
 
 ## 12. Dependencies
 
@@ -545,6 +545,7 @@ Recipes: `just test-quick` (unit and API, run by the pre-push hook), `just test`
 | Babel (development only) | Extracting and compiling catalogs | ADR 0005 |
 | Inter, bundled as font files | The page's typeface | ADR 0007 |
 | pytest-playwright with Chromium, and axe-core vendored for tests (development only) | Browser and accessibility tests | ADR 0008 |
+| pytest-xdist (development only) | The pre-push hook's quick tests, in parallel | ADR 0011 (proposed) |
 | tree-sitter-typescript, tree-sitter-javascript | The `typescript` extractor's parsers | ADR 0009 |
 
 ADR 0003 records a storage decision and adds no dependency.
