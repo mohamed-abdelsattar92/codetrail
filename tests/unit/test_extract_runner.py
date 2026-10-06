@@ -3,7 +3,10 @@
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 
-from codetrail.extract import Extractor, FileFacts, Reference, Resolution, run_extractors
+import pytest
+import yaml
+
+from codetrail.extract import Extractor, FileFacts, Reference, Resolution, load_yaml_without_aliases, run_extractors
 from codetrail.facts import Entity, EntityKind, Relation, RelationKind, Source
 
 
@@ -178,3 +181,14 @@ def test_derived_facts_get_the_same_checks() -> None:
     assert len(kept[0].attributes["name"]) == 300 and len(kept[0].attributes["list"][0]) == 300
     assert related == []  # its target was dropped, so the relation goes too
     assert len(warnings) == 2 and not any("zzz" in warning for warning in warnings)
+
+
+def test_yaml_is_read_in_one_pass_without_aliases() -> None:
+    root, data = load_yaml_without_aliases("a: [1, 2]\nb: text\n")
+    assert data == {"a": [1, 2], "b": "text"}
+    assert isinstance(root, yaml.MappingNode) and root.value[1][0].start_mark.line == 1
+    assert load_yaml_without_aliases("") == (None, None)
+    with pytest.raises(yaml.YAMLError):
+        load_yaml_without_aliases("a: &shared [1]\nb: *shared\n")
+    with pytest.raises(yaml.YAMLError):
+        load_yaml_without_aliases("!!python/object:os.system x\n")

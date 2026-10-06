@@ -14,6 +14,8 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path, PurePosixPath
 from typing import Any, Protocol
 
+import yaml
+
 from codetrail.facts import Entity, Relation, RelationKind, Source
 
 
@@ -75,6 +77,28 @@ def without_credentials(text: str) -> str:
     if "://" not in text and "@" in authority and ":" in authority and not text.startswith(LOCAL_SPECIFIERS):
         text = text[authority.rindex("@") + 1 :]
     return text
+
+
+class _NoAliases(yaml.SafeLoader):
+    """safe_load, refusing YAML aliases, so a small file can't expand into an enormous one (a billion-laughs file)."""
+
+    def compose_node(self, parent: Any, index: Any) -> Any:
+        if self.check_event(yaml.events.AliasEvent):
+            raise yaml.YAMLError("aliases are not read")
+        return super().compose_node(parent, index)
+
+
+def load_yaml_without_aliases(text: str) -> tuple[yaml.Node | None, Any]:
+    """A target's YAML document, read in one pass: its node tree (for line numbers) and its data.
+
+    Raises yaml.YAMLError on an alias or any tag safe_load refuses; the runner turns that into a warning.
+    """
+    loader = _NoAliases(text)
+    try:
+        root = loader.get_single_node()
+        return root, loader.construct_document(root) if root is not None else None
+    finally:
+        loader.dispose()
 
 
 DEFAULT_MAX_ATTRIBUTE_CHARS = 300

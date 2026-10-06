@@ -12,10 +12,9 @@ from collections.abc import Iterator, Mapping, Sequence
 from pathlib import PurePosixPath
 from typing import Any
 
-import yaml
 from pathspec import GitIgnoreSpec
 
-from codetrail.extract import FileFacts, Reference, Resolution
+from codetrail.extract import FileFacts, Reference, Resolution, load_yaml_without_aliases
 from codetrail.facts import Entity, EntityKind, Relation, RelationKind, Source
 
 METHODS = ("get", "put", "post", "delete", "patch", "head", "options", "trace")
@@ -43,12 +42,6 @@ def _text(value: Any) -> str:
     return value if isinstance(value, str) else ""
 
 
-def _load_yaml(text: str) -> Any:
-    if any(isinstance(event, yaml.AliasEvent) for event in yaml.parse(text, Loader=yaml.SafeLoader)):
-        raise ValueError("YAML aliases are not read")
-    return yaml.safe_load(text)
-
-
 class OpenApiExtractor:
     name = "openapi"
     version = 1
@@ -64,7 +57,7 @@ class OpenApiExtractor:
 
     def extract(self, path: str, content: bytes) -> FileFacts:
         text = content.decode("utf-8")
-        document = json.loads(text) if path.endswith(".json") else _load_yaml(text)
+        document = json.loads(text) if path.endswith(".json") else load_yaml_without_aliases(text)[1]
         if not isinstance(document, Mapping) or not ("openapi" in document or "swagger" in document):
             return FileFacts(path)
         entities: list[Entity] = []

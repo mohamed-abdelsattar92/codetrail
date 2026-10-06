@@ -15,7 +15,7 @@ from typing import Any
 
 import yaml
 
-from codetrail.extract import FileFacts, Resolution
+from codetrail.extract import FileFacts, Resolution, load_yaml_without_aliases
 from codetrail.facts import Entity, EntityKind, Relation, Source
 
 # Only plain names reach a fact, so nothing secret-shaped, templated or instruction-like does.
@@ -39,15 +39,6 @@ ACTIONS = {
 }
 
 
-class _NoAliases(yaml.SafeLoader):
-    """safe_load, refusing YAML aliases, so a small file can't expand into an enormous one (a billion-laughs file)."""
-
-    def compose_node(self, parent: Any, index: Any) -> Any:
-        if self.check_event(yaml.events.AliasEvent):
-            raise yaml.YAMLError("aliases are not read")
-        return super().compose_node(parent, index)
-
-
 class GitHubActionsExtractor:
     name = "github_actions"
     version = 1
@@ -62,12 +53,7 @@ class GitHubActionsExtractor:
         pass
 
     def extract(self, path: str, content: bytes) -> FileFacts:
-        loader = _NoAliases(content.decode("utf-8"))
-        try:
-            root = loader.get_single_node()
-            data = loader.construct_document(root) if root is not None else None
-        finally:
-            loader.dispose()
+        root, data = load_yaml_without_aliases(content.decode("utf-8"))
         jobs = data.get("jobs") if isinstance(data, dict) else None
         if not isinstance(jobs, dict) or root is None:
             return FileFacts(path)
