@@ -74,13 +74,16 @@ def normalize(text: str) -> str:
     return " ".join(text.split())
 
 
+FLAGGED_PROBLEM = "The page contains something that looks like a secret"
+
+
 def validate_page(body: str, checks: Sequence[Mapping[str, Any]] | None, context: ValidationContext) -> list[str]:
     problems: list[str] = []
     if not body.strip():
         return ["The page is empty."]
     # The last check before anything is saved: a page or its checks must hold nothing that looks like a secret.
     for finding in context.scanner.scan_text(body + "\n" + json.dumps(list(checks or []), ensure_ascii=False)):
-        problems.append(f"The page contains something that looks like a secret ({finding.rule}); leave it out.")
+        problems.append(f"{FLAGGED_PROBLEM} ({finding.rule}); leave it out.")
     if problems:  # the other problems quote the draft, and they reach the retry prompt, the CLI and the page
         return problems
     for block in parse_rationale(body):

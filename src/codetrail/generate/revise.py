@@ -10,6 +10,8 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping, Sequence
 
+from codetrail.assistant.prompts import FULLWIDTH_AT
+
 HEADING = re.compile(r"(#{1,6})\s+\S")
 FENCE = re.compile(r"(```|~~~)")
 
@@ -17,7 +19,7 @@ FENCE = re.compile(r"(```|~~~)")
 def apply_sections(body: str, sections: Sequence[Mapping[str, object]]) -> str:
     lines = body.rstrip("\n").split("\n")
     for section in sections:
-        heading = str(section.get("heading", "")).strip()
+        heading = str(section.get("heading", "")).strip().replace(FULLWIDTH_AT, "@")  # the prompt showed it fullwidth
         if not HEADING.match(heading):
             continue
         text = _without_heading(str(section.get("body", "")), heading)

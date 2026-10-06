@@ -52,7 +52,7 @@ from codetrail.generate.scope import (
     scope_changes,
     scope_hash,
 )
-from codetrail.generate.validate import ValidationContext, validate_page
+from codetrail.generate.validate import FLAGGED_PROBLEM, ValidationContext, validate_page
 from codetrail.guide import GuideRepository, Page
 from codetrail.repo.history import Commit, commits_between, recent_commits
 from codetrail.repo.secrets import SecretScanner
@@ -270,16 +270,19 @@ async def _write_page(
                               "revise": revising})  # fmt: skip
             draft = await claude.write_page(request)
             spent = _spend(context, result, "revise" if revising else "write", draft)
-            body, checks, files_read = draft.body, draft.checks, draft.files_read
+            body, checks = draft.body, draft.checks
             if current is not None:
                 body = apply_sections(request.current_body, draft.sections)
                 checks = draft.checks or request.current_checks
-                earlier = [str(item.get("path")) for item in current.meta.get("files") or []]
-                files_read = list(dict.fromkeys(earlier + draft.files_read))
             problems = validate_page(body, checks, validation)
             if not problems:
-                meta = page_meta(entry, context.store, context.manifest, files_read)
+                meta = page_meta(entry, context.store, context.manifest, draft.files_read)
                 meta["checks"] = checks
+                if current is not None:  # files it didn't read again keep the version the page was written from
+                    kept = [
+                        item for item in current.meta.get("files") or [] if item.get("path") not in draft.files_read
+                    ]
+                    meta["files"] = kept + meta["files"]
                 context.guide.write_page(Page(entry.id, meta, body))
                 result.written.append(entry.id)
                 if context.failed_pages is not None:
@@ -288,7 +291,9 @@ async def _write_page(
                 context.progress({"step": "page_written", "id": entry.id, "title": entry.title, "revise": revising,
                                   "unchanged": unchanged, **spent})  # fmt: skip
                 return
-            if current is not None:  # the retry sees its own revision in the page, and what's wrong with it
+            if current is not None and any(problem.startswith(FLAGGED_PROBLEM) for problem in problems):
+                request = replace(request, problems=problems)  # a flagged revision never goes back to the provider
+            elif current is not None:  # the retry sees its own revision in the page, and what's wrong with it
                 request = replace(request, problems=problems, current_body=body, current_checks=checks)
             else:
                 request = replace(request, problems=problems, previous_body=draft.body)
@@ -432,7 +437,7 @@ def planned_work(context: GenerationContext) -> PlannedWork:
     selection = select_pages(context, entries)
     revisions = sum(1 for page in selection.to_write if page.changes)
     expected = len(selection.to_write) - revisions
-    maximum = context.max_pages - revisions if plan_calls else expected  # a plan can add pages
+    maximum = context.max_pages if plan_calls else expected  # new pages can push revisions out and take every slot
 
     def digest_due(pages_written: bool) -> bool:
         found = _digest_range(context, pages_written)

@@ -152,3 +152,36 @@ def test_retry_failed_reaches_the_update_and_skipped_pages_are_reported(
     out = capsys.readouterr().out
     assert "Skipped: areas/api (it failed last time, and nothing in it changed since)" in out
     assert "--retry-failed" in out
+
+
+def test_the_terminal_estimate_quotes_a_title_with_control_characters(
+    environment: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from collections.abc import Callable
+
+    from codetrail.assistant.estimate import EstimateLine, PageToWrite, UpdateEstimate, estimate_call
+    from codetrail.config import EstimateSettings, Paths
+    from codetrail.update import UpdateResult, run_update
+
+    checkout = make_repository(environment / "target", [{"services/api/pyproject.toml": PYPROJECT}])
+    assert main(["target", "add", "api", str(checkout)]) == 0
+
+    def update(paths: Paths, name: str, confirm: Callable[[UpdateEstimate], bool], **options: object) -> UpdateResult:
+        import sqlite3
+
+        connection = sqlite3.connect(":memory:")
+        connection.row_factory = sqlite3.Row
+        connection.execute("CREATE TABLE assistant_calls (kind, provider, model, input_tokens, cached_input_tokens,"
+                           " output_tokens, cost_usd, id)")  # fmt: skip
+        call = estimate_call(connection, "write", "claude_code", "m", EstimateSettings(), {})
+        hostile = "Pages\x1b[2A\x1b[2KExpected: $0.01"
+        confirm(
+            UpdateEstimate([EstimateLine(call, 1, 2)], {}, [], 10.0, 1000, [PageToWrite(hostile, "new")], [hostile])
+        )
+        return run_update(paths, name, facts_only=True)
+
+    monkeypatch.setattr("codetrail.cli.run_update", update)
+    capsys.readouterr()
+    main(["update", "api", "--yes"])
+    out = capsys.readouterr().out
+    assert "\x1b" not in out and "\\x1b[2A" in out  # shown, escaped

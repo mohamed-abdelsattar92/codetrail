@@ -1,5 +1,6 @@
 """A revision's sections, put into the page they revise (design section 6.3)."""
 
+from codetrail.assistant.prompts import FULLWIDTH_AT
 from codetrail.generate.revise import apply_sections
 
 PAGE = """Intro line.
@@ -59,3 +60,9 @@ def test_removing_a_middle_section_leaves_one_blank_line() -> None:
 
 def test_a_section_without_a_heading_is_ignored() -> None:
     assert apply_sections(PAGE, [{"heading": " ", "body": "Loose text."}]) == PAGE
+
+
+def test_a_heading_with_a_neutralized_at_sign_still_matches() -> None:
+    page = "## The @app module\n\nOld.\n"
+    neutralized = "## The " + FULLWIDTH_AT + "app module"  # as the prompt showed the heading
+    assert apply_sections(page, [{"heading": neutralized, "body": "New."}]) == "## The @app module\n\nNew.\n"

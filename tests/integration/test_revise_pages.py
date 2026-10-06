@@ -7,8 +7,8 @@ from codetrail.assistant.estimate import UpdateEstimate
 from codetrail.assistant.fake import FakeAssistant
 from codetrail.config import Paths
 from codetrail.update import run_update
-from tests.fixtures.repos import Commit, add_commit
-from tests.integration.test_generation import CHECKS, PLAN, good_page, guide
+from tests.fixtures.repos import Commit, add_commit, fake_github_token
+from tests.integration.test_generation import ADR, CHECKS, PLAN, good_page, guide
 from tests.integration.test_generation import paths as paths  # the fixture
 from tests.integration.test_page_selection import set_generation
 
@@ -93,3 +93,31 @@ def test_more_changes_than_the_limit_rewrite_the_page(paths: Paths, tmp_path: Pa
     run_update(paths, "t", claude=claude)
     [request] = page_requests(claude)
     assert request.changes == [] and request.current_body == ""
+
+
+def test_a_revision_flagged_as_a_secret_is_retried_without_it(paths: Paths, tmp_path: Path) -> None:
+    run_update(paths, "t", claude=FakeAssistant(plans=[PLAN], page_writer=good_page))
+    before = guide(paths).read_page("areas/api")
+    add_commit(tmp_path / "target", ROUTES, "feat(api): routes")
+    token = fake_github_token(21)
+    flagged = PageDraft("", [], [], sections=[{"heading": "## Routes", "body": f"The key is {token}."}])
+    good = PageDraft("", [], [], sections=[{"heading": "## Routes", "body": "The API has routes."}])
+    claude = FakeAssistant(pages={"areas/api": [flagged, good]})
+    run_update(paths, "t", claude=claude)
+    retry = page_requests(claude)[1]
+    assert before is not None and retry.current_body == before.body  # the flagged revision isn't sent back
+    assert token not in retry.current_body and any("secret" in problem for problem in retry.problems)
+
+
+def test_a_revision_keeps_the_old_version_of_files_it_didnt_read_again(paths: Paths, tmp_path: Path) -> None:
+    run_update(paths, "t", claude=FakeAssistant(plans=[PLAN], page_writer=good_page))
+    before = guide(paths).read_page("areas/api")
+    assert before is not None
+    adr = next(item for item in before.meta["files"] if item["path"] == "docs/adr/0001-use-fastapi.md")
+    changed_adr = ADR + "\nIt is fast.\n"  # a new blob; the decision's fact and the page's quote stay as they were
+    add_commit(tmp_path / "target", {**ROUTES, "docs/adr/0001-use-fastapi.md": changed_adr}, "feat(api): routes")
+    run_update(paths, "t", claude=revising([{"heading": "## Routes", "body": "The API has routes."}]))
+    after = guide(paths).read_page("areas/api")
+    assert after is not None and "The API has routes." in after.body  # revised
+    kept = next(item for item in after.meta["files"] if item["path"] == "docs/adr/0001-use-fastapi.md")
+    assert kept["blob"] == adr["blob"]  # still the version the page was written from: "sources changed" stays true

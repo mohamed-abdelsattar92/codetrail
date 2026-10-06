@@ -195,7 +195,7 @@ def update_target(
             print("Nothing for the assistant to do in this update.")
             return True
         for line in describe(estimate):
-            print(line)
+            print(printable(line) if line.startswith("  ") or line.startswith("Skipped") else line)
         if yes:
             return True
         if not sys.stdin.isatty():
