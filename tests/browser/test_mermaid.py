@@ -4,6 +4,7 @@ The diagrams are built from facts in a fixture store and parsed in headless Chro
 Mermaid file the page serves and the same strict security level.
 """
 
+import re
 from collections.abc import Iterator
 from importlib.resources import files
 from pathlib import Path
@@ -98,3 +99,30 @@ def test_every_diagram_parses_with_mermaid(page: Page, store: FactStore) -> None
         if error:
             failures[name] = (error.splitlines()[0], diagram.mermaid)
     assert failures == {}
+
+
+ROOT = Path(__file__).resolve().parents[2]
+MARKDOWN_BLOCK = re.compile(r"^```mermaid\n(.*?)^```", re.MULTILINE | re.DOTALL)
+
+
+def test_every_diagram_in_the_docs_parses_with_mermaid(page: Page) -> None:
+    """The README's and docs' hand-written diagrams, which GitHub renders with Mermaid too."""
+    documents = [ROOT / "README.md", *sorted((ROOT / "docs").rglob("*.md"))]
+    blocks = [
+        (f"{document.relative_to(ROOT)}:{text[: match.start()].count(chr(10)) + 1}", match.group(1))
+        for document in documents
+        for text in [document.read_text()]
+        for match in MARKDOWN_BLOCK.finditer(text)
+    ]
+    page.set_content("<html><body></body></html>")
+    page.add_script_tag(path=str(MERMAID))
+    page.evaluate("mermaid.initialize({startOnLoad: false})")
+    failures = {}
+    for where, source in blocks:
+        error = page.evaluate(
+            "async (text) => { try { await mermaid.parse(text); return null } catch (e) { return String(e.message) } }",
+            source,
+        )
+        if error:
+            failures[where] = error.splitlines()[:3]
+    assert blocks and failures == {}
