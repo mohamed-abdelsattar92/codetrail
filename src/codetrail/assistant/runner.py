@@ -76,22 +76,31 @@ def run_command(
 ) -> tuple[int, str]:
     """Runs a short command (a sign-in check) and returns its exit code and output."""
     try:
-        result = subprocess.run(  # noqa: S603  # the command is a resolved provider program and fixed arguments
+        process = subprocess.Popen(  # noqa: S603  # the command is a resolved provider program and fixed arguments
             list(command),
-            input=stdin,
-            capture_output=True,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
             cwd=cwd,
             env=dict(environment),
-            timeout=timeout_seconds,
-            check=False,
             start_new_session=True,
         )
-    except subprocess.TimeoutExpired as error:
-        raise AssistantError(f"{Path(command[0]).name} didn't answer within {timeout_seconds:g} seconds.") from error
     except OSError as error:
         raise AssistantError(f"{Path(command[0]).name} couldn't start ({type(error).__name__}).") from error
-    return result.returncode, result.stdout
+    with process:
+        try:
+            stdout, _stderr = process.communicate(stdin, timeout=timeout_seconds)
+        except BaseException as error:
+            with suppress(ProcessLookupError, PermissionError):
+                os.killpg(process.pid, signal.SIGKILL)
+            process.wait()
+            if not isinstance(error, subprocess.TimeoutExpired):
+                raise
+            raise AssistantError(
+                f"{Path(command[0]).name} didn't answer within {timeout_seconds:g} seconds."
+            ) from error
+    return process.returncode, stdout
 
 
 @contextmanager

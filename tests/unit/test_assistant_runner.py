@@ -79,3 +79,16 @@ async def test_lots_of_error_output_doesnt_block_the_program(tmp_path: Path) -> 
 def test_a_short_command_returns_its_output(tmp_path: Path) -> None:
     command = script(tmp_path, "echo.py", ECHO)
     assert run_command(command, tmp_path, {"PATH": "/usr/bin:/bin"}, 10, stdin="a\n") == (0, "got a\n")
+
+
+def test_a_short_command_that_runs_too_long_is_stopped_with_its_children(tmp_path: Path) -> None:
+    # Stopping only the program would leave what it started running.
+    pid_file = tmp_path / "child.pid"
+    started = time.monotonic()
+    with pytest.raises(AssistantError, match="didn't answer within 2 seconds"):
+        run_command([*script(tmp_path, "slow.py", SLOW_CHILD), str(pid_file)], tmp_path, {"PATH": "/usr/bin:/bin"}, 2)
+    assert time.monotonic() - started < 10
+    child = int(pid_file.read_text())
+    time.sleep(0.2)
+    with pytest.raises(ProcessLookupError):
+        os.kill(child, 0)
