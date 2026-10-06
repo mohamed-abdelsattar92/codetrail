@@ -1,5 +1,7 @@
 # Codetrail contributor licence agreement
 
+Version 1.0, 2026-10-07. A changed agreement gets a new version number, and applies only to contributors who accept that version.
+
 Codetrail is open source under the [GNU AGPL 3.0](LICENSE), and its copyright holder, Mohamed Abdel Sattar (the "Maintainer"), also offers it under commercial licences. To do that with code that others contributed, the Maintainer needs the rights this agreement grants. You keep the copyright in your contribution.
 
 You accept this agreement by ticking its box in your pull request. It covers that contribution and every later one you make to Codetrail.

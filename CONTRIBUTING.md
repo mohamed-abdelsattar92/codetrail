@@ -4,7 +4,7 @@ Thank you for helping. Bug reports, ideas, documentation and code are all welcom
 
 ## Before you start
 - For anything larger than a small fix, open an issue first, so that we can agree on the approach before you write it.
-- Read [AGENTS.md](AGENTS.md) for the project's rules on code, tests and security. The [security review checklist](docs/security/review-checklist.md) is what every change is reviewed against. AGENTS.md's push and merge rules are for coding agents on the maintainer's machine: you push to your own fork and open a pull request.
+- Read [AGENTS.md](AGENTS.md) for the project's rules on code, tests and security. The [security review checklist](docs/security/review-checklist.md) is what every change is reviewed against. Coding agents follow AGENTS.md's "Never do" rules wherever they run: they never push or open pull requests. If you contribute by hand, you push to your own fork and open the pull request yourself.
 
 ## Making a change
 1. Set up once per clone: `mise trust && mise install`, then `just setup`.
