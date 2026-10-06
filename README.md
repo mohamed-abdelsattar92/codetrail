@@ -30,6 +30,7 @@ It works with the assistant you already pay for: **Claude Code** on a Claude sub
 - [Developing Codetrail](#developing-codetrail)
 - [Documentation](#documentation)
 - [Credits](#credits)
+- [License](#license)
 
 ## Why Codetrail
 
@@ -305,9 +306,19 @@ Then `just ci` runs every check CI runs; `just lint`, `just format`, `just typec
 | [Architecture decision records](docs/adr/README.md) | Decisions that are hard to reverse |
 | [Security review checklist](docs/security/review-checklist.md) | What every change is reviewed against |
 | [AGENTS.md](AGENTS.md) | Rules and workflow for coding agents |
+| [Contributing](CONTRIBUTING.md) | How to propose a change, and the contributor licence agreement |
+| [Trademarks](TRADEMARKS.md) | What you may do with the name and logo |
 
 ## Credits
 
 - The page's typeface is [Inter](https://rsms.me/inter/) by Rasmus Andersson, under the SIL Open Font License 1.1 ([its licence](src/codetrail/web/static/vendor/inter/LICENSE.txt), [ADR 0007](docs/adr/0007-bundle-the-inter-typeface.md)).
 - Diagrams are drawn by [Mermaid](https://mermaid.js.org), under the MIT License ([ADR 0004](docs/adr/0004-server-rendered-page-stack.md)).
 - The browser tests check accessibility with [axe-core](https://github.com/dequelabs/axe-core) by Deque, under the Mozilla Public License 2.0; it is used by the tests only ([ADR 0008](docs/adr/0008-browser-tests-with-playwright.md)).
+
+## License
+
+Copyright © 2026 Mohamed Abdel Sattar.
+
+Codetrail is free software under the [GNU Affero General Public License 3.0 only](LICENSE). You may use, change and share it under that licence's terms; if you change it and let other people use it over a network, you must offer them your version's source. To use Codetrail without the AGPL's terms, for example inside a closed product, ask for a commercial licence at mohamed.abdelsattar92@hotmail.com ([ADR 0010](docs/adr/0010-agpl-with-a-commercial-license.md)).
+
+The licence grants no rights to the name "Codetrail" or its logo; [TRADEMARKS.md](TRADEMARKS.md) says what you may do with them. Contributions are welcome under the [contributor licence agreement](CLA.md); see [CONTRIBUTING.md](CONTRIBUTING.md).
