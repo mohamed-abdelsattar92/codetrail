@@ -1,6 +1,9 @@
 """gitleaks scanning, with Codetrail's own configuration so a target can't switch it off (design section 3.4)."""
 
+import os
 import shutil
+import subprocess
+import time
 from pathlib import Path
 
 import pytest
@@ -212,3 +215,18 @@ def test_a_mise_that_never_answers_fails_closed_and_names_the_setting(tmp_path: 
     tools = ToolsSettings(gitleaks=str(shim), gitleaks_timeout_seconds=0.2)
     with pytest.raises(CodetrailError, match=r"mise didn't say.*\[tools\] gitleaks_timeout_seconds"):
         SecretScanner(tools).scan_text("x")
+
+
+def test_a_mise_that_never_answers_is_stopped_with_what_it_started(tmp_path: Path) -> None:
+    # A template's exec() can start a command of its own; stopping only mise would leave it running.
+    pid_file = tmp_path / "child.pid"
+    shim = fake_mise(tmp_path, f'sleep 30 & echo $! > "{pid_file}"; wait')
+    # macOS checks a new script on its first run, which can take longer than the time limit; get that done first.
+    subprocess.run([str(shim)], capture_output=True, check=False)
+    tools = ToolsSettings(gitleaks=str(shim), gitleaks_timeout_seconds=0.2)
+    with pytest.raises(CodetrailError, match=r"mise didn't say"):
+        SecretScanner(tools).scan_text("x")
+    child = int(pid_file.read_text())
+    time.sleep(0.2)
+    with pytest.raises(ProcessLookupError):
+        os.kill(child, 0)
