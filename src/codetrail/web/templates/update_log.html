@@ -1,0 +1,28 @@
+{# The update's steps, for the update panel (design section 15.4). Titles and reasons come from the assistant and
+   the repository, so they are only ever autoescaped text. #}
+{% macro used(step) -%}
+<span class="muted">{% if step.provider %} · {{ step.provider }} · {{ step.model or _("default model") }}{% endif %}{% if step.tokens %} · {{ step.tokens|tokens }} {{ _("tokens") }}{% endif %}{% if step.cost_usd %} · {{ step.cost_usd|dollars }}{% endif %}</span>
+{%- endmacro %}
+{% for step in steps %}
+{% if step.step == "facts" %}
+<li class="update-line">{{ _("Refreshing the facts (free)…") }}</li>
+{% elif step.step == "facts_recorded" %}
+<li class="update-line">{% if step.changes %}{% trans count=step.changes %}The facts are refreshed: one changed.{% pluralize %}The facts are refreshed: {{ count }} changed.{% endtrans %}{% else %}{{ _("The facts are refreshed: none changed.") }}{% endif %}</li>
+{% elif step.step == "plan" %}
+<li class="update-line">{{ _("Planning the outline…") }}</li>
+{% elif step.step == "planned" %}
+<li class="update-line done">{% trans count=step.pages %}Planned one new page.{% pluralize %}Planned {{ count }} new pages.{% endtrans %}{{ used(step) }}</li>
+{% elif step.step == "page" %}
+<li class="update-line">{% if step.attempt == 1 %}{% trans title=step.title %}Writing “{{ title }}”…{% endtrans %}{% else %}{% trans title=step.title %}Writing “{{ title }}” again, with its problems…{% endtrans %}{% endif %}</li>
+{% elif step.step == "page_written" %}
+<li class="update-line done">{% trans title=step.title %}Wrote “{{ title }}”.{% endtrans %}{{ used(step) }}</li>
+{% elif step.step == "page_failed" %}
+<li class="update-line failed">{% trans title=step.title, reason=step.reason %}“{{ title }}” wasn’t written: {{ reason }}{% endtrans %}</li>
+{% elif step.step == "page_later" %}
+<li class="update-line">{% trans title=step.title %}“{{ title }}” waits for the next update: the budget is spent.{% endtrans %}</li>
+{% elif step.step == "digest" %}
+<li class="update-line">{{ _("Writing the digest…") }}</li>
+{% elif step.step == "committed" %}
+<li class="update-line done">{% trans count=step.pages %}Saved one page to the guide.{% pluralize %}Saved {{ count }} pages to the guide.{% endtrans %}{% if step.failed %} {% trans count=step.failed %}One page wasn’t written.{% pluralize %}{{ count }} pages weren’t written.{% endtrans %}{% endif %}{% if step.later %} {% trans count=step.later %}One waits for the next update.{% pluralize %}{{ count }} wait for the next update.{% endtrans %}{% endif %}</li>
+{% endif %}
+{% endfor %}

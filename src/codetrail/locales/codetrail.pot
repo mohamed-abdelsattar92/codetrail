@@ -414,6 +414,18 @@ msgid "On this page"
 msgstr ""
 
 #, python-format
+msgid "One page wasn’t written."
+msgid_plural "%(count)s pages weren’t written."
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
+msgid "One waits for the next update."
+msgid_plural "%(count)s wait for the next update."
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
 msgid "Or from a terminal: <code>codetrail update %(name)s</code>"
 msgstr ""
 
@@ -440,6 +452,15 @@ msgstr ""
 
 #, python-format
 msgid "Plan usage (%(provider)s, %(window)s): %(used)s%%, as of %(when)s."
+msgstr ""
+
+#, python-format
+msgid "Planned one new page."
+msgid_plural "Planned %(count)s new pages."
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "Planning the outline…"
 msgstr ""
 
 msgid "Platform"
@@ -496,6 +517,12 @@ msgstr ""
 
 msgid "Saved answers"
 msgstr ""
+
+#, python-format
+msgid "Saved one page to the guide."
+msgid_plural "Saved %(count)s pages to the guide."
+msgstr[0] ""
+msgstr[1] ""
 
 msgid "Saved · open it"
 msgstr ""
@@ -581,6 +608,15 @@ msgstr ""
 
 msgid "The facts are refreshed. Writing the guide will call:"
 msgstr ""
+
+msgid "The facts are refreshed: none changed."
+msgstr ""
+
+#, python-format
+msgid "The facts are refreshed: one changed."
+msgid_plural "The facts are refreshed: %(count)s changed."
+msgstr[0] ""
+msgstr[1] ""
 
 msgid "The guide matches the branch."
 msgstr ""
@@ -684,6 +720,21 @@ msgstr ""
 msgid "Why each arrow is there"
 msgstr ""
 
+msgid "Writing the digest…"
+msgstr ""
+
+#, python-format
+msgid "Writing “%(title)s” again, with its problems…"
+msgstr ""
+
+#, python-format
+msgid "Writing “%(title)s”…"
+msgstr ""
+
+#, python-format
+msgid "Wrote “%(title)s”."
+msgstr ""
+
 msgid "You're caught up."
 msgstr ""
 
@@ -773,5 +824,13 @@ msgid "tokens"
 msgstr ""
 
 msgid "unread"
+msgstr ""
+
+#, python-format
+msgid "“%(title)s” waits for the next update: the budget is spent."
+msgstr ""
+
+#, python-format
+msgid "“%(title)s” wasn’t written: %(reason)s"
 msgstr ""
 

@@ -100,7 +100,7 @@ def site(tmp_path: Path) -> Iterator[Site]:
     session = SessionState(60)
     decisions: list[bool] = []
 
-    def updater(confirm: Callable[[UpdateEstimate], bool]) -> None:
+    def updater(confirm: Callable[[UpdateEstimate], bool], progress: object) -> None:
         decisions.append(confirm(ESTIMATE))
 
     app = create_app(paths, "shop", session, settings, updater=updater, assistant_for=lambda: claude)

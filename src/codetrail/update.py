@@ -38,7 +38,15 @@ from codetrail.extract.terraform import TerraformExtractor
 from codetrail.extract.typescript import TypeScriptExtractor
 from codetrail.facts import FactDiff, Snapshot
 from codetrail.facts.store import FactStore
-from codetrail.generate.run import GenerationContext, GenerationResult, PlannedWork, generate_guide, planned_work
+from codetrail.generate.run import (
+    GenerationContext,
+    GenerationResult,
+    PlannedWork,
+    Progress,
+    generate_guide,
+    no_progress,
+    planned_work,
+)
 from codetrail.guide import GuideRepository
 from codetrail.learn import LearningState
 from codetrail.lock import target_in_use, target_lock
@@ -124,9 +132,11 @@ def run_update(
     claude: Assistant | None = None,
     facts_only: bool = False,
     confirm: Callable[[UpdateEstimate], bool] | None = None,
+    progress: Progress = no_progress,
 ) -> UpdateResult:
     """Refreshes the sources and facts (free), then, unless `facts_only`, estimates the guide's paid work and asks
-    `confirm` before doing it (design section 15.4). An update with a real assistant always needs `confirm`."""
+    `confirm` before doing it (design section 15.4). An update with a real assistant always needs `confirm`.
+    Each step is reported to `progress` as it happens."""
     with target_in_use(paths, name):  # so the target isn't removed during the update
         target = load_target(paths, name)
         check_containment(paths, target.repository)  # before the lock creates the data folder
@@ -139,6 +149,7 @@ def run_update(
             sign_ins = {status.provider: status.method for status in statuses}
         data = paths.target_data(name)
         with target_lock(paths, name):
+            progress({"step": "facts"})
             manifest = refresh_while_locked(paths, name)
             source = data / "source"
             extraction = run_extractors(
@@ -150,6 +161,7 @@ def run_update(
             try:
                 store = FactStore(connection)
                 snapshot, diff = store.record(manifest.commit, extraction.entities, extraction.relations)
+                progress({"step": "facts_recorded", "changes": len(diff.changed_ids())})
                 if facts_only:
                     return UpdateResult(manifest, snapshot, diff, extraction)
                 previous = store.previous_snapshot(snapshot)
@@ -175,6 +187,7 @@ def run_update(
                     diff=diff,
                     learned=LearningState(connection).learned_page_ids(),
                     usage=UsageLog(connection, settings.prices),
+                    progress=progress,
                 )
                 if confirm is not None:
                     work = planned_work(context)

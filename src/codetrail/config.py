@@ -143,6 +143,7 @@ class ServerSettings(Settings):
     session_minutes: int = Field(default=480, gt=0)
     update_cooldown_seconds: int = Field(default=300, ge=0)
     estimate_ttl_seconds: int = Field(default=300, gt=0)
+    update_log_lines: int = Field(default=200, gt=0)  # the update panel's steps the server keeps
 
 
 class InterfaceSettings(Settings):

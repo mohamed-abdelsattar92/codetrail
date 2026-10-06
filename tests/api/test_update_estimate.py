@@ -15,8 +15,8 @@ ESTIMATE = UpdateEstimate(
 )  # fmt: skip
 
 
-def recording_updater(decisions: list[bool]) -> Callable[[Callable[[UpdateEstimate], bool]], None]:
-    def updater(confirm: Callable[[UpdateEstimate], bool]) -> None:
+def recording_updater(decisions: list[bool]) -> Callable[[Callable[[UpdateEstimate], bool], object], None]:
+    def updater(confirm: Callable[[UpdateEstimate], bool], progress: object) -> None:
         decisions.append(confirm(ESTIMATE))
 
     return updater
@@ -47,7 +47,8 @@ def test_the_update_waits_with_its_estimate_and_goes_on_with_its_id(paths: Paths
     assert client.post("/update/confirm", json={"estimate_id": estimate_id}).status_code == 403  # no token
     assert client.post("/update/confirm", json={"estimate_id": estimate_id}, headers=headers).status_code == 200
     assert client.post("/update/confirm", json={"estimate_id": estimate_id}, headers=headers).status_code == 428
-    assert wait_for(client, {"done"}) == {"state": "done", "message": ""}
+    status = wait_for(client, {"done"})
+    assert (status["state"], status["message"]) == ("done", "")
     assert decisions == [True]
 
 
@@ -83,7 +84,7 @@ def test_an_unanswered_estimate_expires(paths: Paths) -> None:
 def test_nothing_to_estimate_means_no_question(paths: Paths) -> None:
     decisions: list[bool] = []
 
-    def updater(confirm: Callable[[UpdateEstimate], bool]) -> None:
+    def updater(confirm: Callable[[UpdateEstimate], bool], progress: object) -> None:
         decisions.append(confirm(UpdateEstimate([], {}, [], 10.0, 5_000_000)))
 
     session = SessionState(60)
