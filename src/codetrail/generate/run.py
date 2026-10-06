@@ -102,14 +102,9 @@ async def generate_guide(context: GenerationContext, claude: Assistant) -> Gener
     result = GenerationResult()
     try:
         entries = await _outline(context, claude, result)
-        affected = []
-        for entry in entries:
-            page = guide.read_page(entry.id)
-            if affected_reason(entry, page, context.store) is not None:
-                affected.append((changed_fact_count(entry, page, context.store), entry))
-        affected.sort(key=lambda item: (item[1].id not in context.learned, -item[0]))
-        to_write = [entry for _, entry in affected[: context.max_pages]]
-        result.left_for_later = [entry.id for _, entry in affected[context.max_pages :]]
+        selection = select_pages(context, entries)
+        to_write = [planned.entry for planned in selection.to_write]
+        result.left_for_later = [entry.id for entry in selection.left_for_later]
         validation = ValidationContext(context.source_root, context.manifest, context.store, context.mirror,
                                        context.scanner)  # fmt: skip
         limiter = anyio.Semaphore(context.concurrency)
@@ -314,6 +309,42 @@ def _digest_range(context: GenerationContext, pages_written: bool) -> tuple[str 
 
 
 @dataclass(frozen=True)
+class PlannedPage:
+    """A page the update will write, and why: "new", "outline" (its entry changed), "update" (facts in its scope
+    changed in this update) or "catching_up" (they changed in an earlier update that didn't rewrite it)."""
+
+    entry: OutlineEntry
+    reason: str
+    changed_now: int  # facts in its scope this update added, changed or removed
+
+
+@dataclass(frozen=True)
+class PageSelection:
+    to_write: list[PlannedPage]
+    left_for_later: list[OutlineEntry]  # beyond max_pages_per_update
+
+
+def select_pages(context: GenerationContext, entries: Sequence[OutlineEntry]) -> PageSelection:
+    """The affected pages, in the order they are written: those this update's facts touched first, then the ones
+    the reader learned, then new pages, then the backlog; within a group, the most changed facts first."""
+    touched = context.diff.changed_ids()
+    affected: list[tuple[tuple[bool, bool, bool, int], PlannedPage]] = []
+    for entry in entries:
+        page = context.guide.read_page(entry.id)
+        reason = affected_reason(entry, page, context.store)
+        if reason is None:
+            continue
+        changed_now = sum(1 for entity in facts_in_scope(context.store, entry) if entity.id in touched)
+        kind = {"new": "new", "outline changed": "outline"}.get(reason, "update" if changed_now else "catching_up")
+        rank = (not changed_now, entry.id not in context.learned, kind not in ("new", "outline"),
+                -changed_fact_count(entry, page, context.store))  # fmt: skip
+        affected.append((rank, PlannedPage(entry, kind, changed_now)))
+    affected.sort(key=lambda item: item[0])
+    planned = [page for _, page in affected]
+    return PageSelection(planned[: context.max_pages], [page.entry for page in planned[context.max_pages :]])
+
+
+@dataclass(frozen=True)
 class PlannedWork:
     """The paid calls an update will make, counted without making any (design section 15.4)."""
 
@@ -332,10 +363,7 @@ def planned_work(context: GenerationContext) -> PlannedWork:
     new_facts = set(context.diff.added_entities)
     plan_calls = int(any(fact in new_facts for fact in uncovered_facts(context.store, entries)))
     plan_calls += int(stored is not None and "paths" not in stored)
-    affected = sum(
-        1 for entry in entries if affected_reason(entry, context.guide.read_page(entry.id), context.store) is not None
-    )
-    expected = min(affected, context.max_pages)
+    expected = len(select_pages(context, entries).to_write)
     maximum = context.max_pages if plan_calls else expected  # a plan can add pages
 
     def digest_due(pages_written: bool) -> bool:
