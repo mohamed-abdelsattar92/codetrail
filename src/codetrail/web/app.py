@@ -607,7 +607,8 @@ class UpdateJob:
         with self._lock:
             expected = self.estimate_id
             if (
-                self.state != "waiting"
+                self._stopping.is_set()
+                or self.state != "waiting"
                 or expected is None
                 or not hmac.compare_digest(estimate_id.encode(), expected.encode())
             ):
@@ -634,13 +635,23 @@ class UpdateJob:
     def stop(self) -> None:
         """Declines a waiting estimate, stops paid work and waits for the update's cleanup (design section 15.5).
 
-        The worker is a daemon thread, which the interpreter would kill at exit without running its cleanup.
+        The worker is a daemon thread, which the interpreter would kill at exit without running its cleanup, so a
+        further signal (closing the terminal while this waits) doesn't end the wait; it's raised once the cleanup ran.
         """
         with self._lock:  # under the lock, so _confirm either sees it before waiting or is woken by it
             self._stopping.set()
             self._decided.set()
-        if self._thread is not None:
-            self._thread.join()
+        if self._thread is None or not self._thread.is_alive():
+            return
+        logger.warning("Stopping the update started from the page; waiting for its cleanup.")
+        interrupted: BaseException | None = None
+        while self._thread.is_alive():
+            try:
+                self._thread.join()
+            except BaseException as error:  # raised below, once the update stopped
+                interrupted = error
+        if interrupted is not None:
+            raise interrupted
 
     def _work(self) -> None:
         try:

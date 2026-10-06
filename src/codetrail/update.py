@@ -51,6 +51,7 @@ from codetrail.repo.source import SourceManifest
 from codetrail.system import derive
 
 STOP_CHECK_SECONDS = 0.2  # how often an update started from the page checks whether the server is stopping
+STOPPED = "The server stopped, so the update stopped; the guide wasn't changed."
 
 
 @dataclass(frozen=True)
@@ -126,6 +127,8 @@ async def generate_until_stopped(
 ) -> GenerationResult:
     """Writes the guide, cancelled once `stop` is set, so its cleanup runs: each program's process group is killed and
     the guide's uncommitted changes are discarded (design section 15.5)."""
+    if stop.is_set():  # a confirmation that raced the stop: no program starts
+        raise CodetrailError(STOPPED)
     generation: GenerationResult | None = None
     try:
         async with anyio.create_task_group() as group:
@@ -141,7 +144,7 @@ async def generate_until_stopped(
     except BaseExceptionGroup as errors:  # only the generation raises, and the group wraps its error
         raise errors.exceptions[0] from None
     if generation is None:
-        raise CodetrailError("The server stopped, so the update stopped; the guide wasn't changed.")
+        raise CodetrailError(STOPPED)
     return generation
 
 

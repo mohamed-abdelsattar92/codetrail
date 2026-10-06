@@ -123,7 +123,10 @@ def serve_an_update(tmp_path: Path) -> tuple[subprocess.Popen[bytes], Path, Path
         assert line, "codetrail serve stopped before printing its sign-in link"
         sign_in = line.rpartition(": ")[2].strip()
     origin = f"http://127.0.0.1:{port}"
-    browser = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
+    browser = urllib.request.build_opener(
+        urllib.request.ProxyHandler({}),  # straight to 127.0.0.1, never through a proxy
+        urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()),
+    )
     for _ in range(100):  # until uvicorn listens
         try:
             page = browser.open(sign_in).read().decode()
