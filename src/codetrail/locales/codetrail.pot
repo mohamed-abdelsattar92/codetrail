@@ -435,6 +435,9 @@ msgstr ""
 msgid "Pages"
 msgstr ""
 
+msgid "Pages, in the order they’re written:"
+msgstr ""
+
 msgid "Part"
 msgstr ""
 
@@ -588,6 +591,9 @@ msgstr ""
 msgid "Skip to content"
 msgstr ""
 
+msgid "Skipped, since they failed last time and nothing in them changed:"
+msgstr ""
+
 msgid "Source"
 msgstr ""
 
@@ -731,6 +737,24 @@ msgid "Writing the digest…"
 msgstr ""
 
 #, python-format
+msgid "Writing “%(title)s” (a new page)…"
+msgstr ""
+
+#, python-format
+msgid "Writing “%(title)s” (catching up: its facts changed after it was written)…"
+msgstr ""
+
+#, python-format
+msgid "Writing “%(title)s” (its outline entry changed)…"
+msgstr ""
+
+#, python-format
+msgid "Writing “%(title)s” (one of its facts changed in this update)…"
+msgid_plural "Writing “%(title)s” (%(count)s of its facts changed in this update)…"
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
 msgid "Writing “%(title)s” again, with its problems…"
 msgstr ""
 
@@ -766,6 +790,9 @@ msgstr ""
 msgid "Your system"
 msgstr ""
 
+msgid "a new page"
+msgstr ""
+
 msgid "a starting guess"
 msgstr ""
 
@@ -773,6 +800,9 @@ msgid "billed to that account."
 msgstr ""
 
 msgid "calls through"
+msgstr ""
+
+msgid "catching up, since its facts changed after it was written"
 msgstr ""
 
 msgid "changed"
@@ -796,6 +826,9 @@ msgstr ""
 msgid "is deployed on"
 msgstr ""
 
+msgid "its outline entry changed"
+msgstr ""
+
 msgctxt "text direction"
 msgid "ltr"
 msgstr ""
@@ -808,6 +841,12 @@ msgstr ""
 
 msgid "no price configured"
 msgstr ""
+
+#, python-format
+msgid "one of its facts changed in this update"
+msgid_plural "%(count)s of its facts changed in this update"
+msgstr[0] ""
+msgstr[1] ""
 
 msgid "pages, by passing their checks"
 msgstr ""

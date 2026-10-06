@@ -107,7 +107,7 @@ async def generate_guide(context: GenerationContext, claude: Assistant) -> Gener
     try:
         entries = await _outline(context, claude, result)
         selection = select_pages(context, entries)
-        to_write = [planned.entry for planned in selection.to_write]
+        to_write = selection.to_write
         result.left_for_later = [entry.id for entry in selection.left_for_later]
         result.skipped = [entry.id for entry in selection.skipped]
         for entry in selection.skipped:
@@ -116,18 +116,19 @@ async def generate_guide(context: GenerationContext, claude: Assistant) -> Gener
                                        context.scanner)  # fmt: skip
         limiter = anyio.Semaphore(context.concurrency)
 
-        async def write(entry: OutlineEntry) -> None:
+        async def write(planned: PlannedPage) -> None:
             async with limiter:
+                entry = planned.entry
                 if _budget_spent(context, result):  # the update's total budget, in dollars or tokens, is spent
                     result.left_for_later.append(entry.id)
                     context.progress({"step": "page_later", "id": entry.id, "title": entry.title})
                     return
-                await _write_page(entry, context, claude, validation, result)
+                await _write_page(planned, context, claude, validation, result)
 
         try:
             async with anyio.create_task_group() as group:
-                for entry in to_write:
-                    group.start_soon(write, entry)
+                for planned in to_write:
+                    group.start_soon(write, planned)
         except ExceptionGroup as errors:  # one page's unexpected error is the update's error
             if len(errors.exceptions) == 1:
                 raise errors.exceptions[0] from None
@@ -232,12 +233,13 @@ def _write_paths(context: GenerationContext, entries: Sequence[OutlineEntry], pa
 
 
 async def _write_page(
-    entry: OutlineEntry,
+    planned: PlannedPage,
     context: GenerationContext,
     claude: Assistant,
     validation: ValidationContext,
     result: GenerationResult,
 ) -> None:
+    entry = planned.entry
     request = PageRequest(
         entry.id, entry.kind, entry.title, entry.scope_paths,
         facts_text(context.store, entry), decisions_text(context.store), history_text(context, entry.scope_paths),
@@ -245,7 +247,8 @@ async def _write_page(
     problems: list[str] = []
     try:
         for attempt in range(1, PAGE_ATTEMPTS + 1):
-            context.progress({"step": "page", "id": entry.id, "title": entry.title, "attempt": attempt})
+            context.progress({"step": "page", "id": entry.id, "title": entry.title, "attempt": attempt,
+                              "reason": planned.reason, "changed": planned.changed_now})  # fmt: skip
             draft = await claude.write_page(request)
             spent = _spend(context, result, "write", draft)
             problems = validate_page(draft.body, draft.checks, validation)
@@ -372,6 +375,8 @@ class PlannedWork:
     page_calls_max: int  # each page may be written twice: the retry after a failed validation
     digest_expected: bool
     digest_possible: bool  # a digest also runs when commits came in and no page was written
+    pages: list[PlannedPage] = field(default_factory=list)  # empty before the first outline
+    skipped: list[OutlineEntry] = field(default_factory=list)
 
 
 def planned_work(context: GenerationContext) -> PlannedWork:
@@ -382,7 +387,8 @@ def planned_work(context: GenerationContext) -> PlannedWork:
     new_facts = set(context.diff.added_entities)
     plan_calls = int(any(fact in new_facts for fact in uncovered_facts(context.store, entries)))
     plan_calls += int(stored is not None and "paths" not in stored)
-    expected = len(select_pages(context, entries).to_write)
+    selection = select_pages(context, entries)
+    expected = len(selection.to_write)
     maximum = context.max_pages if plan_calls else expected  # a plan can add pages
 
     def digest_due(pages_written: bool) -> bool:
@@ -390,7 +396,8 @@ def planned_work(context: GenerationContext) -> PlannedWork:
         return found is not None and bool(found[1])
 
     possible = digest_due(True) or digest_due(False)
-    return PlannedWork(plan_calls, expected, maximum * PAGE_ATTEMPTS, digest_due(expected > 0), possible)
+    return PlannedWork(plan_calls, expected, maximum * PAGE_ATTEMPTS, digest_due(expected > 0), possible,
+                       selection.to_write, selection.skipped)  # fmt: skip
 
 
 def facts_summary(store: FactStore, manifest: SourceManifest) -> str:

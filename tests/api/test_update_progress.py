@@ -90,3 +90,17 @@ def test_a_skipped_page_says_why_and_how_to_retry(paths: Paths) -> None:
     html = started(paths, steps).get("/update/status").json()["log_html"]
     assert "“The root” is skipped: it failed last time, and nothing in it changed since." in html
     assert "codetrail update t --retry-failed" in html
+
+
+def test_each_page_line_says_why_its_written(paths: Paths) -> None:
+    steps: list[dict[str, object]] = [
+        {"step": "page", "id": "a", "title": "The API", "attempt": 1, "reason": "update", "changed": 2},
+        {"step": "page", "id": "b", "title": "Payments", "attempt": 1, "reason": "catching_up", "changed": 0},
+        {"step": "page", "id": "c", "title": "The ledger", "attempt": 1, "reason": "new", "changed": 3},
+        {"step": "page", "id": "d", "title": "Retries", "attempt": 1, "reason": "outline", "changed": 0},
+    ]
+    html = started(paths, steps).get("/update/status").json()["log_html"]
+    assert "Writing “The API” (2 of its facts changed in this update)…" in html
+    assert "Writing “Payments” (catching up: its facts changed after it was written)…" in html
+    assert "Writing “The ledger” (a new page)…" in html
+    assert "Writing “Retries” (its outline entry changed)…" in html

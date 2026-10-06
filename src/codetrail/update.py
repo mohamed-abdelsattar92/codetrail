@@ -14,7 +14,7 @@ from pathlib import Path, PurePosixPath
 import anyio
 
 from codetrail.assistant import Assistant
-from codetrail.assistant.estimate import UpdateEstimate, estimate_update
+from codetrail.assistant.estimate import PageToWrite, UpdateEstimate, estimate_update
 from codetrail.assistant.routing import build_assistant
 from codetrail.assistant.status import require_ready
 from codetrail.assistant.usage import UsageLog
@@ -229,7 +229,10 @@ def run_update(
                     work = planned_work(context)
                     estimate = estimate_update(connection, _calls(target, work), settings.estimates, settings.prices,
                                                sign_ins, target.generation.max_budget_usd_per_update,
-                                               target.generation.max_tokens_per_update)  # fmt: skip
+                                               target.generation.max_tokens_per_update,
+                                               [PageToWrite(page.entry.title, page.reason, page.changed_now)
+                                                for page in work.pages],
+                                               [entry.title for entry in work.skipped])  # fmt: skip
                     if not confirm(estimate):
                         return UpdateResult(manifest, snapshot, diff, extraction, None, estimate, declined=True)
                 writer = claude or build_assistant(source, settings, target)

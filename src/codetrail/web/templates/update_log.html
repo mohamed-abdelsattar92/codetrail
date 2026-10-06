@@ -13,7 +13,7 @@
 {% elif step.step == "planned" %}
 <li class="update-line done">{% trans count=step.pages %}Planned one new page.{% pluralize %}Planned {{ count }} new pages.{% endtrans %}{{ used(step) }}</li>
 {% elif step.step == "page" %}
-<li class="update-line">{% if step.attempt == 1 %}{% trans title=step.title %}Writing “{{ title }}”…{% endtrans %}{% else %}{% trans title=step.title %}Writing “{{ title }}” again, with its problems…{% endtrans %}{% endif %}</li>
+<li class="update-line">{% if step.attempt != 1 %}{% trans title=step.title %}Writing “{{ title }}” again, with its problems…{% endtrans %}{% elif step.reason == "update" %}{% trans title=step.title, count=step.changed %}Writing “{{ title }}” (one of its facts changed in this update)…{% pluralize count %}Writing “{{ title }}” ({{ count }} of its facts changed in this update)…{% endtrans %}{% elif step.reason == "new" %}{% trans title=step.title %}Writing “{{ title }}” (a new page)…{% endtrans %}{% elif step.reason == "outline" %}{% trans title=step.title %}Writing “{{ title }}” (its outline entry changed)…{% endtrans %}{% elif step.reason == "catching_up" %}{% trans title=step.title %}Writing “{{ title }}” (catching up: its facts changed after it was written)…{% endtrans %}{% else %}{% trans title=step.title %}Writing “{{ title }}”…{% endtrans %}{% endif %}</li>
 {% elif step.step == "page_written" %}
 <li class="update-line done">{% trans title=step.title %}Wrote “{{ title }}”.{% endtrans %}{{ used(step) }}</li>
 {% elif step.step == "page_failed" %}

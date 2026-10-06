@@ -221,6 +221,9 @@ def test_an_update_reports_each_step_as_it_goes(paths: Paths) -> None:
     one_at_a_time(paths)
     events: list[dict[str, object]] = []
     run_update(paths, "t", claude=FakeAssistant(plans=[PLAN], page_writer=good_page), progress=events.append)
+    pages = [event for event in events if event["step"] == "page"]
+    assert [event.pop("reason") for event in pages] == ["new", "new"]
+    assert all(int(str(event.pop("changed"))) > 0 for event in pages)  # every fact is new on the first update
     assert events[0] == {"step": "facts"}
     assert events[1]["step"] == "facts_recorded" and int(str(events[1]["changes"])) > 0
     no_usage = {"provider": "", "model": "", "tokens": 0}

@@ -51,6 +51,8 @@ def test_a_later_update_estimates_only_whats_affected(paths: Paths, tmp_path: Pa
     claude = FakeAssistant(page_writer=good_page)
     run_update(paths, "t", claude=claude, confirm=recorder(seen, True))
     assert kinds(seen[0]) == {"write": (1, 2), "digest": (1, 1)}
+    [page] = seen[0].pages
+    assert (page.title, page.reason) == ("The API", "update") and page.changed > 0
 
 
 def test_an_update_with_a_real_assistant_needs_a_confirmation(paths: Paths) -> None:
