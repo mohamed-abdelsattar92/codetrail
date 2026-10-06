@@ -192,3 +192,12 @@ def test_yaml_is_read_in_one_pass_without_aliases() -> None:
         load_yaml_without_aliases("a: &shared [1]\nb: *shared\n")
     with pytest.raises(yaml.YAMLError):
         load_yaml_without_aliases("!!python/object:os.system x\n")
+
+
+def test_base_60_integers_stay_text_so_none_costs_quadratic_time() -> None:
+    import time
+
+    started = time.monotonic()
+    _, data = load_yaml_without_aliases("long: " + "1:" * 200_000 + "1\nshort: 1:30\ntagged: !!int 2:00\nplain: 12\n")
+    assert time.monotonic() - started < 2
+    assert (data["short"], data["tagged"], data["plain"]) == ("1:30", "2:00", 12)

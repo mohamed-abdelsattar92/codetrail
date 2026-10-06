@@ -80,18 +80,29 @@ def without_credentials(text: str) -> str:
 
 
 class _NoAliases(yaml.SafeLoader):
-    """safe_load, refusing YAML aliases, so a small file can't expand into an enormous one (a billion-laughs file)."""
+    """safe_load, refusing YAML aliases, so a small file can't expand into an enormous one (a billion-laughs file).
+
+    YAML 1.1 base-60 integers (`1:30`) stay text, as YAML 1.2 reads them: their conversion takes quadratic time.
+    """
 
     def compose_node(self, parent: Any, index: Any) -> Any:
         if self.check_event(yaml.events.AliasEvent):
             raise yaml.YAMLError("aliases are not read")
         return super().compose_node(parent, index)
 
+    def construct_yaml_int(self, node: Any) -> Any:
+        value = self.construct_scalar(node)
+        return value if ":" in value else super().construct_yaml_int(node)
+
+
+_NoAliases.add_constructor("tag:yaml.org,2002:int", _NoAliases.construct_yaml_int)
+
 
 def load_yaml_without_aliases(text: str) -> tuple[yaml.Node | None, Any]:
     """A target's YAML document, read in one pass: its node tree (for line numbers) and its data.
 
-    Raises yaml.YAMLError on an alias or any tag safe_load refuses; the runner turns that into a warning.
+    Raises yaml.YAMLError on an alias or a tag safe_load refuses, and other errors on malformed scalars or deep
+    nesting, so a caller must treat any exception as an unreadable file (the runner makes it a warning).
     """
     loader = _NoAliases(text)
     try:
