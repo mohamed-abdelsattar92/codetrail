@@ -122,3 +122,24 @@ def test_a_signal_during_the_stop_still_waits_for_the_updates_cleanup() -> None:
     finally:
         signal.signal(signal.SIGUSR1, previous)
     assert cleaned == [True]
+
+
+def test_a_signal_while_the_stop_reports_its_wait_still_waits(monkeypatch: pytest.MonkeyPatch) -> None:
+    from codetrail.web import app
+    from codetrail.web.app import UpdateJob
+
+    cleaned: list[bool] = []
+
+    def update_with_slow_cleanup(_confirm: Any) -> None:
+        time.sleep(0.3)
+        cleaned.append(True)
+
+    def interrupted_warning(*_arguments: Any) -> None:
+        raise Interrupted  # the terminal closing while the line is written
+
+    monkeypatch.setattr(app.logger, "warning", interrupted_warning)
+    job = UpdateJob(update_with_slow_cleanup, threading.Event())
+    job.start()
+    with pytest.raises(Interrupted):
+        job.stop()
+    assert cleaned == [True]

@@ -641,12 +641,15 @@ class UpdateJob:
         with self._lock:  # under the lock, so _confirm either sees it before waiting or is woken by it
             self._stopping.set()
             self._decided.set()
-        if self._thread is None or not self._thread.is_alive():
+        if self._thread is None:
             return
-        logger.warning("Stopping the update started from the page; waiting for its cleanup.")
+        reported = False
         interrupted: BaseException | None = None
         while self._thread.is_alive():
             try:
+                if not reported:  # inside the try: a signal while the line is written mustn't end the wait
+                    reported = True
+                    logger.warning("Stopping the update started from the page; waiting for its cleanup.")
                 self._thread.join()
             except BaseException as error:  # raised below, once the update stopped
                 interrupted = error
