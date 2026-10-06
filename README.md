@@ -143,7 +143,7 @@ sequenceDiagram
     loop each affected page, within the budget
         Gen->>Assistant: page outline + facts + log (read-only tools)
         Assistant-->>Gen: draft and checks
-        Gen->>Gen: verify quotes, fact links, diagrams; scan for secrets
+        Gen->>Gen: verify quotes, fact links and diagrams, and scan for secrets
     end
     Gen->>Guide: pages + digest, one commit
     Guide-->>You: "7 pages written, used ~776k tokens"
