@@ -89,8 +89,11 @@ def stop_on_signal(signal_number: int, _frame: FrameType | None) -> None:
     """Turns a hangup or terminate signal into an exception, so the cleanup that stops child programs runs.
 
     Child programs run in their own session (design section 15.5), so these signals don't reach them; by default
-    Python would die without unwinding and leave them running.
+    Python would die without unwinding and leave them running. It fires once: a second signal (closing a terminal can
+    send two) mustn't interrupt the cleanup.
     """
+    for number in (signal.SIGHUP, signal.SIGTERM):
+        signal.signal(number, signal.SIG_IGN)
     raise SystemExit(128 + signal_number)
 
 
