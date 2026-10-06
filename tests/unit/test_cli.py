@@ -29,3 +29,9 @@ def test_the_stop_signal_handler_fires_once(monkeypatch: pytest.MonkeyPatch) -> 
     assert exit_info.value.code == 128 + signal.SIGHUP
     stop_on_signal(signal.SIGHUP, None)
     stop_on_signal(signal.SIGTERM, None)
+
+
+def test_the_installed_version_is_the_one_the_code_reports() -> None:
+    from importlib.metadata import version
+
+    assert version("codetrail") == __version__  # pyproject.toml and __init__.py move together
