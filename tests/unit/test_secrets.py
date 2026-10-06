@@ -256,3 +256,14 @@ def test_an_interrupted_mise_is_stopped_with_what_it_started(tmp_path: Path, mon
     with pytest.raises(KeyboardInterrupt):
         SecretScanner(ToolsSettings(gitleaks=str(shim))).scan_text("x")
     assert_stopped(pid_file)
+
+
+def test_a_scan_off_the_event_loop_runs_in_a_thread_the_interpreter_waits_for() -> None:
+    # Answers and feedback are scanned through anyio.to_thread (design section 15.5): when the server stops, the
+    # interpreter waits for a non-daemon thread, so a scan's `mise which` is stopped by its own cleanup, not abandoned.
+    import threading
+
+    import anyio
+    import anyio.to_thread
+
+    assert anyio.run(anyio.to_thread.run_sync, lambda: threading.current_thread().daemon) is False

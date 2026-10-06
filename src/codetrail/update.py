@@ -6,6 +6,7 @@ rewritten stays affected, because that is derived from its front matter (design 
 
 from __future__ import annotations
 
+import threading
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath
@@ -56,6 +57,9 @@ from codetrail.repo.rules import ExclusionRules
 from codetrail.repo.secrets import SecretScanner
 from codetrail.repo.source import SourceManifest
 from codetrail.system import derive
+
+STOP_CHECK_SECONDS = 0.2  # how often an update started from the page checks whether the server is stopping
+STOPPED = "The server stopped, so the update stopped; the guide wasn't changed."
 
 
 @dataclass(frozen=True)
@@ -126,6 +130,32 @@ def build_extractors(target: TargetConfig, extract: ExtractSettings | None = Non
     return [available[name] for name in target.extractors]
 
 
+async def generate_until_stopped(
+    context: GenerationContext, claude: Assistant, stop: threading.Event
+) -> GenerationResult:
+    """Writes the guide, cancelled once `stop` is set, so its cleanup runs: each program's process group is killed and
+    the guide's uncommitted changes are discarded (design section 15.5)."""
+    if stop.is_set():  # a confirmation that raced the stop: no program starts
+        raise CodetrailError(STOPPED)
+    generation: GenerationResult | None = None
+    try:
+        async with anyio.create_task_group() as group:
+
+            async def cancel_when_stopped() -> None:
+                while not stop.is_set():
+                    await anyio.sleep(STOP_CHECK_SECONDS)
+                group.cancel_scope.cancel()
+
+            group.start_soon(cancel_when_stopped)
+            generation = await generate_guide(context, claude)
+            group.cancel_scope.cancel()
+    except BaseExceptionGroup as errors:  # only the generation raises, and the group wraps its error
+        raise errors.exceptions[0] from None
+    if generation is None:
+        raise CodetrailError(STOPPED)
+    return generation
+
+
 def run_update(
     paths: Paths,
     name: str,
@@ -133,10 +163,12 @@ def run_update(
     facts_only: bool = False,
     confirm: Callable[[UpdateEstimate], bool] | None = None,
     progress: Progress = no_progress,
+    stop: threading.Event | None = None,
 ) -> UpdateResult:
     """Refreshes the sources and facts (free), then, unless `facts_only`, estimates the guide's paid work and asks
     `confirm` before doing it (design section 15.4). An update with a real assistant always needs `confirm`.
-    Each step is reported to `progress` as it happens."""
+    Each step is reported to `progress` as it happens. Setting `stop` (the server stopping) cancels the guide's
+    writing."""
     with target_in_use(paths, name):  # so the target isn't removed during the update
         target = load_target(paths, name)
         check_containment(paths, target.repository)  # before the lock creates the data folder
@@ -197,7 +229,10 @@ def run_update(
                     if not confirm(estimate):
                         return UpdateResult(manifest, snapshot, diff, extraction, None, estimate, declined=True)
                 writer = claude or build_assistant(source, settings, target)
-                generation = anyio.run(generate_guide, context, writer)
+                if stop is None:
+                    generation = anyio.run(generate_guide, context, writer)
+                else:
+                    generation = anyio.run(generate_until_stopped, context, writer, stop)
             finally:
                 connection.close()
         return UpdateResult(manifest, snapshot, diff, extraction, generation)

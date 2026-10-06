@@ -121,7 +121,7 @@ In a script, with no terminal to ask in, `codetrail update` prints the estimate,
 codetrail serve shop
 ```
 
-`serve` prints a one-time sign-in link and opens it in your browser. The page runs on `127.0.0.1` only, and the session ends when you stop `serve` (Ctrl-C).
+`serve` prints a one-time sign-in link and opens it in your browser. The page runs on `127.0.0.1` only, and the session ends when you stop `serve` (Ctrl-C). An update you started from the page stops with it, and the guide stays as it was before that update.
 
 ![The home page: continue where you left off, how far behind the guide is, and your saved answers](images/home.png)
 
