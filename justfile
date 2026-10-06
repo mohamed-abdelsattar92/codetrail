@@ -61,9 +61,9 @@ catalogs:
 test:
     uv run pytest -q
 
-# Run the quick tests, as the pre-push hook does
+# Run the unit, API and tool tests in parallel, as the pre-push hook does (ADR 0011)
 test-quick:
-    uv run pytest -q -m "not slow and not live and not browser"
+    uv run pytest -q -n auto tests/unit tests/api tools/tests
 
 # Run the page in headless Chromium: the palette, shortcuts, the Ask panel and accessibility (ADR 0008)
 test-browser:
