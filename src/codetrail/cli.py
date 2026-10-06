@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import argparse
+import signal
 import sys
 import unicodedata
 from collections import Counter
 from pathlib import Path
+from types import FrameType
 
 from codetrail import __version__
 from codetrail.assistant.estimate import UpdateEstimate, describe, tokens_text
@@ -56,6 +58,9 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
+    for signal_number in (signal.SIGHUP, signal.SIGTERM):
+        if signal.getsignal(signal_number) == signal.SIG_DFL:  # one ignored at start (nohup) stays ignored
+            signal.signal(signal_number, stop_on_signal)
     parser = build_parser()
     arguments = parser.parse_args(argv)
     if arguments.command is None:
@@ -78,6 +83,15 @@ def main(argv: list[str] | None = None) -> int:
     except CodetrailError as error:
         print(f"codetrail: {error}", file=sys.stderr)
         return 1
+
+
+def stop_on_signal(signal_number: int, _frame: FrameType | None) -> None:
+    """Turns a hangup or terminate signal into an exception, so the cleanup that stops child programs runs.
+
+    Child programs run in their own session (design section 15.5), so these signals don't reach them; by default
+    Python would die without unwinding and leave them running.
+    """
+    raise SystemExit(128 + signal_number)
 
 
 def add_target(paths: Paths, name: str, path: Path, branch: str) -> int:
