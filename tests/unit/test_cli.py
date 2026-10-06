@@ -4,7 +4,7 @@ import signal
 
 import pytest
 
-from codetrail import __version__
+from codetrail import __version__, cli
 from codetrail.cli import main, stop_on_signal
 
 
@@ -20,15 +20,12 @@ def test_no_command_prints_help_and_fails(capsys: pytest.CaptureFixture[str]) ->
     assert "usage" in capsys.readouterr().err
 
 
-def test_the_stop_signal_handler_fires_once() -> None:
-    # Closing a terminal can send a second hangup; it mustn't interrupt the cleanup the first one started.
-    before = {number: signal.getsignal(number) for number in (signal.SIGHUP, signal.SIGTERM)}
-    try:
-        with pytest.raises(SystemExit) as exit_info:
-            stop_on_signal(signal.SIGHUP, None)
-        assert exit_info.value.code == 128 + signal.SIGHUP
-        assert signal.getsignal(signal.SIGHUP) == signal.SIG_IGN
-        assert signal.getsignal(signal.SIGTERM) == signal.SIG_IGN
-    finally:
-        for number, handler in before.items():
-            signal.signal(number, handler)
+def test_the_stop_signal_handler_fires_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Closing a terminal can send a second hangup; it mustn't interrupt the cleanup the first one started. The signals
+    # stay caught, not ignored, so a program started during the cleanup gets the default handling back.
+    monkeypatch.setattr(cli, "stopping", False)
+    with pytest.raises(SystemExit) as exit_info:
+        stop_on_signal(signal.SIGHUP, None)
+    assert exit_info.value.code == 128 + signal.SIGHUP
+    stop_on_signal(signal.SIGHUP, None)
+    stop_on_signal(signal.SIGTERM, None)

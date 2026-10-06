@@ -23,6 +23,8 @@ from codetrail.repo.rules import Reason
 from codetrail.server import serve
 from codetrail.update import run_update
 
+stopping = False  # set once a hangup or terminate signal has started Codetrail's exit
+
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="codetrail", description="Turn a git repository into a local learning guide.")
@@ -90,10 +92,13 @@ def stop_on_signal(signal_number: int, _frame: FrameType | None) -> None:
 
     Child programs run in their own session (design section 15.5), so these signals don't reach them; by default
     Python would die without unwinding and leave them running. It fires once: a second signal (closing a terminal can
-    send two) mustn't interrupt the cleanup.
+    send two) mustn't interrupt the cleanup. The signals stay caught rather than ignored, since an ignored signal stays
+    ignored in any program the cleanup starts.
     """
-    for number in (signal.SIGHUP, signal.SIGTERM):
-        signal.signal(number, signal.SIG_IGN)
+    global stopping
+    if stopping:
+        return
+    stopping = True
     raise SystemExit(128 + signal_number)
 
 
