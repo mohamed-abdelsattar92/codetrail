@@ -217,16 +217,42 @@ def test_a_mise_that_never_answers_fails_closed_and_names_the_setting(tmp_path: 
         SecretScanner(tools).scan_text("x")
 
 
-def test_a_mise_that_never_answers_is_stopped_with_what_it_started(tmp_path: Path) -> None:
-    # A template's exec() can start a command of its own; stopping only mise would leave it running.
+def mise_that_starts_a_child(tmp_path: Path) -> tuple[Path, Path]:
+    """A shim whose `mise which` starts a background `sleep`, writes its PID to the returned file, and waits."""
     pid_file = tmp_path / "child.pid"
     shim = fake_mise(tmp_path, f'sleep 30 & echo $! > "{pid_file}"; wait')
     # macOS checks a new script on its first run, which can take longer than the time limit; get that done first.
     subprocess.run([str(shim)], capture_output=True, check=False)
-    tools = ToolsSettings(gitleaks=str(shim), gitleaks_timeout_seconds=0.2)
-    with pytest.raises(CodetrailError, match=r"mise didn't say"):
-        SecretScanner(tools).scan_text("x")
+    return shim, pid_file
+
+
+def assert_stopped(pid_file: Path) -> None:
     child = int(pid_file.read_text())
     time.sleep(0.2)
     with pytest.raises(ProcessLookupError):
         os.kill(child, 0)
+
+
+def test_a_mise_that_never_answers_is_stopped_with_what_it_started(tmp_path: Path) -> None:
+    # A template's exec() can start a command of its own; stopping only mise would leave it running.
+    shim, pid_file = mise_that_starts_a_child(tmp_path)
+    tools = ToolsSettings(gitleaks=str(shim), gitleaks_timeout_seconds=0.2)
+    with pytest.raises(CodetrailError, match=r"mise didn't say"):
+        SecretScanner(tools).scan_text("x")
+    assert_stopped(pid_file)
+
+
+def test_an_interrupted_mise_is_stopped_with_what_it_started(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # In its own session, mise doesn't get the terminal's Ctrl-C, so Codetrail must stop it.
+    shim, pid_file = mise_that_starts_a_child(tmp_path)
+
+    def interrupted(process: subprocess.Popen[bytes], timeout: float | None = None) -> tuple[bytes, bytes]:
+        deadline = time.monotonic() + 10
+        while not pid_file.exists() and time.monotonic() < deadline:
+            time.sleep(0.01)
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(subprocess.Popen, "communicate", interrupted)
+    with pytest.raises(KeyboardInterrupt):
+        SecretScanner(ToolsSettings(gitleaks=str(shim))).scan_text("x")
+    assert_stopped(pid_file)

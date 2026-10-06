@@ -99,7 +99,8 @@ class SecretScanner:
         if mise.name != "mise":
             return found
         # A shim picks the version from its working directory, and gitleaks runs in an empty one, so ask mise here.
-        # Its own process group, killed whole on a timeout: a template's exec() can start commands that outlive mise.
+        # Its own process group, killed whole on a timeout or an interrupt (the terminal's Ctrl-C no longer reaches
+        # it): a template's exec() can start commands that outlive mise.
         with subprocess.Popen(  # noqa: S603
             [str(mise), "which", shim.name],
             stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=environment,
@@ -107,10 +108,12 @@ class SecretScanner:
         ) as process:  # fmt: skip
             try:
                 stdout, stderr = process.communicate(timeout=self._timeout_seconds)
-            except subprocess.TimeoutExpired:
+            except BaseException as error:
                 with suppress(ProcessLookupError, PermissionError):
                     os.killpg(process.pid, signal.SIGKILL)
                 process.wait()
+                if not isinstance(error, subprocess.TimeoutExpired):
+                    raise
                 raise CodetrailError(
                     f"{found} is a mise shim, and mise didn't say which gitleaks it runs here within "
                     f"{self._timeout_seconds:g} seconds ([tools] gitleaks_timeout_seconds); the scan didn't run. "
