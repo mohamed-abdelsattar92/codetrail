@@ -285,7 +285,7 @@ A page is saved only if:
 - every fact link names a current fact, and every diagram placeholder a known diagram and an existing scope;
 - the front matter and checks are complete (section 8.2).
 
-On failure Claude retries once with the errors. If it fails again, the previous page stays, the failure is listed in the update summary, and the page remains affected.
+On failure Claude retries once with the errors. If it fails again, the previous page stays, the failure is listed in the update summary, and the page remains affected. It is also remembered (the `page_failures` table) with the hash of its scope at the time: later updates skip it, and say so, until something in its scope changes or the reader runs `codetrail update <target> --retry-failed`. A provider error (a timeout, a limit) isn't remembered, since it says nothing about the page.
 
 ### 6.6 Digests
 Each update writes one digest from the filtered log and diffs and the fact diff: what changed, why (documented from commit *Why* sections and ADRs where they exist, inferred otherwise), and which pages changed, with links. Digests go through the same validation.

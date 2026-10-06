@@ -83,3 +83,10 @@ def test_a_new_update_starts_a_new_log(paths: Paths) -> None:
     status = client.get("/update/status").json()
     assert status["next"] == 2  # numbers keep counting, so a page reading `after` misses nothing
     assert status["log_html"].count("<li") == 1
+
+
+def test_a_skipped_page_says_why_and_how_to_retry(paths: Paths) -> None:
+    steps: list[dict[str, object]] = [{"step": "page_skipped", "id": "areas/root", "title": "The root"}]
+    html = started(paths, steps).get("/update/status").json()["log_html"]
+    assert "“The root” is skipped: it failed last time, and nothing in it changed since." in html
+    assert "codetrail update t --retry-failed" in html

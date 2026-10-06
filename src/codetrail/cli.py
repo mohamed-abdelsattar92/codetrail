@@ -50,6 +50,9 @@ def build_parser() -> argparse.ArgumentParser:
     update.add_argument("name")
     update.add_argument("--facts-only", action="store_true", help="refresh the facts without calling an assistant")
     update.add_argument("--yes", action="store_true", help="go ahead after showing the estimate, without asking")
+    update.add_argument(
+        "--retry-failed", action="store_true", help="write pages that failed last time, even if nothing in them changed"
+    )
 
     commands.add_parser("providers", help="show each assistant provider: installed, signed in, and how")
 
@@ -77,7 +80,8 @@ def main(argv: list[str] | None = None) -> int:
         if arguments.command == "providers":
             return show_providers(paths)
         if arguments.command == "update":
-            return update_target(paths, arguments.name, facts_only=arguments.facts_only, yes=arguments.yes)
+            return update_target(paths, arguments.name, facts_only=arguments.facts_only, yes=arguments.yes,
+                                 retry_failed=arguments.retry_failed)  # fmt: skip
         if arguments.command == "serve":
             serve(paths, arguments.name, open_browser=not arguments.no_browser)
             return 0
@@ -179,7 +183,9 @@ def show_providers(paths: Paths) -> int:
     return 0
 
 
-def update_target(paths: Paths, name: str, facts_only: bool = False, yes: bool = False) -> int:
+def update_target(
+    paths: Paths, name: str, facts_only: bool = False, yes: bool = False, retry_failed: bool = False
+) -> int:
     no_terminal = False
 
     def confirm(estimate: UpdateEstimate) -> bool:
@@ -198,7 +204,8 @@ def update_target(paths: Paths, name: str, facts_only: bool = False, yes: bool =
             return False
         return input("Continue? [y/N] ").strip().lower() in ("y", "yes")
 
-    result = run_update(paths, name, facts_only=facts_only, confirm=None if facts_only else confirm)
+    result = run_update(paths, name, facts_only=facts_only, confirm=None if facts_only else confirm,
+                        retry_failed=retry_failed)  # fmt: skip
     extraction, diff = result.extraction, result.diff
     print(f"Updated {name} at commit {result.manifest.commit[:12]} (snapshot {result.snapshot.id}).")
     print(f"Facts: {len(extraction.entities)} entities, {len(extraction.relations)} relations.")
@@ -228,6 +235,10 @@ def update_target(paths: Paths, name: str, facts_only: bool = False, yes: bool =
         )
         for page, reason in generation.failed:
             print(f"  Not rewritten: {page} ({printable(reason)})")
+        for page in generation.skipped:
+            print(f"  Skipped: {page} (it failed last time, and nothing in it changed since)")
+        if generation.skipped:
+            print(f"  To write them anyway: codetrail update {name} --retry-failed")
         for problem in generation.outline_problems:
             print(f"  Outline: {printable(problem)}")
         if generation.digest:

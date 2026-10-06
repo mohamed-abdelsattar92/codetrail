@@ -31,6 +31,7 @@ from codetrail.assistant.usage import UsageLog
 from codetrail.errors import CodetrailError
 from codetrail.facts import EntityKind, FactDiff
 from codetrail.facts.store import FactStore
+from codetrail.generate.failures import FailedPages
 from codetrail.generate.outline import (
     OutlineEntry,
     OutlinePath,
@@ -41,7 +42,7 @@ from codetrail.generate.outline import (
     validate_outline,
     validate_paths,
 )
-from codetrail.generate.scope import affected_reason, changed_fact_count, facts_in_scope, page_meta
+from codetrail.generate.scope import affected_reason, changed_fact_count, facts_in_scope, page_meta, scope_hash
 from codetrail.generate.validate import ValidationContext, validate_page
 from codetrail.guide import GuideRepository, Page
 from codetrail.repo.history import Commit, commits_between, recent_commits
@@ -78,6 +79,8 @@ class GenerationContext:
     usage: UsageLog | None = None  # records each call's usage; its costs count against the update's budget
     max_tokens: int | None = None  # the update's token budget, which counts every provider, priced or not
     progress: Progress = no_progress
+    failed_pages: FailedPages | None = None  # pages that failed validation, skipped until their scope changes
+    retry_failed: bool = False  # try them anyway
 
 
 @dataclass
@@ -85,6 +88,7 @@ class GenerationResult:
     written: list[str] = field(default_factory=list)
     failed: list[tuple[str, str]] = field(default_factory=list)
     left_for_later: list[str] = field(default_factory=list)
+    skipped: list[str] = field(default_factory=list)  # failed before, and nothing in their scope changed since
     outline_problems: list[str] = field(default_factory=list)
     digest: str | None = None
     commit: str | None = None
@@ -105,6 +109,9 @@ async def generate_guide(context: GenerationContext, claude: Assistant) -> Gener
         selection = select_pages(context, entries)
         to_write = [planned.entry for planned in selection.to_write]
         result.left_for_later = [entry.id for entry in selection.left_for_later]
+        result.skipped = [entry.id for entry in selection.skipped]
+        for entry in selection.skipped:
+            context.progress({"step": "page_skipped", "id": entry.id, "title": entry.title})
         validation = ValidationContext(context.source_root, context.manifest, context.store, context.mirror,
                                        context.scanner)  # fmt: skip
         limiter = anyio.Semaphore(context.concurrency)
@@ -247,10 +254,14 @@ async def _write_page(
                 meta["checks"] = draft.checks
                 context.guide.write_page(Page(entry.id, meta, draft.body))
                 result.written.append(entry.id)
+                if context.failed_pages is not None:
+                    context.failed_pages.forget(entry.id)
                 context.progress({"step": "page_written", "id": entry.id, "title": entry.title, **spent})
                 return
             request = replace(request, problems=problems, previous_body=draft.body)
         reason = "; ".join(problems[:3])
+        if context.failed_pages is not None:  # its drafts failed validation: not worth paying for again unchanged
+            context.failed_pages.record(entry.id, scope_hash(context.store, entry))
     except AssistantError as error:
         reason = str(error)
     result.failed.append((entry.id, reason))
@@ -322,18 +333,26 @@ class PlannedPage:
 class PageSelection:
     to_write: list[PlannedPage]
     left_for_later: list[OutlineEntry]  # beyond max_pages_per_update
+    skipped: list[OutlineEntry]  # failed validation before, and their scope hasn't changed since
 
 
 def select_pages(context: GenerationContext, entries: Sequence[OutlineEntry]) -> PageSelection:
     """The affected pages, in the order they are written: those this update's facts touched first, then the ones
-    the reader learned, then new pages, then the backlog; within a group, the most changed facts first."""
+    the reader learned, then new pages, then the backlog; within a group, the most changed facts first. A page that
+    failed validation is skipped while its scope is what it was then, unless `context.retry_failed`."""
     touched = context.diff.changed_ids()
     affected: list[tuple[tuple[bool, bool, bool, int], PlannedPage]] = []
+    skipped: list[OutlineEntry] = []
     for entry in entries:
         page = context.guide.read_page(entry.id)
         reason = affected_reason(entry, page, context.store)
         if reason is None:
             continue
+        if context.failed_pages is not None and not context.retry_failed:
+            failed_with = context.failed_pages.scope_hash(entry.id)
+            if failed_with is not None and failed_with == scope_hash(context.store, entry):
+                skipped.append(entry)
+                continue
         changed_now = sum(1 for entity in facts_in_scope(context.store, entry) if entity.id in touched)
         kind = {"new": "new", "outline changed": "outline"}.get(reason, "update" if changed_now else "catching_up")
         rank = (not changed_now, entry.id not in context.learned, kind not in ("new", "outline"),
@@ -341,7 +360,7 @@ def select_pages(context: GenerationContext, entries: Sequence[OutlineEntry]) ->
         affected.append((rank, PlannedPage(entry, kind, changed_now)))
     affected.sort(key=lambda item: item[0])
     planned = [page for _, page in affected]
-    return PageSelection(planned[: context.max_pages], [page.entry for page in planned[context.max_pages :]])
+    return PageSelection(planned[: context.max_pages], [page.entry for page in planned[context.max_pages :]], skipped)
 
 
 @dataclass(frozen=True)

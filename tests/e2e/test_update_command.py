@@ -126,3 +126,29 @@ def test_update_asks_and_respects_no(
     assert main(["update", "app"]) == 0
     assert asked == ["Continue? [y/N] "]
     assert "wasn't updated" in capsys.readouterr().out
+
+
+def test_retry_failed_reaches_the_update_and_skipped_pages_are_reported(
+    environment: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from dataclasses import replace
+
+    from codetrail.config import Paths
+    from codetrail.generate.run import GenerationResult
+    from codetrail.update import UpdateResult, run_update
+
+    checkout = make_repository(environment / "target", [{"services/api/pyproject.toml": PYPROJECT}])
+    assert main(["target", "add", "api", str(checkout)]) == 0
+    calls: list[dict[str, object]] = []
+
+    def update(paths: Paths, name: str, **options: object) -> UpdateResult:
+        calls.append(options)
+        return replace(run_update(paths, name, facts_only=True), generation=GenerationResult(skipped=["areas/api"]))
+
+    monkeypatch.setattr("codetrail.cli.run_update", update)
+    capsys.readouterr()
+    assert main(["update", "api", "--yes", "--retry-failed"]) == 0
+    assert calls[0]["retry_failed"] is True
+    out = capsys.readouterr().out
+    assert "Skipped: areas/api (it failed last time, and nothing in it changed since)" in out
+    assert "--retry-failed" in out

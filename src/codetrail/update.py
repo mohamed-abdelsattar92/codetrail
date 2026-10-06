@@ -39,6 +39,7 @@ from codetrail.extract.terraform import TerraformExtractor
 from codetrail.extract.typescript import TypeScriptExtractor
 from codetrail.facts import FactDiff, Snapshot
 from codetrail.facts.store import FactStore
+from codetrail.generate.failures import FailedPages
 from codetrail.generate.run import (
     GenerationContext,
     GenerationResult,
@@ -164,11 +165,12 @@ def run_update(
     confirm: Callable[[UpdateEstimate], bool] | None = None,
     progress: Progress = no_progress,
     stop: threading.Event | None = None,
+    retry_failed: bool = False,
 ) -> UpdateResult:
     """Refreshes the sources and facts (free), then, unless `facts_only`, estimates the guide's paid work and asks
     `confirm` before doing it (design section 15.4). An update with a real assistant always needs `confirm`.
     Each step is reported to `progress` as it happens. Setting `stop` (the server stopping) cancels the guide's
-    writing."""
+    writing. Pages that failed validation wait until their facts change, unless `retry_failed`."""
     with target_in_use(paths, name):  # so the target isn't removed during the update
         target = load_target(paths, name)
         check_containment(paths, target.repository)  # before the lock creates the data folder
@@ -220,6 +222,8 @@ def run_update(
                     learned=LearningState(connection).learned_page_ids(),
                     usage=UsageLog(connection, settings.prices),
                     progress=progress,
+                    failed_pages=FailedPages(connection),
+                    retry_failed=retry_failed,
                 )
                 if confirm is not None:
                     work = planned_work(context)

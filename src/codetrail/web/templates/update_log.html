@@ -20,6 +20,8 @@
 <li class="update-line failed">{% trans title=step.title, reason=step.reason %}“{{ title }}” wasn’t written: {{ reason }}{% endtrans %}</li>
 {% elif step.step == "page_later" %}
 <li class="update-line">{% trans title=step.title %}“{{ title }}” waits for the next update: the budget is spent.{% endtrans %}</li>
+{% elif step.step == "page_skipped" %}
+<li class="update-line">{% trans title=step.title %}“{{ title }}” is skipped: it failed last time, and nothing in it changed since.{% endtrans %} {% trans name=target %}To write it anyway: <code>codetrail update {{ name }} --retry-failed</code>{% endtrans %}</li>
 {% elif step.step == "digest" %}
 <li class="update-line">{{ _("Writing the digest…") }}</li>
 {% elif step.step == "committed" %}

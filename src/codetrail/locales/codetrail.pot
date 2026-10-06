@@ -660,6 +660,10 @@ msgstr ""
 msgid "This file isn't text, or is too large to show."
 msgstr ""
 
+#, python-format
+msgid "To write it anyway: <code>codetrail update %(name)s --retry-failed</code>"
+msgstr ""
+
 msgid "Tokens each"
 msgstr ""
 
@@ -827,6 +831,12 @@ msgid "tokens"
 msgstr ""
 
 msgid "unread"
+msgstr ""
+
+#, python-format
+msgid ""
+"“%(title)s” is skipped: it failed last time, and nothing in it changed "
+"since."
 msgstr ""
 
 #, python-format
