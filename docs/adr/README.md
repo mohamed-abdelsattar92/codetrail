@@ -34,3 +34,4 @@ Everything smaller is explained in the commit body, not in an ADR.
 | [0008](0008-browser-tests-with-playwright.md) | Test the page in a real browser with Playwright for Python, and check accessibility with axe-core | accepted | 2026-10-05 |
 | [0009](0009-typescript-and-javascript-grammars.md) | Parse TypeScript, JavaScript and Astro with tree-sitter's TypeScript and JavaScript grammars | proposed | 2026-10-05 |
 | [0010](0010-agpl-with-a-commercial-license.md) | License Codetrail under the AGPL 3.0 only, sell commercial licenses, and reserve the name and logo | proposed | 2026-10-07 |
+| [0011](0011-parallel-quick-tests-with-pytest-xdist.md) | Run the pre-push hook's quick tests in parallel with pytest-xdist, on the unit, API and hook tests only | proposed | 2026-10-07 |
