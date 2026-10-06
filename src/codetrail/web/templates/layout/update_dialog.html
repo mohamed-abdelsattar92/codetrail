@@ -5,8 +5,14 @@
     <button type="button" class="button primary" data-estimate-go>{{ _("Go ahead") }}</button>
   </div>
 </dialog>
-<div class="toast" role="status" data-update-status
-     data-label-preparing="{{ _('Refreshing the facts (free)…') }}"
-     data-label-running="{{ _('Updating…') }}"
-     data-label-done="{{ _('Updated.') }}"
-     data-label-failed="{{ _('The update failed:') }}"></div>
+{% from "layout/icons.html" import icon %}
+<aside class="update-panel" data-update-panel aria-labelledby="update-title" hidden
+       data-label-running="{{ _('Updating…') }}" data-label-done="{{ _('Updated.') }}"
+       data-label-failed="{{ _('The update failed:') }}">
+  <div class="ask-head">
+    <h2 id="update-title">{{ _("Updating the guide") }}</h2>
+    <button type="button" class="icon-button" data-update-close aria-label="{{ _('Close') }}">{{ icon("close") }}</button>
+  </div>
+  <ol class="update-log" data-update-log aria-live="polite"></ol>
+  <p class="update-state" role="status" data-update-state></p>
+</aside>

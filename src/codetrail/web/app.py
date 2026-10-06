@@ -12,13 +12,14 @@ import logging
 import secrets
 import threading
 import time
+from collections import deque
 from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import ExitStack, asynccontextmanager, contextmanager
 from importlib.resources import files
 from pathlib import Path
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -35,6 +36,7 @@ from codetrail.config import GlobalConfig, Paths, load_target, model_choice
 from codetrail.database import connect
 from codetrail.errors import CodetrailError
 from codetrail.facts import EntityKind
+from codetrail.generate.run import Progress
 from codetrail.generate.scope import sources_changed
 from codetrail.guide import PAGE_ID, GuideRepository, Page, parse_page
 from codetrail.learn import LearningState, page_checks
@@ -99,7 +101,7 @@ def create_app(
     session: SessionState,
     settings: GlobalConfig,
     locales: Path | None = None,
-    updater: Callable[[Callable[[UpdateEstimate], bool]], object] | None = None,
+    updater: Callable[[Callable[[UpdateEstimate], bool], Progress], object] | None = None,
     assistant_for: Callable[[], Assistant] | None = None,
 ) -> ASGIApp:
     """The page, wrapped in the security middleware outside everything, so every response passes through it.
@@ -108,10 +110,12 @@ def create_app(
     """
     stopping = threading.Event()
     job = UpdateJob(
-        updater or (lambda confirm: run_update(paths, name, confirm=confirm, stop=stopping)),
+        updater
+        or (lambda confirm, progress: run_update(paths, name, confirm=confirm, progress=progress, stop=stopping)),
         stopping,
         settings.server.update_cooldown_seconds,
         settings.server.estimate_ttl_seconds,
+        settings.server.update_log_lines,
     )
 
     @asynccontextmanager
@@ -401,11 +405,14 @@ def create_app(
         return JSONResponse({**job.status(), "message": refusal}, status_code=409 if busy else 429)
 
     @app.get("/update/status")
-    def update_status() -> Response:
+    def update_status(after: Annotated[int, Query(ge=0, le=2**53)] = 0) -> Response:
+        """The update's state, and its steps after number `after`, rendered for the page's update panel."""
         status = job.status()
+        environment = environments[language().code]
         if "estimate" in status:  # rendered here, in the reader's language and autoescaped, for the page's dialog
-            template = environments[language().code].get_template("estimate.html")
-            status["estimate_html"] = template.render(estimate=status["estimate"])
+            status["estimate_html"] = environment.get_template("estimate.html").render(estimate=status["estimate"])
+        steps, status["next"] = job.steps(after)
+        status["log_html"] = environment.get_template("update_log.html").render(steps=steps) if steps else ""
         return JSONResponse(status)
 
     @app.post("/update/confirm")
@@ -560,10 +567,11 @@ class UpdateJob:
 
     def __init__(
         self,
-        run: Callable[[Callable[[UpdateEstimate], bool]], object],
+        run: Callable[[Callable[[UpdateEstimate], bool], Progress], object],
         stopping: threading.Event,
         cooldown_seconds: int = 0,
         estimate_ttl_seconds: int = 300,
+        log_lines: int = 200,
     ) -> None:
         self._run = run
         self._stopping = stopping
@@ -571,6 +579,8 @@ class UpdateJob:
         self._lock = threading.Lock()
         self._cooldown = cooldown_seconds
         self._ttl = estimate_ttl_seconds
+        self._log: deque[tuple[int, dict[str, object]]] = deque(maxlen=log_lines)  # (number, step), newest last
+        self._numbered = 0  # keeps counting across updates, so a page asking for the steps after one misses nothing
         self._finished_at: float | None = None
         self._decided = threading.Event()
         self._decision = False
@@ -628,6 +638,7 @@ class UpdateJob:
             if self._finished_at is not None and time.monotonic() - self._finished_at < self._cooldown:
                 return "An update finished a moment ago; wait a few minutes before the next."
             self.state, self.message, self._declined = "preparing", "", False
+            self._log.clear()
             self._thread = threading.Thread(target=self._work, daemon=True)
             self._thread.start()
         return None
@@ -658,7 +669,7 @@ class UpdateJob:
 
     def _work(self) -> None:
         try:
-            result = self._run(self._confirm)
+            result = self._run(self._confirm, self._report)
         except CodetrailError as error:
             self.state, self.message = "failed", str(error)
         except Exception as error:  # the page shows a generic message; details stay out of the response
@@ -671,6 +682,16 @@ class UpdateJob:
                 self.state, self.message = "done", ""
         finally:
             self._finished_at = time.monotonic()
+
+    def _report(self, step: dict[str, object]) -> None:
+        with self._lock:
+            self._numbered += 1
+            self._log.append((self._numbered, step))
+
+    def steps(self, after: int) -> tuple[list[dict[str, object]], int]:
+        """The steps numbered after `after`, oldest first, and the last step's number."""
+        with self._lock:
+            return [step for number, step in self._log if number > after], self._numbered
 
     def status(self) -> dict[str, object]:
         if self.state == "waiting" and self.estimate is not None:

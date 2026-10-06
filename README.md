@@ -149,6 +149,8 @@ sequenceDiagram
     Guide-->>You: "7 pages written, used ~776k tokens"
 ```
 
+From the page, an update panel shows each step as it happens: the facts refreshed, the outline planned, each page written with its provider, model, tokens and cost, or not written and why. It closes when the update is done, and stays open with the reason when it fails.
+
 If an update is interrupted, the guide's uncommitted changes are discarded and nothing is half-written. Pages that failed or didn't fit in the budget are picked up by the next update.
 
 ## Your assistant, your subscription
@@ -267,7 +269,7 @@ flowchart LR
 | 8. Providers and sign-in | Claude Code, Codex or a local model, on your own subscription | Done |
 | 9. Cost estimates | An estimate before every paid action | Done |
 | 10. Getting started | This README, and the [getting-started guide](docs/getting-started.md) | Done |
-| 11. The page's design | A new look with progress first, search, a command palette, shortcuts, an Ask panel, and pages for progress, saved answers and digests; tested in a real browser | Done |
+| 11. The page's design | A new look with progress first, search, a command palette, shortcuts, an Ask panel, an update panel that shows each step of an update, and pages for progress, saved answers and digests; tested in a real browser | Done |
 | 12. The whole system | Facts for TypeScript, JavaScript and Astro code, deploy evidence from GitHub Actions, and the system pass: a repository's services, apps, libraries, contracts and infrastructure, and how they connect (`codetrail update` prints the count per rule); the system diagram on its own page, on the home page and on area pages, which pages and answers can also place | Done |
 
 Codex and local models are tested against stand-ins and Codetrail's own tests; Claude Code is also tested live. Codex's provider decision is [ADR 0006](docs/adr/0006-assistant-providers-and-subscriptions.md).

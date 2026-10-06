@@ -707,8 +707,9 @@ dialog[open] {
   white-space: nowrap;
 }
 
-/* The Ask panel. */
-.ask-panel {
+/* The Ask panel, and the update panel, which takes the same place above it while an update runs. */
+.ask-panel,
+.update-panel {
   position: fixed;
   inset-block: var(--header-height) 0;
   inset-inline-end: 0;
@@ -832,33 +833,55 @@ dialog[open] {
   font-size: 0.82rem;
 }
 
-.toast {
-  position: fixed;
-  inset-block-end: var(--space-5);
-  inset-inline-start: 50%;
-  z-index: 40;
-  max-inline-size: min(36rem, 92vw);
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-card);
-  background: var(--raised);
-  box-shadow: var(--shadow-float);
+.update-panel {
+  z-index: 25;
+}
+
+.update-log {
+  flex: 1;
+  overflow-y: auto;
+  margin: 0;
+  padding: var(--space-4) var(--space-5);
+  list-style: none;
   font-size: 0.9rem;
-  transform: translateX(-50%);
 }
 
-[dir="rtl"] .toast {
-  transform: translateX(50%);
+.update-line {
+  padding-block: var(--space-1);
+  overflow-wrap: anywhere;
 }
 
-.toast:empty {
+.update-line.done::before {
+  content: "✓ ";
+  color: var(--accent);
+}
+
+.update-line.failed,
+.update-state.failed {
+  color: var(--danger);
+}
+
+.update-state {
+  margin: 0;
+  padding: var(--space-3) var(--space-5);
+  border-block-start: 1px solid var(--line);
+  background: var(--card);
+  font-size: 0.86rem;
+}
+
+.update-state:empty {
   display: none;
 }
 
 @media (max-width: 900px) {
-  .ask-panel {
+  .ask-panel,
+  .update-panel {
     inset-block-start: 0;
     z-index: 35;
     inline-size: 100vw;
+  }
+
+  .update-panel {
+    z-index: 36;
   }
 }

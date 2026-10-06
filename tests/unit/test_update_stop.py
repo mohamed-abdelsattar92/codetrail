@@ -57,7 +57,7 @@ def test_no_update_starts_once_the_server_is_stopping() -> None:
     from codetrail.web.app import UpdateJob
 
     runs: list[bool] = []
-    job = UpdateJob(lambda _confirm: runs.append(True), threading.Event())
+    job = UpdateJob(lambda _confirm, _progress: runs.append(True), threading.Event())
     job.stop()
     assert job.start() == "The server is stopping."
     assert runs == []
@@ -85,7 +85,7 @@ def test_a_confirmation_once_the_server_is_stopping_is_refused() -> None:
 
     decisions: list[bool] = []
     stopping = threading.Event()
-    job = UpdateJob(lambda confirm: decisions.append(confirm(ESTIMATE)), stopping)
+    job = UpdateJob(lambda confirm, _progress: decisions.append(confirm(ESTIMATE)), stopping)
     job.start()
     while job.estimate_id is None:
         time.sleep(0.01)
@@ -105,7 +105,7 @@ def test_a_signal_during_the_stop_still_waits_for_the_updates_cleanup() -> None:
 
     cleaned: list[bool] = []
 
-    def update_with_slow_cleanup(_confirm: Any) -> None:
+    def update_with_slow_cleanup(_confirm: Any, _progress: Any) -> None:
         time.sleep(0.5)
         cleaned.append(True)
 
@@ -130,7 +130,7 @@ def test_a_signal_while_the_stop_reports_its_wait_still_waits(monkeypatch: pytes
 
     cleaned: list[bool] = []
 
-    def update_with_slow_cleanup(_confirm: Any) -> None:
+    def update_with_slow_cleanup(_confirm: Any, _progress: Any) -> None:
         time.sleep(0.3)
         cleaned.append(True)
 
