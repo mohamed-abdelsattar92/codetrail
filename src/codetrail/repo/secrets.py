@@ -12,8 +12,10 @@ import json
 import os
 import re
 import shutil
+import signal
 import subprocess
 import tempfile
+from contextlib import suppress
 from dataclasses import dataclass
 from importlib.resources import as_file, files
 from pathlib import Path
@@ -97,24 +99,32 @@ class SecretScanner:
         if mise.name != "mise":
             return found
         # A shim picks the version from its working directory, and gitleaks runs in an empty one, so ask mise here.
-        try:
-            result = subprocess.run(  # noqa: S603
-                [str(mise), "which", shim.name],
-                stdin=subprocess.DEVNULL, capture_output=True, env=environment, check=False,
-                timeout=self._timeout_seconds,
-            )  # fmt: skip
-        except subprocess.TimeoutExpired:
-            raise CodetrailError(
-                f"{found} is a mise shim, and mise didn't say which gitleaks it runs here within "
-                f"{self._timeout_seconds:g} seconds ([tools] gitleaks_timeout_seconds); the scan didn't run. "
-                f"Check the mise configuration in the folder Codetrail was started from. {POINT_AT_ANOTHER}"
-            ) from None
-        binary = Path(result.stdout.decode("utf-8", "replace").strip())
-        if result.returncode != 0 or not binary.is_absolute():
+        # Its own process group, killed whole on a timeout or an interrupt (the terminal's Ctrl-C no longer reaches
+        # it): a template's exec() can start commands that outlive mise.
+        with subprocess.Popen(  # noqa: S603
+            [str(mise), "which", shim.name],
+            stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=environment,
+            start_new_session=True,
+        ) as process:  # fmt: skip
+            try:
+                stdout, stderr = process.communicate(timeout=self._timeout_seconds)
+            except BaseException as error:
+                with suppress(ProcessLookupError, PermissionError):
+                    os.killpg(process.pid, signal.SIGKILL)
+                process.wait()
+                if not isinstance(error, subprocess.TimeoutExpired):
+                    raise
+                raise CodetrailError(
+                    f"{found} is a mise shim, and mise didn't say which gitleaks it runs here within "
+                    f"{self._timeout_seconds:g} seconds ([tools] gitleaks_timeout_seconds); the scan didn't run. "
+                    f"Check the mise configuration in the folder Codetrail was started from. {POINT_AT_ANOTHER}"
+                ) from None
+        binary = Path(stdout.decode("utf-8", "replace").strip())
+        if process.returncode != 0 or not binary.is_absolute():
             # Only mise's own error lines: it quotes the configuration line it couldn't parse on the lines after.
             raise CodetrailError(
                 f"{found} is a mise shim, and mise couldn't say which gitleaks it runs here "
-                f"(exit code {result.returncode}). It said: {_explanation(result.stderr, 'mise ERROR')}. "
+                f"(exit code {process.returncode}). It said: {_explanation(stderr, 'mise ERROR')}. "
                 "Run Codetrail from a folder whose mise configuration sets gitleaks, or set a global version with "
                 f"`mise use -g gitleaks`. {POINT_AT_ANOTHER}"
             )
@@ -123,7 +133,7 @@ class SecretScanner:
         resolved = binary.resolve()  # checked and run as one path, so no link can change in between
         if not resolved.is_relative_to(installs) or not resolved.is_file():
             raise CodetrailError(
-                f"mise named {_explanation(result.stdout)} as gitleaks here, which isn't one of mise's own installs "
+                f"mise named {_explanation(stdout)} as gitleaks here, which isn't one of mise's own installs "
                 f"in {installs}; Codetrail won't run it. {POINT_AT_ANOTHER}"
             )
         return str(resolved)
