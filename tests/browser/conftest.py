@@ -20,6 +20,7 @@ from codetrail.assistant import AnswerChunk, PageDraft, PageRequest, PlanDraft
 from codetrail.assistant.estimate import CallEstimate, EstimateLine, UpdateEstimate
 from codetrail.assistant.fake import FakeAssistant
 from codetrail.config import GlobalConfig, Paths, write_target
+from codetrail.errors import CodetrailError
 from codetrail.update import run_update
 from codetrail.web.app import create_app
 from codetrail.web.security import SessionState
@@ -63,6 +64,11 @@ class Site:
     session: SessionState
     claude: FakeAssistant
     decisions: list[bool] = field(default_factory=list)
+    # What a confirmed update from the page reports, whether it waits for `release`, and why it fails, if it does.
+    steps: list[dict[str, object]] = field(default_factory=list)
+    hold: bool = False
+    release: threading.Event = field(default_factory=threading.Event)
+    failure: str = ""
 
     def sign_in(self, page: Page, path: str = "/") -> None:
         page.goto(f"{self.url}/login?code={self.session.issue_login_code()}")
@@ -98,10 +104,18 @@ def site(tmp_path: Path) -> Iterator[Site]:
     ]
     claude = FakeAssistant(answers=list(answers))
     session = SessionState(60)
-    decisions: list[bool] = []
+    site = Site("", session, claude)
 
-    def updater(confirm: Callable[[UpdateEstimate], bool], progress: object) -> None:
-        decisions.append(confirm(ESTIMATE))
+    def updater(confirm: Callable[[UpdateEstimate], bool], progress: Callable[[dict[str, object]], None]) -> None:
+        site.decisions.append(confirm(ESTIMATE))
+        if not site.decisions[-1]:
+            return
+        for step in site.steps:
+            progress(step)
+        if site.hold:
+            site.release.wait(30)
+        if site.failure:
+            raise CodetrailError(site.failure)
 
     app = create_app(paths, "shop", session, settings, updater=updater, assistant_for=lambda: claude)
     server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning", access_log=False))
@@ -113,7 +127,9 @@ def site(tmp_path: Path) -> Iterator[Site]:
         time.sleep(0.02)
     # Fail closed: if another process took the port, nothing must be sent to it.
     assert server.started and thread.is_alive(), "The test server didn't start."
-    yield Site(f"http://127.0.0.1:{port}", session, claude, decisions)
+    site.url = f"http://127.0.0.1:{port}"
+    yield site
+    site.release.set()
     server.should_exit = True
     thread.join(5)
 

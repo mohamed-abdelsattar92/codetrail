@@ -696,6 +696,9 @@ msgstr ""
 msgid "Updated."
 msgstr ""
 
+msgid "Updating the guide"
+msgstr ""
+
 msgid "Updating…"
 msgstr ""
 
