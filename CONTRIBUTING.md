@@ -39,7 +39,7 @@ Once per clone: `mise trust && mise install`, then `just setup` (the Python and 
 The name and logo aren't covered by the licence; see [TRADEMARKS.md](TRADEMARKS.md).
 
 ## Releasing
-For the maintainer. `main` accepts changes only through a pull request that passes CI, so a release never uses `git flow release finish`, which merges on your machine. A release branch carries no commits of its own: a fix found while releasing goes into `develop` on a bugfix branch, and the release starts again from there. A hotfix goes through a pull request into `main` too, never `git flow hotfix finish`.
+For the maintainer. `main` accepts changes only through a pull request that passes CI, so a release never uses `git flow release finish`, which merges on your machine. A release branch carries no commits of its own: a fix found while releasing goes into `develop` on a bugfix branch, and the release starts again from there. A hotfix goes through a pull request into `main` too, never `git flow hotfix finish`, and `main` is then merged back into `develop` as in step 5.
 
 1. On a feature branch into `develop`, set the version in `pyproject.toml` and `src/codetrail/__init__.py` (then `uv lock`), move **Unreleased** in `CHANGELOG.md` under the new version, and write `docs/releases/v<version>.md`.
 2. `git flow release start <version>`, then `git push -u origin release/<version>`.
