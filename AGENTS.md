@@ -43,7 +43,7 @@ Since Phase 0, these rules are also enforced by tools: permission rules and hook
 ## Workflow
 - **Branches** follow git-flow: `main` holds releases, `develop` holds finished work. Start each feature with `git flow feature start <name>`, which branches off `develop`. One topic per branch.
 - **Commits** follow Conventional Commits with a scope (`config`, `repo`, `extract`, `facts`, `claude`, `generate`, `guide`, `web`, `bridge`, `learn`, `tools`, `docs`, `adr`, `ci`, `deps`). commitlint checks them in the commit-msg hook. The sections may be written as headings or inline (`Why: …`). Every commit body has these sections: What, Why, Alternatives considered, Risks, Agent and model. Features are merged, not squashed.
-- **Update the docs before finishing.** Every branch updates the documents its change affects, starting with the root `README.md`'s current state.
+- **Update the docs before finishing.** Every branch updates the documents its change affects, starting with the root `README.md`'s current state, and adds a line under **Unreleased** in `CHANGELOG.md` for anything a user would notice.
 - **Review security before finishing.** Once the branch's work is committed and its tests pass, review its commits against `docs/security/review-checklist.md`; in Claude Code, with the `security-reviewer` agent. Fix every critical and high finding with new commits and review again. Fix medium findings, or record why not in the merge message.
 - **Finish every feature** into `develop`, with the review's verdict in the merge message, and delete its branch:
   ```

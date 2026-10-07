@@ -5,9 +5,10 @@ name: ci
 on:
   push:
     branches: [develop, main]
-  # Dependabot's security updates. A pull request runs every check, with no secret.
+  # Contributors' and Dependabot's pull requests into develop, and release pull requests into main, which may
+  # merge only once this passes (CONTRIBUTING.md, Releasing). A pull request runs every check, with no secret.
   pull_request:
-    branches: [develop]
+    branches: [develop, main]
   workflow_dispatch:
 
 permissions:
