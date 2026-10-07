@@ -4,6 +4,10 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-10-07
+
+Release notes: [docs/releases/v1.0.1.md](docs/releases/v1.0.1.md).
+
 ### Added
 - A security policy, [SECURITY.md](SECURITY.md): how to report a vulnerability privately, and what counts as one.
 - Contribution rules in [CONTRIBUTING.md](CONTRIBUTING.md): git-flow, every change through a pull request, simple code, tests first, the changelog, and how a release reaches `main` through a pull request.
@@ -50,5 +54,6 @@ The first public release. Release notes: [docs/releases/v1.0.0.md](docs/releases
 - The page and the bridge listen on 127.0.0.1 only, check `Host`, `Origin` and `Sec-Fetch-Site`, need a single-use login code and a per-session token, and send a strict content security policy.
 - The assistant gets read-only tools (Read, Grep, Glob) confined to the filtered sources: for Claude Code through two independent guards, and for local models through Codetrail's own tools. Codex can't be confined the same way, so it stays off unless a target opts in. Every provider gets an allowlisted environment: Codetrail never reads, stores or passes a key or token, unless you set `auth = "api_key"`, when the provider's key variable is handed to its program by name.
 
-[Unreleased]: https://github.com/mohamed-abdelsattar92/codetrail/compare/v1.0.0...develop
+[Unreleased]: https://github.com/mohamed-abdelsattar92/codetrail/compare/v1.0.1...develop
+[1.0.1]: https://github.com/mohamed-abdelsattar92/codetrail/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/mohamed-abdelsattar92/codetrail/releases/tag/v1.0.0
