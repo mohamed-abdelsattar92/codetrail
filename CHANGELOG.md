@@ -2,6 +2,8 @@
 
 Every notable change to Codetrail, newest first. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
 ## [1.0.0] - 2026-10-07
 
 The first public release. Release notes: [docs/releases/v1.0.0.md](docs/releases/v1.0.0.md).
@@ -41,4 +43,5 @@ The first public release. Release notes: [docs/releases/v1.0.0.md](docs/releases
 - The page and the bridge listen on 127.0.0.1 only, check `Host`, `Origin` and `Sec-Fetch-Site`, need a single-use login code and a per-session token, and send a strict content security policy.
 - The assistant gets read-only tools (Read, Grep, Glob) confined to the filtered sources: for Claude Code through two independent guards, and for local models through Codetrail's own tools. Codex can't be confined the same way, so it stays off unless a target opts in. Every provider gets an allowlisted environment: Codetrail never reads, stores or passes a key or token, unless you set `auth = "api_key"`, when the provider's key variable is handed to its program by name.
 
+[Unreleased]: https://github.com/mohamed-abdelsattar92/codetrail/compare/v1.0.0...develop
 [1.0.0]: https://github.com/mohamed-abdelsattar92/codetrail/releases/tag/v1.0.0
