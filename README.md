@@ -309,7 +309,8 @@ Then `just ci` runs every check CI runs; `just lint`, `just format`, `just typec
 | [Architecture decision records](docs/adr/README.md) | Decisions that are hard to reverse |
 | [Security review checklist](docs/security/review-checklist.md) | What every change is reviewed against |
 | [AGENTS.md](AGENTS.md) | Rules and workflow for coding agents |
-| [Contributing](CONTRIBUTING.md) | How to propose a change, and the contributor licence agreement |
+| [Contributing](CONTRIBUTING.md) | The rules for contributing: git-flow, pull requests, simple code, tests first, commits, releasing, and the contributor licence agreement |
+| [Security policy](SECURITY.md) | How to report a vulnerability privately, and what counts as one |
 | [Trademarks](TRADEMARKS.md) | What you may do with the name and logo |
 
 ## Credits
