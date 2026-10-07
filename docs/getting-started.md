@@ -33,7 +33,7 @@ cd codetrail && uv tool install .
 codetrail --version
 ```
 
-To install a release without cloning, run `uv tool install git+https://github.com/mohamed-abdelsattar92/codetrail@v1.0.0` instead. `uv tool install` puts `codetrail` on your `PATH`. After you pull a newer version, run `uv tool install --reinstall .` again. To try it without installing anything, run each command below as `uvx --from <path to the clone> codetrail …` instead.
+To install a release without cloning, run `uv tool install git+https://github.com/mohamed-abdelsattar92/codetrail@v1.0.1` instead. `uv tool install` puts `codetrail` on your `PATH`. After you pull a newer version, run `uv tool install --reinstall .` again. To try it without installing anything, run each command below as `uvx --from <path to the clone> codetrail …` instead.
 
 ## 3. Check your assistant
 
@@ -233,4 +233,4 @@ To remove Codetrail, run `uv tool uninstall codetrail` and delete those folders.
 | `Claude Code isn't signed in with a Claude subscription` | You signed in with an API (Console) account: `/login` again with your Claude account, or set `auth = "api_key"` on purpose |
 | `local isn't ready` | Start `ollama serve` (or LM Studio's server) and pull a model |
 | `update` exits with code 2 | There was no terminal to ask in; read the estimate it printed and add `--yes` |
-| `This target doesn't allow Codex` | Add `[assistant] allow_codex = true` to the target, knowing Codex can read outside the allowed files |
+| `Codex can read outside the repository's allowed files` | Add `[assistant] allow_codex = true` to the target, knowing Codex can read outside the allowed files |

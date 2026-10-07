@@ -5,9 +5,10 @@ name: ci
 on:
   push:
     branches: [develop, main]
-  # Dependabot's security updates. A pull request runs every check, with no secret.
+  # Contributors' and Dependabot's pull requests into develop, and release pull requests into main, which may
+  # merge only once this passes (CONTRIBUTING.md, Releasing). A pull request runs every check, with no secret.
   pull_request:
-    branches: [develop]
+    branches: [develop, main]
   workflow_dispatch:
 
 permissions:
@@ -39,7 +40,9 @@ jobs:
       # Headless Chromium and its system libraries for the browser tests (ADR 0008)
       - run: uv run playwright install --with-deps chromium
       - run: just ci
-      # Only develop's pushes: every commit reaches main through develop in the same push.
+      # Only develop's pushes: a release branch carries no commits of its own, so a release pull request into main
+      # brings only what develop checked; a hotfix's commits are checked when main is merged back into develop
+      # (CONTRIBUTING.md, Releasing), and by the commit-msg hook before that.
       - name: Commit messages in this push
         if: github.event_name == 'push' && github.ref == 'refs/heads/develop' && github.event.before != '0000000000000000000000000000000000000000'
         env:
