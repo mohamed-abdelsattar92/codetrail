@@ -4,7 +4,7 @@ Codetrail runs an assistant over repositories that hold secrets, and serves a lo
 
 ## Supported versions
 
-Security fixes go into the latest release. Codetrail has had one release so far:
+Security fixes go into the latest release:
 
 | Version | Supported |
 |---|---|

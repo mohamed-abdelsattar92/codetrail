@@ -12,8 +12,12 @@ Release notes: [docs/releases/v1.0.1.md](docs/releases/v1.0.1.md).
 - A security policy, [SECURITY.md](SECURITY.md): how to report a vulnerability privately, and what counts as one.
 - Contribution rules in [CONTRIBUTING.md](CONTRIBUTING.md): git-flow, every change through a pull request, simple code, tests first, the changelog, and how a release reaches `main` through a pull request.
 
+### Changed
+- Codex's consent is also checked when the assistant is built, before Codetrail looks for any provider's program. Loading a target already refused Codex without `allow_codex`, so nothing changes for users; this is a second layer.
+
 ### Fixed
-- A target that uses Codex without allowing it is refused with that reason first, whatever is installed; before, a missing Claude Code was reported instead.
+- Getting started's troubleshooting table quotes the message you actually see when a target uses Codex without allowing it.
+- CI passes on GitHub's runners: two tests depended on the machine they ran on (whether Claude Code was installed, and how long since it booted).
 
 ## [1.0.0] - 2026-10-07
 
