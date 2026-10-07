@@ -61,6 +61,8 @@ def build_assistant(
     models_by_provider: dict[str, dict[str, str]] = {}
     for kind, (provider, model) in choices.items():
         models_by_provider.setdefault(provider, {})[kind] = model
+    if "codex" in models_by_provider and not target.assistant.allow_codex:  # policy first, whatever is installed
+        raise AssistantError("This target doesn't allow Codex; set [assistant] allow_codex = true to use it.")
     adapters: dict[str, Assistant] = {}
     retries = settings.assistant.retry_attempts
     for provider, models in models_by_provider.items():
@@ -76,8 +78,6 @@ def build_assistant(
                 environ,
             )
         elif provider == "codex":
-            if not target.assistant.allow_codex:
-                raise AssistantError("This target doesn't allow Codex; set [assistant] allow_codex = true to use it.")
             adapters[provider] = CodexAssistant(
                 source_root, models, settings.providers.codex, target.generation, retries, environ
             )

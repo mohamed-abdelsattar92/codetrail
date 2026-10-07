@@ -53,5 +53,6 @@ def test_build_assistant_refuses_codex_without_the_targets_consent(tmp_path: Pat
     target = TargetConfig.model_construct(
         repository=tmp_path, branch="main", models=ModelSettings(write="codex:gpt-5.5-codex")
     )
-    with pytest.raises(AssistantError, match="allow_codex"):
-        build_assistant(tmp_path / "source", GlobalConfig(), target)
+    nothing_installed = {"PATH": str(tmp_path / "empty")}  # as on a machine without Claude Code, such as CI
+    with pytest.raises(AssistantError, match="allow_codex"):  # the target's consent is checked before any program
+        build_assistant(tmp_path / "source", GlobalConfig(), target, nothing_installed)
