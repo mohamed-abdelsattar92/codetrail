@@ -8,6 +8,9 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 - A security policy, [SECURITY.md](SECURITY.md): how to report a vulnerability privately, and what counts as one.
 - Contribution rules in [CONTRIBUTING.md](CONTRIBUTING.md): git-flow, every change through a pull request, simple code, tests first, the changelog, and how a release reaches `main` through a pull request.
 
+### Fixed
+- A target that uses Codex without allowing it is refused with that reason first, whatever is installed; before, a missing Claude Code was reported instead.
+
 ## [1.0.0] - 2026-10-07
 
 The first public release. Release notes: [docs/releases/v1.0.0.md](docs/releases/v1.0.0.md).
