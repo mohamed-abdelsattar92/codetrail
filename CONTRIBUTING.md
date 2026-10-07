@@ -10,7 +10,7 @@ Once per clone: `mise trust && mise install`, then `just setup` (the Python and 
 ## Workflow
 1. **Discuss first.** For anything larger than a small fix, open an issue before you write it, so that we agree on the approach.
 2. **Use git-flow.** Branch features off `develop` with `git flow feature start <name>`, and fixes with `git flow bugfix start <name>`. One topic per branch. Never branch from `main`; `release/` and `hotfix/` branches are the maintainer's.
-3. **Every change goes through a pull request.** Push your branch to your own fork and open a pull request into `develop`. Nobody pushes to `main`: releases reach it through a pull request from `release/<version>` (see [Releasing](#releasing)).
+3. **Every contribution goes through a pull request.** Push your branch to your own fork and open a pull request into `develop`. Nobody pushes to `main`: releases reach it through a pull request from `release/<version>` (see [Releasing](#releasing)).
 4. **Keep pull requests small.** One topic, as small as it can be while complete.
 5. **CI passes and the maintainer reviews** before anything is merged. Pull requests are merged with a merge commit, never squashed or rebased, so each commit and its message stay in the history.
 
@@ -39,11 +39,11 @@ Once per clone: `mise trust && mise install`, then `just setup` (the Python and 
 The name and logo aren't covered by the licence; see [TRADEMARKS.md](TRADEMARKS.md).
 
 ## Releasing
-For the maintainer. `main` accepts changes only through a pull request that passes CI, so a release never uses `git flow release finish`, which merges on your machine:
+For the maintainer. `main` accepts changes only through a pull request that passes CI, so a release never uses `git flow release finish`, which merges on your machine. A release branch carries no commits of its own: a fix found while releasing goes into `develop` on a bugfix branch, and the release starts again from there. A hotfix goes through a pull request into `main` too, never `git flow hotfix finish`.
 
 1. On a feature branch into `develop`, set the version in `pyproject.toml` and `src/codetrail/__init__.py` (then `uv lock`), move **Unreleased** in `CHANGELOG.md` under the new version, and write `docs/releases/v<version>.md`.
 2. `git flow release start <version>`, then `git push -u origin release/<version>`.
 3. `gh pr create --base main --head release/<version> --title "Release <version>"`, and when CI passes, `gh pr merge --merge`.
 4. `git checkout main && git pull`, then `git tag -a v<version> -m "Codetrail <version>"` and `git push origin v<version>`.
 5. Bring the release back: `git checkout develop && git merge --no-ff main && git push origin develop`, then delete `release/<version>` locally and on GitHub.
-6. `gh release create v<version> --draft --verify-tag --title "Codetrail <version>" --notes-file docs/releases/v<version>.md`, check it, and publish it with `gh release edit v<version> --draft=false`. Releases are immutable once published.
+6. `gh release create v<version> --draft --verify-tag --title "Codetrail <version>" --notes-file docs/releases/v<version>.md`, check it, and publish it with `gh release edit v<version> --draft=false`. With the repository's release immutability setting on, as it is, a published release and its tag can't be changed.
