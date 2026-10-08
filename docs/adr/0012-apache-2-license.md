@@ -1,6 +1,6 @@
 # 0012. License Codetrail under the Apache License 2.0, take contributions under the same licence, and keep the name and logo reserved
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-08
 - Deciders: KoGy
 - Proposed by: Claude Code (Claude Opus 5.5), after the founder asked on 2026-10-08 to change the licence to the Apache License 2.0 and to drop the CLA
@@ -51,5 +51,5 @@ Option A. Codetrail is licensed under `Apache-2.0`, with the copyright held by M
 - [x] `CLA.md` removed; `CONTRIBUTING.md` and `.github/pull_request_template.md` describe contributing under section 5.
 - [x] `TRADEMARKS.md`: cites the Apache License's section 6.
 - [x] README: the License section and the Documentation table.
-- [ ] ADR 0010's status becomes `superseded by 0012` when this ADR is accepted (the founder).
+- [x] ADR 0010's status becomes `superseded by 0012`.
 - [ ] A lawyer reviews `TRADEMARKS.md` (the founder).

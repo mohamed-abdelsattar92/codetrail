@@ -1,6 +1,6 @@
 # 0010. License Codetrail under the AGPL 3.0 only, sell commercial licenses, and reserve the name and logo
 
-- Status: proposed
+- Status: superseded by 0012
 - Date: 2026-10-07
 - Deciders: KoGy
 - Proposed by: Claude Code (Claude Opus 5.5), after the founder chose "AGPL with a commercial license" on 2026-10-07
