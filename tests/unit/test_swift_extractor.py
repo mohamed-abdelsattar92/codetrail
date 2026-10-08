@@ -103,9 +103,9 @@ def test_hostile_manifests_stay_linear(tmp_path: Path) -> None:
         "c/Package.swift": '.target(name: "A", ' * 50_000 + ")" * 50_000,
         "d/Package.swift": '.target(name: "A", dependencies: [.product(name: "P", package: "Q"' * 15_000,
     }
-    started = time.monotonic()
+    started = time.process_time()
     extraction = run(tmp_path, hostile)
-    assert time.monotonic() - started < 2
+    assert time.process_time() - started < 2
     assert {"project:a", "project:b", "project:c", "project:d"} <= {entity.id for entity in extraction.entities}
 
 
