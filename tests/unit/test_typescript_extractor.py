@@ -234,9 +234,9 @@ def test_many_unclosed_script_tags_are_read_in_linear_time(tmp_path: Path) -> No
     import time
 
     hostile = "---\n---\n" + "<script>x" * 40_000  # every opening would rescan the rest with a lazy regex
-    started = time.monotonic()
+    started = time.process_time()
     found = run(tmp_path, {"site/src/pages/x.astro": hostile})
-    assert time.monotonic() - started < 2
+    assert time.process_time() - started < 2
     assert "module:site/src/pages/x.astro" in ids(found, EntityKind.MODULE)
 
 
@@ -273,9 +273,9 @@ def test_many_closed_scripts_are_read_quickly(tmp_path: Path) -> None:
     import time
 
     page = "---\n---\n" + "<script>\n</script>\n" * 60_000
-    started = time.monotonic()
+    started = time.process_time()
     run(tmp_path, {"site/x.astro": page})
-    assert time.monotonic() - started < 3
+    assert time.process_time() - started < 3
 
 
 def test_absolute_worker_entries_and_base_urls_are_dropped(tmp_path: Path) -> None:

@@ -100,9 +100,9 @@ def test_yaml_aliases_are_refused_so_no_file_can_expand(tmp_path: Path) -> None:
     steps = "\n".join("    - run: wrangler deploy" for _ in range(200))
     jobs = "\n".join(f"  j{index}: *big" for index in range(2000))
     bomb = f"x-big: &big\n  steps:\n{steps}\njobs:\n{jobs}\n"
-    started = time.monotonic()
+    started = time.process_time()
     found = run(tmp_path, {".github/workflows/bomb.yml": bomb})
-    assert time.monotonic() - started < 2
+    assert time.process_time() - started < 2
     assert found.entities == [] and any("bomb.yml" in warning for warning in found.warnings)
 
 
@@ -123,9 +123,9 @@ def test_escaped_commands_and_padding_stay_fast(tmp_path: Path) -> None:
 
     steps = "\n".join('      - run: "wrangler\\x20deploy"' for _ in range(5000))
     workflow = "jobs:\n  a:\n    steps:\n" + steps + "\n" + "#\n" * 150_000
-    started = time.monotonic()
+    started = time.process_time()
     found = run(tmp_path, {".github/workflows/slow.yml": workflow})
-    assert time.monotonic() - started < 3 and len(found.entities) == 5000
+    assert time.process_time() - started < 3 and len(found.entities) == 5000
 
 
 def test_hostile_job_names_and_folders_never_reach_facts(tmp_path: Path) -> None:
