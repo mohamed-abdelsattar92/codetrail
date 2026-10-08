@@ -33,7 +33,7 @@ cd codetrail && uv tool install .
 codetrail --version
 ```
 
-To install a release without cloning, run `uv tool install git+https://github.com/mohamed-abdelsattar92/codetrail@v1.0.1` instead. `uv tool install` puts `codetrail` on your `PATH`. After you pull a newer version, run `uv tool install --reinstall .` again. To try it without installing anything, run each command below as `uvx --from <path to the clone> codetrail …` instead.
+To install a release without cloning, run `uv tool install git+https://github.com/mohamed-abdelsattar92/codetrail@v1.1.0` instead. `uv tool install` puts `codetrail` on your `PATH`. After you pull a newer version, run `uv tool install --reinstall .` again. To try it without installing anything, run each command below as `uvx --from <path to the clone> codetrail …` instead.
 
 ## 3. Check your assistant
 
