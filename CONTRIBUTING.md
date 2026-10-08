@@ -33,8 +33,8 @@ Once per clone: `mise trust && mise install`, then `just setup` (the Python and 
 ## Coding assistants
 16. **Assistants are welcome.** Name the agent and model in each commit's "Agent and model" section. Assistants follow [AGENTS.md](AGENTS.md) wherever they run: they never push, open pull requests or release, so you push and open the pull request yourself. You're responsible for everything you submit, whoever wrote it.
 
-## Licence and the CLA
-17. **Agree to the CLA.** Codetrail is licensed under the [GNU AGPL 3.0](LICENSE), and its copyright holder also sells commercial licences. Your contribution can only be merged once you have agreed to the [contributor licence agreement](CLA.md) by ticking its box in the pull request. You keep the copyright in your work; the agreement lets the project ship it under both the AGPL and its commercial licences.
+## Licence
+17. **Contribute under the Apache License 2.0.** Codetrail is licensed under the [Apache License 2.0](LICENSE). Whatever you submit for inclusion is licensed under the same terms (section 5 of the licence), with no separate agreement to sign. You keep the copyright in your work. Only submit work you have the right to: where it includes another person's work, say so in the pull request, with its source and its licence.
 
 The name and logo aren't covered by the licence; see [TRADEMARKS.md](TRADEMARKS.md).
 

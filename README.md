@@ -309,7 +309,7 @@ Then `just ci` runs every check CI runs; `just lint`, `just format`, `just typec
 | [Architecture decision records](docs/adr/README.md) | Decisions that are hard to reverse |
 | [Security review checklist](docs/security/review-checklist.md) | What every change is reviewed against |
 | [AGENTS.md](AGENTS.md) | Rules and workflow for coding agents |
-| [Contributing](CONTRIBUTING.md) | The rules for contributing: git-flow, pull requests, simple code, tests first, commits, releasing, and the contributor licence agreement |
+| [Contributing](CONTRIBUTING.md) | The rules for contributing: git-flow, pull requests, simple code, tests first, commits, releasing, and the licence of contributions |
 | [Security policy](SECURITY.md) | How to report a vulnerability privately, and what counts as one |
 | [Trademarks](TRADEMARKS.md) | What you may do with the name and logo |
 
@@ -323,6 +323,6 @@ Then `just ci` runs every check CI runs; `just lint`, `just format`, `just typec
 
 Copyright © 2026 Mohamed Abdel Sattar.
 
-Codetrail is free software under the [GNU Affero General Public License 3.0 only](LICENSE). You may use, change and share it under that licence's terms; if you change it and let other people use it over a network, you must offer them your version's source. To use Codetrail without the AGPL's terms, for example inside a closed product, ask for a commercial licence at mohamed.abdelsattar92@hotmail.com ([ADR 0010](docs/adr/0010-agpl-with-a-commercial-license.md)).
+Codetrail is open source under the [Apache License 2.0](LICENSE). You may use, change and share it, commercially or not, as long as you keep its copyright and licence notices and say which files you changed ([ADR 0012](docs/adr/0012-apache-2-license.md)). Versions 1.0.0 and 1.0.1 were released under the GNU AGPL 3.0 only, and those copies keep that licence.
 
-The licence grants no rights to the name "Codetrail" or its logo; [TRADEMARKS.md](TRADEMARKS.md) says what you may do with them. Contributions are welcome under the [contributor licence agreement](CLA.md); see [CONTRIBUTING.md](CONTRIBUTING.md).
+The licence grants no rights to the name "Codetrail" or its logo; [TRADEMARKS.md](TRADEMARKS.md) says what you may do with them. Contributions are welcome under the same licence; see [CONTRIBUTING.md](CONTRIBUTING.md).

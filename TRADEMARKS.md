@@ -1,6 +1,6 @@
 # Codetrail trademark policy
 
-"Codetrail" and the Codetrail logo are trademarks of Mohamed Abdel Sattar. The code is open source under the [GNU AGPL 3.0](LICENSE), but the licence grants no rights to the name or the logo (AGPL section 7(e)). This policy says what you can do with them without asking, and what needs written permission.
+"Codetrail" and the Codetrail logo are trademarks of Mohamed Abdel Sattar. The code is open source under the [Apache License 2.0](LICENSE), but the licence grants no rights to the name or the logo (section 6 of the licence). This policy says what you can do with them without asking, and what needs written permission.
 
 ## The marks
 - The name "Codetrail".
@@ -8,7 +8,7 @@
 
 ## Allowed without asking
 - Saying what is true: "built with Codetrail", "a fork of Codetrail", "compatible with Codetrail", in articles, talks, reviews and documentation.
-- Sharing unchanged copies of Codetrail under its own name and logo, as the AGPL allows.
+- Sharing unchanged copies of Codetrail under its own name and logo, as the licence allows.
 
 ## Needs written permission
 - Using the name or the logo for a modified version, a fork, a product, a service, a company or a domain name.

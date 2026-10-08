@@ -3,7 +3,7 @@ name = "codetrail"
 version = "1.0.1"
 description = "Turn a git repository into a local learning guide that keeps up with it."
 readme = "README.md"
-license = "AGPL-3.0-only"
+license = "Apache-2.0"
 license-files = ["LICENSE"]
 requires-python = ">=3.14"
 dependencies = [
