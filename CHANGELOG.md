@@ -4,6 +4,13 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+### Changed
+- Codetrail is now licensed under the [Apache License 2.0](LICENSE) instead of the GNU AGPL 3.0 only, so you may use it commercially without asking. Versions 1.0.0 and 1.0.1 keep the AGPL.
+
+### Removed
+- The contributor licence agreement: contributions are licensed under the Apache License 2.0, as its section 5 says, with nothing to sign.
+- The commercial licence offer, which the Apache License makes unnecessary.
+
 ## [1.0.1] - 2026-10-07
 
 Release notes: [docs/releases/v1.0.1.md](docs/releases/v1.0.1.md).

@@ -10,5 +10,5 @@
 ## Agent rules, hooks and CI
 <!-- Does this change AGENTS.md, CLAUDE.md, `.claude/`, `.codex/`, `docs/security/`, `tools/`, the lefthook or commitlint files, `.github/`, or any other file listed under "Agent guardrails" in docs/security/review-checklist.md? Say which and why, or write "none". -->
 
-## Contributor licence agreement
-- [ ] I have read version 1.0 of [CLA.md](../blob/develop/CLA.md) and agree to it for this contribution and all my later ones to Codetrail.
+## Licence
+- [ ] I have the right to submit this work, and I submit it under the [Apache License 2.0](../blob/develop/LICENSE), as its section 5 says.
