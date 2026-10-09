@@ -342,7 +342,7 @@ Server-rendered with FastAPI and Jinja2, served by uvicorn; Markdown rendered on
 - The installed languages are the catalogs present. The picker lists them by their own names. The choice is stored in `learn`; the default is `ui.default_language` in the global configuration (`en`).
 - `<html lang dir>` follows the chosen catalog. Guide content, which is English, is wrapped in `lang="en" dir="ltr"`.
 - Errors shown in the page are catalog strings, without stack traces or file contents. The routes translate their own messages with the reader's catalog; an error raised by an assistant program or by the update itself, which the command line prints too, is shown as raised, in English.
-- Phase 3 ships English and a right-to-left catalog used only in tests. Each real language is added later as one catalog on its own branch. Arabic was the first (9 October 2026): technical terms (commit, branch, merge, tokens, ADR, API) stay English, numbers use Western digits in every language (a catalog test checks), and the founder reviews the translation.
+- Phase 3 ships English and a right-to-left catalog used only in tests. Each real language is added later as one catalog on its own branch. Arabic was the first (9 October 2026): technical terms (commit, branch, merge, tokens, ADR, API) stay English, numbers use Western digits in every language (a catalog test checks), and the founder approved the translation on 9 October 2026.
 
 ### 7.3 The bridge
 - `POST /bridge/questions` takes a question and optionally the page being read, and streams the answer with `fetch` (not `EventSource`, which can't send the token header). The page shows the stream as plain text; when it ends, the server sends the rendered, sanitized HTML that replaces it.
