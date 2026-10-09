@@ -29,6 +29,11 @@ check-repo:
 check-commits from to="HEAD" config="commitlint.config.mjs":
     pnpm exec commitlint --config {{ config }} --from {{ from }} --to {{ to }} --verbose
 
+# Release a version from develop, from the founder's terminal: the pull request into main, the tag and a draft GitHub release (CONTRIBUTING.md, Releasing)
+[positional-arguments]
+release version:
+    python3 tools/release.py "$1"
+
 # Check formatting and lint everything
 lint: lint-just lint-python
 
