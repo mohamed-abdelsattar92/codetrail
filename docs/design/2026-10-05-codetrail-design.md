@@ -544,6 +544,7 @@ Recipes: `just test-quick` (unit, API and the hooks' tests, in parallel, run by 
 | Jinja2, markdown-it-py, PyYAML, uvicorn; Mermaid vendored | The page and the guide's front matter | ADR 0004 |
 | Babel (development only) | Extracting and compiling catalogs | ADR 0005; ADR 0013 (proposed) |
 | Inter, bundled as font files | The page's typeface | ADR 0007 |
+| Noto Sans Arabic, bundled as a font file | Arabic letters, which Inter lacks | ADR 0014 (proposed) |
 | pytest-playwright with Chromium, and axe-core vendored for tests (development only) | Browser and accessibility tests | ADR 0008 |
 | pytest-xdist (development only) | The pre-push hook's quick tests, in parallel | ADR 0011 (proposed) |
 | tree-sitter-typescript, tree-sitter-javascript | The `typescript` extractor's parsers | ADR 0009 |
@@ -679,7 +680,7 @@ Empty states invite rather than apologize ("Ask a question from any page and sav
 | Inferred callout, stale | amber `#b26a00` and its tint | amber `#f0b255` and its tint |
 | Learned | green `#18774d` | `#5fd39b` |
 
-- **Type.** Inter (weights 400, 500 and 600) for everything, bundled with Codetrail ([ADR 0007](../adr/0007-bundle-the-inter-typeface.md)); code in the system's monospace (`ui-monospace`, SF Mono, Menlo). Body text 16 px with a line height of 1.65.
+- **Type.** Inter (weights 400, 500 and 600) for everything, bundled with Codetrail ([ADR 0007](../adr/0007-bundle-the-inter-typeface.md)); Arabic letters in Noto Sans Arabic, next in the font stack and loaded only for them ([ADR 0014](../adr/0014-bundle-noto-sans-arabic.md), proposed), with no letter-spacing on right-to-left text; code in the system's monospace (`ui-monospace`, SF Mono, Menlo). Body text 16 px with a line height of 1.65.
 - **Shape.** A 4 px spacing scale; 8 px corners on controls and 12 px on cards; hairline borders; shadows only on what floats (the palette, dialogs and the Ask panel).
 - **Motion.** 150 to 200 ms ease-out for the panel and the palette, and none when the system asks for reduced motion.
 - **Accessibility.** WCAG AA contrast for every text and background pair in both themes; a visible focus ring; a "Skip to content" link; landmarks (`header`, `nav`, `main`, `aside`); a label on every icon-only button.
@@ -721,7 +722,7 @@ Empty states invite rather than apologize ("Ask a question from any page and sav
 - `templates/layout/`: the shell (`shell.html`, `header.html`, `sidebar.html`, `outline.html`, `ask_panel.html`, `palette.html`, `shortcuts.html`); every page template fills its content block. New pages: `progress.html`, `answers.html`, `search.html`.
 - `static/css/`: `tokens.css`, `base.css`, `layout.css`, `components.css`, `content.css` (guide pages, callouts, diagrams, code) and `print.css`, replacing `page.css`.
 - `static/js/`: plain ES modules, no bundler, loaded from `main.js` as `<script type="module">` (allowed by `script-src 'self'`): `api.js` (the token header, fetch), `ask.js`, `palette.js`, `shortcuts.js`, `update.js`, `learning.js`, `outline.js`, `theme.js`, `diagram.js`. They replace `page.js`, keeping its behaviour (streamed answers, grading, the estimate dialog, marking read, Mermaid).
-- `static/brand/`: the mark and favicon. `static/vendor/inter/`: the font files and their licence.
+- `static/brand/`: the mark and favicon. `static/vendor/inter/` and `static/vendor/noto-sans-arabic/`: the font files, their licences and `VERSION` files.
 - Static files are sent with `Cache-Control: no-cache`, so the browser revalidates them on every load and an upgraded Codetrail never shows its pages with the previous version's styles or script.
 - `src/codetrail/search.py`: the index and its queries; the routes live with the other page routes in `web`.
 
