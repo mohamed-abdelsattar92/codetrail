@@ -15,6 +15,7 @@ import time
 from collections import deque
 from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import ExitStack, asynccontextmanager, contextmanager
+from datetime import date
 from importlib.resources import files
 from pathlib import Path
 from typing import Annotated, Any
@@ -42,10 +43,13 @@ from codetrail.guide import PAGE_ID, GuideRepository, Page, parse_page
 from codetrail.learn import LearningState, page_checks
 from codetrail.learn.routes import learning_router
 from codetrail.lock import TargetBusy, target_in_use
+from codetrail.metrics.history import recent_values, values_before
+from codetrail.metrics.report import Metric, MetricsReport, build_report
 from codetrail.repo.signal import Signal, behind
 from codetrail.search import Result, SearchIndex, guide_documents
 from codetrail.update import run_update
 from codetrail.web.diagrams import dependencies_diagram, imports_diagram, system_diagram, system_parts
+from codetrail.web.documentation import ReportCache, build_tiles
 from codetrail.web.i18n import Language, installed_languages
 from codetrail.web.navigation import (
     Navigation,
@@ -149,6 +153,7 @@ def create_app(
     signal_cache: dict[str, tuple[float, Signal | None]] = {}
     index_lock = threading.Lock()
     index_built: dict[str, object] = {"key": None, "index": None}
+    reports: ReportCache[MetricsReport] = ReportCache()
 
     def search_index() -> SearchIndex | None:
         """The index, rebuilt whenever the guide or the facts moved on (an update, a saved answer); None if broken.
@@ -275,6 +280,7 @@ def create_app(
         snapshot = None
         last_update = None
         system = None
+        documentation = None
         if (view.data / "codetrail.db").exists():
             with view.store() as store:
                 snapshot = store.latest_snapshot()
@@ -287,6 +293,12 @@ def create_app(
                     kinds[str(entity.kind)] = kinds.get(str(entity.kind), 0) + 1
                 counts = sorted(kinds.items())
                 last_update = last_update_usage(store.connection)
+                recorded = [value for _, value in recent_values(store.connection, Metric.DOCUMENTED_SHARE, 2)]
+                documentation = build_tiles(
+                    {Metric.DOCUMENTED_SHARE: recorded[-1]} if recorded else {},
+                    {Metric.DOCUMENTED_SHARE: recorded[0]} if len(recorded) > 1 else {},
+                    {},
+                )[Metric.DOCUMENTED_SHARE]
         pages = guide.pages() if guide.root.exists() else []
         nav = navigation(pages)
         guide_pages = [page for page in pages if page.kind in ("area", "concept")]
@@ -301,6 +313,7 @@ def create_app(
             snapshot=snapshot, guide_pages=guide_pages, latest_digest=digests[0] if digests else None,
             unread_digests=unread_digests, stale_pages=stale, learned=learned, last_update=last_update,
             continue_reading=continue_reading(pages, nav.statuses), system=system, has_system=system is not None,
+            documentation=documentation,
         )  # fmt: skip
 
     @app.get("/system", response_class=HTMLResponse)
@@ -485,6 +498,33 @@ def create_app(
                 found = store.entities(EntityKind.DECISION)
         found.sort(key=lambda decision: str(decision.attributes.get("number", "")))
         return render("decisions.html", active="decisions", decisions=found)
+
+    @app.get("/documentation", response_class=HTMLResponse)
+    def documentation() -> HTMLResponse:
+        """The documentation metrics (design section 18.4): the live report, kept until the guide or facts move on."""
+        if not (view.data / "codetrail.db").exists():
+            return render("documentation.html", active="documentation", report=None)
+        with view.store() as store:
+            snapshot = store.latest_snapshot()
+            if snapshot is None:
+                return render("documentation.html", active="documentation", report=None)
+            tracked = guide.git_dir.exists()
+            today = date.today()
+            key = (snapshot.id, guide.head() if tracked else None, tracked and guide.has_uncommitted_changes(), today)
+            try:
+                report = reports.get(key, lambda: build_report(paths, name, settings, store, today))
+            except (CodetrailError, OSError) as error:
+                logger.warning("The documentation metrics aren't available: %s", error)
+                return render("documentation.html", active="documentation", report=None, unavailable=True)
+            before = values_before(store.connection, snapshot.id)
+            history = {
+                metric: [value for _, value in recent_values(store.connection, metric, settings.metrics.trend_updates)]
+                for metric in Metric
+            }
+        return render(
+            "documentation.html", active="documentation", report=report, tiles=build_tiles(report.values(), before,
+            history), listed=settings.metrics.max_listed,
+        )  # fmt: skip
 
     @app.post("/settings/language")
     def set_language(choice: LanguageChoice) -> Response:

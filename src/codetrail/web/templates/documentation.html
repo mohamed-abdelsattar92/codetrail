@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% from "layout/icons.html" import icon %}
+{% block title %}{{ _("Documentation") }}{% endblock %}
+{% block content %}
+{% macro capped(items) -%}
+<ul class="list" lang="en" dir="ltr">{% for item in items[:listed] %}<li>{{ caller(item) }}</li>{% endfor %}</ul>
+{% if items|length > listed %}
+<details class="more">
+  <summary>{% trans count=items|length - listed %}{{ count }} more{% endtrans %}</summary>
+  <ul class="list" lang="en" dir="ltr">{% for item in items[listed:] %}<li>{{ caller(item) }}</li>{% endfor %}</ul>
+</details>
+{% endif %}
+{%- endmacro %}
+{% macro fact_link(entity) -%}
+<a class="grow" href="/facts/{{ entity.id }}">{{ entity.id }}</a>
+{%- endmacro %}
+{% macro decision_link(decision) -%}
+<a class="grow" href="/facts/{{ decision.id }}">{{ decision.attributes.get("number", "") }} · {{ decision.attributes.get("title", "") }}</a>{% if decision.attributes.get("date") %}<span class="faint">{{ decision.attributes.date }}</span>{% endif %}
+{%- endmacro %}
+{% macro share(value) -%}
+{% if value.denominator %}{% trans numerator=value.numerator, denominator=value.denominator %}{{ numerator }} of {{ denominator }}{% endtrans %}{% else %}{{ _("nothing to measure yet") }}{% endif %}
+{%- endmacro %}
+{% macro tile_card(tile, label, title_id) %}
+<section class="stat metric" aria-labelledby="{{ title_id }}">
+  <span class="card-label" id="{{ title_id }}">{{ label }}</span>
+  {% if tile.value is none %}
+    <span class="stat-value">—</span><span class="stat-note">{{ _("Not available just now.") }}</span>
+  {% elif tile.metric == "adr_attention" %}
+    <span class="stat-value{% if tile.value.numerator %} behind{% endif %}">{{ tile.value.numerator }}</span>
+    <span class="stat-note">{{ _("proposed too long, or retired and still cited") }}</span>
+  {% elif tile.metric == "documented_share" and not tile.value.denominator %}
+    <span class="stat-value">—</span><span class="stat-note">{{ _("No pages yet: the guide's rationale is measured once your assistant writes it.") }}</span>
+    <button type="button" class="button small" data-update-button>{{ _("Update the guide") }}</button>
+  {% else %}
+    <span class="stat-value">{% if tile.percent is not none %}{{ tile.percent }}%{% else %}—{% endif %}</span>
+    <span class="stat-note">{{ share(tile.value) }}</span>
+  {% endif %}
+  {% if tile.value is not none and (tile.value.denominator or tile.metric == "adr_attention") %}
+  <span class="stat-note">{% if tile.change is none %}{{ _("No earlier update to compare with.") }}{% elif tile.metric == "adr_attention" %}{% trans change="%+d"|format(tile.change) %}{{ change }} since the last update{% endtrans %}{% else %}{% trans change="%+d"|format(tile.change) %}{{ change }} points since the last update{% endtrans %}{% endif %}</span>
+  {% endif %}
+  {% if tile.points %}
+  {% set count = tile.trend_text.split(", ")|length %}
+  <svg class="trend" viewBox="0 0 120 32" role="img" aria-label="{% trans count=count, values=tile.trend_text %}Trend over {{ count }} update: {{ values }}{% pluralize %}Trend over {{ count }} updates: {{ values }}{% endtrans %}"><polyline points="{{ tile.points }}"/></svg>
+  {% endif %}
+</section>
+{% endmacro %}
+<div class="wide">
+<header class="page-head">
+  <h1>{{ _("Documentation") }}</h1>
+  <p class="muted">{{ _("How well the repository explains itself: its guide's rationale, its commits, its decisions and its documents. Measured from the code and the guide, without calling your assistant.") }}</p>
+</header>
+{% if report is none %}
+<section class="empty">
+  {% if unavailable %}
+  <h2>{{ _("The metrics aren't available just now") }}</h2>
+  <p>{{ _("Codetrail couldn't read the target's data; the log says why.") }}</p>
+  {% else %}
+  <h2>{{ _("No facts yet") }}</h2>
+  <p>{{ _("Update the guide once: reading the code is free, and the metrics come from it.") }}</p>
+  <button type="button" class="button primary" data-update-button>{{ _("Update the guide") }}</button>
+  {% endif %}
+</section>
+{% else %}
+<div class="stats">
+  {{ tile_card(tiles["documented_share"], _("Documented rationale"), "tile-documented") }}
+  {{ tile_card(tiles["commit_why_share"], _("Commits that explain why"), "tile-commits") }}
+  {{ tile_card(tiles["adr_attention"], _("ADRs needing attention"), "tile-adrs") }}
+  {{ tile_card(tiles["mentioned_share"], _("Mentioned in a document"), "tile-mentioned") }}
+</div>
+
+<section id="rationale" aria-labelledby="rationale-title">
+  <h2 id="rationale-title">{{ _("Documented rationale") }}</h2>
+  <p class="muted">{{ _("Rationale blocks in the guide's area and concept pages: documented ones quote a source Codetrail checked, inferred ones are the assistant's reading. It counts only what the guide wrote about.") }}</p>
+  {% set rationale = report.rationale %}
+  <ul class="pills">
+    <li class="pill pill-documented">{% trans count=rationale.by_source.adr %}{{ count }} from an ADR{% pluralize %}{{ count }} from ADRs{% endtrans %}</li>
+    <li class="pill pill-documented">{% trans count=rationale.by_source.docs %}{{ count }} from a document{% pluralize %}{{ count }} from documents{% endtrans %}</li>
+    <li class="pill pill-documented">{% trans count=rationale.by_source.code %}{{ count }} from a code comment{% pluralize %}{{ count }} from code comments{% endtrans %}</li>
+    <li class="pill pill-documented">{% trans count=rationale.by_source.commit %}{{ count }} from a commit message{% pluralize %}{{ count }} from commit messages{% endtrans %}</li>
+    <li class="pill pill-stale">{% trans count=rationale.inferred %}{{ count }} inferred{% pluralize %}{{ count }} inferred{% endtrans %}</li>
+  </ul>
+  {% if rationale.pages %}
+  <table class="metric-table">
+    <thead><tr><th>{{ _("Page") }}</th><th>{{ _("Documented") }}</th><th>{{ _("Inferred") }}</th></tr></thead>
+    <tbody>
+    {% for row in rationale.pages[:listed] %}
+    <tr><td lang="en" dir="ltr"><a href="/pages/{{ row.page.id }}">{{ row.page.title }}</a></td><td>{{ row.documented }}</td><td>{{ row.inferred }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+  {% if rationale.inferred_blocks %}
+  <h3>{{ _("Inferred: worth documenting") }}</h3>
+  {% call(block) capped(rationale.inferred_blocks) %}<a class="grow" href="/pages/{{ block.page.id }}">{{ block.first_line }}</a><span class="faint">{{ block.page.title }}</span>{% endcall %}
+  {% endif %}
+</section>
+
+<section id="commits" aria-labelledby="commits-title">
+  <h2 id="commits-title">{{ _("Commits that explain why") }}</h2>
+  {% if report.commits is none %}
+  <p class="muted">{{ _("The commit history couldn't be read just now; the log says why.") }}</p>
+  {% else %}
+  {% set commits = report.commits %}
+  <p class="muted">{{ _("The latest commits on the branch, merges left out. A commit explains why when its body matches the target's commit_why_pattern.") }}</p>
+  <ul class="pills">
+    <li class="pill pill-documented">{% trans count=commits.explains_why %}{{ count }} explains why{% pluralize %}{{ count }} explain why{% endtrans %}</li>
+    <li class="pill">{% trans count=commits.body_only %}{{ count }} with a body but no why{% pluralize %}{{ count }} with a body but no why{% endtrans %}</li>
+    <li class="pill">{% trans count=commits.subject_only %}{{ count }} with a subject only{% pluralize %}{{ count }} with a subject only{% endtrans %}</li>
+    {% if commits.withheld %}<li class="pill pill-stale">{% trans count=commits.withheld %}{{ count }} message withheld: gitleaks flagged it{% pluralize %}{{ count }} messages withheld: gitleaks flagged them{% endtrans %}</li>{% endif %}
+  </ul>
+  {% if commits.without_why %}
+  <h3>{{ _("Without a why") }}</h3>
+  {% call(commit) capped(commits.without_why) %}<code>{{ commit.sha[:7] }}</code><span class="grow">{{ commit.subject }}</span>{% endcall %}
+  {% endif %}
+  {% endif %}
+</section>
+
+<section id="decisions" aria-labelledby="decisions-title">
+  <h2 id="decisions-title">{{ _("Architecture decisions") }}</h2>
+  {% set decisions = report.decisions %}
+  {% if decisions.by_status %}
+  <ul class="pills" lang="en" dir="ltr">
+    {% for status, found in decisions.by_status|dictsort %}<li class="pill">{{ status }} · {{ found|length }}</li>{% endfor %}
+  </ul>
+  {% set has_pages = report.rationale.pages %}
+  {% for heading, found in [(_("Proposed for too long"), decisions.overdue), (_("Superseded or deprecated, still cited by the guide"), decisions.superseded_cited), (_("Proposed, with no date"), decisions.undated), (_("Accepted, but no page cites them"), decisions.uncited if has_pages else [])] %}
+  {% if found %}
+  <h3>{{ heading }}</h3>
+  {% call(decision) capped(found) %}{{ decision_link(decision) }}{% endcall %}
+  {% endif %}
+  {% endfor %}
+  {% else %}
+  <p class="muted">{{ _("No architecture decision records were found where the target's settings say they live.") }}</p>
+  {% endif %}
+</section>
+
+<section id="coverage" aria-labelledby="coverage-title">
+  <h2 id="coverage-title">{{ _("Mentioned and explained") }}</h2>
+  {% set mentions = report.mentions %}
+  <p class="muted">{{ _("External packages, projects and infrastructure resources that some document names. A mention isn't a reason: this only shows what no document talks about at all.") }}</p>
+  <p>{% trans mentioned=mentions.mentioned|length, total=mentions.mentioned|length + mentions.unmentioned|length %}{{ mentioned }} of {{ total }} mentioned in a document{% endtrans %}</p>
+  {% if mentions.unmentioned %}
+  <h3>{{ _("Not mentioned in any document") }}</h3>
+  {% call(entity) capped(mentions.unmentioned) %}{{ fact_link(entity) }}{% endcall %}
+  {% endif %}
+  {% set explained = report.explained %}
+  {% if not report.rationale.pages %}
+  <p class="muted">{{ _("Which facts the guide explains, and which ADRs it cites, are measured once your assistant has written its pages.") }}</p>
+  {% else %}
+  <p>{% trans explained=explained.explained, total=explained.total %}{{ explained }} of {{ total }} facts explained by a guide page{% endtrans %}</p>
+  {% endif %}
+  {% if explained.unexplained and report.rationale.pages %}
+  <h3>{{ _("Not explained by any page") }}</h3>
+  {% call(entity) capped(explained.unexplained) %}{{ fact_link(entity) }}{% endcall %}
+  {% endif %}
+</section>
+{% endif %}
+</div>
+{% endblock %}
