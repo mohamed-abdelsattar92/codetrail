@@ -62,6 +62,9 @@ msgstr ""
 msgid "%(reason)s The facts were refreshed; the guide wasn't updated."
 msgstr ""
 
+msgid ", drawn from the code"
+msgstr ""
+
 msgid ""
 "A page is learned when you pass its checks. When an update changes a page"
 " you learned, it shows here until you learn it again."
@@ -235,6 +238,9 @@ msgid "Couldn't check for new commits just now."
 msgstr ""
 
 msgid "Couldn’t save the answer."
+msgstr ""
+
+msgid "Decision"
 msgstr ""
 
 msgid "Decisions"
@@ -569,6 +575,9 @@ msgid "Runs on"
 msgstr ""
 
 msgid "Save to guide"
+msgstr ""
+
+msgid "Saved answer"
 msgstr ""
 
 #, python-format
@@ -922,9 +931,6 @@ msgid "default model"
 msgstr ""
 
 msgid "depends on"
-msgstr ""
-
-msgid "drawn from the code"
 msgstr ""
 
 msgid "free"

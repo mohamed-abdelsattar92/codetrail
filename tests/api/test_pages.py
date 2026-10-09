@@ -132,6 +132,18 @@ def test_the_page_s_messages_follow_the_language(client: TestClient, session: Se
     assert untranslated == {"error": "That estimate isn't waiting any more; start the update again."}  # the fallback
 
 
+def test_arabic_ships_with_codetrail(paths: Paths, session: SessionState) -> None:
+    client = TestClient(create_app(paths, "t", session, GlobalConfig()), base_url=ORIGIN, follow_redirects=False)
+    assert client.get(f"/login?code={session.issue_login_code()}").status_code == 303
+    assert '<option value="ar" >العربية</option>' in client.get("/").text
+    headers = {"origin": ORIGIN, TOKEN_HEADER: session.token}
+    assert client.post("/settings/language", json={"language": "ar"}, headers=headers).status_code == 204
+    page = client.get("/").text
+    assert '<html lang="ar" dir="rtl">' in page
+    assert "دليلك إلى" in page  # "Your guide to"
+    assert "، مرسومة من الكود" in page  # the catalog's own punctuation, not an English comma
+
+
 def test_unknown_languages_are_refused(client: TestClient, session: SessionState) -> None:
     response = client.post(
         "/settings/language", json={"language": "xx"}, headers={"origin": ORIGIN, TOKEN_HEADER: session.token}

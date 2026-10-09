@@ -102,7 +102,8 @@ def test_the_status_carries_the_estimate_rendered_for_the_dialog(paths: Paths) -
     client.post("/update", headers={"origin": ORIGIN, TOKEN_HEADER: session.token})
     html = str(wait_for(client, {"waiting"})["estimate_html"])
     assert "claude_code · claude-sonnet-5-5" in html and "2 to 5" in html
-    assert "~126k" in html and "$0.30" in html and "a starting guess" in html
+    # Each estimate is isolated, so its leading ~ stays with its number in a right-to-left language.
+    assert '<bdi dir="ltr">~126k</bdi>' in html and '<bdi dir="ltr">~$0.30</bdi>' in html and "a starting guess" in html
     assert "no charge" in html and "$10.00 or 5.0M tokens" in html
     assert "“&lt;b&gt;The API&lt;/b&gt;”: 2 of its facts changed in this update" in html
     assert "“Payments” (revised): catching up, since its facts changed after it was written" in html

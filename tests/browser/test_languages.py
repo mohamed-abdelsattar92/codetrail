@@ -61,3 +61,14 @@ def test_the_ask_panel_slides_in_from_its_own_side(page: Page, site: Site) -> No
     panel = page.locator("[data-ask]")
     expect(panel).to_be_visible()
     assert panel.evaluate("element => getComputedStyle(element).animationName") == "slide-from-start"
+
+
+def test_the_palette_names_kinds_in_the_reader_s_language_and_keeps_results_english(page: Page, site: Site) -> None:
+    in_arabic(page, site, "/")
+    page.keyboard.press("Control+k")
+    page.locator("[data-palette-input]").fill("retr")
+    result = page.locator(".palette-option").filter(has=page.locator(".title", has_text="Payment retries"))
+    expect(result.locator(".kind")).to_have_text("مفهوم")  # "Concept"
+    assert result.locator(".title").get_attribute("dir") == "ltr"
+    assert result.locator(".kind").get_attribute("dir") == "rtl"
+    assert result.locator(".snippet").get_attribute("dir") == "ltr"

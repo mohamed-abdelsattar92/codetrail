@@ -1,5 +1,7 @@
 {% from "layout/icons.html" import icon %}
+{% from "macros.html" import kind_name %}
 <dialog class="palette" data-palette aria-label="{{ _('Search or ask') }}"
+        {% for kind in ["area", "concept", "path", "digest", "answer", "decision", "fact"] %}data-kind-{{ kind }}="{{ kind_name(kind) }}" {% endfor %}
         data-group-pages="{{ _('Pages') }}" data-group-answers="{{ _('Saved answers') }}"
         data-group-decisions="{{ _('Decisions') }}" data-group-facts="{{ _('Facts') }}"
         data-group-actions="{{ _('Actions') }}"

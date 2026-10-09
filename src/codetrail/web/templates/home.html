@@ -5,7 +5,7 @@
 {% if system %}
 <section class="card" aria-labelledby="system-title">
   <p class="card-label" id="system-title">{{ _("Your system") }}</p>
-  <p class="card-title">{% trans count=system.parts %}{{ count }} part{% pluralize %}{{ count }} parts{% endtrans %} · {% trans count=system.connections %}{{ count }} connection{% pluralize %}{{ count }} connections{% endtrans %}, {{ _("drawn from the code") }}</p>
+  <p class="card-title">{% trans count=system.parts %}{{ count }} part{% pluralize %}{{ count }} parts{% endtrans %} · {% trans count=system.connections %}{{ count }} connection{% pluralize %}{{ count }} connections{% endtrans %}{{ _(", drawn from the code") }}</p>
   <div class="card-row"><a class="button" href="/system">{{ _("See how it fits together") }} {{ icon("arrow") }}</a></div>
 </section>
 {% endif %}

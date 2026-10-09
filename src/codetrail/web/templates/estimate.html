@@ -10,8 +10,8 @@
       <td>{{ line.kind }}</td>
       <td>{{ line.provider }} · {{ line.model or _("default model") }}</td>
       <td>{% if line.expected == line.maximum %}{{ line.expected }}{% else %}{% trans expected=line.expected, maximum=line.maximum %}{{ expected }} to {{ maximum }}{% endtrans %}{% endif %}</td>
-      <td>~{{ line.tokens_each | tokens }}{% if not line.from_history %} <span class="muted">({{ _("a starting guess") }})</span>{% endif %}</td>
-      <td>{% if line.cost_each_usd is none %}{{ _("no price configured") }}{% elif line.cost_each_usd == 0 %}{{ _("free") }}{% else %}~{{ line.cost_each_usd | dollars }}{% endif %}</td>
+      <td><bdi dir="ltr">~{{ line.tokens_each | tokens }}</bdi>{% if not line.from_history %} <span class="muted">({{ _("a starting guess") }})</span>{% endif %}</td>
+      <td>{% if line.cost_each_usd is none %}{{ _("no price configured") }}{% elif line.cost_each_usd == 0 %}{{ _("free") }}{% else %}<bdi dir="ltr">~{{ line.cost_each_usd | dollars }}</bdi>{% endif %}</td>
     </tr>
   {% endfor %}
   </tbody>

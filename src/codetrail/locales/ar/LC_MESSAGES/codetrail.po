@@ -1,0 +1,1125 @@
+# Arabic translation of codetrail's interface (design section 7.2).
+# Distributed under the same licence as codetrail (Apache License 2.0).
+# Technical terms (commit, branch, merge, tokens, ADR, API) stay in English;
+# digits stay Western.
+# Plural forms, in the order of this catalog's Plural-Forms rule: [0] none,
+# [1] one, [2] two, [3] 3 to 10,
+# [4] 100 to 102 (and 200 to 202, ...), [5] 11 to 99 (and 111 to 199, ...).
+msgid ""
+msgstr ""
+"Project-Id-Version: codetrail interface\n"
+"Report-Msgid-Bugs-To: https://github.com/mohamed-"
+"abdelsattar92/codetrail/issues\n"
+"POT-Creation-Date: 2026-10-09 19:39+0000\n"
+"PO-Revision-Date: 2026-10-09 19:39+0000\n"
+"Last-Translator: Claude Code (a draft, for the founder's review)\n"
+"Language: ar\n"
+"Language-Team: Arabic\n"
+"Plural-Forms: nplurals=6; plural=(n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : "
+"n%100>=3 && n%100<=10 ? 3 : n%100>=0 && n%100<=2 ? 4 : 5);\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#, python-format
+msgid "%(count)s changed since you learned it"
+msgid_plural "%(count)s changed since you learned them"
+msgstr[0] "لم تتغيّر أي صفحة منذ أن تعلّمتها"
+msgstr[1] "تغيّرت صفحة واحدة منذ أن تعلّمتها"
+msgstr[2] "تغيّرت صفحتان منذ أن تعلّمتهما"
+msgstr[3] "تغيّرت %(count)s صفحات منذ أن تعلّمتها"
+msgstr[4] "تغيّرت %(count)s صفحة منذ أن تعلّمتها"
+msgstr[5] "تغيّرت %(count)s صفحة منذ أن تعلّمتها"
+
+#, python-format
+msgid "%(count)s commit behind"
+msgid_plural "%(count)s commits behind"
+msgstr[0] "متأخر بـ %(count)s commits"
+msgstr[1] "متأخر بـ commit واحد"
+msgstr[2] "متأخر بـ %(count)s commits"
+msgstr[3] "متأخر بـ %(count)s commits"
+msgstr[4] "متأخر بـ %(count)s commits"
+msgstr[5] "متأخر بـ %(count)s commits"
+
+#, python-format
+msgid "%(count)s connection"
+msgid_plural "%(count)s connections"
+msgstr[0] "لا ارتباطات"
+msgstr[1] "ارتباط واحد"
+msgstr[2] "ارتباطان"
+msgstr[3] "%(count)s ارتباطات"
+msgstr[4] "%(count)s ارتباط"
+msgstr[5] "%(count)s ارتباطًا"
+
+#, python-format
+msgid "%(count)s file"
+msgid_plural "%(count)s files"
+msgstr[0] "لا ملفات"
+msgstr[1] "ملف واحد"
+msgstr[2] "ملفان"
+msgstr[3] "%(count)s ملفات"
+msgstr[4] "%(count)s ملف"
+msgstr[5] "%(count)s ملفًا"
+
+#, python-format
+msgid "%(count)s merge landed"
+msgid_plural "%(count)s merges landed"
+msgstr[0] "لم يدخل أي merge"
+msgstr[1] "دخل merge واحد"
+msgstr[2] "دخل %(count)s merges"
+msgstr[3] "دخل %(count)s merges"
+msgstr[4] "دخل %(count)s merges"
+msgstr[5] "دخل %(count)s merges"
+
+#, python-format
+msgid "%(count)s part"
+msgid_plural "%(count)s parts"
+msgstr[0] "لا أجزاء"
+msgstr[1] "جزء واحد"
+msgstr[2] "جزآن"
+msgstr[3] "%(count)s أجزاء"
+msgstr[4] "%(count)s جزء"
+msgstr[5] "%(count)s جزءًا"
+
+#, python-format
+msgid "%(count)s unread digest"
+msgid_plural "%(count)s unread digests"
+msgstr[0] "لا ملخصات غير مقروءة"
+msgstr[1] "ملخص واحد غير مقروء"
+msgstr[2] "ملخصان غير مقروءين"
+msgstr[3] "%(count)s ملخصات غير مقروءة"
+msgstr[4] "%(count)s ملخص غير مقروء"
+msgstr[5] "%(count)s ملخصًا غير مقروء"
+
+#, python-format
+msgid "%(count)s visible file"
+msgid_plural "%(count)s visible files"
+msgstr[0] "لا ملفات ظاهرة"
+msgstr[1] "ملف ظاهر واحد"
+msgstr[2] "ملفان ظاهران"
+msgstr[3] "%(count)s ملفات ظاهرة"
+msgstr[4] "%(count)s ملف ظاهر"
+msgstr[5] "%(count)s ملفًا ظاهرًا"
+
+#, python-format
+msgid "%(expected)s to %(maximum)s"
+msgstr "من %(expected)s إلى %(maximum)s"
+
+#, python-format
+msgid "%(learned)s of %(total)s"
+msgstr "%(learned)s من %(total)s"
+
+#, python-format
+msgid "%(learned)s of %(total)s learned"
+msgstr "تعلّمت %(learned)s من %(total)s"
+
+#, python-format
+msgid "%(reason)s The facts were refreshed; the guide wasn't updated."
+msgstr "%(reason)s حُدّثت الحقائق، ولم يُحدَّث الدليل."
+
+msgid ", drawn from the code"
+msgstr "، مرسومة من الكود"
+
+msgid ""
+"A page is learned when you pass its checks. When an update changes a page"
+" you learned, it shows here until you learn it again."
+msgstr ""
+"تُعدّ الصفحة مُتعلَّمة حين تجتاز اختباراتها. وإذا غيّر تحديثٌ صفحةً "
+"تعلّمتها، تظهر هنا حتى تتعلّمها من جديد."
+
+msgid "Actions"
+msgstr "الإجراءات"
+
+msgid "All saved answers"
+msgstr "كل الإجابات المحفوظة"
+
+msgid ""
+"An estimate. On a subscription this counts against your plan’s usage "
+"limits; with an API key it is billed at these prices."
+msgstr ""
+"تقدير. مع الاشتراك يُحتسب هذا من حدود استخدام خطتك، ومع مفتاح API يُحاسَب"
+" بهذه الأسعار."
+
+msgid "An update finished a moment ago; wait a few minutes before the next."
+msgstr "انتهى تحديث قبل لحظات؛ انتظر بضع دقائق قبل التالي."
+
+msgid "An update is already running."
+msgstr "يجري تحديث بالفعل."
+
+msgid "An update is running."
+msgstr "يجري تحديث."
+
+msgid "An update is running; save again when it finishes."
+msgstr "يجري تحديث؛ احفظ مرة أخرى حين ينتهي."
+
+msgid "Another answer is being graded."
+msgstr "تُقيَّم إجابة أخرى الآن."
+
+msgid "Another question is still being answered."
+msgstr "لا يزال سؤال آخر قيد الإجابة."
+
+#, python-format
+msgid "Answers are limited to %(count)s characters."
+msgstr "الحد الأقصى لطول الإجابة: %(count)s حرف."
+
+msgid "Answers you save appear here."
+msgstr "تظهر هنا الإجابات التي تحفظها."
+
+msgid ""
+"Answers you saved to the guide, newest first. They aren't rewritten when "
+"the code changes; a mark shows when the files they were written from have"
+" changed."
+msgstr ""
+"الإجابات التي حفظتها في الدليل، الأحدث أولًا. لا تُعاد كتابتها حين يتغيّر"
+" الكود؛ وتظهر علامة حين تتغيّر الملفات التي كُتبت منها."
+
+msgid "Apps"
+msgstr "التطبيقات"
+
+msgid "Area"
+msgstr "منطقة"
+
+msgid "Areas"
+msgstr "المناطق"
+
+msgid "Ask"
+msgstr "اسأل"
+
+msgid "Ask a question"
+msgstr "اطرح سؤالًا"
+
+msgid ""
+"Ask a question from any page (press A) and save the answers worth "
+"keeping. They'll be here."
+msgstr ""
+"اطرح سؤالًا من أي صفحة (اضغط A)، واحفظ الإجابات التي تستحق الاحتفاظ بها. "
+"ستجدها هنا."
+
+msgid ""
+"Ask a question from any page (press A), then choose Save to guide. Saved "
+"answers become part of the guide, and search finds them."
+msgstr ""
+"اطرح سؤالًا من أي صفحة (اضغط A)، ثم اختر «احفظ في الدليل». تصبح الإجابات "
+"المحفوظة جزءًا من الدليل، ويجدها البحث."
+
+msgid "Ask about the code"
+msgstr "اسأل عن الكود"
+
+msgid "Ask about this page"
+msgstr "اسأل عن هذه الصفحة"
+
+#, python-brace-format
+msgid "Ask about: “{query}”"
+msgstr "اسأل عن: «{query}»"
+
+msgid "Ask anything about the code. Save the answers worth keeping."
+msgstr "اسأل أي شيء عن الكود، واحفظ الإجابات التي تستحق الاحتفاظ بها."
+
+msgid ""
+"Ask anything about the code. Your question goes with the page you're "
+"reading. Save the answers worth keeping."
+msgstr ""
+"اسأل أي شيء عن الكود. يُرسَل سؤالك مع الصفحة التي تقرؤها. واحفظ الإجابات "
+"التي تستحق الاحتفاظ بها."
+
+#, python-format
+msgid "At API prices: ~%(expected)s, at most %(maximum)s."
+msgstr "بأسعار API: نحو %(expected)s، وبحد أقصى %(maximum)s."
+
+#, python-format
+msgid "At commit %(commit)s."
+msgstr "عند الـ commit %(commit)s."
+
+msgid "Back to the start"
+msgstr "العودة إلى البداية"
+
+msgid "Before the update"
+msgstr "قبل التحديث"
+
+msgid "Breadcrumbs"
+msgstr "مسار التنقل"
+
+msgid "Browse the code"
+msgstr "تصفّح الكود"
+
+msgid "Call"
+msgstr "الاستدعاء"
+
+msgid "Called by"
+msgstr "يستدعيه"
+
+msgid "Cancel"
+msgstr "إلغاء"
+
+msgid "Changed since you learned it"
+msgstr "تغيّرت منذ أن تعلّمتها"
+
+msgid "Changed since you learned them"
+msgstr "تغيّرت منذ أن تعلّمتها"
+
+msgid "Check my answer"
+msgstr "تحقّق من إجابتي"
+
+msgid "Check your understanding"
+msgstr "اختبر فهمك"
+
+msgid "Close"
+msgstr "إغلاق"
+
+msgid "Close the palette, the panel or a dialog"
+msgstr "أغلق لوحة الأوامر أو اللوحة الجانبية أو نافذة الحوار"
+
+msgid ""
+"Codetrail looks for architecture decision records where the target's "
+"settings say they live."
+msgstr ""
+"يبحث Codetrail عن سجلات القرارات المعمارية (ADR) حيث تحدّد إعدادات "
+"المستودع مكانها."
+
+msgid ""
+"Codetrail reads the code for free, then your assistant writes the guide: "
+"concept pages, guided paths and checks. You'll see the estimate before "
+"anything is spent."
+msgstr ""
+"يقرأ Codetrail الكود مجانًا، ثم يكتب مساعدك الدليل: صفحات المفاهيم "
+"والمسارات الموجَّهة والاختبارات. سترى التقدير قبل أن يُنفَق أي شيء."
+
+msgid "Concept"
+msgstr "مفهوم"
+
+msgid "Concepts"
+msgstr "المفاهيم"
+
+msgid "Continue"
+msgstr "متابعة"
+
+msgid "Continue where you left off"
+msgstr "تابع من حيث توقفت"
+
+msgid "Contract"
+msgstr "عقد"
+
+msgid "Contracts"
+msgstr "العقود"
+
+msgid "Cost each"
+msgstr "تكلفة كل استدعاء"
+
+msgid "Couldn't check for new commits just now."
+msgstr "تعذّر التحقق من commits جديدة الآن."
+
+msgid "Couldn’t save the answer."
+msgstr "تعذّر حفظ الإجابة."
+
+msgid "Decision"
+msgstr "قرار"
+
+msgid "Decisions"
+msgstr "القرارات"
+
+msgid "Dependencies of"
+msgstr "تبعيات"
+
+msgid "Depends on"
+msgstr "يعتمد على"
+
+msgid "Digest"
+msgstr "ملخص"
+
+msgid "Digests"
+msgstr "الملخصات"
+
+msgid "Drag to resize; double-click to reset"
+msgstr "اسحب لتغيير الحجم، وانقر مرتين للاستعادة"
+
+msgid "Each update writes a digest of what changed since the last one."
+msgstr "يكتب كل تحديث ملخصًا لما تغيّر منذ التحديث السابق."
+
+msgctxt "language name"
+msgid "English"
+msgstr "العربية"
+
+msgid "Enlarge the diagram"
+msgstr "كبّر المخطط"
+
+msgid "Every path learned"
+msgstr "تعلّمت كل المسارات"
+
+#, python-format
+msgid "Expected: ~%(expected)s tokens; at most ~%(maximum)s."
+msgstr "المتوقع: نحو %(expected)s tokens، وبحد أقصى نحو %(maximum)s."
+
+msgid "Fact"
+msgstr "حقيقة"
+
+msgid "Facts"
+msgstr "الحقائق"
+
+msgid "Facts:"
+msgstr "الحقائق:"
+
+msgid "Files"
+msgstr "الملفات"
+
+msgid ""
+"Files this answer was written from have changed since. Saved answers "
+"aren't rewritten; ask again for a fresh one."
+msgstr ""
+"تغيّرت منذئذٍ ملفات كُتبت منها هذه الإجابة. لا تُعاد كتابة الإجابات "
+"المحفوظة؛ اسأل من جديد لتحصل على إجابة محدَّثة."
+
+msgid ""
+"Files this page was written from have changed since. It will be checked "
+"again at the next update."
+msgstr "تغيّرت منذئذٍ ملفات كُتبت منها هذه الصفحة. ستُراجَع في التحديث القادم."
+
+msgid "Folder"
+msgstr "المجلد"
+
+msgid "For example: how does a request reach the database?"
+msgstr "مثلًا: كيف يصل الطلب إلى قاعدة البيانات؟"
+
+msgid "Found in"
+msgstr "موجودة في"
+
+msgid "Found in a file you can open"
+msgstr "موجودة في ملف يمكنك فتحه"
+
+msgid "Go ahead"
+msgstr "ابدأ"
+
+msgid "Go home"
+msgstr "اذهب إلى الرئيسية"
+
+msgid "Go to decisions"
+msgstr "اذهب إلى القرارات"
+
+msgid "Go to digests"
+msgstr "اذهب إلى الملخصات"
+
+msgid "Go to progress"
+msgstr "اذهب إلى التقدّم"
+
+msgid "Go to saved answers"
+msgstr "اذهب إلى الإجابات المحفوظة"
+
+msgid "Go to your progress"
+msgstr "اذهب إلى تقدّمك"
+
+msgid "Go to your system"
+msgstr "اذهب إلى نظامك"
+
+msgid "Guide"
+msgstr "الدليل"
+
+msgid "Home"
+msgstr "الرئيسية"
+
+msgid "How many"
+msgstr "العدد"
+
+msgid "Imports"
+msgstr "يستورد"
+
+msgid "In this path"
+msgstr "في هذا المسار"
+
+msgid "Infrastructure"
+msgstr "البنية التحتية"
+
+msgid "Keep the answers worth keeping"
+msgstr "احتفظ بالإجابات التي تستحق"
+
+msgid "Keyboard shortcuts"
+msgstr "اختصارات لوحة المفاتيح"
+
+msgid "Language"
+msgstr "اللغة"
+
+msgid "Learned"
+msgstr "مُتعلَّمة"
+
+msgid "Learned, but changed since"
+msgstr "مُتعلَّمة، لكنها تغيّرت منذئذٍ"
+
+msgid "Legend"
+msgstr "مفتاح المخطط"
+
+msgid "Libraries"
+msgstr "المكتبات"
+
+msgid "Library"
+msgstr "مكتبة"
+
+msgid "Mark read"
+msgstr "علّمها مقروءة"
+
+msgid "Mark this page read, or unread"
+msgstr "علّم هذه الصفحة مقروءة أو غير مقروءة"
+
+msgid "Mark unread"
+msgstr "علّمها غير مقروءة"
+
+msgid "Matched by name: likely, not certain"
+msgstr "مطابقة بالاسم: مرجّحة لا مؤكدة"
+
+msgid "Menu"
+msgstr "القائمة"
+
+msgid "More"
+msgstr "المزيد"
+
+msgid "Next"
+msgstr "التالي"
+
+msgid "No connections between the parts were found."
+msgstr "لم يُعثر على ارتباطات بين الأجزاء."
+
+msgid "No decisions found"
+msgstr "لم يُعثر على قرارات"
+
+msgid "No digest yet."
+msgstr "لا يوجد ملخص بعد."
+
+msgid "No digests yet"
+msgstr "لا ملخصات بعد"
+
+msgid ""
+"No shortcut spends anything: questions are sent by their Send button, and"
+" updates start only when you choose Go ahead."
+msgstr ""
+"لا يُنفق أي اختصار شيئًا: تُرسَل الأسئلة بزر «أرسل»، ولا تبدأ التحديثات "
+"إلا حين تختار «ابدأ»."
+
+#, python-format
+msgid ""
+"No sources yet. Run <code>codetrail update %(name)s</code> to read the "
+"repository."
+msgstr "لا مصادر بعد. شغّل <code>codetrail update %(name)s</code> لقراءة المستودع."
+
+msgid "Not found"
+msgstr "غير موجود"
+
+msgid "Not read yet"
+msgstr "لم تُقرأ بعد"
+
+msgid "Not yet"
+msgstr "لم تنجح بعد"
+
+#, python-format
+msgid "Nothing in the guide matches “%(query)s”."
+msgstr "لا شيء في الدليل يطابق «%(query)s»."
+
+#, python-brace-format
+msgid "Nothing in the guide matches “{query}”."
+msgstr "لا شيء في الدليل يطابق «{query}»."
+
+msgid "Nothing to learn yet"
+msgstr "لا شيء لتتعلّمه بعد"
+
+msgid "On this page"
+msgstr "في هذه الصفحة"
+
+#, python-format
+msgid "One page wasn’t written."
+msgid_plural "%(count)s pages weren’t written."
+msgstr[0] "لم تُكتب أي صفحة."
+msgstr[1] "لم تُكتب صفحة واحدة."
+msgstr[2] "لم تُكتب صفحتان."
+msgstr[3] "لم تُكتب %(count)s صفحات."
+msgstr[4] "لم تُكتب %(count)s صفحة."
+msgstr[5] "لم تُكتب %(count)s صفحة."
+
+#, python-format
+msgid "One waits for the next update."
+msgid_plural "%(count)s wait for the next update."
+msgstr[0] "لا شيء ينتظر التحديث القادم."
+msgstr[1] "صفحة واحدة تنتظر التحديث القادم."
+msgstr[2] "صفحتان تنتظران التحديث القادم."
+msgstr[3] "%(count)s صفحات تنتظر التحديث القادم."
+msgstr[4] "%(count)s صفحة تنتظر التحديث القادم."
+msgstr[5] "%(count)s صفحة تنتظر التحديث القادم."
+
+#, python-format
+msgid "Or from a terminal: <code>codetrail update %(name)s</code>"
+msgstr "أو من الطرفية: <code>codetrail update %(name)s</code>"
+
+msgid "Outside the paths"
+msgstr "خارج المسارات"
+
+msgid "Pages"
+msgstr "الصفحات"
+
+msgid "Pages, in the order they’re written:"
+msgstr "الصفحات، بترتيب كتابتها:"
+
+msgid "Part"
+msgstr "الجزء"
+
+msgid "Partly there"
+msgstr "صحيحة جزئيًا"
+
+msgid "Parts"
+msgstr "الأجزاء"
+
+msgid "Passed"
+msgstr "نجحت"
+
+msgid "Path"
+msgstr "مسار"
+
+msgid "Paths"
+msgstr "المسارات"
+
+#, python-format
+msgid "Plan usage (%(provider)s, %(window)s): %(used)s%%, as of %(when)s."
+msgstr "استخدام الخطة (%(provider)s، %(window)s): %(used)s%%، حتى %(when)s."
+
+#, python-format
+msgid "Planned one new page."
+msgid_plural "Planned %(count)s new pages."
+msgstr[0] "لم تُخطَّط أي صفحة جديدة."
+msgstr[1] "خُطّطت صفحة جديدة واحدة."
+msgstr[2] "خُطّطت صفحتان جديدتان."
+msgstr[3] "خُطّطت %(count)s صفحات جديدة."
+msgstr[4] "خُطّطت %(count)s صفحة جديدة."
+msgstr[5] "خُطّطت %(count)s صفحة جديدة."
+
+msgid "Planning the outline…"
+msgstr "يُخطَّط الهيكل…"
+
+msgid "Platform"
+msgstr "منصة"
+
+msgid "Platforms"
+msgstr "المنصات"
+
+msgid "Pointed to by"
+msgstr "يشير إليه"
+
+msgid "Points to"
+msgstr "يشير إلى"
+
+msgid "Previous"
+msgstr "السابق"
+
+msgid "Previous or next page in the path"
+msgstr "الصفحة السابقة أو التالية في المسار"
+
+msgid "Progress"
+msgstr "التقدّم"
+
+msgid "Provider and model"
+msgstr "المزوّد والنموذج"
+
+#, python-format
+msgid "Questions are limited to %(count)s characters."
+msgstr "الحد الأقصى لطول السؤال: %(count)s حرف."
+
+msgid "Read"
+msgstr "مقروءة"
+
+msgid "Refreshing the facts (free)…"
+msgstr "تُحدَّث الحقائق (مجانًا)…"
+
+msgid "Resize the Ask panel"
+msgstr "غيّر حجم لوحة الأسئلة"
+
+msgid "Resize the sidebar"
+msgstr "غيّر حجم الشريط الجانبي"
+
+msgid "Results"
+msgstr "النتائج"
+
+#, python-format
+msgid "Revised “%(title)s”."
+msgstr "رُوجعت «%(title)s»."
+
+#, python-format
+msgid ""
+"Revising “%(title)s” (catching up: its facts changed after it was "
+"written)…"
+msgstr "تُراجَع «%(title)s» (لمواكبة حقائقها التي تغيّرت بعد كتابتها)…"
+
+#, python-format
+msgid "Revising “%(title)s” (one of its facts changed in this update)…"
+msgid_plural "Revising “%(title)s” (%(count)s of its facts changed in this update)…"
+msgstr[0] "تُراجَع «%(title)s» (لم تتغيّر أي من حقائقها في هذا التحديث)…"
+msgstr[1] "تُراجَع «%(title)s» (تغيّرت إحدى حقائقها في هذا التحديث)…"
+msgstr[2] "تُراجَع «%(title)s» (تغيّرت حقيقتان من حقائقها في هذا التحديث)…"
+msgstr[3] "تُراجَع «%(title)s» (تغيّرت %(count)s من حقائقها في هذا التحديث)…"
+msgstr[4] "تُراجَع «%(title)s» (تغيّرت %(count)s من حقائقها في هذا التحديث)…"
+msgstr[5] "تُراجَع «%(title)s» (تغيّرت %(count)s من حقائقها في هذا التحديث)…"
+
+#, python-format
+msgid "Revising “%(title)s” again, with its problems…"
+msgstr "تُراجَع «%(title)s» مرة أخرى مع مشكلاتها…"
+
+#, python-format
+msgid "Run codetrail update %(target)s first."
+msgstr "شغّل codetrail update %(target)s أولًا."
+
+msgid "Run your first update"
+msgstr "شغّل تحديثك الأول"
+
+msgid "Runs on"
+msgstr "يعمل على"
+
+msgid "Save to guide"
+msgstr "احفظ في الدليل"
+
+msgid "Saved answer"
+msgstr "إجابة محفوظة"
+
+#, python-format
+msgid "Saved answer, asked %(when)s at commit %(commit)s."
+msgstr "إجابة محفوظة، سُئلت في %(when)s عند الـ commit %(commit)s."
+
+msgid "Saved answers"
+msgstr "الإجابات المحفوظة"
+
+#, python-format
+msgid "Saved one page to the guide."
+msgid_plural "Saved %(count)s pages to the guide."
+msgstr[0] "لم تُحفظ أي صفحة في الدليل."
+msgstr[1] "حُفظت صفحة واحدة في الدليل."
+msgstr[2] "حُفظت صفحتان في الدليل."
+msgstr[3] "حُفظت %(count)s صفحات في الدليل."
+msgstr[4] "حُفظت %(count)s صفحة في الدليل."
+msgstr[5] "حُفظت %(count)s صفحة في الدليل."
+
+msgid "Saved · open it"
+msgstr "حُفظت · افتحها"
+
+msgid "Search"
+msgstr "بحث"
+
+msgid "Search isn't available right now. The rest of the guide still works."
+msgstr "البحث غير متاح الآن. بقية الدليل تعمل كالمعتاد."
+
+msgid "Search isn’t available right now."
+msgstr "البحث غير متاح الآن."
+
+msgid "Search or ask"
+msgstr "ابحث أو اسأل"
+
+msgid "Search or ask…"
+msgstr "ابحث أو اسأل…"
+
+msgid "Search the guide"
+msgstr "ابحث في الدليل"
+
+msgid "Search the guide, or ask a question"
+msgstr "ابحث في الدليل، أو اطرح سؤالًا"
+
+msgid "Search the guide, or ask a question…"
+msgstr "ابحث في الدليل، أو اطرح سؤالًا…"
+
+msgid "Search, or ask a question"
+msgstr "ابحث، أو اطرح سؤالًا"
+
+msgid "Searching…"
+msgstr "جارٍ البحث…"
+
+#, python-brace-format
+msgid "See every result for “{query}”"
+msgstr "اعرض كل نتائج «{query}»"
+
+msgid "See how it fits together"
+msgstr "انظر كيف تترابط الأجزاء"
+
+msgid "See the whole system"
+msgstr "اعرض النظام كاملًا"
+
+msgid "See your progress"
+msgstr "اعرض تقدّمك"
+
+msgid "Send"
+msgstr "أرسل"
+
+msgid "Service or app"
+msgstr "خدمة أو تطبيق"
+
+msgid "Services"
+msgstr "الخدمات"
+
+msgid "Show these shortcuts"
+msgstr "اعرض هذه الاختصارات"
+
+msgid "Since the last update"
+msgstr "منذ التحديث السابق"
+
+msgid "Skip to content"
+msgstr "انتقل إلى المحتوى"
+
+msgid "Skipped, since they failed last time and nothing in them changed:"
+msgstr "تُخطّيت، لأنها فشلت في المرة السابقة ولم يتغيّر فيها شيء:"
+
+msgid "Source"
+msgstr "المصدر"
+
+msgid "Steps"
+msgstr "الخطوات"
+
+msgid "Steps learned"
+msgstr "الخطوات المُتعلَّمة"
+
+msgid "Switch theme"
+msgstr "بدّل المظهر"
+
+msgid "System"
+msgstr "النظام"
+
+msgid "That answer is gone; ask again."
+msgstr "لم تعد هذه الإجابة موجودة؛ اسأل من جديد."
+
+msgid "That check doesn't exist."
+msgstr "هذا الاختبار غير موجود."
+
+msgid "That estimate isn't waiting any more."
+msgstr "لم يعد هذا التقدير بانتظار ردّك."
+
+msgid "That estimate isn't waiting any more; start the update again."
+msgstr "لم يعد هذا التقدير بانتظار ردّك؛ ابدأ التحديث من جديد."
+
+msgid "That page doesn't exist."
+msgstr "هذه الصفحة غير موجودة."
+
+msgid "The answer couldn’t be graded."
+msgstr "تعذّر تقييم الإجابة."
+
+#, python-format
+msgid "The answer failed (%(error)s)."
+msgstr "فشلت الإجابة (%(error)s)."
+
+#, python-format
+msgid ""
+"The answer was withheld: it contains something that looks like a secret "
+"(%(rule)s)."
+msgstr "حُجبت الإجابة: فيها ما يبدو سرًّا (%(rule)s)."
+
+msgid "The assistant is reading the code…"
+msgstr "يقرأ المساعد الكود…"
+
+msgid "The estimate expired before it was confirmed, so nothing was spent."
+msgstr "انتهت صلاحية التقدير قبل تأكيده، فلم يُنفَق شيء."
+
+msgid "The facts are refreshed. Writing the guide will call:"
+msgstr "حُدّثت الحقائق. ستستدعي كتابة الدليل:"
+
+msgid "The facts are refreshed: none changed."
+msgstr "حُدّثت الحقائق: لم يتغيّر أي منها."
+
+#, python-format
+msgid "The facts are refreshed: one changed."
+msgid_plural "The facts are refreshed: %(count)s changed."
+msgstr[0] "حُدّثت الحقائق: لم يتغيّر أي منها."
+msgstr[1] "حُدّثت الحقائق: تغيّرت حقيقة واحدة."
+msgstr[2] "حُدّثت الحقائق: تغيّرت حقيقتان."
+msgstr[3] "حُدّثت الحقائق: تغيّرت %(count)s حقائق."
+msgstr[4] "حُدّثت الحقائق: تغيّرت %(count)s حقيقة."
+msgstr[5] "حُدّثت الحقائق: تغيّرت %(count)s حقيقة."
+
+#, python-format
+msgid ""
+"The feedback was withheld: it contains something that looks like a secret"
+" (%(rule)s)."
+msgstr "حُجبت الملاحظات: فيها ما يبدو سرًّا (%(rule)s)."
+
+msgid "The grade couldn't be read, so nothing was recorded; try again."
+msgstr "تعذّرت قراءة التقييم، فلم يُسجَّل شيء؛ حاول مرة أخرى."
+
+msgid "The guide matches the branch."
+msgstr "الدليل مطابق للـ branch."
+
+#, python-format
+msgid "The last update used ~%(tokens)s tokens (%(cost)s at API prices)."
+msgstr "استخدم التحديث السابق نحو %(tokens)s tokens (%(cost)s بأسعار API)."
+
+msgid "The parts in this folder and the parts they connect to."
+msgstr "الأجزاء في هذا المجلد والأجزاء المرتبطة بها."
+
+msgid "The repository's architecture decision records, as Codetrail found them."
+msgstr "سجلات القرارات المعمارية (ADR) في المستودع، كما وجدها Codetrail."
+
+msgid ""
+"The repository's parts and how they connect, drawn from facts: nothing "
+"here is the assistant's guess."
+msgstr "أجزاء المستودع وكيف ترتبط، مرسومة من الحقائق: لا شيء هنا من تخمين المساعد."
+
+msgid "The server is stopping."
+msgstr "الخادم يتوقف."
+
+#, python-format
+msgid "The update failed (%(error)s)."
+msgstr "فشل التحديث (%(error)s)."
+
+msgid "The update failed:"
+msgstr "فشل التحديث:"
+
+#, python-format
+msgid ""
+"The update stops at its budget of %(budget)s or %(tokens)s tokens, "
+"whichever comes first."
+msgstr ""
+"يتوقف التحديث عند ميزانيته البالغة %(budget)s أو %(tokens)s tokens، أيهما"
+" أسبق."
+
+msgid "The update was cancelled."
+msgstr "أُلغي التحديث."
+
+msgid "Theme: dark (switch to system)"
+msgstr "المظهر: داكن (التبديل إلى مظهر النظام)"
+
+msgid "Theme: light (switch to dark)"
+msgstr "المظهر: فاتح (التبديل إلى الداكن)"
+
+msgid "Theme: system (switch to light)"
+msgstr "المظهر: حسب النظام (التبديل إلى الفاتح)"
+
+msgid "There's nothing here. It may be excluded, or not in the guide yet."
+msgstr "لا شيء هنا. ربما استُثني، أو لم يدخل الدليل بعد."
+
+msgid "This file isn't text, or is too large to show."
+msgstr "هذا الملف ليس نصيًا، أو أكبر من أن يُعرض."
+
+#, python-format
+msgid "To write it anyway: <code>codetrail update %(name)s --retry-failed</code>"
+msgstr "لكتابتها رغم ذلك: <code>codetrail update %(name)s --retry-failed</code>"
+
+msgid "Tokens each"
+msgstr "عدد tokens لكل استدعاء"
+
+msgid ""
+"Too many modules to show one by one: folders are shown, with the number "
+"of imports on each arrow."
+msgstr ""
+"الوحدات أكثر من أن تُعرض واحدة واحدة: تظهر المجلدات، مع عدد الاستيرادات "
+"على كل سهم."
+
+msgid ""
+"Too many parts to show one by one: libraries, then folders, are grouped, "
+"with the number of connections on each arrow. Every part is listed below."
+msgstr ""
+"الأجزاء أكثر من أن تُعرض واحدًا واحدًا: جُمعت المكتبات ثم المجلدات، مع "
+"عدد الارتباطات على كل سهم. كل الأجزاء مدرجة أدناه."
+
+msgid "Unread"
+msgstr "غير مقروء"
+
+msgid "Up to date"
+msgstr "محدَّث"
+
+msgid "Update the guide"
+msgstr "حدّث الدليل"
+
+msgid "Update the guide (shows the estimate first)"
+msgstr "حدّث الدليل (يعرض التقدير أولًا)"
+
+msgid ""
+"Update the guide and its guided paths appear here, with what you've "
+"learned on each."
+msgstr "حدّث الدليل لتظهر هنا مساراته الموجَّهة، مع ما تعلّمته في كل منها."
+
+msgid "Update the guide…"
+msgstr "حدّث الدليل…"
+
+msgid "Updated."
+msgstr "حُدّث."
+
+msgid "Updating the guide"
+msgstr "يُحدَّث الدليل"
+
+msgid "Updating…"
+msgstr "جارٍ التحديث…"
+
+msgid "Used"
+msgstr "استُخدم"
+
+msgid "Wait a few seconds before the next answer."
+msgstr "انتظر بضع ثوانٍ قبل الإجابة التالية."
+
+msgid "What changed"
+msgstr "ما الذي تغيّر"
+
+msgid "What changed in the repository at each update, and why, newest first."
+msgstr "ما تغيّر في المستودع عند كل تحديث، ولماذا، الأحدث أولًا."
+
+msgid "What changed since you learned this page"
+msgstr "ما تغيّر منذ أن تعلّمت هذه الصفحة"
+
+msgid "What each box links to"
+msgstr "بماذا يرتبط كل مربع"
+
+msgid "Where it fits"
+msgstr "موقعها من النظام"
+
+msgid "Why each arrow is there"
+msgstr "سبب وجود كل سهم"
+
+msgid "Writing the digest…"
+msgstr "يُكتب الملخص…"
+
+#, python-format
+msgid "Writing “%(title)s” (a new page)…"
+msgstr "تُكتب «%(title)s» (صفحة جديدة)…"
+
+#, python-format
+msgid "Writing “%(title)s” (catching up: its facts changed after it was written)…"
+msgstr "تُكتب «%(title)s» (لمواكبة حقائقها التي تغيّرت بعد كتابتها)…"
+
+#, python-format
+msgid "Writing “%(title)s” (its outline entry changed)…"
+msgstr "تُكتب «%(title)s» (تغيّر مدخلها في الهيكل)…"
+
+#, python-format
+msgid "Writing “%(title)s” (one of its facts changed in this update)…"
+msgid_plural "Writing “%(title)s” (%(count)s of its facts changed in this update)…"
+msgstr[0] "تُكتب «%(title)s» (لم تتغيّر أي من حقائقها في هذا التحديث)…"
+msgstr[1] "تُكتب «%(title)s» (تغيّرت إحدى حقائقها في هذا التحديث)…"
+msgstr[2] "تُكتب «%(title)s» (تغيّرت حقيقتان من حقائقها في هذا التحديث)…"
+msgstr[3] "تُكتب «%(title)s» (تغيّرت %(count)s من حقائقها في هذا التحديث)…"
+msgstr[4] "تُكتب «%(title)s» (تغيّرت %(count)s من حقائقها في هذا التحديث)…"
+msgstr[5] "تُكتب «%(title)s» (تغيّرت %(count)s من حقائقها في هذا التحديث)…"
+
+#, python-format
+msgid "Writing “%(title)s” again, with its problems…"
+msgstr "تُكتب «%(title)s» مرة أخرى مع مشكلاتها…"
+
+#, python-format
+msgid "Writing “%(title)s”…"
+msgstr "تُكتب «%(title)s»…"
+
+#, python-format
+msgid "Wrote “%(title)s”."
+msgstr "كُتبت «%(title)s»."
+
+msgid "You're caught up."
+msgstr "أنت على اطلاع بكل جديد."
+
+msgid "You've learned every guided path. Updates will tell you what changes."
+msgstr "تعلّمت كل المسارات الموجَّهة. ستخبرك التحديثات بما يتغيّر."
+
+msgid "Your answer"
+msgstr "إجابتك"
+
+msgid "Your guide to"
+msgstr "دليلك إلى"
+
+msgid "Your progress"
+msgstr "تقدّمك"
+
+msgid "Your question"
+msgstr "سؤالك"
+
+msgid "Your saved answers"
+msgstr "إجاباتك المحفوظة"
+
+msgid "Your system"
+msgstr "نظامك"
+
+msgid "a new page"
+msgstr "صفحة جديدة"
+
+msgid "a starting guess"
+msgstr "تقدير أولي"
+
+msgid "billed to that account."
+msgstr "يُحاسَب عليه ذلك الحساب."
+
+msgid "calls through"
+msgstr "يستدعي عبر"
+
+msgid "catching up, since its facts changed after it was written"
+msgstr "للمواكبة، لأن حقائقها تغيّرت بعد كتابتها"
+
+msgid "changed"
+msgstr "تغيّرت"
+
+msgid "default model"
+msgstr "النموذج الافتراضي"
+
+msgid "depends on"
+msgstr "يعتمد على"
+
+msgid "free"
+msgstr "مجاني"
+
+msgid "implements"
+msgstr "ينفّذ"
+
+msgid "is deployed on"
+msgstr "منشور على"
+
+msgid "its outline entry changed"
+msgstr "تغيّر مدخلها في الهيكل"
+
+msgctxt "text direction"
+msgid "ltr"
+msgstr "rtl"
+
+msgid "matched by name:"
+msgstr "مطابقة بالاسم:"
+
+msgid "no charge; the work counts against your plan's usage limits."
+msgstr "بلا رسوم؛ يُحتسب العمل من حدود استخدام خطتك."
+
+msgid "no price configured"
+msgstr "لا سعر مضبوط"
+
+#, python-format
+msgid "one of its facts changed in this update"
+msgid_plural "%(count)s of its facts changed in this update"
+msgstr[0] "لم تتغيّر أي من حقائقها في هذا التحديث"
+msgstr[1] "تغيّرت إحدى حقائقها في هذا التحديث"
+msgstr[2] "تغيّرت حقيقتان من حقائقها في هذا التحديث"
+msgstr[3] "تغيّرت %(count)s من حقائقها في هذا التحديث"
+msgstr[4] "تغيّرت %(count)s من حقائقها في هذا التحديث"
+msgstr[5] "تغيّرت %(count)s من حقائقها في هذا التحديث"
+
+msgid "pages, by passing their checks"
+msgstr "صفحات، باجتياز اختباراتها"
+
+msgid "revised"
+msgstr "مُراجَعة"
+
+msgid "source"
+msgstr "المصدر"
+
+msgid "sources changed"
+msgstr "تغيّرت المصادر"
+
+msgid "to close"
+msgstr "للإغلاق"
+
+msgid "to move"
+msgstr "للتنقل"
+
+msgid "to open"
+msgstr "للفتح"
+
+msgid "tokens"
+msgstr "tokens"
+
+msgid "unread"
+msgstr "غير مقروء"
+
+#, python-format
+msgid ""
+"“%(title)s” is skipped: it failed last time, and nothing in it changed "
+"since."
+msgstr "تُخطّيت «%(title)s»: فشلت في المرة السابقة، ولم يتغيّر فيها شيء منذئذٍ."
+
+#, python-format
+msgid "“%(title)s” needed no change."
+msgstr "لم تحتج «%(title)s» إلى تغيير."
+
+#, python-format
+msgid "“%(title)s” waits for the next update: the budget is spent."
+msgstr "تنتظر «%(title)s» التحديث القادم: نفدت الميزانية."
+
+#, python-format
+msgid "“%(title)s” wasn’t written: %(reason)s"
+msgstr "لم تُكتب «%(title)s»: %(reason)s"
+
