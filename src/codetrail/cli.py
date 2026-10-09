@@ -7,21 +7,28 @@ import signal
 import sys
 import unicodedata
 from collections import Counter
+from datetime import date
 from pathlib import Path
 from types import FrameType
 
 from codetrail import __version__
 from codetrail.assistant.estimate import UpdateEstimate, describe, tokens_text
 from codetrail.assistant.status import provider_status
-from codetrail.config import PROVIDERS, Paths, load_global, validate_target_name, write_target
+from codetrail.config import PROVIDERS, Paths, load_global, load_target, validate_target_name, write_target
+from codetrail.database import connect
 from codetrail.errors import CodetrailError
 from codetrail.facts import FactDiff
+from codetrail.facts.store import FactStore
+from codetrail.lock import target_in_use
+from codetrail.metrics.history import values_before
+from codetrail.metrics.report import Metric, build_report
 from codetrail.remove import remove_target
 from codetrail.repo.mirror import check_branch
 from codetrail.repo.refresh import refresh_source
 from codetrail.repo.rules import Reason
 from codetrail.server import serve
 from codetrail.update import run_update
+from codetrail.web.documentation import COUNTS, build_tiles
 
 stopping = False  # set once a hangup or terminate signal has started Codetrail's exit
 
@@ -54,6 +61,9 @@ def build_parser() -> argparse.ArgumentParser:
         "--retry-failed", action="store_true", help="write pages that failed last time, even if nothing in them changed"
     )
 
+    metrics = commands.add_parser("metrics", help="show how well a target's repository explains itself")
+    metrics.add_argument("name")
+
     commands.add_parser("providers", help="show each assistant provider: installed, signed in, and how")
 
     serve_command = commands.add_parser("serve", help="serve the guide's page on 127.0.0.1")
@@ -79,6 +89,8 @@ def main(argv: list[str] | None = None) -> int:
             return add_target(paths, arguments.name, arguments.path, arguments.branch)
         if arguments.command == "providers":
             return show_providers(paths)
+        if arguments.command == "metrics":
+            return show_metrics(paths, arguments.name)
         if arguments.command == "update":
             return update_target(paths, arguments.name, facts_only=arguments.facts_only, yes=arguments.yes,
                                  retry_failed=arguments.retry_failed)  # fmt: skip
@@ -243,6 +255,53 @@ def update_target(
             print(f"  Outline: {printable(problem)}")
         if generation.digest:
             print(f"  Digest: {generation.digest}")
+    return 0
+
+
+METRIC_LABELS = {
+    Metric.DOCUMENTED_SHARE: "Documented rationale",
+    Metric.COMMIT_WHY_SHARE: "Commits that explain why",
+    Metric.ADR_ATTENTION: "ADRs needing attention",
+    Metric.MENTIONED_SHARE: "Mentioned in a document",
+    Metric.EXPLAINED_SHARE: "Explained by the guide",
+}
+
+
+def show_metrics(paths: Paths, name: str) -> int:
+    """Prints each documentation metric with its change since the last update (design 18.4); writes nothing."""
+    load_target(paths, name)
+    database = paths.target_data(name) / "codetrail.db"
+    with target_in_use(paths, name):
+        if not database.exists():
+            print(f"No facts yet. Run: codetrail update {name} --facts-only")
+            return 1
+        connection = connect(database)
+        try:
+            store = FactStore(connection)
+            snapshot = store.latest_snapshot()
+            if snapshot is None:
+                print(f"No facts yet. Run: codetrail update {name} --facts-only")
+                return 1
+            report = build_report(paths, name, load_global(paths), store, date.today())
+            tiles = build_tiles(report.values(), values_before(connection, snapshot.id), {})
+        finally:
+            connection.close()
+    for metric, label in METRIC_LABELS.items():
+        tile = tiles[metric]
+        if tile.value is None:
+            print(f"{label}: not available, the commit history couldn't be read")
+        elif metric in (Metric.DOCUMENTED_SHARE, Metric.EXPLAINED_SHARE) and not report.rationale.pages:
+            print(f"{label}: no pages yet")
+        else:
+            if metric in COUNTS:
+                shown = str(tile.value.numerator)
+            elif tile.percent is None:
+                shown = "nothing to measure yet"
+            else:
+                shown = f"{tile.percent}% ({tile.value.numerator} of {tile.value.denominator})"
+            unit = "" if metric in COUNTS else " points"
+            change = "no earlier update" if tile.change is None else f"{tile.change:+d}{unit} since the last update"
+            print(f"{label}: {shown}, {change}")
     return 0
 
 
