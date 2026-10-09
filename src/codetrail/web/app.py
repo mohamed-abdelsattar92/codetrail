@@ -116,7 +116,7 @@ def create_app(
         settings.server.update_cooldown_seconds,
         settings.server.estimate_ttl_seconds,
         settings.server.update_log_lines,
-        gettext=lambda message: language().translations.gettext(message),  # the reader's language when it's written
+        gettext_of=lambda: language().translations.gettext,
     )
 
     @asynccontextmanager
@@ -576,10 +576,11 @@ class UpdateJob:
         cooldown_seconds: int = 0,
         estimate_ttl_seconds: int = 300,
         log_lines: int = 200,
-        gettext: Callable[[str], str] = str,
+        gettext_of: Callable[[], Callable[[str], str]] = lambda: str,
     ) -> None:
         self._run = run
-        self.gettext = gettext  # translates the messages the page shows (design section 7.2)
+        self._gettext_of = gettext_of  # the reader's catalog, for the messages the page shows (design section 7.2)
+        self.gettext: Callable[[str], str] = str
         self._stopping = stopping
         self._thread: threading.Thread | None = None
         self._lock = threading.Lock()
@@ -636,18 +637,27 @@ class UpdateJob:
 
     def start(self) -> str | None:
         """Starts the update; returns why it can't (one running, or the last one finished too recently)."""
+        _ = self._reader_gettext()  # outside the lock: it reads the reader's language
         with self._lock:  # stop() sets _stopping under it, so it joins every thread started here
             if self._stopping.is_set():
-                return self.gettext("The server is stopping.")
+                return _("The server is stopping.")
             if self.state in ("preparing", "waiting", "running"):
-                return self.gettext("An update is already running.")
+                return _("An update is already running.")
             if self._finished_at is not None and time.monotonic() - self._finished_at < self._cooldown:
-                return self.gettext("An update finished a moment ago; wait a few minutes before the next.")
+                return _("An update finished a moment ago; wait a few minutes before the next.")
+            self.gettext = _  # the update's own messages use the language chosen when it started
             self.state, self.message, self._declined = "preparing", "", False
             self._log.clear()
             self._thread = threading.Thread(target=self._work, daemon=True)
             self._thread.start()
         return None
+
+    def _reader_gettext(self) -> Callable[[str], str]:
+        """The reader's catalog, or English if it can't be read: a message must never fail the update's handlers."""
+        try:
+            return self._gettext_of()
+        except Exception:
+            return str
 
     def stop(self) -> None:
         """Declines a waiting estimate, stops paid work and waits for the update's cleanup (design section 15.5).
