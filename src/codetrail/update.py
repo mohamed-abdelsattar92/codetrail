@@ -6,9 +6,11 @@ rewritten stays affected, because that is derived from its front matter (design 
 
 from __future__ import annotations
 
+import logging
 import threading
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
+from datetime import date
 from pathlib import Path
 
 import anyio
@@ -20,6 +22,7 @@ from codetrail.assistant.status import require_ready
 from codetrail.assistant.usage import UsageLog
 from codetrail.config import (
     ExtractSettings,
+    GlobalConfig,
     Paths,
     TargetConfig,
     check_containment,
@@ -53,6 +56,8 @@ from codetrail.generate.run import (
 from codetrail.guide import GuideRepository
 from codetrail.learn import LearningState
 from codetrail.lock import target_in_use, target_lock
+from codetrail.metrics.history import record_values
+from codetrail.metrics.report import build_report
 from codetrail.repo.mirror import read_file_at
 from codetrail.repo.refresh import TARGET_IGNORE_FILE, ignore_lines, refresh_while_locked
 from codetrail.repo.rules import ExclusionRules
@@ -62,6 +67,7 @@ from codetrail.system import derive
 
 STOP_CHECK_SECONDS = 0.2  # how often an update started from the page checks whether the server is stopping
 STOPPED = "The server stopped, so the update stopped; the guide wasn't changed."
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -113,6 +119,20 @@ def build_extractors(target: TargetConfig, extract: ExtractSettings | None = Non
         "github_actions": GitHubActionsExtractor(extract.max_workflow_steps),
     }
     return [available[name] for name in target.extractors]
+
+
+def record_metrics(paths: Paths, name: str, settings: GlobalConfig, store: FactStore) -> None:
+    """Writes each documentation metric's value at the latest snapshot (design section 18.3).
+
+    The trend is secondary to the guide, so a failure here is logged and never fails the update.
+    """
+    try:
+        snapshot = store.latest_snapshot()
+        if snapshot is not None:
+            report = build_report(paths, name, settings, store, date.today())
+            record_values(store.connection, snapshot.id, report.values())
+    except Exception as error:
+        logger.warning("The documentation metrics weren't recorded: %s", error)
 
 
 async def generate_until_stopped(
@@ -181,6 +201,7 @@ def run_update(
                 snapshot, diff = store.record(manifest.commit, extraction.entities, extraction.relations)
                 progress({"step": "facts_recorded", "changes": len(diff.changed_ids())})
                 if facts_only:
+                    record_metrics(paths, name, settings, store)
                     return UpdateResult(manifest, snapshot, diff, extraction)
                 previous = store.previous_snapshot(snapshot)
                 mirror = data / "mirror.git"
@@ -219,12 +240,14 @@ def run_update(
                                                             bool(page.changes)) for page in work.pages],
                                                [entry.title for entry in work.skipped])  # fmt: skip
                     if not confirm(estimate):
+                        record_metrics(paths, name, settings, store)
                         return UpdateResult(manifest, snapshot, diff, extraction, None, estimate, declined=True)
                 writer = claude or build_assistant(source, settings, target)
                 if stop is None:
                     generation = anyio.run(generate_guide, context, writer)
                 else:
                     generation = anyio.run(generate_until_stopped, context, writer, stop)
+                record_metrics(paths, name, settings, store)
             finally:
                 connection.close()
         return UpdateResult(manifest, snapshot, diff, extraction, generation)
