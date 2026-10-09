@@ -36,3 +36,4 @@ Everything smaller is explained in the commit body, not in an ADR.
 | [0010](0010-agpl-with-a-commercial-license.md) | License Codetrail under the AGPL 3.0 only, sell commercial licenses, and reserve the name and logo | superseded by [0012](0012-apache-2-license.md) | 2026-10-07 |
 | [0011](0011-parallel-quick-tests-with-pytest-xdist.md) | Run the pre-push hook's quick tests in parallel with pytest-xdist, on the unit, API and hook tests only | proposed | 2026-10-07 |
 | [0012](0012-apache-2-license.md) | License Codetrail under the Apache License 2.0, take contributions under the same licence, and keep the name and logo reserved | accepted | 2026-10-08 |
+| [0013](0013-commit-the-compiled-catalogs.md) | Use Babel at development time for the interface's catalogs, and commit the compiled catalogs | proposed | 2026-10-09 |
