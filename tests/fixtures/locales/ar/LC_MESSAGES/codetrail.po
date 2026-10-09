@@ -24,3 +24,9 @@ msgstr "لم يعد هذا التقدير بانتظار ردّك."
 
 msgid "Passed"
 msgstr "نجحت"
+
+msgid "Area"
+msgstr "منطقة"
+
+msgid "Concept"
+msgstr "مفهوم"

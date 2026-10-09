@@ -203,6 +203,19 @@ def test_the_shell_turns_right_to_left(paths: Paths) -> None:
     assert '<article class="guide-page" lang="en" dir="ltr">' in page
 
 
+def test_search_results_name_their_kind_in_the_reader_s_language(paths: Paths) -> None:
+    client, headers = signed_in(paths)
+    client.post("/settings/language", json={"language": "ar"}, headers=headers)
+    page = client.get("/search?q=app").text
+    assert '<span class="kind" lang="ar" dir="rtl">منطقة</span>' in page  # "Area", inside the English results
+
+
+def test_an_estimate_reads_left_to_right_in_any_language(paths: Paths) -> None:
+    client, headers = signed_in(paths)
+    client.post("/settings/language", json={"language": "ar"}, headers=headers)
+    assert '<span class="cost" dir="ltr"' in client.get("/pages/areas/app").text  # "~4k tokens · ~$0.01"
+
+
 PHYSICAL = re.compile(
     r"(?<![-\w])(left|right|margin-left|margin-right|padding-left|padding-right|border-left|border-right"
     r"|border-top-left-radius|border-top-right-radius|border-bottom-left-radius|border-bottom-right-radius)\s*:"
