@@ -11,6 +11,8 @@ from babel.messages.extract import extract_from_dir
 from babel.messages.mofile import write_mo
 from babel.messages.pofile import read_po
 
+from codetrail.web.i18n import installed_languages
+
 ROOT = Path(__file__).resolve().parents[2]
 LOCALES = ROOT / "src" / "codetrail" / "locales"
 PLACEHOLDER = re.compile(r"%\((\w+)\)s|\{(\w+)\}")
@@ -118,6 +120,16 @@ def test_compiled_catalogs_are_committed() -> None:
     compiled = "src/codetrail/locales/ar/LC_MESSAGES/codetrail.mo"
     ignored = subprocess.run(["git", "check-ignore", "--no-index", "-q", compiled], cwd=ROOT, check=False)
     assert ignored.returncode == 1, f"{compiled} is ignored by git"
+    elsewhere = "tests/fixtures/locales/ar/LC_MESSAGES/codetrail.mo"  # only the shipped catalogs are committed
+    ignored = subprocess.run(["git", "check-ignore", "--no-index", "-q", elsewhere], cwd=ROOT, check=False)
+    assert ignored.returncode == 0, f"{elsewhere} isn't ignored by git"
+
+
+def test_every_shipped_language_loads_as_the_page_loads_it() -> None:
+    languages = installed_languages(LOCALES)
+    assert set(languages) == {"en"} | {path.parent.parent.name for path in catalogs()}
+    for language in languages.values():
+        assert language.name and language.direction in ("ltr", "rtl")
 
 
 @pytest.mark.parametrize("path", catalogs(), ids=lambda path: path.parent.parent.name)

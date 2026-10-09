@@ -22,6 +22,10 @@ __pycache__/
 # Node (commitlint only)
 node_modules/
 
+# Compiled catalogs: only the shipped ones are committed, next to their sources (ADR 0013)
+*.mo
+!/src/codetrail/locales/*/LC_MESSAGES/codetrail.mo
+
 # Claude Code personal settings (the shared ones live in .claude/settings.json)
 .claude/settings.local.json
 
