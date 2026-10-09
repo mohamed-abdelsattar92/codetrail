@@ -1,6 +1,13 @@
 {# A call's estimate on its button (design section 15.4): tokens, and its cost at API prices when known. #}
 {% macro cost(estimate) -%}
 {%- if estimate -%}
-<span class="cost" title="{{ _('An estimate. On a subscription this counts against your plan’s usage limits; with an API key it is billed at these prices.') }}">~{{ estimate.tokens|tokens }} {{ _("tokens") }}{% if estimate.cost_usd is none %}{% elif estimate.cost_usd == 0 %} · {{ _("free") }}{% else %} · ~{{ estimate.cost_usd|dollars }}{% endif %}</span>
+<span class="cost" dir="ltr" title="{{ _('An estimate. On a subscription this counts against your plan’s usage limits; with an API key it is billed at these prices.') }}">~{{ estimate.tokens|tokens }} {{ _("tokens") }}{% if estimate.cost_usd is none %}{% elif estimate.cost_usd == 0 %} · {{ _("free") }}{% else %} · ~{{ estimate.cost_usd|dollars }}{% endif %}</span>
 {%- endif -%}
+{%- endmacro %}
+
+{# A search result's kind, in the reader's language (design section 7.2). #}
+{% macro kind_name(kind) -%}
+{%- set names = {"area": _("Area"), "concept": _("Concept"), "path": _("Path"), "digest": _("Digest"),
+                 "answer": _("Saved answer"), "decision": _("Decision"), "fact": _("Fact")} -%}
+{{ names.get(kind, kind) }}
 {%- endmacro %}

@@ -1,6 +1,6 @@
 [project]
 name = "codetrail"
-version = "1.1.0"
+version = "1.1.1"
 description = "Turn a git repository into a local learning guide that keeps up with it."
 readme = "README.md"
 license = "Apache-2.0"

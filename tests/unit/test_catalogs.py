@@ -1,6 +1,7 @@
 """The interface's catalogs: the template is current, and every language has every message (design section 7.2)."""
 
 import re
+import subprocess
 from io import BytesIO
 from pathlib import Path
 
@@ -10,9 +11,13 @@ from babel.messages.extract import extract_from_dir
 from babel.messages.mofile import write_mo
 from babel.messages.pofile import read_po
 
+from codetrail.web.i18n import installed_languages
+
 ROOT = Path(__file__).resolve().parents[2]
 LOCALES = ROOT / "src" / "codetrail" / "locales"
 PLACEHOLDER = re.compile(r"%\((\w+)\)s|\{(\w+)\}")
+MARKUP = re.compile(r"<[^<>]*>|&#?\w+;")  # a tag or an entity
+EASTERN_DIGITS = re.compile(r"[\u0660-\u0669\u06f0-\u06f9]")  # Arabic-Indic and Eastern Arabic-Indic
 METHODS = [("src/codetrail/**.py", "python"), ("src/codetrail/web/templates/**.html", "jinja2")]
 KEYWORDS = {"_": None, "gettext": None, "ngettext": (1, 2), "pgettext": ((1, "c"), 2)}
 
@@ -45,6 +50,65 @@ def catalogs() -> list[Path]:
     return sorted(LOCALES.glob("*/LC_MESSAGES/codetrail.po"))
 
 
+def unsafe_translations(catalog: Catalog) -> list[str]:
+    """Translations that would break the page: markup the English lacks (Jinja trusts catalog text, also inside
+    attributes), or text that doesn't format with the English message's values (Jinja formats every translation)."""
+    found = []
+    for message in catalog:
+        if not message.id or not message.string:
+            continue
+        originals = [str(text) for text in (message.id if isinstance(message.id, tuple) else (message.id,))]
+        strings = [str(text) for text in (message.string if isinstance(message.string, tuple) else (message.string,))]
+        values = {name: "" for original in originals for name, _brace in PLACEHOLDER.findall(original) if name}
+        english_markup = {token for text in originals for token in MARKUP.findall(text)}
+        english_text = "".join(MARKUP.sub("", text) for text in originals)
+        for string in strings:
+            # Every tag or entity must be one the English has, and no stray markup character may be added.
+            added = [token for token in MARKUP.findall(string) if token not in english_markup]
+            added += [mark for mark in "<>\"'&" if mark in MARKUP.sub("", string) and mark not in english_text]
+            if added:
+                found.append(f"{originals[0]!r} adds {''.join(added)}")
+            try:
+                string % values
+            except KeyError, ValueError, TypeError:
+                found.append(f"{originals[0]!r} doesn't format")
+    return found
+
+
+def test_unsafe_translations_are_found() -> None:
+    catalog = Catalog(locale="ar")
+    catalog.add("Passed", 'نجحت" style="x')
+    catalog.add("%(count)s file", "%(total)s ملف")
+    catalog.add("Home", "100% الرئيسية")
+    catalog.add("Search", "بحث")
+    catalog.add("Run <code>codetrail</code>", "شغّل <code>codetrail</code> <a href=x>هنا</a>")
+    catalog.add("Read", "مقروءة' title='x")
+    catalog.add("Or <code>%(name)s</code>", "أو <code>%(name)s</code>")
+    assert unsafe_translations(catalog) == [
+        "'Passed' adds \"",
+        "'%(count)s file' doesn't format",
+        "'Home' doesn't format",
+        "'Run <code>codetrail</code>' adds <a href=x></a>",
+        "'Read' adds '",
+    ]
+
+
+@pytest.mark.parametrize("path", catalogs(), ids=lambda path: path.parent.parent.name)
+def test_every_language_is_safe_in_the_page(path: Path) -> None:
+    with path.open("rb") as handle:
+        assert unsafe_translations(read_po(handle, locale=path.parent.parent.name)) == []
+
+
+@pytest.mark.parametrize("path", catalogs(), ids=lambda path: path.parent.parent.name)
+def test_every_language_writes_western_digits(path: Path) -> None:
+    # The founder's choice for the Arabic interface (9 October 2026): numbers read 0-9 in every language.
+    with path.open("rb") as handle:
+        catalog = read_po(handle)
+    for message in catalog:
+        strings = message.string if isinstance(message.string, tuple) else (message.string,)
+        assert not any(EASTERN_DIGITS.search(str(string)) for string in strings), f"{path}: {message.id!r}"
+
+
 @pytest.mark.parametrize("path", catalogs(), ids=lambda path: path.parent.parent.name)
 def test_every_language_has_every_message(path: Path) -> None:
     with path.open("rb") as handle:
@@ -70,3 +134,39 @@ def test_every_language_has_every_message(path: Path) -> None:
     direction = catalog.get("ltr", "text direction")
     assert direction is not None and direction.string in ("ltr", "rtl")
     write_mo(BytesIO(), catalog)  # it compiles
+
+
+def test_compiled_catalogs_are_committed() -> None:
+    # Codetrail reads only compiled catalogs, and an install builds from the committed tree (ADR 0013).
+    compiled = "src/codetrail/locales/ar/LC_MESSAGES/codetrail.mo"
+    ignored = subprocess.run(["git", "check-ignore", "--no-index", "-q", compiled], cwd=ROOT, check=False)
+    assert ignored.returncode == 1, f"{compiled} is ignored by git"
+    elsewhere = "tests/fixtures/locales/ar/LC_MESSAGES/codetrail.mo"  # only the shipped catalogs are committed
+    ignored = subprocess.run(["git", "check-ignore", "--no-index", "-q", elsewhere], cwd=ROOT, check=False)
+    assert ignored.returncode == 0, f"{elsewhere} isn't ignored by git"
+
+
+def test_every_shipped_language_loads_as_the_page_loads_it() -> None:
+    languages = installed_languages(LOCALES)
+    assert set(languages) == {"en"} | {path.parent.parent.name for path in catalogs()}
+    for language in languages.values():
+        assert language.name and language.direction in ("ltr", "rtl")
+
+
+@pytest.mark.parametrize("path", catalogs(), ids=lambda path: path.parent.parent.name)
+def test_every_language_is_compiled_from_its_catalog(path: Path) -> None:
+    with path.open("rb") as handle:
+        catalog = read_po(handle, path.parent.parent.name)  # as `pybabel compile` reads it
+    fuzzy = [str(message.id) for message in catalog if message.id and message.fuzzy]
+    assert not catalog.fuzzy and fuzzy == [], f"{path}: `pybabel compile` skips what is marked fuzzy: {fuzzy}"
+    compiled = BytesIO()
+    write_mo(compiled, catalog)
+    target = path.with_suffix(".mo")
+    assert target.exists() and target.read_bytes() == compiled.getvalue(), (
+        f"Run `just catalogs` and commit {target.relative_to(ROOT)}"
+    )
+
+
+def test_every_compiled_catalog_has_its_catalog() -> None:
+    orphans = [path for path in LOCALES.glob("*/LC_MESSAGES/*.mo") if not path.with_suffix(".po").exists()]
+    assert orphans == []

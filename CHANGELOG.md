@@ -4,6 +4,19 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-10-09
+
+Release notes: [docs/releases/v1.1.1.md](docs/releases/v1.1.1.md).
+
+### Added
+- An Arabic interface: choose العربية in the language picker. It reads right to left, keeps technical terms such as commit and branch in English, and writes numbers with Western digits.
+- Arabic text in the page (answers, feedback and any Arabic interface text) is set in Noto Sans Arabic, bundled with Codetrail, instead of whatever font the system has.
+
+### Fixed
+- The page's messages (refusals, the update panel's reasons, a check's verdict) now come in the interface language instead of always in English.
+- In a right-to-left language, interface headings and labels no longer space their letters apart, and the Ask and update panels slide in from their own side.
+- Search results name their kind (concept, path…) in the interface language, and keep the guide's English left to right; estimates on buttons no longer lose their leading tilde in right to left.
+
 ## [1.1.0] - 2026-10-08
 
 Release notes: [docs/releases/v1.1.0.md](docs/releases/v1.1.0.md).
@@ -72,7 +85,8 @@ The first public release. Release notes: [docs/releases/v1.0.0.md](docs/releases
 - The page and the bridge listen on 127.0.0.1 only, check `Host`, `Origin` and `Sec-Fetch-Site`, need a single-use login code and a per-session token, and send a strict content security policy.
 - The assistant gets read-only tools (Read, Grep, Glob) confined to the filtered sources: for Claude Code through two independent guards, and for local models through Codetrail's own tools. Codex can't be confined the same way, so it stays off unless a target opts in. Every provider gets an allowlisted environment: Codetrail never reads, stores or passes a key or token, unless you set `auth = "api_key"`, when the provider's key variable is handed to its program by name.
 
-[Unreleased]: https://github.com/mohamed-abdelsattar92/codetrail/compare/v1.1.0...develop
+[Unreleased]: https://github.com/mohamed-abdelsattar92/codetrail/compare/v1.1.1...develop
+[1.1.1]: https://github.com/mohamed-abdelsattar92/codetrail/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/mohamed-abdelsattar92/codetrail/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/mohamed-abdelsattar92/codetrail/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/mohamed-abdelsattar92/codetrail/releases/tag/v1.0.0

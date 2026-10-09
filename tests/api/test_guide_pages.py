@@ -101,7 +101,7 @@ def test_a_failed_update_reports_without_details(paths: Paths) -> None:
     client.post("/update", headers={"origin": ORIGIN, TOKEN_HEADER: session.token})
     for _ in range(50):
         status = client.get("/update/status").json()
-        if status["state"] != "running":
+        if status["state"] not in ("preparing", "running"):
             break
         time.sleep(0.05)
     assert status["state"] == "failed"

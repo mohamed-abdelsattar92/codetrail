@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% from "layout/icons.html" import icon %}
+{% from "macros.html" import kind_name %}
 {% block title %}{{ _("Search") }}{% endblock %}
 {% block content %}
 <div class="wide">
@@ -20,7 +21,7 @@
 <ol class="results" lang="en" dir="ltr">
   {% for result in results %}
   <li>
-    <a href="{{ result.document.link }}">{{ result.document.title }}</a> <span class="kind">{{ result.document.kind }}</span>
+    <a href="{{ result.document.link }}">{{ result.document.title }}</a> <span class="kind" lang="{{ language.code }}" dir="{{ language.direction }}">{{ kind_name(result.document.kind) }}</span>
     {% if result.snippet %}<p class="snippet">{% for text, matched in result.snippet %}{% if matched %}<mark>{{ text }}</mark>{% else %}{{ text }}{% endif %}{% endfor %}</p>{% endif %}
   </li>
   {% endfor %}
