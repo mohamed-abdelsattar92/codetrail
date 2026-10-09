@@ -20,10 +20,10 @@ from codetrail.repo.source import SourceManifest
 
 
 def facts_in_scope(store: FactStore, entry: OutlineEntry) -> list[Entity]:
-    return _in_scope(store.entities(), entry)
+    return entities_in_scope(store.entities(), entry)
 
 
-def _in_scope(entities: list[Entity], entry: OutlineEntry) -> list[Entity]:
+def entities_in_scope(entities: list[Entity], entry: OutlineEntry) -> list[Entity]:
     """The entities under the entry's scope paths (of its kinds, if it names any), and the facts it names."""
     named = set(entry.facts)
     found = []
@@ -47,8 +47,8 @@ def page_snapshot(store: FactStore, page: Page) -> int | None:
 
 def scope_changes(store: FactStore, entry: OutlineEntry, since: int) -> list[str]:
     """Each fact and link in the entry's scope added, changed or removed since the snapshot, one line each."""
-    before = {entity.id: entity for entity in _in_scope(store.entities_at(since), entry)}
-    now = {entity.id: entity for entity in _in_scope(store.entities(), entry)}
+    before = {entity.id: entity for entity in entities_in_scope(store.entities_at(since), entry)}
+    now = {entity.id: entity for entity in entities_in_scope(store.entities(), entry)}
     lines = []
     for entity_id in sorted(before.keys() | now.keys()):
         old, new = before.get(entity_id), now.get(entity_id)

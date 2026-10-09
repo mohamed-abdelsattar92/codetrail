@@ -9,7 +9,7 @@ from __future__ import annotations
 import threading
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 
 import anyio
 
@@ -57,7 +57,7 @@ from codetrail.repo.mirror import read_file_at
 from codetrail.repo.refresh import TARGET_IGNORE_FILE, ignore_lines, refresh_while_locked
 from codetrail.repo.rules import ExclusionRules
 from codetrail.repo.secrets import SecretScanner
-from codetrail.repo.source import SourceManifest
+from codetrail.repo.source import SourceManifest, allowed_reader
 from codetrail.system import derive
 
 STOP_CHECK_SECONDS = 0.2  # how often an update started from the page checks whether the server is stopping
@@ -86,28 +86,10 @@ def _calls(target: TargetConfig, work: PlannedWork) -> list[tuple[str, str, str,
     ]
 
 
-def system_reader(source: Path, files: Mapping[str, str], max_bytes: int) -> Callable[[str], bytes | None]:
-    """The system pass's only way to files: an allowed path, inside `source/`, a plain file within the size cap."""
-    root = source.resolve()
-
-    def read(path: str) -> bytes | None:
-        if path not in files:
-            return None
-        file = source / PurePosixPath(path)
-        try:
-            if file.is_symlink() or not file.resolve().is_relative_to(root) or not file.is_file():
-                return None
-            return file.read_bytes() if file.stat().st_size <= max_bytes else None
-        except OSError:
-            return None
-
-    return read
-
-
 def with_system(extraction: Extraction, source: Path, files: Mapping[str, str], extract: ExtractSettings) -> Extraction:
     """The extraction with the system pass's parts and connections, checked like extracted facts (design 17.3)."""
     found = derive(
-        extraction.entities, extraction.relations, files, system_reader(source, files, extract.max_file_bytes)
+        extraction.entities, extraction.relations, files, allowed_reader(source, files, extract.max_file_bytes)
     )
     entities, relations, warnings = check_facts(found.entities, found.relations, extract.max_attribute_chars)
     return replace(
