@@ -3,7 +3,7 @@
 // local commit-msg hook keeps these rules for every commit.
 const TYPES = ["feat", "fix", "refactor", "perf", "test", "docs", "build", "ci", "chore", "revert"];
 const SCOPES = [
-  "config", "repo", "extract", "facts", "claude", "generate", "guide", "web", "bridge", "learn",
+  "config", "repo", "extract", "facts", "claude", "generate", "guide", "web", "bridge", "learn", "metrics",
   "tools", "docs", "adr", "ci", "deps",
 ];
 const SECTIONS = ["What", "Why", "Alternatives considered", "Risks", "Agent and model"];
