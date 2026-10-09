@@ -197,7 +197,7 @@ def test_yaml_is_read_in_one_pass_without_aliases() -> None:
 def test_base_60_integers_stay_text_so_none_costs_quadratic_time() -> None:
     import time
 
-    started = time.monotonic()
+    started = time.process_time()
     _, data = load_yaml_without_aliases("long: " + "1:" * 200_000 + "1\nshort: 1:30\ntagged: !!int 2:00\nplain: 12\n")
-    assert time.monotonic() - started < 2
+    assert time.process_time() - started < 2
     assert (data["short"], data["tagged"], data["plain"]) == ("1:30", "2:00", 12)

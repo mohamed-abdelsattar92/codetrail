@@ -241,7 +241,7 @@ The interface is English first and switches language from the page. Each languag
 
 ## Status
 
-The latest release is Codetrail 1.0.1 ([release notes](docs/releases/v1.0.1.md), [changelog](CHANGELOG.md)); 1.0.0 was the first public release. Every phase in the [design](docs/design/2026-10-05-codetrail-design.md) is built and tested.
+The latest release is Codetrail 1.1.0 ([release notes](docs/releases/v1.1.0.md), [changelog](CHANGELOG.md)); 1.0.0 was the first public release. Every phase in the [design](docs/design/2026-10-05-codetrail-design.md) is built and tested.
 
 ```mermaid
 flowchart LR
@@ -303,13 +303,13 @@ Then `just ci` runs every check CI runs; `just lint`, `just format`, `just typec
 | Document | What's in it |
 |---|---|
 | [Getting started](docs/getting-started.md) | Install, connect an assistant, add a repository, build and read the guide |
-| [Changelog](CHANGELOG.md) | What changed in each release; release notes for [1.0.1](docs/releases/v1.0.1.md) and [1.0.0](docs/releases/v1.0.0.md) |
+| [Changelog](CHANGELOG.md) | What changed in each release; release notes for [1.1.0](docs/releases/v1.1.0.md), [1.0.1](docs/releases/v1.0.1.md) and [1.0.0](docs/releases/v1.0.0.md) |
 | [Design](docs/design/2026-10-05-codetrail-design.md) | The whole system: architecture, exclusions, facts, generation, page and bridge, learning, providers and estimates, errors, testing, phases |
 | [Brainstorm decisions](docs/design/brainstorm-decisions.md) | The problem, every early decision and why |
 | [Architecture decision records](docs/adr/README.md) | Decisions that are hard to reverse |
 | [Security review checklist](docs/security/review-checklist.md) | What every change is reviewed against |
 | [AGENTS.md](AGENTS.md) | Rules and workflow for coding agents |
-| [Contributing](CONTRIBUTING.md) | The rules for contributing: git-flow, pull requests, simple code, tests first, commits, releasing, and the contributor licence agreement |
+| [Contributing](CONTRIBUTING.md) | The rules for contributing: git-flow, pull requests, simple code, tests first, commits, releasing, and the licence of contributions |
 | [Security policy](SECURITY.md) | How to report a vulnerability privately, and what counts as one |
 | [Trademarks](TRADEMARKS.md) | What you may do with the name and logo |
 
@@ -323,6 +323,6 @@ Then `just ci` runs every check CI runs; `just lint`, `just format`, `just typec
 
 Copyright © 2026 Mohamed Abdel Sattar.
 
-Codetrail is free software under the [GNU Affero General Public License 3.0 only](LICENSE). You may use, change and share it under that licence's terms; if you change it and let other people use it over a network, you must offer them your version's source. To use Codetrail without the AGPL's terms, for example inside a closed product, ask for a commercial licence at mohamed.abdelsattar92@hotmail.com ([ADR 0010](docs/adr/0010-agpl-with-a-commercial-license.md)).
+Codetrail is open source under the [Apache License 2.0](LICENSE). You may use, change and share it, commercially or not, as long as you keep its copyright and licence notices and say which files you changed ([ADR 0012](docs/adr/0012-apache-2-license.md)). Versions 1.0.0 and 1.0.1 were released under the GNU AGPL 3.0 only, and those copies keep that licence.
 
-The licence grants no rights to the name "Codetrail" or its logo; [TRADEMARKS.md](TRADEMARKS.md) says what you may do with them. Contributions are welcome under the [contributor licence agreement](CLA.md); see [CONTRIBUTING.md](CONTRIBUTING.md).
+The licence grants no rights to the name "Codetrail" or its logo; [TRADEMARKS.md](TRADEMARKS.md) says what you may do with them. Contributions are welcome under the same licence; see [CONTRIBUTING.md](CONTRIBUTING.md).

@@ -99,9 +99,9 @@ def test_yaml_aliases_are_refused(tmp_path: Path) -> None:
     laughs += [f"a{n}: &a{n} [" + ", ".join([f"*a{n - 1}"] * 10) + "]" for n in range(1, 10)]
     laughs += ["paths:", "  /x:", "    get:", "      summary: *a9", "      operationId: get_x"]
     recursive = "openapi: 3.0.0\npaths:\n  /x:\n    get: &loop\n      operationId: get_x\n      more: [*loop, *loop]\n"
-    started = time.monotonic()
+    started = time.process_time()
     extraction = run(tmp_path, {"one/openapi.yaml": "\n".join(laughs) + "\n", "two/openapi.yaml": recursive})
-    assert time.monotonic() - started < 2
+    assert time.process_time() - started < 2
     assert extraction.entities == []
     assert [warning.split(":")[1].strip() for warning in extraction.warnings] == [
         "one/openapi.yaml", "two/openapi.yaml"

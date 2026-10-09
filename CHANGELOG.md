@@ -4,6 +4,20 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-10-08
+
+Release notes: [docs/releases/v1.1.0.md](docs/releases/v1.1.0.md).
+
+### Added
+- A Sponsor button on the GitHub repository, linking to Ko-fi.
+
+### Changed
+- Codetrail is now licensed under the [Apache License 2.0](LICENSE) instead of the GNU AGPL 3.0 only, so you may use it commercially without asking. Versions 1.0.0 and 1.0.1 keep the AGPL.
+
+### Removed
+- The contributor licence agreement: contributions are licensed under the Apache License 2.0, as its section 5 says, with nothing to sign.
+- The commercial licence offer, which the Apache License makes unnecessary.
+
 ## [1.0.1] - 2026-10-07
 
 Release notes: [docs/releases/v1.0.1.md](docs/releases/v1.0.1.md).
@@ -58,6 +72,7 @@ The first public release. Release notes: [docs/releases/v1.0.0.md](docs/releases
 - The page and the bridge listen on 127.0.0.1 only, check `Host`, `Origin` and `Sec-Fetch-Site`, need a single-use login code and a per-session token, and send a strict content security policy.
 - The assistant gets read-only tools (Read, Grep, Glob) confined to the filtered sources: for Claude Code through two independent guards, and for local models through Codetrail's own tools. Codex can't be confined the same way, so it stays off unless a target opts in. Every provider gets an allowlisted environment: Codetrail never reads, stores or passes a key or token, unless you set `auth = "api_key"`, when the provider's key variable is handed to its program by name.
 
-[Unreleased]: https://github.com/mohamed-abdelsattar92/codetrail/compare/v1.0.1...develop
+[Unreleased]: https://github.com/mohamed-abdelsattar92/codetrail/compare/v1.1.0...develop
+[1.1.0]: https://github.com/mohamed-abdelsattar92/codetrail/compare/v1.0.1...v1.1.0
 [1.0.1]: https://github.com/mohamed-abdelsattar92/codetrail/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/mohamed-abdelsattar92/codetrail/releases/tag/v1.0.0
