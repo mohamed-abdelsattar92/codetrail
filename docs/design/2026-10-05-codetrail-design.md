@@ -55,6 +55,7 @@ One module per part of the system. Every other module reads the target only thro
 | `system` | The system pass: a repository's parts and the connections between them, from facts (section 17.3) | `facts`, `repo` |
 | `bridge` | FastAPI router for questions, streamed answers, grading and "save to guide" | `assistant`, `guide`, `learn` |
 | `learn` | Progress, check attempts, staleness and settings in SQLite | `facts`, `guide` |
+| `metrics` | Documentation metrics and their trend, from the guide, the facts and the history (section 18) | `guide`, `facts`, `repo` |
 
 ### 2.3 Where things live
 Codetrail follows the XDG base directories, on macOS too; configuration can move any of them.
@@ -67,7 +68,7 @@ Codetrail follows the XDG base directories, on macOS too; configuration can move
 | `~/.local/share/codetrail/<name>/mirror.git` | A bare clone of the target |
 | `~/.local/share/codetrail/<name>/source/` | The allowed files at the current snapshot, with no `.git` |
 | `~/.local/share/codetrail/<name>/guide/` | The knowledge base, its own git repository |
-| `~/.local/share/codetrail/<name>/codetrail.db` | Facts and learning state (SQLite) |
+| `~/.local/share/codetrail/<name>/codetrail.db` | Facts, learning state and the metrics' trend (SQLite) |
 | `~/.local/state/codetrail/<name>/codetrail.log` | The log |
 
 The guide's location can be configured, but never inside the target.
@@ -109,6 +110,10 @@ plan = "claude-opus-5-5"
 write = "claude-sonnet-5-5"
 answer = "claude-sonnet-5-5"
 grade = "claude-sonnet-5-5"
+
+[metrics]                        # section 18.5
+document_globs = ["README*", "*.md", "*.rst", "*.adoc", "*.txt", "docs/**"]
+commit_why_pattern = '(?im)^\s*(?:#+\s*)?why\b'
 ```
 
 Unknown keys are refused. Model names and every limit live here or in the global file, never in code.
@@ -473,6 +478,12 @@ cache_seconds = 60
 [diagrams]
 max_nodes = 25
 
+[metrics]                      # section 18.5
+commit_window = 200
+proposed_adr_days = 30
+trend_updates = 12
+max_listed = 50
+
 [extract]
 max_file_bytes = 1_000_000   # larger files are skipped with a warning
 max_attribute_chars = 300    # text taken from a file into a fact is cut to this length
@@ -570,6 +581,8 @@ Each phase is usable on its own, has its own implementation plan, and ends with 
 | 10. Getting started | A generic README with screenshots of Codetrail's guide to itself, and the install guide | Anyone can install and run Codetrail on their own repository | Phase 9 |
 | 11. The page's design | Search, the new shell and visual system, the progress and saved-answers pages, the palette, shortcuts and the Ask panel, browser tests (section 16) | A page people enjoy using, where anything in the guide is a keystroke away | ADRs 0007, 0008 |
 | 12. The whole system | The `typescript` and `github_actions` extractors, the system pass, the system diagram, page and home card (section 17) | One diagram of how a repository's parts fit together, and facts for TypeScript, JavaScript and Astro code | ADR 0009 |
+| 13. Documentation metrics | The `metrics` module, the `metric_values` table, the Documentation page, the home card and `codetrail metrics` (section 18) | How well a repository explains itself, what to document next, and the trend across updates, at no cost | — |
+| 14. Decision inventory (planned) | An opt-in paid pass listing the decisions in the code and their documented "why" (section 18.8) | The share of the repository's decisions that are documented, beyond what the guide wrote about | Phase 13 |
 
 ## 14. Answers to the brainstorm's open questions
 
@@ -707,7 +720,7 @@ Empty states invite rather than apologize ("Ask a question from any page and sav
 |---|---|
 | ⌘K, Ctrl+K, **/** | Open the palette |
 | **A** | Open the Ask panel about the current page |
-| **G** then **H**, **P**, **S**, **D**, **R**, **Y** | Go to home, progress, saved answers, digests, decisions, the system |
+| **G** then **H**, **P**, **S**, **D**, **R**, **Y**, **O** | Go to home, progress, saved answers, digests, decisions, the system, documentation |
 | **[** and **]** | Previous and next page in the current path |
 | **M** | Mark the page read, or unread |
 | **U** | Update the guide: refresh the facts and open the estimate dialog |
@@ -806,3 +819,72 @@ The extractor names `typescript` and `github_actions` join the target's `extract
 
 ### 17.7 Delivery
 Phase 12, in four feature branches, each reviewed, merged with the latest `develop` and finished: the `typescript` extractor with ADR 0009; the `github_actions` extractor and the Terraform paths; the system pass; the system diagram, page, home card, area pages, answers, prompts, docs and screenshots.
+
+## 18. Documentation metrics
+
+Approved by the founder in the design session of 10 October 2026. The guide already knows which rationale is documented and which is inferred; this section turns that, the facts and the history into numbers about how well a repository explains itself, with the items behind each number, and keeps them per update so the trend shows. Everything here is free: no assistant is called, and only what Codetrail can already see is read (committed, allowed files in `source/`, the fact store, the guide and the filtered history).
+
+### 18.1 What is measured
+- **Documented share of rationale** (`documented_share`): the `[!documented]` blocks among all rationale blocks in the guide's area and concept pages. Digests are left out (they accumulate and are mostly about commits), and so are saved answers (they follow the reader's questions, not the repository). Each documented block is classified from its citation: `commit:<sha>` is a **commit**; a path matching the target's `[adr] paths` is an **ADR**; a path matching the target's `[metrics] document_globs` is **docs**; anything else is **code** (a comment or docstring). Shown by source type and by page, with every inferred block listed with its page.
+- **Commits that explain why** (`commit_why_share`): of the last `metrics.commit_window` non-merge commits on the target's branch, those whose body matches the target's `[metrics] commit_why_pattern` (by default a line starting with `Why`, as a heading or as `Why:`). The others are **body without a why** or **subject only**. A message gitleaks flags is withheld, as everywhere, and left out of the share. The commits that don't explain why are listed.
+- **ADRs needing attention** (`adr_attention`, a count): proposed ADRs whose `Date:` is more than `metrics.proposed_adr_days` days old, plus superseded or deprecated ADRs a page still cites. The section also lists every ADR by status, the undated proposed ones, and the accepted ADRs no page cites. A page cites an ADR with a documented block quoting its file, a `[[decision:ADR-…]]` link, or the ADR in its front matter's `facts`.
+- **Mentioned in a document** (`mentioned_share`): external packages, projects and infrastructure resources a document mentions. A package counts when its name appears as a whole word in a document file; a project when its folder holds a README or a document names its folder; a resource when a document names its address (`aws_s3_bucket.assets`). Words and names are compared lower-cased, with runs of `-`, `_` and `.` made one `-`. The section says plainly that a mention isn't a reason, and lists what no document mentions.
+- **Explained by the guide** (`explained_share`): the current facts that fall in the scope of a written area or concept page (its `facts`, or its scope paths and kinds, as section 4.3 counts them). The facts no page covers are listed.
+
+The metric names are a fixed list in code, like fact kinds, each with its label and whether it is a share or a count.
+
+### 18.2 How it is computed
+A `metrics` module (section 2.2), one file per metric (`rationale.py`, `commits.py`, `decisions.py`, `coverage.py`) and `report.py`, which builds a `MetricsReport`: each metric's numerator and denominator, and its detail lists. It reuses `parse_rationale` (section 6.5), the scope rules of section 4.3, and `repo`'s filtered history; it reads the target only through `repo` and the guide only through `guide`.
+
+- **Document files** are the allowed files matching `document_globs`, read from `source/` through the same reader as the system pass (section 17.3): an allowed path, inside `source/`, a plain file within `extract.max_file_bytes`. Their words are collected into a set once per report, and each name is looked up in it; no regular expression is ever built from a name a repository controls.
+- **Commits** are read with one `git log` call (`--no-merges`, at most `commit_window`, fields separated by NUL, which no message can hold) and scanned with one gitleaks run, withholding flagged messages as `commits_between` does.
+- **When:** the page computes the report the first time it is shown after the guide or the facts move on, and keeps it in memory, keyed by the latest snapshot, the guide's head and the date (the only input that changes on its own is an ADR's age).
+
+### 18.3 The trend
+Migration `0006_metric_values.sql` adds `metric_values(snapshot, metric, numerator, denominator)`, with `(snapshot, metric)` as its key and `denominator` empty for a count. Keeping both numbers lets the page say "3 of 4" when counts are small. Each update, once its snapshot is recorded and its guide written (or declined, or skipped with `--facts-only`), computes the report and writes one row per metric. An update that fails writes no rows; a failure computing or writing the rows is logged as a warning and never fails the update. The commit metric's trend is its value over the window at each update. History starts with the first update after this ships.
+
+### 18.4 Where it appears
+- **The Documentation page**, `/documentation`, listed in the sidebar under Decisions; the shortcut is **G** then **O**. A row of four tiles (documented share, commits that explain why, ADRs needing attention, mentioned in a document), each with "n of m", its change since the previous update, and a trend line over the last `metrics.trend_updates` updates: an inline SVG drawn on the server, with a text alternative. Below them, a section per metric with what it counts and what it doesn't, and its items: inferred blocks linking to their pages, documented blocks by source type and a table by page, commits without a why (short sha and subject), ADRs linking to their facts, unmentioned and unexplained facts linking to theirs. Long lists show their first `metrics.max_listed` items and the rest inside a `<details>` element. Documented is indigo and inferred amber, as everywhere.
+- **Before the first paid update** only the documented share is missing; its tile says there are no pages yet and links to **Update the guide**, which opens the estimate dialog as usual.
+- **The home card** "Documentation" shows the documented share with its change since the last update, and links to the page; it is shown once facts exist.
+- **`codetrail metrics <target>`** prints each metric with "n of m" and its change since the last update. It reads the history but never writes it.
+
+### 18.5 Configuration
+Per target, since conventions differ between repositories:
+
+```toml
+[metrics]
+document_globs = ["README*", "*.md", "*.rst", "*.adoc", "*.txt", "docs/**"]   # gitignore syntax
+commit_why_pattern = '(?im)^\s*(?:#+\s*)?why\b'                              # a Python regular expression
+```
+
+Globally:
+
+```toml
+[metrics]
+commit_window = 200        # the latest non-merge commits the commit metric reads
+proposed_adr_days = 30     # a proposed ADR older than this needs attention
+trend_updates = 12         # updates the trend lines show
+max_listed = 50            # items a list shows before the rest fold away
+```
+
+`commit_why_pattern` is compiled when the configuration is loaded; an invalid one is refused there, by name.
+
+### 18.6 Security
+Nothing new leaves the machine and nothing calls an assistant. The page is one `GET` route behind the session, and it changes nothing. Document files come from `source/` through the allowed-files reader, so excluded and secret files are never read; commit messages pass gitleaks before they are shown; rationale comes from pages that passed validation. Everything is rendered by autoescaping templates, and the trend line's SVG is built from numbers only. Names are matched by set lookup, so a hostile package or resource name can't make matching slow. Commit authors are never shown: the metrics are about the repository, not about people.
+
+### 18.7 Testing
+- **Unit:** citation classification (an ADR path that also matches the document globs is an ADR); malformed pages skipped; the three commit levels, merges left out, withheld messages left out of the share; ADR ages around the threshold, undated proposed ADRs, superseded ADRs cited by a block, a link or front matter; mention matching with scoped npm names, case, separators and names inside longer words (which don't count); facts in and out of scope; the report cache going stale on a new snapshot, guide commit or date; the configuration refusing an invalid pattern.
+- **Update:** a finished, declined or facts-only update writes one row per metric; a failed one writes none; a failure computing the metrics only warns.
+- **API:** `/documentation` needs the session; it renders before the first paid update; it never shows text from an excluded file or a withheld message; its security headers are unchanged; the home card appears with facts.
+- **Command:** `codetrail metrics` prints every metric and its change, and writes nothing.
+- **Browser:** the page passes the accessibility scan in both themes; **G O** opens it; the trend line has its text alternative.
+
+### 18.8 Delivery and later work
+Phase 13, in one feature branch, reviewed and finished into `develop`.
+
+Planned, not built yet:
+- **Phase 14, the decision inventory.** An opt-in paid pass in which the assistant lists the decisions it can see in the code (patterns, conventions, trade-offs, not only what facts capture) and looks for a documented "why" for each, quoted and verified like any documented block. The inventory is kept and only added to, like the outline, so two runs on one commit don't move the trend. Every run shows its estimate first. Its share would join the page as a fifth tile.
+- **Undocumented hot spots:** areas with the most change and the most inferred rationale, where an ADR or a README would help most.
+- **Freshness and learning on the same page:** affected pages, sources changed, merges behind, pages learned and gone stale.
+- **Word documents:** `.docx` files are binary, so neither the metrics nor the assistant can read them; a reader for them needs a proposed ADR for its dependency.
