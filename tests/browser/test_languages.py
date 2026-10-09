@@ -41,6 +41,20 @@ def test_right_to_left_text_keeps_its_letters_joined_and_english_keeps_its_track
     assert letter_spacing(page, ".guide-page h1") != "normal"  # the guide's title is English
 
 
+def test_arabic_text_uses_the_bundled_arabic_typeface(page: Page, site: Site, errors: list[str]) -> None:
+    in_arabic(page, site, "/")
+    loaded = page.evaluate(
+        """async () => {
+          await document.fonts.ready;
+          return [...document.fonts]
+            .filter((face) => face.family.replaceAll('"', "") === "Noto Sans Arabic" && face.status === "loaded")
+            .length;
+        }"""
+    )
+    assert loaded == 1
+    assert errors == []  # the security policy let the font load
+
+
 def test_the_ask_panel_slides_in_from_its_own_side(page: Page, site: Site) -> None:
     in_arabic(page, site, "/")
     page.locator("[data-ask-open]").first.click()
