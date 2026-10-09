@@ -341,7 +341,7 @@ Server-rendered with FastAPI and Jinja2, served by uvicorn; Markdown rendered on
 - Each catalog declares its direction by translating `pgettext("text direction", "ltr")` as `ltr` or `rtl`, and its own name by translating `pgettext("language name", "English")`.
 - The installed languages are the catalogs present. The picker lists them by their own names. The choice is stored in `learn`; the default is `ui.default_language` in the global configuration (`en`).
 - `<html lang dir>` follows the chosen catalog. Guide content, which is English, is wrapped in `lang="en" dir="ltr"`.
-- Errors shown in the page are catalog strings, without stack traces or file contents.
+- Errors shown in the page are catalog strings, without stack traces or file contents. The routes translate their own messages with the reader's catalog; an error raised by an assistant program or by the update itself, which the command line prints too, is shown as raised, in English.
 - Phase 3 ships English and a right-to-left catalog used only in tests. Each real language is added later as one catalog on its own branch.
 
 ### 7.3 The bridge

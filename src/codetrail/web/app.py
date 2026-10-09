@@ -116,6 +116,7 @@ def create_app(
         settings.server.update_cooldown_seconds,
         settings.server.estimate_ttl_seconds,
         settings.server.update_log_lines,
+        gettext=lambda message: language().translations.gettext(message),  # the reader's language when it's written
     )
 
     @asynccontextmanager
@@ -419,13 +420,15 @@ def create_app(
     @app.post("/update/confirm")
     def confirm_update(decision: EstimateDecision) -> Response:
         if not job.decide(decision.estimate_id, go_ahead=True):
-            return JSONResponse({"error": "That estimate isn't waiting any more; start the update again."}, 428)
+            expired = language().translations.gettext("That estimate isn't waiting any more; start the update again.")
+            return JSONResponse({"error": expired}, 428)
         return JSONResponse({"state": "running"})
 
     @app.post("/update/cancel")
     def cancel_update(decision: EstimateDecision) -> Response:
         if not job.decide(decision.estimate_id, go_ahead=False):
-            return JSONResponse({"error": "That estimate isn't waiting any more."}, 428)
+            expired = language().translations.gettext("That estimate isn't waiting any more.")
+            return JSONResponse({"error": expired}, 428)
         return JSONResponse({"state": "cancelled"})
 
     @app.get("/areas/{scope:path}", response_class=HTMLResponse)
@@ -511,7 +514,7 @@ def create_app(
             paths,
             name,
             assistant_for or real_assistant,
-            lambda: language().code,
+            language,
             settings.bridge.max_question_chars,
             settings.diagrams.max_nodes,
             settings.tools,
@@ -529,7 +532,7 @@ def create_app(
             paths,
             name,
             assistant_for or real_assistant,
-            lambda: language().code,
+            language,
             settings.bridge.max_question_chars,
             settings.learn.grading_cooldown_seconds,
             settings.tools,
@@ -573,8 +576,10 @@ class UpdateJob:
         cooldown_seconds: int = 0,
         estimate_ttl_seconds: int = 300,
         log_lines: int = 200,
+        gettext: Callable[[str], str] = str,
     ) -> None:
         self._run = run
+        self.gettext = gettext  # translates the messages the page shows (design section 7.2)
         self._stopping = stopping
         self._thread: threading.Thread | None = None
         self._lock = threading.Lock()
@@ -608,7 +613,7 @@ class UpdateJob:
             answered = self._decided.is_set()
             self.estimate, self.estimate_id = None, None
             if not answered:
-                self.message = "The estimate expired before it was confirmed, so nothing was spent."
+                self.message = self.gettext("The estimate expired before it was confirmed, so nothing was spent.")
             self.state = "running"
             self._declined = not (answered and self._decision)
             return not self._declined
@@ -633,11 +638,11 @@ class UpdateJob:
         """Starts the update; returns why it can't (one running, or the last one finished too recently)."""
         with self._lock:  # stop() sets _stopping under it, so it joins every thread started here
             if self._stopping.is_set():
-                return "The server is stopping."
+                return self.gettext("The server is stopping.")
             if self.state in ("preparing", "waiting", "running"):
-                return "An update is already running."
+                return self.gettext("An update is already running.")
             if self._finished_at is not None and time.monotonic() - self._finished_at < self._cooldown:
-                return "An update finished a moment ago; wait a few minutes before the next."
+                return self.gettext("An update finished a moment ago; wait a few minutes before the next.")
             self.state, self.message, self._declined = "preparing", "", False
             self._log.clear()
             self._thread = threading.Thread(target=self._work, daemon=True)
@@ -674,11 +679,15 @@ class UpdateJob:
         except CodetrailError as error:
             self.state, self.message = "failed", str(error)
         except Exception as error:  # the page shows a generic message; details stay out of the response
-            self.state, self.message = "failed", f"The update failed ({type(error).__name__})."
+            self.state, self.message = (
+                "failed",
+                self.gettext("The update failed (%(error)s).") % {"error": type(error).__name__},
+            )
         else:
             if self._declined or getattr(result, "declined", False):
-                reason = self.message or "The update was cancelled."
-                self.state, self.message = "declined", f"{reason} The facts were refreshed; the guide wasn't updated."
+                reason = self.message or self.gettext("The update was cancelled.")
+                declined = self.gettext("%(reason)s The facts were refreshed; the guide wasn't updated.")
+                self.state, self.message = "declined", declined % {"reason": reason}
             else:
                 self.state, self.message = "done", ""
         finally:

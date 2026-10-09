@@ -37,6 +37,7 @@ from codetrail.lock import TargetBusy, target_lock
 from codetrail.repo.secrets import SecretScanner
 from codetrail.repo.source import SourceManifest
 from codetrail.web.diagrams import available_diagrams
+from codetrail.web.i18n import Language
 from codetrail.web.render import render_body
 
 PAGE_CONTEXT_CHARACTERS = 12_000
@@ -84,7 +85,7 @@ def bridge_router(
     paths: Paths,
     name: str,
     assistant_for: Callable[[], Assistant],
-    language_of: Callable[[], str],
+    language_of: Callable[[], Language],
     max_question_chars: int,
     max_nodes: int,
     tools: ToolsSettings,
@@ -100,24 +101,27 @@ def bridge_router(
 
     @router.post("/bridge/questions")
     async def ask(question: Question) -> Response:
+        language = language_of()
+        _ = language.translations.gettext
         if len(question.question) > max_question_chars:
-            return JSONResponse({"error": f"Questions are limited to {max_question_chars} characters."}, 413)
+            limit = _("Questions are limited to %(count)s characters.") % {"count": max_question_chars}
+            return JSONResponse({"error": limit}, 413)
         manifest = SourceManifest.load(data / "source.json")
         if manifest is None:
-            return JSONResponse({"error": f"Run codetrail update {name} first."}, 409)
+            return JSONResponse({"error": _("Run codetrail update %(target)s first.") % {"target": name}}, 409)
         if question.page_id and not PAGE_ID.fullmatch(question.page_id):
-            return JSONResponse({"error": "That page doesn't exist."}, 404)
+            return JSONResponse({"error": _("That page doesn't exist.")}, 404)
         page = guide.read_page(question.page_id) if question.page_id else None
         if question.page_id and page is None:
-            return JSONResponse({"error": "That page doesn't exist."}, 404)
+            return JSONResponse({"error": _("That page doesn't exist.")}, 404)
         diagrams = _available_diagrams()  # before the claim: nothing between claim and stream may fail
         token = state.claim()  # no await before this point, so two requests can't both pass
         if token is None:
-            return JSONResponse({"error": "Another question is still being answered."}, 429)
+            return JSONResponse({"error": _("Another question is still being answered.")}, 429)
         request = QuestionRequest(
             target=name,
             question=question.question,
-            language=language_of(),
+            language=language.code,
             page_title=page.title if page else "",
             page_body=page.body[:PAGE_CONTEXT_CHARACTERS] if page else "",
             page_facts=[str(fact.get("id")) for fact in (page.meta.get("facts") or [])] if page else [],
@@ -127,6 +131,7 @@ def bridge_router(
 
     async def _stream(request: QuestionRequest, commit: str, token: str) -> AsyncIterator[bytes]:
         try:
+            _ = language_of().translations.gettext  # inside the try: the claim is released whatever fails
             parts: list[str] = []
             try:
                 async for chunk in assistant_for().answer(request):
@@ -141,8 +146,11 @@ def bridge_router(
                             yield _event(
                                 {
                                     "type": "error",
-                                    "message": "The answer was withheld: it contains "
-                                    f"something that looks like a secret ({findings[0].rule}).",
+                                    "message": _(
+                                        "The answer was withheld: it contains something that looks like a secret "
+                                        "(%(rule)s)."
+                                    )
+                                    % {"rule": findings[0].rule},
                                 }
                             )
                             return
@@ -159,7 +167,8 @@ def bridge_router(
             except AssistantError as error:
                 yield _event({"type": "error", "message": str(error)})
             except Exception as error:  # details stay out of the page
-                yield _event({"type": "error", "message": f"The answer failed ({type(error).__name__})."})
+                failed = _("The answer failed (%(error)s).") % {"error": type(error).__name__}
+                yield _event({"type": "error", "message": failed})
         finally:
             state.release(token)
 
@@ -207,14 +216,15 @@ def bridge_router(
 
     @router.post("/bridge/answers/{answer_id}/save")
     def save(answer_id: str) -> Response:
+        _ = language_of().translations.gettext
         answer = state.answers.get(answer_id)
         if answer is None:
-            return JSONResponse({"error": "That answer is gone; ask again."}, 404)
+            return JSONResponse({"error": _("That answer is gone; ask again.")}, 404)
         try:
             with target_lock(paths, name):
                 page_id = _save(answer, data, guide, tools)
         except TargetBusy:
-            return JSONResponse({"error": "An update is running; save again when it finishes."}, 409)
+            return JSONResponse({"error": _("An update is running; save again when it finishes.")}, 409)
         except CodetrailError as error:
             return JSONResponse({"error": str(error)}, 409)
         del state.answers[answer_id]

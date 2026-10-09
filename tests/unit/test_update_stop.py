@@ -63,6 +63,15 @@ def test_no_update_starts_once_the_server_is_stopping() -> None:
     assert runs == []
 
 
+def test_the_update_s_messages_are_in_the_reader_s_language() -> None:
+    from codetrail.web.app import UpdateJob
+
+    catalog = {"The server is stopping.": "الخادم يتوقف."}
+    job = UpdateJob(lambda _confirm, _progress: None, threading.Event(), gettext=lambda text: catalog.get(text, text))
+    job.stop()
+    assert job.start() == "الخادم يتوقف."
+
+
 def test_no_generation_starts_once_stopped(monkeypatch: pytest.MonkeyPatch) -> None:
     # A confirmation that raced the stop: not one program may start.
     started: list[bool] = []
