@@ -5,11 +5,13 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 ## [Unreleased]
 
 ### Added
+- An Arabic interface: choose العربية in the language picker. It reads right to left, keeps technical terms such as commit and branch in English, and writes numbers with Western digits.
 - Arabic text in the page (answers, feedback and any Arabic interface text) is set in Noto Sans Arabic, bundled with Codetrail, instead of whatever font the system has.
 
 ### Fixed
 - The page's messages (refusals, the update panel's reasons, a check's verdict) now come in the interface language instead of always in English.
 - In a right-to-left language, interface headings and labels no longer space their letters apart, and the Ask and update panels slide in from their own side.
+- Search results name their kind (concept, path…) in the interface language, and keep the guide's English left to right; estimates on buttons no longer lose their leading tilde in right to left.
 
 ## [1.1.0] - 2026-10-08
 

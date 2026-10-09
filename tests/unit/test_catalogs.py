@@ -16,6 +16,7 @@ from codetrail.web.i18n import installed_languages
 ROOT = Path(__file__).resolve().parents[2]
 LOCALES = ROOT / "src" / "codetrail" / "locales"
 PLACEHOLDER = re.compile(r"%\((\w+)\)s|\{(\w+)\}")
+EASTERN_DIGITS = re.compile(r"[\u0660-\u0669\u06f0-\u06f9]")  # Arabic-Indic and Eastern Arabic-Indic
 METHODS = [("src/codetrail/**.py", "python"), ("src/codetrail/web/templates/**.html", "jinja2")]
 KEYWORDS = {"_": None, "gettext": None, "ngettext": (1, 2), "pgettext": ((1, "c"), 2)}
 
@@ -86,6 +87,16 @@ def test_unsafe_translations_are_found() -> None:
 def test_every_language_is_safe_in_the_page(path: Path) -> None:
     with path.open("rb") as handle:
         assert unsafe_translations(read_po(handle, locale=path.parent.parent.name)) == []
+
+
+@pytest.mark.parametrize("path", catalogs(), ids=lambda path: path.parent.parent.name)
+def test_every_language_writes_western_digits(path: Path) -> None:
+    # The founder's choice for the Arabic interface (9 October 2026): numbers read 0-9 in every language.
+    with path.open("rb") as handle:
+        catalog = read_po(handle)
+    for message in catalog:
+        strings = message.string if isinstance(message.string, tuple) else (message.string,)
+        assert not any(EASTERN_DIGITS.search(str(string)) for string in strings), f"{path}: {message.id!r}"
 
 
 @pytest.mark.parametrize("path", catalogs(), ids=lambda path: path.parent.parent.name)
