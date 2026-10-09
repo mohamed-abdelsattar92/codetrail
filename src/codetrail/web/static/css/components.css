@@ -730,6 +730,18 @@ dialog[open] {
   }
 }
 
+/* Right to left, the panels sit on the left, so they slide in from there. */
+[dir="rtl"] :is(.ask-panel, .update-panel) {
+  animation-name: slide-from-start;
+}
+
+@keyframes slide-from-start {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+}
+
 .ask-head {
   display: flex;
   align-items: center;

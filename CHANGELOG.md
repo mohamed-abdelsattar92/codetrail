@@ -4,6 +4,10 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+### Fixed
+- The page's messages (refusals, the update panel's reasons, a check's verdict) now come in the interface language instead of always in English.
+- In a right-to-left language, interface headings and labels no longer space their letters apart, and the Ask and update panels slide in from their own side.
+
 ## [1.1.0] - 2026-10-08
 
 Release notes: [docs/releases/v1.1.0.md](docs/releases/v1.1.0.md).
