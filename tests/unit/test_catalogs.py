@@ -45,6 +45,46 @@ def catalogs() -> list[Path]:
     return sorted(LOCALES.glob("*/LC_MESSAGES/codetrail.po"))
 
 
+def unsafe_translations(catalog: Catalog) -> list[str]:
+    """Translations that would break the page: markup the English lacks (Jinja trusts catalog text, also inside
+    attributes), or text that doesn't format with the English message's values (Jinja formats every translation)."""
+    found = []
+    for message in catalog:
+        if not message.id or not message.string:
+            continue
+        originals = [str(text) for text in (message.id if isinstance(message.id, tuple) else (message.id,))]
+        strings = [str(text) for text in (message.string if isinstance(message.string, tuple) else (message.string,))]
+        values = {name: "" for original in originals for name, _brace in PLACEHOLDER.findall(original) if name}
+        for string in strings:
+            added = [mark for mark in '<>"&' if mark in string and not any(mark in text for text in originals)]
+            if added:
+                found.append(f"{originals[0]!r} adds {''.join(added)}")
+            try:
+                string % values
+            except KeyError, ValueError, TypeError:
+                found.append(f"{originals[0]!r} doesn't format")
+    return found
+
+
+def test_unsafe_translations_are_found() -> None:
+    catalog = Catalog(locale="ar")
+    catalog.add("Passed", 'نجحت" style="x')
+    catalog.add("%(count)s file", "%(total)s ملف")
+    catalog.add("Home", "100% الرئيسية")
+    catalog.add("Search", "بحث")
+    assert unsafe_translations(catalog) == [
+        "'Passed' adds \"",
+        "'%(count)s file' doesn't format",
+        "'Home' doesn't format",
+    ]
+
+
+@pytest.mark.parametrize("path", catalogs(), ids=lambda path: path.parent.parent.name)
+def test_every_language_is_safe_in_the_page(path: Path) -> None:
+    with path.open("rb") as handle:
+        assert unsafe_translations(read_po(handle, locale=path.parent.parent.name)) == []
+
+
 @pytest.mark.parametrize("path", catalogs(), ids=lambda path: path.parent.parent.name)
 def test_every_language_has_every_message(path: Path) -> None:
     with path.open("rb") as handle:

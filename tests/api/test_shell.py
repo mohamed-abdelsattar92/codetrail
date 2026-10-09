@@ -16,10 +16,10 @@ from codetrail.guide import GuideRepository, Page
 from codetrail.update import run_update
 from codetrail.web.app import create_app
 from codetrail.web.security import TOKEN_HEADER, SessionState
+from tests.fixtures.catalogs import compiled_locales
 from tests.fixtures.repos import Commit, make_repository
 
 ORIGIN = "http://127.0.0.1:8765"
-FIXTURE_LOCALES = Path(__file__).parents[1] / "fixtures" / "locales"
 STATIC = Path(str(files("codetrail.web").joinpath("static")))
 PLAN = PlanDraft(
     [
@@ -46,19 +46,6 @@ def paths(tmp_path: Path) -> Paths:
     write_target(paths, "t", make_repository(tmp_path / "target", [FILES]), "develop")
     run_update(paths, "t", claude=FakeAssistant(plans=[PLAN], page_writer=writer))
     return paths
-
-
-def compiled_locales(folder: Path) -> Path:
-    from babel.messages.mofile import write_mo
-    from babel.messages.pofile import read_po
-
-    target = folder / "ar" / "LC_MESSAGES"
-    target.mkdir(parents=True, exist_ok=True)
-    with (FIXTURE_LOCALES / "ar" / "LC_MESSAGES" / "codetrail.po").open("rb") as source:
-        catalog = read_po(source)
-    with (target / "codetrail.mo").open("wb") as compiled:
-        write_mo(compiled, catalog)
-    return folder
 
 
 def signed_in(paths: Paths, claude: FakeAssistant | None = None) -> tuple[TestClient, dict[str, str]]:

@@ -66,7 +66,9 @@
   {% endif %}
 </article>
 {% if checks %}
-<section class="checks" lang="{{ language.code }}" dir="{{ language.direction }}">
+<section class="checks" lang="{{ language.code }}" dir="{{ language.direction }}"
+         data-label-pass="{{ _('Passed') }}" data-label-partial="{{ _('Partly there') }}"
+         data-label-fail="{{ _('Not yet') }}" data-label-ungraded="{{ _('The answer couldn’t be graded.') }}">
   <h2>{{ _("Check your understanding") }}</h2>
   {% for check in checks %}
   <form class="check" data-check="{{ check.id }}" data-page="{{ page.id }}">

@@ -15,3 +15,12 @@ msgstr "العربية"
 
 msgid "Home"
 msgstr "الرئيسية"
+
+msgid "That page doesn't exist."
+msgstr "هذه الصفحة غير موجودة."
+
+msgid "That estimate isn't waiting any more."
+msgstr "لم يعد هذا التقدير بانتظار ردّك."
+
+msgid "Passed"
+msgstr "نجحت"

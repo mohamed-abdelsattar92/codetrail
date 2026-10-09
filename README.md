@@ -237,7 +237,7 @@ When a page you learned is rewritten, it shows a diff of what changed since you 
 
 ## Languages
 
-The interface is English first and switches language from the page. Each language is one gettext catalog (`src/codetrail/locales/<code>/LC_MESSAGES/codetrail.po`); adding a language means adding a catalog, with no code change. Right-to-left languages are supported. The guide's pages stay in English, because the sources and the quotes are in English; live answers and check feedback come back in the language you choose.
+The interface is English first and switches language from the page. Each language is one gettext catalog (`src/codetrail/locales/<code>/LC_MESSAGES/codetrail.po`); adding a language means adding a catalog, with no code change. Right-to-left languages are supported. The page's own messages follow the language too; what the assistant's programs and the update's steps report stays in English, as the command line prints it. The guide's pages stay in English, because the sources and the quotes are in English; live answers and check feedback come back in the language you choose.
 
 ## Status
 
