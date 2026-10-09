@@ -13,13 +13,20 @@ REPOSITORY = Path(__file__).parents[2]
 SVGS = [STATIC / "brand" / "mark.svg", STATIC / "brand" / "favicon.svg", REPOSITORY / "docs" / "images" / "logo.svg"]
 
 
-def test_the_font_files_match_their_recorded_sums() -> None:
-    inter = STATIC / "vendor" / "inter"
-    recorded = dict(re.findall(r"([0-9a-f]{64})\s+(\S+\.woff2)", (inter / "VERSION").read_text()))
-    assert set(recorded.values()) == {"InterVariable.woff2", "InterVariable-Italic.woff2"}
+@pytest.mark.parametrize(
+    ("folder", "fonts", "licence"),
+    [
+        ("inter", {"InterVariable.woff2", "InterVariable-Italic.woff2"}, "LICENSE.txt"),  # ADR 0007
+        ("noto-sans-arabic", {"NotoSansArabic-wght.woff2"}, "OFL.txt"),  # ADR 0014
+    ],
+)
+def test_the_font_files_match_their_recorded_sums(folder: str, fonts: set[str], licence: str) -> None:
+    vendor = STATIC / "vendor" / folder
+    recorded = dict(re.findall(r"([0-9a-f]{64})\s+(\S+\.woff2)", (vendor / "VERSION").read_text()))
+    assert set(recorded.values()) == fonts
     for digest, name in recorded.items():
-        assert hashlib.sha256((inter / name).read_bytes()).hexdigest() == digest, name
-    assert "SIL Open Font License" in (inter / "LICENSE.txt").read_text()
+        assert hashlib.sha256((vendor / name).read_bytes()).hexdigest() == digest, name
+    assert "SIL Open Font License" in (vendor / licence).read_text()
 
 
 @pytest.mark.parametrize("svg", SVGS, ids=lambda path: path.name)

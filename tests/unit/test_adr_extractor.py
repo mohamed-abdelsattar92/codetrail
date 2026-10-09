@@ -89,6 +89,6 @@ def test_a_long_heading_line_is_read_in_linear_time(tmp_path: Path) -> None:
     import time
 
     hostile = "# 1 x" + " " * 200_000 + "y\n"
-    started = time.perf_counter()
+    started = time.process_time()
     run(tmp_path, {"docs/adr/0001-x.md": hostile})
-    assert time.perf_counter() - started < 2
+    assert time.process_time() - started < 2

@@ -17,9 +17,20 @@
   src: url("/static/vendor/inter/InterVariable-Italic.woff2") format("woff2");
 }
 
+/* Arabic letters, which Inter doesn't have (ADR 0014); loaded only by a page that shows some. */
+@font-face {
+  font-family: "Noto Sans Arabic";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/static/vendor/noto-sans-arabic/NotoSansArabic-wght.woff2") format("woff2");
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-08FF, U+200C-200F, U+2010-2011, U+204F, U+2E41, U+FB50-FDFF,
+    U+FE70-FEFF, U+10E60-10E7F;
+}
+
 :root {
   color-scheme: light;
-  --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-sans: "Inter", "Noto Sans Arabic", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 
   --accent: #5b5bd6;

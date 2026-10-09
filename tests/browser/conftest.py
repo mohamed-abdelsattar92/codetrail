@@ -24,6 +24,7 @@ from codetrail.errors import CodetrailError
 from codetrail.update import run_update
 from codetrail.web.app import create_app
 from codetrail.web.security import SessionState
+from tests.fixtures.catalogs import compiled_locales
 from tests.fixtures.repos import Commit, make_repository
 
 PLAN = PlanDraft(
@@ -117,7 +118,8 @@ def site(tmp_path: Path) -> Iterator[Site]:
         if site.failure:
             raise CodetrailError(site.failure)
 
-    app = create_app(paths, "shop", session, settings, updater=updater, assistant_for=lambda: claude)
+    locales = compiled_locales(tmp_path / "locales")  # English, and the right-to-left test catalog
+    app = create_app(paths, "shop", session, settings, locales, updater=updater, assistant_for=lambda: claude)
     server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning", access_log=False))
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()

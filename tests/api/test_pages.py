@@ -3,18 +3,16 @@
 from pathlib import Path
 
 import pytest
-from babel.messages.mofile import write_mo
-from babel.messages.pofile import read_po
 from fastapi.testclient import TestClient
 
 from codetrail.config import GlobalConfig, Paths, write_target
 from codetrail.update import run_update
 from codetrail.web.app import create_app
 from codetrail.web.security import TOKEN_HEADER, SessionState
+from tests.fixtures.catalogs import compiled_locales
 from tests.fixtures.repos import make_repository
 
 ORIGIN = "http://127.0.0.1:8765"
-FIXTURE_LOCALES = Path(__file__).resolve().parents[1] / "fixtures" / "locales"
 
 
 @pytest.fixture
@@ -41,13 +39,7 @@ def paths(tmp_path: Path) -> Paths:
 
 @pytest.fixture
 def locales(tmp_path: Path) -> Path:
-    folder = tmp_path / "locales" / "ar" / "LC_MESSAGES"
-    folder.mkdir(parents=True)
-    with (FIXTURE_LOCALES / "ar" / "LC_MESSAGES" / "codetrail.po").open("rb") as source:
-        catalog = read_po(source)
-    with (folder / "codetrail.mo").open("wb") as target:
-        write_mo(target, catalog)
-    return tmp_path / "locales"
+    return compiled_locales(tmp_path / "locales")
 
 
 @pytest.fixture
@@ -125,6 +117,31 @@ def test_the_language_switches_to_right_to_left(client: TestClient, session: Ses
     assert "الرئيسية" in page  # translated
     assert "Decisions" in page  # untranslated strings fall back to English
     assert '<h1 lang="en" dir="ltr">t</h1>' in page  # guide content stays marked as English
+
+
+def test_the_page_s_messages_follow_the_language(client: TestClient, session: SessionState) -> None:
+    headers = {"origin": ORIGIN, TOKEN_HEADER: session.token}
+    assert client.post("/settings/language", json={"language": "ar"}, headers=headers).status_code == 204
+    missing = {"error": "هذه الصفحة غير موجودة."}
+    question = {"question": "Why?", "page_id": "areas/none"}
+    assert client.post("/bridge/questions", json=question, headers=headers).json() == missing
+    assert client.post("/learn/read", json={"page_id": "areas/none"}, headers=headers).json() == missing
+    expired = client.post("/update/cancel", json={"estimate_id": "gone"}, headers=headers).json()
+    assert expired == {"error": "لم يعد هذا التقدير بانتظار ردّك."}
+    untranslated = client.post("/update/confirm", json={"estimate_id": "gone"}, headers=headers).json()
+    assert untranslated == {"error": "That estimate isn't waiting any more; start the update again."}  # the fallback
+
+
+def test_arabic_ships_with_codetrail(paths: Paths, session: SessionState) -> None:
+    client = TestClient(create_app(paths, "t", session, GlobalConfig()), base_url=ORIGIN, follow_redirects=False)
+    assert client.get(f"/login?code={session.issue_login_code()}").status_code == 303
+    assert '<option value="ar" >العربية</option>' in client.get("/").text
+    headers = {"origin": ORIGIN, TOKEN_HEADER: session.token}
+    assert client.post("/settings/language", json={"language": "ar"}, headers=headers).status_code == 204
+    page = client.get("/").text
+    assert '<html lang="ar" dir="rtl">' in page
+    assert "دليلك إلى" in page  # "Your guide to"
+    assert "، مرسومة من الكود" in page  # the catalog's own punctuation, not an English comma
 
 
 def test_unknown_languages_are_refused(client: TestClient, session: SessionState) -> None:

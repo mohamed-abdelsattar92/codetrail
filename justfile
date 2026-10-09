@@ -56,10 +56,12 @@ format:
 typecheck:
     uv run mypy
 
-# Extract the interface's strings to the template, update every language's catalog, and compile them (ADR 0005)
+# Extract the interface's strings to the template, update every language's catalog, and compile them; commit the
+# compiled catalogs with their sources (ADR 0013). Catalogs keep their header: it names their plural forms, and
+# `pybabel compile` skips a catalog without one as fuzzy.
 catalogs:
     uv run pybabel extract --no-location --omit-header --sort-output -F babel.cfg -k pgettext:1c,2 -o src/codetrail/locales/codetrail.pot .
-    if ls src/codetrail/locales/*/LC_MESSAGES/codetrail.po >/dev/null 2>&1; then uv run pybabel update --no-location --omit-header -i src/codetrail/locales/codetrail.pot -d src/codetrail/locales -D codetrail; fi
+    if ls src/codetrail/locales/*/LC_MESSAGES/codetrail.po >/dev/null 2>&1; then uv run pybabel update --ignore-pot-creation-date -i src/codetrail/locales/codetrail.pot -d src/codetrail/locales -D codetrail; fi
     if ls src/codetrail/locales/*/LC_MESSAGES/codetrail.po >/dev/null 2>&1; then uv run pybabel compile -d src/codetrail/locales -D codetrail; fi
 
 # Run every test except the live ones (the real providers) and the browser ones (just test-browser)

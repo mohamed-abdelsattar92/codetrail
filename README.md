@@ -237,11 +237,11 @@ When a page you learned is rewritten, it shows a diff of what changed since you 
 
 ## Languages
 
-The interface is English first and switches language from the page. Each language is one gettext catalog (`src/codetrail/locales/<code>/LC_MESSAGES/codetrail.po`); adding a language means adding a catalog, with no code change. Right-to-left languages are supported. The guide's pages stay in English, because the sources and the quotes are in English; live answers and check feedback come back in the language you choose.
+The interface is English first and switches language from the page; it ships in English and Arabic (العربية), which reads right to left, keeps technical terms such as commit and branch in English, and writes numbers with Western digits. Each language is one gettext catalog (`src/codetrail/locales/<code>/LC_MESSAGES/codetrail.po`); adding a language means adding a catalog, with no code change: `uv run pybabel init -l <code> -i src/codetrail/locales/codetrail.pot -d src/codetrail/locales -D codetrail`, translate it, then run `just catalogs` and commit the catalog and its compiled `.mo` together, which every install reads. Right-to-left languages are supported. The page's own messages follow the language too; what the assistant's programs and the update's steps report stays in English, as the command line prints it. The guide's pages stay in English, because the sources and the quotes are in English; live answers and check feedback come back in the language you choose.
 
 ## Status
 
-The latest release is Codetrail 1.1.0 ([release notes](docs/releases/v1.1.0.md), [changelog](CHANGELOG.md)); 1.0.0 was the first public release. Every phase in the [design](docs/design/2026-10-05-codetrail-design.md) is built and tested.
+The latest release is Codetrail 1.1.1 ([release notes](docs/releases/v1.1.1.md), [changelog](CHANGELOG.md)); 1.0.0 was the first public release. Every phase in the [design](docs/design/2026-10-05-codetrail-design.md) is built and tested.
 
 ```mermaid
 flowchart LR
@@ -303,7 +303,7 @@ Then `just ci` runs every check CI runs; `just lint`, `just format`, `just typec
 | Document | What's in it |
 |---|---|
 | [Getting started](docs/getting-started.md) | Install, connect an assistant, add a repository, build and read the guide |
-| [Changelog](CHANGELOG.md) | What changed in each release; release notes for [1.1.0](docs/releases/v1.1.0.md), [1.0.1](docs/releases/v1.0.1.md) and [1.0.0](docs/releases/v1.0.0.md) |
+| [Changelog](CHANGELOG.md) | What changed in each release; release notes for [1.1.1](docs/releases/v1.1.1.md), [1.1.0](docs/releases/v1.1.0.md), [1.0.1](docs/releases/v1.0.1.md) and [1.0.0](docs/releases/v1.0.0.md) |
 | [Design](docs/design/2026-10-05-codetrail-design.md) | The whole system: architecture, exclusions, facts, generation, page and bridge, learning, providers and estimates, errors, testing, phases |
 | [Brainstorm decisions](docs/design/brainstorm-decisions.md) | The problem, every early decision and why |
 | [Architecture decision records](docs/adr/README.md) | Decisions that are hard to reverse |
@@ -315,7 +315,7 @@ Then `just ci` runs every check CI runs; `just lint`, `just format`, `just typec
 
 ## Credits
 
-- The page's typeface is [Inter](https://rsms.me/inter/) by Rasmus Andersson, under the SIL Open Font License 1.1 ([its licence](src/codetrail/web/static/vendor/inter/LICENSE.txt), [ADR 0007](docs/adr/0007-bundle-the-inter-typeface.md)).
+- The page's typeface is [Inter](https://rsms.me/inter/) by Rasmus Andersson, under the SIL Open Font License 1.1 ([its licence](src/codetrail/web/static/vendor/inter/LICENSE.txt), [ADR 0007](docs/adr/0007-bundle-the-inter-typeface.md)). Arabic text is set in [Noto Sans Arabic](https://github.com/notofonts/arabic) by the Noto Project Authors, under the same licence ([its licence](src/codetrail/web/static/vendor/noto-sans-arabic/OFL.txt), [ADR 0014](docs/adr/0014-bundle-noto-sans-arabic.md), proposed).
 - Diagrams are drawn by [Mermaid](https://mermaid.js.org), under the MIT License ([ADR 0004](docs/adr/0004-server-rendered-page-stack.md)).
 - The browser tests check accessibility with [axe-core](https://github.com/dequelabs/axe-core) by Deque, under the Mozilla Public License 2.0; it is used by the tests only ([ADR 0008](docs/adr/0008-browser-tests-with-playwright.md)).
 

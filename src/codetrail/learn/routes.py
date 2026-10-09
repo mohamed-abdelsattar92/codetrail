@@ -24,6 +24,7 @@ from codetrail.database import connect
 from codetrail.guide import PAGE_ID, GuideRepository, Page
 from codetrail.learn import VERDICTS, LearningState, page_checks
 from codetrail.repo.secrets import SecretScanner
+from codetrail.web.i18n import Language
 
 
 class ReadMark(BaseModel):
@@ -42,7 +43,7 @@ def learning_router(
     paths: Paths,
     name: str,
     assistant_for: Callable[[], Assistant],
-    language_of: Callable[[], str],
+    language_of: Callable[[], Language],
     max_answer_chars: int,
     cooldown_seconds: int,
     tools: ToolsSettings,
@@ -58,9 +59,10 @@ def learning_router(
 
     @router.post("/learn/read")
     def mark_read(mark: ReadMark) -> Response:
+        _ = language_of().translations.gettext
         page = find_page(mark.page_id)
         if page is None:
-            return JSONResponse({"error": "That page doesn't exist."}, 404)
+            return JSONResponse({"error": _("That page doesn't exist.")}, 404)
         connection = connect(data / "codetrail.db")
         try:
             learning = LearningState(connection)
@@ -74,9 +76,10 @@ def learning_router(
 
     @router.post("/learn/unread")
     def mark_unread(mark: ReadMark) -> Response:
+        _ = language_of().translations.gettext
         page = find_page(mark.page_id)
         if page is None or page.kind == "digest":
-            return JSONResponse({"error": "That page doesn't exist."}, 404)
+            return JSONResponse({"error": _("That page doesn't exist.")}, 404)
         connection = connect(data / "codetrail.db")
         try:
             LearningState(connection).mark_unread(page)
@@ -86,22 +89,24 @@ def learning_router(
 
     @router.post("/learn/checks")
     async def answer_check(submitted: CheckAnswer) -> Response:
+        language = language_of()
+        _ = language.translations.gettext
         page = find_page(submitted.page_id)
         check = next((item for item in page_checks(page) if item["id"] == submitted.check_id), None) if page else None
         if page is None or check is None:
-            return JSONResponse({"error": "That check doesn't exist."}, 404)
+            return JSONResponse({"error": _("That check doesn't exist.")}, 404)
         if len(submitted.answer) > max_answer_chars:
-            return JSONResponse({"error": f"Answers are limited to {max_answer_chars} characters."}, 413)
+            limit = _("Answers are limited to %(count)s characters.") % {"count": max_answer_chars}
+            return JSONResponse({"error": limit}, 413)
         if grading["busy"]:  # claimed with no await before it, so two gradings can't both start
-            return JSONResponse({"error": "Another answer is being graded."}, 429)
+            return JSONResponse({"error": _("Another answer is being graded.")}, 429)
         if time.monotonic() - float(grading["last"]) < cooldown_seconds:
-            return JSONResponse({"error": "Wait a few seconds before the next answer."}, 429)
+            return JSONResponse({"error": _("Wait a few seconds before the next answer.")}, 429)
         grading["busy"], grading["last"] = True, time.monotonic()
         try:
-            language = language_of()
             request = GradeRequest(
                 str(check.get("question", "")), list(check.get("rubric") or []), page.title, page.body,
-                submitted.answer, language,
+                submitted.answer, language.code,
             )  # fmt: skip
             verdict = await assistant_for().grade(request)
         except AssistantError as error:
@@ -111,16 +116,16 @@ def learning_router(
         feedback = verdict.feedback
         findings = await anyio.to_thread.run_sync(SecretScanner(tools).scan_text, feedback)
         if findings:
-            feedback = (
-                f"The feedback was withheld: it contains something that looks like a secret ({findings[0].rule})."
-            )
+            withheld = _("The feedback was withheld: it contains something that looks like a secret (%(rule)s).")
+            feedback = withheld % {"rule": findings[0].rule}
         if verdict.verdict not in VERDICTS:
-            return JSONResponse({"error": "The grade couldn't be read, so nothing was recorded; try again."}, 502)
+            unread = _("The grade couldn't be read, so nothing was recorded; try again.")
+            return JSONResponse({"error": unread}, 502)
         connection = connect(data / "codetrail.db")
         try:
             cost = UsageLog(connection, prices or {}).record("grade", verdict.usage) or verdict.cost_usd
             status = LearningState(connection).record_attempt(
-                page, check, submitted.answer, verdict.verdict, feedback, language, guide.head()
+                page, check, submitted.answer, verdict.verdict, feedback, language.code, guide.head()
             )
         finally:
             connection.close()

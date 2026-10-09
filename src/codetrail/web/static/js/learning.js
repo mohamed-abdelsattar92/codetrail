@@ -17,6 +17,7 @@ export function setUpLearning() {
   }
   for (const form of document.querySelectorAll("form[data-check]")) {
     const feedback = form.querySelector("[data-feedback]");
+    const labels = form.closest("[data-label-pass]").dataset; // the verdicts in the reader's language
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
       const button = form.querySelector("button");
@@ -30,12 +31,13 @@ export function setUpLearning() {
         });
         const result = await response.json().catch(() => ({}));
         if (!response.ok) {
-          feedback.textContent = result.error ?? "The answer couldn't be graded.";
+          feedback.textContent = result.error ?? labels.labelUngraded;
           return;
         }
-        feedback.textContent = `${result.verdict}: ${result.feedback}`;
-        const labels = document.querySelector("[data-ask-status]");
-        if (labels && result.usage) feedback.textContent += ` (${usedText(labels, result.usage)})`;
+        const verdict = { pass: labels.labelPass, partial: labels.labelPartial, fail: labels.labelFail }[result.verdict];
+        feedback.textContent = `${verdict}: ${result.feedback}`;
+        const usage = document.querySelector("[data-ask-status]");
+        if (usage && result.usage) feedback.textContent += ` (${usedText(usage, result.usage)})`;
         if (result.state === "learned") window.setTimeout(() => window.location.reload(), 1500);
       } finally {
         button.disabled = false;

@@ -58,6 +58,13 @@ msgstr ""
 msgid "%(learned)s of %(total)s learned"
 msgstr ""
 
+#, python-format
+msgid "%(reason)s The facts were refreshed; the guide wasn't updated."
+msgstr ""
+
+msgid ", drawn from the code"
+msgstr ""
+
 msgid ""
 "A page is learned when you pass its checks. When an update changes a page"
 " you learned, it shows here until you learn it again."
@@ -74,7 +81,26 @@ msgid ""
 "limits; with an API key it is billed at these prices."
 msgstr ""
 
+msgid "An update finished a moment ago; wait a few minutes before the next."
+msgstr ""
+
+msgid "An update is already running."
+msgstr ""
+
 msgid "An update is running."
+msgstr ""
+
+msgid "An update is running; save again when it finishes."
+msgstr ""
+
+msgid "Another answer is being graded."
+msgstr ""
+
+msgid "Another question is still being answered."
+msgstr ""
+
+#, python-format
+msgid "Answers are limited to %(count)s characters."
 msgstr ""
 
 msgid "Answers you save appear here."
@@ -212,6 +238,9 @@ msgid "Couldn't check for new commits just now."
 msgstr ""
 
 msgid "Couldn’t save the answer."
+msgstr ""
+
+msgid "Decision"
 msgstr ""
 
 msgid "Decisions"
@@ -399,6 +428,9 @@ msgstr ""
 msgid "Not read yet"
 msgstr ""
 
+msgid "Not yet"
+msgstr ""
+
 #, python-format
 msgid "Nothing in the guide matches “%(query)s”."
 msgstr ""
@@ -439,6 +471,9 @@ msgid "Pages, in the order they’re written:"
 msgstr ""
 
 msgid "Part"
+msgstr ""
+
+msgid "Partly there"
 msgstr ""
 
 msgid "Parts"
@@ -490,6 +525,10 @@ msgstr ""
 msgid "Provider and model"
 msgstr ""
 
+#, python-format
+msgid "Questions are limited to %(count)s characters."
+msgstr ""
+
 msgid "Read"
 msgstr ""
 
@@ -525,6 +564,10 @@ msgstr[1] ""
 msgid "Revising “%(title)s” again, with its problems…"
 msgstr ""
 
+#, python-format
+msgid "Run codetrail update %(target)s first."
+msgstr ""
+
 msgid "Run your first update"
 msgstr ""
 
@@ -532,6 +575,9 @@ msgid "Runs on"
 msgstr ""
 
 msgid "Save to guide"
+msgstr ""
+
+msgid "Saved answer"
 msgstr ""
 
 #, python-format
@@ -629,7 +675,38 @@ msgstr ""
 msgid "System"
 msgstr ""
 
+msgid "That answer is gone; ask again."
+msgstr ""
+
+msgid "That check doesn't exist."
+msgstr ""
+
+msgid "That estimate isn't waiting any more."
+msgstr ""
+
+msgid "That estimate isn't waiting any more; start the update again."
+msgstr ""
+
+msgid "That page doesn't exist."
+msgstr ""
+
+msgid "The answer couldn’t be graded."
+msgstr ""
+
+#, python-format
+msgid "The answer failed (%(error)s)."
+msgstr ""
+
+#, python-format
+msgid ""
+"The answer was withheld: it contains something that looks like a secret "
+"(%(rule)s)."
+msgstr ""
+
 msgid "The assistant is reading the code…"
+msgstr ""
+
+msgid "The estimate expired before it was confirmed, so nothing was spent."
 msgstr ""
 
 msgid "The facts are refreshed. Writing the guide will call:"
@@ -643,6 +720,15 @@ msgid "The facts are refreshed: one changed."
 msgid_plural "The facts are refreshed: %(count)s changed."
 msgstr[0] ""
 msgstr[1] ""
+
+#, python-format
+msgid ""
+"The feedback was withheld: it contains something that looks like a secret"
+" (%(rule)s)."
+msgstr ""
+
+msgid "The grade couldn't be read, so nothing was recorded; try again."
+msgstr ""
 
 msgid "The guide matches the branch."
 msgstr ""
@@ -662,6 +748,13 @@ msgid ""
 "here is the assistant's guess."
 msgstr ""
 
+msgid "The server is stopping."
+msgstr ""
+
+#, python-format
+msgid "The update failed (%(error)s)."
+msgstr ""
+
 msgid "The update failed:"
 msgstr ""
 
@@ -669,6 +762,9 @@ msgstr ""
 msgid ""
 "The update stops at its budget of %(budget)s or %(tokens)s tokens, "
 "whichever comes first."
+msgstr ""
+
+msgid "The update was cancelled."
 msgstr ""
 
 msgid "Theme: dark (switch to system)"
@@ -733,6 +829,9 @@ msgid "Updating…"
 msgstr ""
 
 msgid "Used"
+msgstr ""
+
+msgid "Wait a few seconds before the next answer."
 msgstr ""
 
 msgid "What changed"
@@ -832,9 +931,6 @@ msgid "default model"
 msgstr ""
 
 msgid "depends on"
-msgstr ""
-
-msgid "drawn from the code"
 msgstr ""
 
 msgid "free"

@@ -46,9 +46,13 @@ function option(title, detail, run, kind) {
   line.className = "title";
   line.textContent = title;
   if (kind) {
+    line.lang = "en"; // a result from the guide, which is English; its kind is in the reader's language
+    line.dir = "ltr";
     const badge = document.createElement("span");
     badge.className = "kind";
-    badge.textContent = kind;
+    badge.lang = document.documentElement.lang;
+    badge.dir = document.documentElement.dir;
+    badge.textContent = label(`kind${kind[0].toUpperCase()}${kind.slice(1)}`) || kind;
     line.append(" ", badge);
   }
   item.append(line);
@@ -64,6 +68,8 @@ function snippet(segments) {
   if (!Array.isArray(segments) || !segments.length) return null;
   const line = document.createElement("span");
   line.className = "snippet";
+  line.lang = "en";
+  line.dir = "ltr";
   for (const [text, matched] of segments) {
     if (matched) {
       const mark = document.createElement("mark");
