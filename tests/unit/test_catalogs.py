@@ -16,6 +16,7 @@ from codetrail.web.i18n import installed_languages
 ROOT = Path(__file__).resolve().parents[2]
 LOCALES = ROOT / "src" / "codetrail" / "locales"
 PLACEHOLDER = re.compile(r"%\((\w+)\)s|\{(\w+)\}")
+MARKUP = re.compile(r"<[^<>]*>|&#?\w+;")  # a tag or an entity
 EASTERN_DIGITS = re.compile(r"[\u0660-\u0669\u06f0-\u06f9]")  # Arabic-Indic and Eastern Arabic-Indic
 METHODS = [("src/codetrail/**.py", "python"), ("src/codetrail/web/templates/**.html", "jinja2")]
 KEYWORDS = {"_": None, "gettext": None, "ngettext": (1, 2), "pgettext": ((1, "c"), 2)}
@@ -59,8 +60,12 @@ def unsafe_translations(catalog: Catalog) -> list[str]:
         originals = [str(text) for text in (message.id if isinstance(message.id, tuple) else (message.id,))]
         strings = [str(text) for text in (message.string if isinstance(message.string, tuple) else (message.string,))]
         values = {name: "" for original in originals for name, _brace in PLACEHOLDER.findall(original) if name}
+        english_markup = {token for text in originals for token in MARKUP.findall(text)}
+        english_text = "".join(MARKUP.sub("", text) for text in originals)
         for string in strings:
-            added = [mark for mark in '<>"&' if mark in string and not any(mark in text for text in originals)]
+            # Every tag or entity must be one the English has, and no stray markup character may be added.
+            added = [token for token in MARKUP.findall(string) if token not in english_markup]
+            added += [mark for mark in "<>\"'&" if mark in MARKUP.sub("", string) and mark not in english_text]
             if added:
                 found.append(f"{originals[0]!r} adds {''.join(added)}")
             try:
@@ -76,10 +81,15 @@ def test_unsafe_translations_are_found() -> None:
     catalog.add("%(count)s file", "%(total)s ملف")
     catalog.add("Home", "100% الرئيسية")
     catalog.add("Search", "بحث")
+    catalog.add("Run <code>codetrail</code>", "شغّل <code>codetrail</code> <a href=x>هنا</a>")
+    catalog.add("Read", "مقروءة' title='x")
+    catalog.add("Or <code>%(name)s</code>", "أو <code>%(name)s</code>")
     assert unsafe_translations(catalog) == [
         "'Passed' adds \"",
         "'%(count)s file' doesn't format",
         "'Home' doesn't format",
+        "'Run <code>codetrail</code>' adds <a href=x></a>",
+        "'Read' adds '",
     ]
 
 
