@@ -1,10 +1,12 @@
 Noto Sans Arabic 2.013
 source: https://github.com/notofonts/arabic/releases/download/NotoSansArabic-v2.013/NotoSansArabic-v2.013.zip
-  (sha256 1301aceaea84c501cf2e6dcfb3182e2328c8eae5725817fcb239672bda7154f1; NotoSansArabic/unhinted/slim-variable-ttf/NotoSansArabic[wght].ttf,
-  sha256 3fae4d7239d1faa55b234bda8091019a5251ff79df40d5e29367d84bed2a8138; OFL.txt)
-converted: the release ships no WOFF2, so the TTF was compressed losslessly with fontTools 4.60.1:
-  uvx --from 'fonttools[woff]==4.60.1' fonttools ttLib.woff2 compress -o NotoSansArabic-wght.woff2 'NotoSansArabic[wght].ttf'
-  (the same command gives the same bytes)
+  (NotoSansArabic/unhinted/slim-variable-ttf/NotoSansArabic[wght].ttf and OFL.txt)
+converted: the release ships no WOFF2, so the TTF was compressed losslessly; with every tool pinned, this gives the
+  same bytes again:
+  uvx --python 3.14.7 --from 'fonttools[woff]==4.60.2' --with 'brotli==1.2.0' fonttools ttLib.woff2 compress -o NotoSansArabic-wght.woff2 'NotoSansArabic[wght].ttf'
 licence: SIL Open Font License 1.1 (OFL.txt)
+sha256 of the sources:
+  1301aceaea84c501cf2e6dcfb3182e2328c8eae5725817fcb239672bda7154f1  NotoSansArabic-v2.013.zip
+  3fae4d7239d1faa55b234bda8091019a5251ff79df40d5e29367d84bed2a8138  NotoSansArabic[wght].ttf
 sha256:
   011d31980bdc998dd3a00e365326c69e2417a76ecff020ffb8cb84752adc45f2  NotoSansArabic-wght.woff2
