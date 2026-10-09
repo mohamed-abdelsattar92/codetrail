@@ -1,6 +1,7 @@
 """The interface's catalogs: the template is current, and every language has every message (design section 7.2)."""
 
 import re
+import subprocess
 from io import BytesIO
 from pathlib import Path
 
@@ -110,3 +111,29 @@ def test_every_language_has_every_message(path: Path) -> None:
     direction = catalog.get("ltr", "text direction")
     assert direction is not None and direction.string in ("ltr", "rtl")
     write_mo(BytesIO(), catalog)  # it compiles
+
+
+def test_compiled_catalogs_are_committed() -> None:
+    # Codetrail reads only compiled catalogs, and an install builds from the committed tree (ADR 0013).
+    compiled = "src/codetrail/locales/ar/LC_MESSAGES/codetrail.mo"
+    ignored = subprocess.run(["git", "check-ignore", "--no-index", "-q", compiled], cwd=ROOT, check=False)
+    assert ignored.returncode == 1, f"{compiled} is ignored by git"
+
+
+@pytest.mark.parametrize("path", catalogs(), ids=lambda path: path.parent.parent.name)
+def test_every_language_is_compiled_from_its_catalog(path: Path) -> None:
+    with path.open("rb") as handle:
+        catalog = read_po(handle, path.parent.parent.name)  # as `pybabel compile` reads it
+    fuzzy = [str(message.id) for message in catalog if message.id and message.fuzzy]
+    assert not catalog.fuzzy and fuzzy == [], f"{path}: `pybabel compile` skips what is marked fuzzy: {fuzzy}"
+    compiled = BytesIO()
+    write_mo(compiled, catalog)
+    target = path.with_suffix(".mo")
+    assert target.exists() and target.read_bytes() == compiled.getvalue(), (
+        f"Run `just catalogs` and commit {target.relative_to(ROOT)}"
+    )
+
+
+def test_every_compiled_catalog_has_its_catalog() -> None:
+    orphans = [path for path in LOCALES.glob("*/LC_MESSAGES/*.mo") if not path.with_suffix(".po").exists()]
+    assert orphans == []
