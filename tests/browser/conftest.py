@@ -90,7 +90,7 @@ def free_port() -> int:
 
 
 @pytest.fixture
-def site(tmp_path: Path) -> Iterator[Site]:
+def site(tmp_path: Path, request: pytest.FixtureRequest) -> Iterator[Site]:
     paths = Paths(config_dir=tmp_path / "config", data_dir=tmp_path / "data", state_dir=tmp_path / "state")
     target = make_repository(tmp_path / "target", [FILES])
     git(target, "tag", "-a", "v1.0", "-m", "First release\n\nCharges retry three times.", date=1)
@@ -103,7 +103,9 @@ def site(tmp_path: Path) -> Iterator[Site]:
     updating.start()
     updating.join()
     port = free_port()
-    settings = GlobalConfig.model_validate({"server": {"port": port, "update_cooldown_seconds": 0}})
+    marker = request.node.get_closest_marker("settings")  # a test's own settings, merged in
+    extra = marker.args[0] if marker else {}
+    settings = GlobalConfig.model_validate({"server": {"port": port, "update_cooldown_seconds": 0}, **extra})
     answers = [
         [AnswerChunk(f"Charges retry **three** times ({number})."), AnswerChunk(done=True)] for number in range(5)
     ]

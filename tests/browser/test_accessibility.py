@@ -48,3 +48,19 @@ def test_the_charts_have_text_alternatives(page: Page, site: Site) -> None:
     assert calendar.get_attribute("role") == "img" and calendar.get_attribute("aria-label")
     tiles = page.locator('[data-chart="heatmap"] .heat-tile button')
     assert all((tiles.nth(index).get_attribute("aria-label") or "").count(":") == 1 for index in range(tiles.count()))
+
+
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+def test_the_documentation_page_with_every_section_open(page: Page, site: Site, errors: list[str], scheme: str) -> None:
+    page.emulate_media(color_scheme=scheme)  # type: ignore[arg-type]
+    site.sign_in(page, "/documentation")
+    for fold in page.locator("details.doc-fold").all():
+        if fold.get_attribute("open") is None:
+            fold.locator(":scope > summary").click()
+    page.evaluate(AXE)
+    result = page.evaluate(
+        "async () => (await axe.run(document, {resultTypes: ['violations']})).violations"
+        ".filter(v => ['serious', 'critical'].includes(v.impact)).map(v => v.id)"
+    )
+    assert result == []
+    assert errors == []

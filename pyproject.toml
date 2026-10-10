@@ -66,6 +66,7 @@ pythonpath = ["."]
 markers = [
     "live: tests that run the real providers installed here; run only by `just test-live`",
     "browser: tests in a real browser (Playwright, headless Chromium); run by `just test-browser`",
+    "settings(mapping): global settings merged into a browser test's site",
 ]
 addopts = "-m 'not live and not browser'"
 
