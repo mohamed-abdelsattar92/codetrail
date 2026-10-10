@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from codetrail.metrics.report import Metric, Value
 from codetrail.web.trend import trend_points
 
-COUNTS = {Metric.ADR_ATTENTION}
+COUNTS = {Metric.ADR_ATTENTION, Metric.COMMITS, Metric.CODE_LINES, Metric.SOURCE_FILES}
 
 
 @dataclass(frozen=True)
