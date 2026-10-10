@@ -126,3 +126,14 @@ def test_a_failed_tag_cleanup_never_names_the_tag(checkout: Path, tmp_path: Path
         refresh_mirror(mirror, checkout, "develop")
     assert "unscanned-tag-name" not in str(raised.value)
     assert "stale tag" in str(raised.value)
+
+
+def test_a_failed_tag_fetch_never_names_the_tag(checkout: Path, tmp_path: Path) -> None:
+    mirror = tmp_path / "mirror.git"
+    refresh_mirror(mirror, checkout, "develop")
+    git(checkout, "tag", "another-unscanned-name")
+    (mirror / "refs" / "tags" / "another-unscanned-name.lock").write_text("")  # left by a git killed mid-fetch
+    with pytest.raises(CodetrailError) as raised:
+        refresh_mirror(mirror, checkout, "develop")
+    assert "another-unscanned-name" not in str(raised.value)
+    assert "tags" in str(raised.value)

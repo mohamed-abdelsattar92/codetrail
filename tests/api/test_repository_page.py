@@ -7,10 +7,12 @@ import pytest
 from fastapi.testclient import TestClient
 
 from codetrail.config import GlobalConfig, MetricsSettings, Paths, write_target
+from codetrail.database import connect
 from codetrail.errors import CodetrailError
+from codetrail.facts.store import FactStore
 from codetrail.repo.history import first_commit_time
 from codetrail.repo.secrets import SecretScanner
-from codetrail.update import run_update
+from codetrail.update import record_metrics, run_update
 from codetrail.web.app import create_app
 from codetrail.web.security import SessionState
 from tests.fixtures.repos import Commit, add_commit, fake_github_token, git, make_repository
@@ -196,3 +198,21 @@ def test_the_home_card_reads_the_first_commit_once_per_snapshot(paths: Paths, mo
     assert "Started on 2026-09-21" in client.get("/").text
     client.get("/")
     assert len(calls) == 1
+
+
+def test_the_home_card_catches_up_once_the_update_records_its_values(
+    paths: Paths, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run_update(paths, "shop", facts_only=True)
+    add_commit(tmp_path / "target", {"app/db.py": "x = 9\n"}, "fix: d")
+    with monkeypatch.context() as patched:
+        patched.setattr("codetrail.update.record_metrics", lambda *arguments: None)  # the snapshot, not yet its values
+        run_update(paths, "shop", facts_only=True)
+    client = client_for(paths)
+    assert "3 commits" in client.get("/").text
+    connection = connect(paths.target_data("shop") / "codetrail.db")
+    try:
+        record_metrics(paths, "shop", GlobalConfig(), FactStore(connection))
+    finally:
+        connection.close()
+    assert "4 commits" in client.get("/").text

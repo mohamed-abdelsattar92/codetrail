@@ -159,7 +159,7 @@ def create_app(
     index_built: dict[str, object] = {"key": None, "index": None}
     reports: ReportCache[MetricsReport] = ReportCache()
     repository_reports: ReportCache[RepositoryReport] = ReportCache()
-    home_summaries: ReportCache[dict[str, object]] = ReportCache()
+    first_commits: ReportCache[date | None] = ReportCache()
 
     def search_index() -> SearchIndex | None:
         """The index, rebuilt whenever the guide or the facts moved on (an update, a saved answer); None if broken.
@@ -307,8 +307,7 @@ def create_app(
                     {},
                 )[Metric.DOCUMENTED_SHARE]
                 if snapshot is not None:
-                    connection, commit = store.connection, snapshot.commit
-                    repository = home_summaries.get(snapshot.id, lambda: repository_summary(connection, commit))
+                    repository = repository_summary(store.connection, snapshot.id, snapshot.commit)
         pages = guide.pages() if guide.root.exists() else []
         nav = navigation(pages)
         guide_pages = [page for page in pages if page.kind in ("area", "concept")]
@@ -536,21 +535,26 @@ def create_app(
             history), listed=settings.metrics.max_listed,
         )  # fmt: skip
 
-    def repository_summary(connection: sqlite3.Connection, commit: str) -> dict[str, object]:
-        """The home card's numbers (design section 19.5): recorded values and one git call, never the report.
+    def repository_summary(connection: sqlite3.Connection, snapshot_id: int, commit: str) -> dict[str, object]:
+        """The home card's numbers (design section 19.5): the latest recorded values and one git call, never the report.
 
-        Kept per snapshot: the values change only with an update, and the git call walks the whole history.
+        The values are read each time, since an update records them a while after its snapshot. The first commit's
+        date is kept per snapshot, because the git call walks the whole history; a failed call isn't kept.
         """
         summary: dict[str, object] = {}
         for metric in (Metric.COMMITS, Metric.CODE_LINES):
             recorded = recent_values(connection, metric, 1)
             summary[str(metric)] = recorded[-1][1].numerator if recorded else None
-        try:
+
+        def first_commit_date() -> date | None:
             first = first_commit_time(view.data / "mirror.git", commit)
+            return datetime.fromtimestamp(first, UTC).date() if first is not None else None
+
+        try:
+            summary["first"] = first_commits.get(snapshot_id, first_commit_date)
         except (CodetrailError, OSError) as error:
             logger.warning("The first commit isn't available: %s", error)
-            first = None
-        summary["first"] = datetime.fromtimestamp(first, UTC).date() if first is not None else None
+            summary["first"] = None
         return summary
 
     @app.get("/repository", response_class=HTMLResponse)

@@ -38,9 +38,10 @@ def check_branch(repository: Path, branch: str) -> None:
 def refresh_mirror(mirror: Path, repository: Path, branch: str) -> str:
     """Clones or fetches the branch into the mirror, with the tags that point into it, and returns its head commit.
 
-    The mirror's tags that the target no longer has, or that point elsewhere now, are deleted first; the branch's
-    fetch then brings the rest by git's tag auto-follow, which takes only tags on objects the mirror holds, so no
-    other branch's commits come in (design section 19.2).
+    The branch is fetched without tags; then the mirror's tags that the target no longer has, or that point elsewhere
+    now, are deleted, and a second fetch of the branch brings the rest by git's tag auto-follow, which takes only tags
+    on objects the mirror holds, so no other branch's commits come in (design section 19.2). Its errors are replaced,
+    since they name tags.
     """
     check_branch(repository, branch)
     url = repository_url(repository)
@@ -61,8 +62,15 @@ def refresh_mirror(mirror: Path, repository: Path, branch: str) -> str:
                 str(mirror),
             ]
         )
+    refspec = f"+refs/heads/{branch}:refs/heads/{branch}"
+    run_git(["fetch", "--quiet", "--no-tags", "--prune", "--", url, refspec], git_dir=mirror)
     _drop_stale_tags(mirror, url)
-    run_git(["fetch", "--quiet", "--prune", "--", url, f"+refs/heads/{branch}:refs/heads/{branch}"], git_dir=mirror)
+    try:
+        # Fetching the branch again, now up to date, brings only the tags git's auto-follow takes.
+        run_git(["fetch", "--quiet", "--", url, refspec], git_dir=mirror)
+    except CodetrailError:
+        # git's message names the tag it couldn't write, which no scan has passed yet; the update's error shows it.
+        raise CodetrailError("git couldn't fetch the branch's tags into the mirror.") from None
     return head_commit(mirror, branch)
 
 

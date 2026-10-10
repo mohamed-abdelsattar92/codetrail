@@ -937,9 +937,12 @@ Statistics are a fixed list in code, like the metrics.
 
 ### 19.2 Tags in the mirror
 The mirror keeps the target's tags that point into the branch's history, and nothing else from outside the branch. Every refresh reconciles them in `refresh_mirror`, in this order:
-1. `git ls-remote --tags` over `file://` lists the target's tags; as for the branch, only `upload-pack` reads the target.
-2. Every mirror tag the target no longer has, or that now points at a different object, is deleted from the mirror, in one `git update-ref -z --stdin` with each tag's old value. Only refs under `refs/tags/` are touched.
-3. The branch's fetch, now without `--no-tags`, lets git's tag auto-follow bring the tags that point at objects the mirror holds. It brings no commit from another branch. Checked on 10 October 2026: a tag on another branch isn't fetched, and auto-follow never moves or removes a tag, hence step 2. A first clone keeps `--no-tags` and is followed by the same three steps.
+1. The branch is fetched as before, with `--no-tags`; a first clone keeps `--no-tags` too.
+2. `git ls-remote --tags` over `file://` lists the target's tags; as for the branch, only `upload-pack` reads the target.
+3. Every mirror tag the target no longer has, or that now points at a different object, is deleted from the mirror, in one `git update-ref -z --stdin` with each tag's old value. Only refs under `refs/tags/` are touched.
+4. The branch is fetched again without `--no-tags`: it is up to date, so git's tag auto-follow brings only the tags that point at objects the mirror holds. It brings no commit from another branch. Checked on 10 October 2026: a tag on another branch isn't fetched, auto-follow never moves or removes a tag (hence step 3), and a `fetch.pruneTags` setting has no effect on a fetch from a URL.
+
+git's messages from steps 3 and 4 name tags, which no scan has passed yet, so their errors are replaced by fixed messages that name none; a failure still fails the refresh.
 
 Tags are read only by `repo`, with one `git for-each-ref --merged <head>`: fields separated by NUL, only tags that peel to a commit, an annotated tag's subject and body but never its tagger. Names and messages are scanned with gitleaks in one run, as commit messages are. Nothing else in Codetrail reads a tag; extractors, the guide and the history keep reading the branch.
 
