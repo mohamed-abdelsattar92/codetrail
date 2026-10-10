@@ -277,6 +277,10 @@
   background: var(--raised);
 }
 
+.card + .card {
+  margin-block-start: var(--space-3);
+}
+
 .card-accent {
   border-color: color-mix(in srgb, var(--accent) 45%, var(--line));
   background: color-mix(in srgb, var(--accent-tint) 55%, var(--raised));
@@ -896,4 +900,44 @@ dialog[open] {
   .update-panel {
     z-index: 36;
   }
+}
+
+/* The Documentation page (design section 18.4). */
+.stat.metric .trend {
+  inline-size: 100%;
+  max-inline-size: 160px;
+  block-size: 32px;
+  margin-block-start: var(--space-2);
+}
+
+.trend polyline {
+  fill: none;
+  stroke: var(--documented);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+.pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: 0;
+  list-style: none;
+}
+
+.pill-documented {
+  background: var(--documented-tint);
+  color: var(--accent-text);
+}
+
+.metric-table td:not(:first-child),
+.metric-table th:not(:first-child) {
+  text-align: end;
+  font-variant-numeric: tabular-nums;
+}
+
+details.more > summary {
+  color: var(--text-muted);
+  cursor: pointer;
 }

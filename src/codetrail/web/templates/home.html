@@ -10,6 +10,19 @@
 </section>
 {% endif %}
 {% endmacro %}
+{% macro documentation_card() %}
+{% if snapshot %}
+<section class="card" aria-labelledby="documentation-title">
+  <p class="card-label" id="documentation-title">{{ _("Documentation") }}</p>
+  {% if documentation and documentation.percent is not none %}
+  <p class="card-title">{% trans percent=documentation.percent %}{{ percent }}% of the guide's rationale is documented{% endtrans %}{% if documentation.change is not none %}<span class="faint"> · {% trans change="%+d"|format(documentation.change) %}{{ change }} points since the last update{% endtrans %}</span>{% endif %}</p>
+  {% else %}
+  <p class="card-title">{{ _("How well the repository explains itself: rationale, commits, decisions and documents.") }}</p>
+  {% endif %}
+  <div class="card-row"><a class="button" href="/documentation">{{ _("See what's documented") }} {{ icon("arrow") }}</a></div>
+</section>
+{% endif %}
+{% endmacro %}
 {% macro since_last_update() %}
   <div class="stat">
     <span class="card-label">{{ _("Since the last update") }}</span>
@@ -43,6 +56,7 @@
 </section>
 {% if snapshot %}<div class="stats">{{ since_last_update() }}</div>{% endif %}
 {{ system_card() }}
+{{ documentation_card() }}
 {% else %}
 
 {% if continue_reading %}
@@ -106,6 +120,7 @@
 </section>
 
 {{ system_card() }}
+{{ documentation_card() }}
 
 <section>
   <h2>{{ _("Areas") }}</h2>

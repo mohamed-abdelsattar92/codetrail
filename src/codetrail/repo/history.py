@@ -58,6 +58,25 @@ def _read_commit(mirror: Path, sha: str, visible: Callable[[str], bool]) -> Comm
     return Commit(commit_sha, author, date, subject, body.strip(), files, len(parent_list) > 1)
 
 
+LOG_FIELDS = 5  # sha, author, date, subject, body
+
+
+def latest_commits(mirror: Path, end: str, limit: int, scanner: SecretScanner) -> list[Commit]:
+    """The latest `limit` non-merge commits up to `end`, newest first, with flagged messages withheld.
+
+    One git call: fields and records are separated by NUL, which no message can hold. Files aren't listed.
+    """
+    output = run_git(["log", f"-n{limit}", "--no-merges", "-z", "--format=%H%x00%an%x00%aI%x00%s%x00%b",
+                      "--end-of-options", end],
+                     git_dir=mirror).decode("utf-8", "replace")  # fmt: skip
+    fields = output.split("\0")
+    records = (fields[start : start + LOG_FIELDS] for start in range(0, len(fields) - LOG_FIELDS + 1, LOG_FIELDS))
+    commits = [
+        Commit(sha, author, date, subject, body.strip(), [], False) for sha, author, date, subject, body in records
+    ]
+    return _withhold_flagged_messages(commits, scanner)
+
+
 def merges_between(mirror: Path, start: str, end: str) -> int:
     count = run_git(["rev-list", "--count", "--merges", "--first-parent", f"{start}..{end}"], git_dir=mirror)
     return int(count)

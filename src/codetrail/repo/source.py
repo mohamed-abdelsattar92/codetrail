@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import shutil
+from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass, field
 from pathlib import Path, PurePosixPath
 
@@ -55,6 +56,27 @@ def safe_path(path: str) -> bool:
         return False
     parts = path.split("/")
     return all(part and part not in (".", "..") and on_disk_key(part) != ".git" for part in parts)
+
+
+def allowed_reader(source: Path, files: Mapping[str, str], max_bytes: int) -> Callable[[str], bytes | None]:
+    """A reader of allowed files only: a listed path, inside `source/`, a plain file within the size cap.
+
+    The system pass (design 17.3) and the documentation metrics (design 18.2) read files only through it.
+    """
+    root = source.resolve()
+
+    def read(path: str) -> bytes | None:
+        if path not in files:
+            return None
+        file = source / PurePosixPath(path)
+        try:
+            if file.is_symlink() or not file.resolve().is_relative_to(root) or not file.is_file():
+                return None
+            return file.read_bytes() if file.stat().st_size <= max_bytes else None
+        except OSError:
+            return None
+
+    return read
 
 
 def build_source(

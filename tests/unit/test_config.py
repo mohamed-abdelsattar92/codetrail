@@ -274,3 +274,25 @@ def test_search_limits_must_be_positive(paths: Paths, toml: str) -> None:
     (paths.config_dir / "config.toml").write_text(toml)
     with pytest.raises(CodetrailError):
         load_global(paths)
+
+
+def test_metrics_settings_have_their_defaults(paths: Paths, tmp_path: Path) -> None:
+    settings = load_global(paths)
+    assert (settings.metrics.commit_window, settings.metrics.proposed_adr_days) == (200, 30)
+    assert (settings.metrics.trend_updates, settings.metrics.max_listed) == (12, 50)
+    write_target(paths, "shop", tmp_path / "repo", "develop")
+    metrics = load_target(paths, "shop").metrics
+    assert "docs/**" in metrics.document_globs
+    assert metrics.why.search("Why: because")
+    assert metrics.why.search("What: this\n\n## Why\nbecause")
+    assert not metrics.why.search("Nobody asked why.")
+    assert "\\s" not in metrics.commit_why_pattern  # whitespace that crosses lines makes matching quadratic
+    assert load_global(paths).metrics.max_message_chars == 20_000
+
+
+def test_an_invalid_why_pattern_is_refused_by_name(paths: Paths, tmp_path: Path) -> None:
+    write_target(paths, "shop", tmp_path / "repo", "develop")
+    file = paths.target_file("shop")
+    file.write_text(file.read_text() + "[metrics]\ncommit_why_pattern = '(unclosed'\n")
+    with pytest.raises(CodetrailError, match="commit_why_pattern"):
+        load_target(paths, "shop")

@@ -5,7 +5,7 @@ import { toggleRead } from "./learning.js";
 import { openPalette } from "./palette.js";
 import { hideUpdatePanel, isUpdatePanelOpen, startUpdate } from "./update.js";
 
-const PLACES = { h: "/", p: "/progress", y: "/system", s: "/answers", d: "/digests", r: "/decisions" };
+const PLACES = { h: "/", p: "/progress", y: "/system", s: "/answers", d: "/digests", r: "/decisions", o: "/documentation" };
 let awaitingPlace = null;
 
 function typing(element) {

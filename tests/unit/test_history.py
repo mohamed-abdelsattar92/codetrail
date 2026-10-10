@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from codetrail.config import ToolsSettings
-from codetrail.repo.history import commits_between, diff_between, merges_between, recent_commits
+from codetrail.repo.history import commits_between, diff_between, latest_commits, merges_between, recent_commits
 from codetrail.repo.mirror import refresh_mirror
 from codetrail.repo.rules import ExclusionRules
 from codetrail.repo.secrets import SecretScanner
@@ -128,3 +128,25 @@ def test_recent_commits_for_a_scope(tmp_path: Path, scanner: SecretScanner) -> N
     mirror, end = mirror_of(checkout, tmp_path)
     commits = recent_commits(mirror, end, ["app"], 2, visible, scanner)
     assert [commit.subject for commit in commits] == ["fix(app): two", "fix(app): three"]
+
+
+def test_latest_commits_skip_merges_and_withhold_secrets(tmp_path: Path, scanner: SecretScanner) -> None:
+    token = fake_github_token()
+    checkout = make_repository(tmp_path / "t", [{"a.md": "a\n"}])
+    add_commit(checkout, {"b.md": "b\n"}, "feat: b\n\nWhy: because\nit helps.")
+    add_commit(checkout, {"c.md": "c\n"}, f"fix: c\n\nThe old one was {token}")
+    git(checkout, "switch", "-q", "-c", "side")
+    add_commit(checkout, {"d.md": "d\n"}, "feat: d")
+    git(checkout, "switch", "-q", "develop")
+    git(checkout, "merge", "-q", "--no-ff", "-m", "Merge side", "side")
+    mirror, end = mirror_of(checkout, tmp_path)
+    commits = latest_commits(mirror, end, 10, scanner)
+    assert [commit.subject for commit in commits] == [
+        "feat: d",
+        "[withheld: gitleaks flagged this message]",
+        "feat: b",
+        "Commit 0",
+    ]
+    assert commits[2].body == "Why: because\nit helps."
+    assert token not in repr(commits)
+    assert len(latest_commits(mirror, end, 2, scanner)) == 2

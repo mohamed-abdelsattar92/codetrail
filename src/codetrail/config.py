@@ -158,6 +158,16 @@ class DiagramSettings(Settings):
     max_nodes: int = Field(default=25, gt=0)
 
 
+class MetricsSettings(Settings):
+    """The documentation metrics' limits (design section 18.5)."""
+
+    commit_window: int = Field(default=200, gt=0, le=10_000)  # the latest non-merge commits the commit metric reads
+    proposed_adr_days: int = Field(default=30, ge=0)  # a proposed ADR older than this needs attention
+    trend_updates: int = Field(default=12, ge=2, le=200)  # updates a trend line shows
+    max_listed: int = Field(default=50, gt=0, le=5000)  # items a list shows before the rest fold away
+    max_message_chars: int = Field(default=20_000, gt=0, le=1_000_000)  # of a commit body, matched for a why
+
+
 class ProvidersSettings(Settings):
     claude_code: ClaudeCodeSettings = ClaudeCodeSettings()
     codex: CodexSettings = CodexSettings()
@@ -217,6 +227,7 @@ class GlobalConfig(Settings):
     ui: InterfaceSettings = InterfaceSettings()
     signal: SignalSettings = SignalSettings()
     diagrams: DiagramSettings = DiagramSettings()
+    metrics: MetricsSettings = MetricsSettings()
 
 
 class AdrSettings(Settings):
@@ -238,6 +249,28 @@ class GenerationSettings(Settings):
     # An affected page with at most this many fact and link changes in its scope since it was written is revised:
     # only the sections the changes affect are rewritten (design section 6.3). 0 writes every page whole.
     revise_max_changes: int = Field(default=20, ge=0)
+
+
+class TargetMetricsSettings(Settings):
+    """What counts as a document and as a commit that explains why, in this repository (design section 18.5)."""
+
+    document_globs: list[str] = ["README*", "*.md", "*.rst", "*.adoc", "*.txt", "docs/**"]  # gitignore syntax
+    # Spaces and tabs only, never \s: whitespace that could cross lines would take quadratic time on a long run of
+    # blank lines in a message.
+    commit_why_pattern: str = r"(?im)^[ \t]*(?:#+[ \t]*)?why\b"
+
+    @field_validator("commit_why_pattern")
+    @classmethod
+    def compiles(cls, pattern: str) -> str:
+        try:
+            re.compile(pattern)
+        except re.error as error:
+            raise ValueError(f"isn't a valid regular expression: {error}") from error
+        return pattern
+
+    @property
+    def why(self) -> re.Pattern[str]:
+        return re.compile(self.commit_why_pattern)
 
 
 PROVIDERS = ("claude_code", "codex", "local")
@@ -294,6 +327,7 @@ class TargetConfig(Settings):
     generation: GenerationSettings = GenerationSettings()
     models: ModelSettings = ModelSettings()
     assistant: TargetAssistantSettings = TargetAssistantSettings()
+    metrics: TargetMetricsSettings = TargetMetricsSettings()
 
     @model_validator(mode="after")
     def codex_needs_consent(self) -> TargetConfig:

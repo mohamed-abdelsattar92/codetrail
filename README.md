@@ -58,10 +58,11 @@ Codetrail uses the assistant for meaning and code for structure: deterministic e
 | 💬 | **Ask from any page** | Questions go to your assistant with read-only tools; answers come into the page in your language. |
 | 📌 | **Save to guide** | Answers worth keeping become part of the guide instead of disappearing like chat history: they're in the sidebar, on the Saved answers page, and in search. |
 | 🔎 | **Search** | Press ⌘K or / on any page to search the guide's pages, saved answers, decisions and facts. It runs on your machine and costs nothing. |
-| ⌨️ | **Shortcuts** | Ask (A), go places (G then H, P, Y, S, D or R), step through a path ([ and ]), mark read (M), update (U). None of them spends anything. |
+| ⌨️ | **Shortcuts** | Ask (A), go places (G then H, P, Y, S, D, R or O), step through a path ([ and ]), mark read (M), update (U). None of them spends anything. |
 | 🧭 | **Guided paths** | Ordered routes through the pages toward a goal, such as "how a request travels through the API". The home page picks up where you left off. |
 | ✅ | **Checks** | Open questions on each page, graded against a rubric grounded in the code. |
 | ♻️ | **Staleness** | When the code behind a page you learned changes, the page says so and shows what changed. |
+| 📊 | **Documentation metrics** | How well the repository explains itself: how much of the guide's rationale is documented (and from where: ADRs, documents, code comments, commits), commits that explain why, ADRs to revisit, and dependencies no document mentions. Each number lists what's behind it and keeps a trend across updates. Free: no assistant call. |
 | 💲 | **Estimates first** | Every paid action shows what it will use before it runs: tokens, dollars at API prices, and your plan's usage. |
 
 ## A tour
@@ -241,7 +242,7 @@ The interface is English first and switches language from the page; it ships in 
 
 ## Status
 
-The latest release is Codetrail 1.1.1 ([release notes](docs/releases/v1.1.1.md), [changelog](CHANGELOG.md)); 1.0.0 was the first public release. Every phase in the [design](docs/design/2026-10-05-codetrail-design.md) is built and tested.
+The latest release is Codetrail 1.1.1 ([release notes](docs/releases/v1.1.1.md), [changelog](CHANGELOG.md)); 1.0.0 was the first public release. Phases 0 to 13 of the [design](docs/design/2026-10-05-codetrail-design.md) are built and tested; Phase 13 is on `develop`, not yet released.
 
 ```mermaid
 flowchart LR
@@ -257,6 +258,8 @@ flowchart LR
     P9 --> P10["10 · Getting started ✓"]
     P10 --> P11["11 · The page's design ✓"]
     P11 --> P12["12 · The whole system ✓"]
+    P12 --> P13["13 · Documentation metrics ✓"]
+    P13 -.-> P14["14 · Decision inventory (planned)"]
 ```
 
 | Phase | What you can do | Status |
@@ -274,6 +277,8 @@ flowchart LR
 | 10. Getting started | This README, and the [getting-started guide](docs/getting-started.md) | Done |
 | 11. The page's design | A new look with progress first, search, a command palette, shortcuts, an Ask panel, an update panel that shows each step of an update, and pages for progress, saved answers and digests; tested in a real browser | Done |
 | 12. The whole system | Facts for TypeScript, JavaScript and Astro code, deploy evidence from GitHub Actions, and the system pass: a repository's services, apps, libraries, contracts and infrastructure, and how they connect (`codetrail update` prints the count per rule); the system diagram on its own page, on the home page and on area pages, which pages and answers can also place | Done |
+| 13. Documentation metrics | The Documentation page, its home card and `codetrail metrics`: documented rationale by source, commits that explain why, ADR health, and facts a document mentions or the guide explains, with a trend per update | Done (unreleased) |
+| 14. Decision inventory | An opt-in paid pass that lists the decisions in the code and looks for a documented "why" for each ([design section 18.8](docs/design/2026-10-05-codetrail-design.md#188-delivery-and-later-work)) | Planned |
 
 Codex and local models are tested against stand-ins and Codetrail's own tests; Claude Code is also tested live. Codex's provider decision is [ADR 0006](docs/adr/0006-assistant-providers-and-subscriptions.md).
 
