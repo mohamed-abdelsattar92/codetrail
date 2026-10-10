@@ -21,8 +21,6 @@ from importlib.resources import files
 from pathlib import Path
 from typing import Annotated, Any
 
-from babel import Locale
-from babel.dates import get_day_names, get_month_names
 from fastapi import FastAPI, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -71,9 +69,11 @@ from codetrail.web.repository_view import (
     busiest_weekday,
     chart_document,
     language_segments,
+    month_names,
     months_table,
     ramp_step,
     script_json,
+    weekday_full_names,
 )
 from codetrail.web.security import OPEN_PATHS, SESSION_COOKIE, SecurityMiddleware, SessionState, login_response
 from codetrail.web.target_view import TargetView
@@ -593,7 +593,6 @@ def create_app(
             }
         activity, churn, current = report.activity, report.churn, language()
         weekday = busiest_weekday(activity)
-        locale = Locale.parse(current.code)
         return render(
             "repository.html", active="repository", report=report, tiles=build_tiles(report.values(), before, history),
             age=age(activity.first, today) if activity and activity.first else None, today=today,
@@ -602,8 +601,8 @@ def create_app(
             all_months=months_table(activity),
             # script_json escapes <, > and &, so nothing in the document can end its <script> block.
             chart_json=Markup(script_json(chart_document(report, current, today))),  # noqa: S704
-            weekday_name=get_day_names("wide", locale=locale)[weekday] if weekday is not None else None,
-            month_names=[str(month) for _, month in sorted(get_month_names("abbreviated", locale=locale).items())],
+            weekday_name=weekday_full_names(current)[weekday] if weekday is not None else None,
+            month_names=month_names(current),
             area_titles={spot.page.id: spot.page.title for spot in churn.areas} if churn else {},
             grid_highest=max((count or 0 for _, cells in churn.area_months for count in cells), default=0)
             if churn else 0,

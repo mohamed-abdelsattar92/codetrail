@@ -270,7 +270,7 @@ def test_the_page_carries_the_chart_data(paths: Paths) -> None:
     assert [release["name"] for release in data["releases"]] == ["v1.0"]
     assert data["releases"][0]["notes"] == "Release one\n\nThe first notes."
     assert data["heat"]["folders"] and all("hidden_module" not in tile["path"] for tile in data["heat"]["files"])
-    assert data["labels"]["commits"] == {"one": "{count} commit", "other": "{count} commits"}
+    assert data["labels"]["commits"]["1"] == "{count} commit"
     for chart in ("timeline", "calendar", "heatmap"):
         assert f'data-chart="{chart}"' in page
 

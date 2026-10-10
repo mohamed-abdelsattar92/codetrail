@@ -76,3 +76,11 @@ def test_activity_counts_every_day_to_today() -> None:
 def test_no_commits_have_no_days() -> None:
     activity = measure_activity([], 0, 0, date(2025, 1, 6), months=1)
     assert (activity.days_start, activity.days) == (None, [])
+
+
+def test_days_stop_at_today_whatever_a_commit_claims() -> None:
+    future = int(datetime(9999, 1, 1, tzinfo=UTC).timestamp())
+    activity = measure_activity([future, START], 2, 0, date(2025, 1, 8), months=1)
+    assert activity.days_start == date(2025, 1, 6) and activity.days == [1, 0, 0]
+    only_future = measure_activity([future], 1, 0, date(2025, 1, 8), months=1)
+    assert (only_future.days_start, only_future.days) == (None, [])

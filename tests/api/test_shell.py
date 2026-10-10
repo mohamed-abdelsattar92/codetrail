@@ -111,6 +111,7 @@ def test_pages_run_no_inline_script_or_handler(paths: Paths, url: str) -> None:
     ]  # fmt: skip
     assert parser.scripts[2].get("type") == "module"
     assert all(set(block) == {"type", "data-repository-data"} for block in parser.data_blocks)
+    assert len(parser.data_blocks) == (1 if url == "/repository" else 0)
 
 
 def test_the_sidebar_lists_paths_areas_concepts_and_answers(paths: Paths) -> None:

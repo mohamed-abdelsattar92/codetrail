@@ -380,6 +380,10 @@ msgstr ""
 msgid "Apps"
 msgstr ""
 
+msgctxt "month"
+msgid "Apr"
+msgstr ""
+
 msgid "Architecture decisions"
 msgstr ""
 
@@ -436,6 +440,10 @@ msgstr ""
 
 #, python-format
 msgid "At commit %(commit)s."
+msgstr ""
+
+msgctxt "month"
+msgid "Aug"
 msgstr ""
 
 msgid "Back to the start"
@@ -565,6 +573,10 @@ msgstr ""
 msgid "Couldn’t save the answer."
 msgstr ""
 
+msgctxt "month"
+msgid "Dec"
+msgstr ""
+
 msgid "Decision"
 msgstr ""
 
@@ -648,6 +660,10 @@ msgstr ""
 msgid "Facts:"
 msgstr ""
 
+msgctxt "month"
+msgid "Feb"
+msgstr ""
+
 msgid "Fewer"
 msgstr ""
 
@@ -696,6 +712,13 @@ msgid "Found in"
 msgstr ""
 
 msgid "Found in a file you can open"
+msgstr ""
+
+msgctxt "weekday"
+msgid "Fri"
+msgstr ""
+
+msgid "Friday"
 msgstr ""
 
 #, python-format
@@ -776,6 +799,18 @@ msgstr ""
 msgid "Infrastructure"
 msgstr ""
 
+msgctxt "month"
+msgid "Jan"
+msgstr ""
+
+msgctxt "month"
+msgid "Jul"
+msgstr ""
+
+msgctxt "month"
+msgid "Jun"
+msgstr ""
+
 msgid "Keep the answers worth keeping"
 msgstr ""
 
@@ -826,6 +861,10 @@ msgstr ""
 msgid "Longest quiet stretch"
 msgstr ""
 
+msgctxt "month"
+msgid "Mar"
+msgstr ""
+
 msgid "Mark read"
 msgstr ""
 
@@ -838,6 +877,10 @@ msgstr ""
 msgid "Matched by name: likely, not certain"
 msgstr ""
 
+msgctxt "month"
+msgid "May"
+msgstr ""
+
 msgid "Mentioned and explained"
 msgstr ""
 
@@ -845,6 +888,13 @@ msgid "Mentioned in a document"
 msgstr ""
 
 msgid "Menu"
+msgstr ""
+
+msgctxt "weekday"
+msgid "Mon"
+msgstr ""
+
+msgid "Monday"
 msgstr ""
 
 msgid "Month"
@@ -958,6 +1008,14 @@ msgid "Nothing in the guide matches “{query}”."
 msgstr ""
 
 msgid "Nothing to learn yet"
+msgstr ""
+
+msgctxt "month"
+msgid "Nov"
+msgstr ""
+
+msgctxt "month"
+msgid "Oct"
 msgstr ""
 
 msgid "On this page"
@@ -1150,6 +1208,13 @@ msgstr ""
 msgid "Runs on"
 msgstr ""
 
+msgctxt "weekday"
+msgid "Sat"
+msgstr ""
+
+msgid "Saturday"
+msgstr ""
+
 msgid "Save to guide"
 msgstr ""
 
@@ -1227,6 +1292,10 @@ msgstr ""
 msgid "Send"
 msgstr ""
 
+msgctxt "month"
+msgid "Sep"
+msgstr ""
+
 msgid "Service or app"
 msgstr ""
 
@@ -1256,6 +1325,13 @@ msgid "Steps"
 msgstr ""
 
 msgid "Steps learned"
+msgstr ""
+
+msgctxt "weekday"
+msgid "Sun"
+msgstr ""
+
+msgid "Sunday"
 msgstr ""
 
 msgid "Superseded or deprecated, still cited by the guide"
@@ -1437,6 +1513,13 @@ msgstr ""
 msgid "This file isn't text, or is too large to show."
 msgstr ""
 
+msgctxt "weekday"
+msgid "Thu"
+msgstr ""
+
+msgid "Thursday"
+msgstr ""
+
 msgid "Time range"
 msgstr ""
 
@@ -1465,6 +1548,13 @@ msgid "Trend over %(count)s update: %(values)s"
 msgid_plural "Trend over %(count)s updates: %(values)s"
 msgstr[0] ""
 msgstr[1] ""
+
+msgctxt "weekday"
+msgid "Tue"
+msgstr ""
+
+msgid "Tuesday"
+msgstr ""
 
 msgid "Unread"
 msgstr ""
@@ -1516,6 +1606,13 @@ msgstr ""
 
 #, python-format
 msgid "Watched by Codetrail since %(date)s"
+msgstr ""
+
+msgctxt "weekday"
+msgid "Wed"
+msgstr ""
+
+msgid "Wednesday"
 msgstr ""
 
 #, python-format

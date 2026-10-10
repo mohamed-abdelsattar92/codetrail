@@ -6,6 +6,7 @@ when it holds a finding, which catches a secret that a commit removed although t
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import date
@@ -139,6 +140,7 @@ def first_commit_time(mirror: Path, end: str) -> int | None:
 
 
 COMMIT_MARK = "\x01"
+COMMIT_HEADER = re.compile(r"\x01([0-9]{1,12})")  # ASCII digits only: str.isdigit accepts digits int() refuses
 
 
 def changed_files(mirror: Path, end: str, limit: int) -> list[tuple[int, list[str]]]:
@@ -152,9 +154,9 @@ def changed_files(mirror: Path, end: str, limit: int) -> list[tuple[int, list[st
     commits: list[tuple[int, list[str]]] = []
     first_name = False
     for field in output.split("\0"):
-        header = field.lstrip("\n")
-        if header.startswith(COMMIT_MARK) and header[1:].isdigit():
-            commits.append((int(header[1:]), []))
+        header = COMMIT_HEADER.fullmatch(field.lstrip("\n"))
+        if header:
+            commits.append((int(header[1]), []))
             first_name = True
         elif field and commits:
             name = field[1:] if first_name and field.startswith("\n") else field  # a newline ends the header

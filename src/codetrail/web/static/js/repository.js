@@ -29,6 +29,9 @@ const dayOf = (iso) => Date.parse(`${iso}T00:00:00Z`);
 const isoOf = (time) => new Date(time).toISOString().slice(0, 10);
 const sourceHref = (path) => `/source/${path.split("/").map(encodeURIComponent).join("/")}`;
 
+// The highest of many numbers, without spreading them into arguments (a long history has too many).
+const highestOf = (numbers, floor = 1) => numbers.reduce((highest, value) => Math.max(highest, value), floor);
+
 // The five-step ramp of the heat map and calendar: 0 for nothing, then quarters of the highest (as ramp_step does).
 function rampStep(count, highest) {
   if (count <= 0 || highest <= 0) return 0;
@@ -50,9 +53,13 @@ class Labels {
     return template.replace(/\{(\w+)\}/g, (match, key) => (key in values ? String(values[key]) : match));
   }
 
+  // The catalog's phrase for a sample number in the same plural category as the value.
   count(key, value, extra = {}) {
     const forms = this.labels[key];
-    return this.fill(forms[this.rules.select(value)] ?? forms.other, { count: this.number(value), ...extra });
+    const category = this.rules.select(value);
+    const samples = Object.keys(forms).map(Number).sort((a, b) => a - b);
+    const sample = samples.find((number) => this.rules.select(number) === category) ?? samples[samples.length - 1];
+    return this.fill(forms[String(sample)], { count: this.number(value), ...extra });
   }
 
   text(key, values = {}) {
@@ -125,7 +132,7 @@ function setUpTimeline(data, labels) {
     const shown = view();
     const { unit, slice, from, to, barsFrom } = shown;
     const position = (time) => ((time - barsFrom) / (to - barsFrom)) * 100;
-    const highest = Math.max(1, ...slice.map((period) => period.count));
+    const highest = highestOf(slice.map((period) => period.count));
     const total = slice.reduce((sum, period) => sum + period.count, 0);
     container.replaceChildren();
     const shownEnd = Math.min(to - DAY, dayOf(data.today));
@@ -251,7 +258,7 @@ function setUpTimeline(data, labels) {
     mini.setAttribute("aria-hidden", "true");
     const wholeUnit = unitFor(all.day.length);
     const whole = all[wholeUnit];
-    const miniHighest = Math.max(1, ...whole.map((period) => period.count));
+    const miniHighest = highestOf(whole.map((period) => period.count));
     const miniChart = svg("svg", { viewBox: `0 0 ${whole.length * 10} 34`, preserveAspectRatio: "none" });
     whole.forEach((period, index) => {
       const height = Math.max(period.count ? 2 : 0, (period.count / miniHighest) * 30);
@@ -318,7 +325,7 @@ function setUpCalendar(data, labels) {
   const lastMonday = today - ((new Date(today).getUTCDay() + 6) % 7) * DAY;
   const first = lastMonday - 52 * 7 * DAY;
   const counts = new Map(data.days.counts.map((count, index) => [start + index * DAY, count]));
-  const highest = Math.max(1, ...[...counts.entries()].filter(([time]) => time >= first).map(([, count]) => count));
+  const highest = highestOf([...counts.entries()].filter(([time]) => time >= first).map(([, count]) => count));
   const cell = 14;
   const left = 30;
   const top = 16;
@@ -441,7 +448,7 @@ function setUpHeatmap(data, labels) {
     }
     const width = container.clientWidth || 800;
     const height = container.clientHeight || 430;
-    const highest = Math.max(1, ...items.map((item) => item.commits));
+    const highest = highestOf(items.map((item) => item.commits));
     const tiles = squarify(items.map((item, index) => ({ ...item, index, value: item.lines })), width, height);
     for (const tile of tiles) {
       const step = rampStep(tile.commits, highest);

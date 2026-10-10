@@ -574,6 +574,10 @@ msgstr ""
 msgid "Apps"
 msgstr "التطبيقات"
 
+msgctxt "month"
+msgid "Apr"
+msgstr "أبريل"
+
 msgid "Architecture decisions"
 msgstr "القرارات المعمارية"
 
@@ -637,6 +641,10 @@ msgstr "بأسعار API: نحو %(expected)s، وبحد أقصى %(maximum)s."
 #, python-format
 msgid "At commit %(commit)s."
 msgstr "عند الـ commit %(commit)s."
+
+msgctxt "month"
+msgid "Aug"
+msgstr "أغسطس"
 
 msgid "Back to the start"
 msgstr "العودة إلى البداية"
@@ -771,6 +779,10 @@ msgstr "تعذّر التحقق من commits جديدة الآن."
 msgid "Couldn’t save the answer."
 msgstr "تعذّر حفظ الإجابة."
 
+msgctxt "month"
+msgid "Dec"
+msgstr "ديسمبر"
+
 msgid "Decision"
 msgstr "قرار"
 
@@ -856,6 +868,10 @@ msgstr "الحقائق"
 msgid "Facts:"
 msgstr "الحقائق:"
 
+msgctxt "month"
+msgid "Feb"
+msgstr "فبراير"
+
 msgid "Fewer"
 msgstr "أقل"
 
@@ -909,6 +925,13 @@ msgstr "موجودة في"
 
 msgid "Found in a file you can open"
 msgstr "موجودة في ملف يمكنك فتحه"
+
+msgctxt "weekday"
+msgid "Fri"
+msgstr "الجمعة"
+
+msgid "Friday"
+msgstr "الجمعة"
 
 #, python-format
 msgid "From %(start)s to %(end)s"
@@ -990,6 +1013,18 @@ msgstr "مُستنتَجة: تستحق التوثيق"
 msgid "Infrastructure"
 msgstr "البنية التحتية"
 
+msgctxt "month"
+msgid "Jan"
+msgstr "يناير"
+
+msgctxt "month"
+msgid "Jul"
+msgstr "يوليو"
+
+msgctxt "month"
+msgid "Jun"
+msgstr "يونيو"
+
 msgid "Keep the answers worth keeping"
 msgstr "احتفظ بالإجابات التي تستحق"
 
@@ -1040,6 +1075,10 @@ msgstr "الأسطر"
 msgid "Longest quiet stretch"
 msgstr "أطول فترة هدوء"
 
+msgctxt "month"
+msgid "Mar"
+msgstr "مارس"
+
 msgid "Mark read"
 msgstr "علّمها مقروءة"
 
@@ -1052,6 +1091,10 @@ msgstr "علّمها غير مقروءة"
 msgid "Matched by name: likely, not certain"
 msgstr "مطابقة بالاسم: مرجّحة لا مؤكدة"
 
+msgctxt "month"
+msgid "May"
+msgstr "مايو"
+
 msgid "Mentioned and explained"
 msgstr "مذكورة ومشروحة"
 
@@ -1060,6 +1103,13 @@ msgstr "مذكورة في مستند"
 
 msgid "Menu"
 msgstr "القائمة"
+
+msgctxt "weekday"
+msgid "Mon"
+msgstr "الاثنين"
+
+msgid "Monday"
+msgstr "الاثنين"
 
 msgid "Month"
 msgstr "الشهر"
@@ -1175,6 +1225,14 @@ msgstr "لا شيء في الدليل يطابق «{query}»."
 
 msgid "Nothing to learn yet"
 msgstr "لا شيء لتتعلّمه بعد"
+
+msgctxt "month"
+msgid "Nov"
+msgstr "نوفمبر"
+
+msgctxt "month"
+msgid "Oct"
+msgstr "أكتوبر"
 
 msgid "On this page"
 msgstr "في هذه الصفحة"
@@ -1405,6 +1463,13 @@ msgstr "شغّل تحديثك الأول"
 msgid "Runs on"
 msgstr "يعمل على"
 
+msgctxt "weekday"
+msgid "Sat"
+msgstr "السبت"
+
+msgid "Saturday"
+msgstr "السبت"
+
 msgid "Save to guide"
 msgstr "احفظ في الدليل"
 
@@ -1486,6 +1551,10 @@ msgstr "اعرض تقدّمك"
 msgid "Send"
 msgstr "أرسل"
 
+msgctxt "month"
+msgid "Sep"
+msgstr "سبتمبر"
+
 msgid "Service or app"
 msgstr "خدمة أو تطبيق"
 
@@ -1516,6 +1585,13 @@ msgstr "الخطوات"
 
 msgid "Steps learned"
 msgstr "الخطوات المُتعلَّمة"
+
+msgctxt "weekday"
+msgid "Sun"
+msgstr "الأحد"
+
+msgid "Sunday"
+msgstr "الأحد"
 
 msgid "Superseded or deprecated, still cited by the guide"
 msgstr "مُستبدَلة أو مُهمَلة، وما زال الدليل يستشهد بها"
@@ -1709,6 +1785,13 @@ msgstr "لا شيء هنا. ربما استُثني، أو لم يدخل الد�
 msgid "This file isn't text, or is too large to show."
 msgstr "هذا الملف ليس نصيًا، أو أكبر من أن يُعرض."
 
+msgctxt "weekday"
+msgid "Thu"
+msgstr "الخميس"
+
+msgid "Thursday"
+msgstr "الخميس"
+
 msgid "Time range"
 msgstr "الفترة الزمنية"
 
@@ -1745,6 +1828,13 @@ msgstr[2] "الاتجاه عبر تحديثين: %(values)s"
 msgstr[3] "الاتجاه عبر %(count)s تحديثات: %(values)s"
 msgstr[4] "الاتجاه عبر %(count)s تحديثًا: %(values)s"
 msgstr[5] "الاتجاه عبر %(count)s تحديث: %(values)s"
+
+msgctxt "weekday"
+msgid "Tue"
+msgstr "الثلاثاء"
+
+msgid "Tuesday"
+msgstr "الثلاثاء"
 
 msgid "Unread"
 msgstr "غير مقروء"
@@ -1797,6 +1887,13 @@ msgstr "انتظر بضع ثوانٍ قبل الإجابة التالية."
 #, python-format
 msgid "Watched by Codetrail since %(date)s"
 msgstr "يتابعه Codetrail منذ %(date)s"
+
+msgctxt "weekday"
+msgid "Wed"
+msgstr "الأربعاء"
+
+msgid "Wednesday"
+msgstr "الأربعاء"
 
 #, python-format
 msgid "Week of %(date)s"

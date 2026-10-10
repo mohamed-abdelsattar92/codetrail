@@ -51,10 +51,12 @@ def measure_activity(times: Sequence[int], commits: int, merges: int, today: dat
     weeks = (_monday(latest) - _monday(first)).days // 7 + 1
     widest = max(pairwise(days), key=lambda pair: pair[1] - pair[0], default=None)
     gap = widest if widest and widest[1] > widest[0] else None
+    # Commits per day end at today: a commit can claim any date, and a far-future one would make the series huge.
     by_day = Counter(days)
-    last = max(today, latest)
-    per_day = [by_day.get(first + timedelta(days=offset), 0) for offset in range((last - first).days + 1)]
-    return Activity(commits, merges, first, latest, month_counts, years, active_weeks, weeks, gap, cut, per_day, first)
+    per_day = [by_day.get(first + timedelta(days=offset), 0) for offset in range((today - first).days + 1)]
+    days_start = first if per_day else None
+    return Activity(commits, merges, first, latest, month_counts, years, active_weeks, weeks, gap, cut, per_day,
+                    days_start)  # fmt: skip
 
 
 @dataclass(frozen=True)

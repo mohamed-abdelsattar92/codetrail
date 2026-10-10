@@ -1,8 +1,9 @@
 """The Repository page's chart data: what `static/js/repository.js` draws, with its labels translated (design 20.3).
 
 The document goes into the page as a JSON block the browser never runs, escaped so no text in it can end the block.
-Counted phrases come once per plural category of the language, from Babel's plural rule; the script picks one with
-`Intl.PluralRules`. Placeholders are written `{name}` for the script to fill.
+Counted phrases come from the catalog for a few sample numbers that between them reach every plural category of every
+language; the script finds the sample in the same `Intl.PluralRules` category as its number. Placeholders are written
+`{name}` for the script to fill. Babel is a development tool only (ADR 0005), so nothing here uses it.
 """
 
 from __future__ import annotations
@@ -13,9 +14,6 @@ from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 from urllib.parse import quote
-
-from babel import Locale
-from babel.dates import get_day_names, get_month_names
 
 from codetrail.metrics.activity import Activity
 from codetrail.metrics.churn import Churn, HotSpot, folder_of
@@ -33,17 +31,37 @@ def _template(text: str) -> str:
     return PLACEHOLDER.sub(r"{\1}", text)
 
 
-def _locale(language: Language) -> Locale:
-    return Locale.parse(language.code)
+# Numbers that between them fall in every plural category CLDR gives any language (zero, one, two, few, many, other).
+PLURAL_SAMPLES = (0, 1, 2, 3, 4, 5, 6, 7, 11, 12, 21, 22, 100, 101, 102, 1_000_000)
 
 
-def plural_templates(language: Language, choose: Callable[[int], str]) -> dict[str, str]:
-    """`choose(n)` is an ngettext call; one template per plural category, from the smallest number in it."""
-    rule = _locale(language).plural_form
-    templates: dict[str, str] = {}
-    for number in range(200):
-        templates.setdefault(rule(number), _template(choose(number)))
-    return templates
+def plural_templates(choose: Callable[[int], str]) -> dict[str, str]:
+    """`choose(n)` is an ngettext call; its template for each sample number, keyed by the number."""
+    return {str(number): _template(choose(number)) for number in PLURAL_SAMPLES}
+
+
+def month_names(language: Language) -> list[str]:
+    """The months' short names, January first, from the catalog."""
+    t = language.translations
+    return [t.pgettext("month", "Jan"), t.pgettext("month", "Feb"), t.pgettext("month", "Mar"),
+            t.pgettext("month", "Apr"), t.pgettext("month", "May"), t.pgettext("month", "Jun"),
+            t.pgettext("month", "Jul"), t.pgettext("month", "Aug"), t.pgettext("month", "Sep"),
+            t.pgettext("month", "Oct"), t.pgettext("month", "Nov"), t.pgettext("month", "Dec")]  # fmt: skip
+
+
+def weekday_names(language: Language) -> list[str]:
+    """The weekdays' short names, Monday first, from the catalog."""
+    t = language.translations
+    return [t.pgettext("weekday", "Mon"), t.pgettext("weekday", "Tue"), t.pgettext("weekday", "Wed"),
+            t.pgettext("weekday", "Thu"), t.pgettext("weekday", "Fri"), t.pgettext("weekday", "Sat"),
+            t.pgettext("weekday", "Sun")]  # fmt: skip
+
+
+def weekday_full_names(language: Language) -> list[str]:
+    """The weekdays' names, Monday first, from the catalog."""
+    t = language.translations
+    return [t.gettext("Monday"), t.gettext("Tuesday"), t.gettext("Wednesday"), t.gettext("Thursday"),
+            t.gettext("Friday"), t.gettext("Saturday"), t.gettext("Sunday")]  # fmt: skip
 
 
 def script_json(document: Mapping[str, object]) -> str:
@@ -55,11 +73,10 @@ def script_json(document: Mapping[str, object]) -> str:
 def _labels(language: Language) -> dict[str, object]:
     t = language.translations
 
-    def plural(choose: Callable[[int], str]) -> dict[str, str]:
-        return plural_templates(language, choose)
+    plural = plural_templates
 
     return {
-        "months": [str(name) for _, name in sorted(get_month_names("abbreviated", locale=_locale(language)).items())],
+        "months": month_names(language),
         "commits": plural(lambda n: t.ngettext("%(count)s commit", "%(count)s commits", n)),
         "lines": plural(lambda n: t.ngettext("%(count)s line", "%(count)s lines", n)),
         "commitsSince": plural(
@@ -94,7 +111,7 @@ def _labels(language: Language) -> dict[str, object]:
         ),
         "noAreas": t.gettext("Areas are counted once your assistant has written the guide's area pages."),
         "noCode": t.gettext("No code to draw yet."),
-        "weekdays": [str(name) for _, name in sorted(get_day_names("abbreviated", locale=_locale(language)).items())],
+        "weekdays": weekday_names(language),
     }  # fmt: skip
 
 

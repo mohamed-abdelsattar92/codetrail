@@ -2,6 +2,8 @@
 
 import gettext
 import json
+import subprocess
+import sys
 from datetime import date
 
 from codetrail.facts import Snapshot
@@ -48,22 +50,23 @@ def report() -> RepositoryReport:
     return RepositoryReport(activity, None, releases, size, inventory, churn)
 
 
-def test_english_plural_templates_have_one_and_other() -> None:
-    assert plural_templates(
-        ENGLISH, lambda n: ENGLISH.translations.ngettext("%(count)s commit", "%(count)s commits", n)
-    ) == {
-        "one": "{count} commit",
-        "other": "{count} commits",
-    }
+def test_plural_templates_come_from_the_catalog_for_sample_numbers() -> None:
+    choose = lambda n: ENGLISH.translations.ngettext("%(count)s commit", "%(count)s commits", n)  # noqa: E731
+    templates = plural_templates(choose)
+    assert templates["1"] == "{count} commit" and templates["0"] == templates["2"] == "{count} commits"
+    assert {"0", "1", "2", "3", "11", "100"} <= set(templates)
 
 
-def test_arabic_plural_templates_have_every_category() -> None:
+def test_arabic_plural_templates_follow_the_catalog_s_own_rule() -> None:
     arabic = installed_languages()["ar"]
-    templates = plural_templates(
-        arabic, lambda n: arabic.translations.ngettext("%(count)s commit", "%(count)s commits", n)
-    )
-    assert set(templates) == {"zero", "one", "two", "few", "many", "other"}
-    assert "{count}" in templates["few"] and templates["one"] != templates["few"]
+    templates = plural_templates(lambda n: arabic.translations.ngettext("%(count)s line", "%(count)s lines", n))
+    assert templates["1"] != templates["3"] != templates["11"]  # one, few and many forms
+    assert "{count}" in templates["3"]
+
+
+def test_the_page_runs_without_babel_installed() -> None:
+    script = "import sys; sys.modules['babel'] = None; import codetrail.server, codetrail.web.repository_view"
+    subprocess.run([sys.executable, "-c", script], check=True)
 
 
 def test_script_json_keeps_markup_inert() -> None:
@@ -91,8 +94,8 @@ def test_the_document_holds_what_the_charts_draw() -> None:
     assert heat["leftOut"] == {"areas": 0, "folders": 0, "files": 5}
     assert document["grid"] == {"months": ["2026-09", "2026-10"], "rows": [{"name": "The app", "cells": [None, 3]}]}
     labels = document["labels"]
-    assert labels["months"][0] == "Jan" and len(labels["months"]) == 12
-    assert labels["commits"] == {"one": "{count} commit", "other": "{count} commits"}
+    assert labels["months"][0] == "Jan" and len(labels["months"]) == 12  # from the catalog
+    assert labels["commits"]["1"] == "{count} commit" and labels["commits"]["2"] == "{count} commits"
     assert labels["weekOf"] == "Week of {date}"
     assert labels["weekdays"][:2] == ["Mon", "Tue"] and len(labels["weekdays"]) == 7
     for key in ("releases", "dependencies", "wholeHistory", "plotHelp", "calendarHelp", "noAreas"):
