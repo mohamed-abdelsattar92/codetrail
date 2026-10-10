@@ -873,6 +873,9 @@ msgid ""
 "say they live."
 msgstr ""
 
+msgid "No code to draw yet."
+msgstr ""
+
 msgid "No commits to measure yet."
 msgstr ""
 

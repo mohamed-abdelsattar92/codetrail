@@ -90,3 +90,22 @@ def test_the_grid_reads_its_cells(page: Page, site: Site) -> None:
     cell = page.locator('[data-chart="grid"] td').last
     cell.hover()
     expect(page.locator("[data-grid-status]")).to_have_text(cell.get_attribute("data-cell") or "")
+
+
+def test_choosing_a_release_keeps_the_focus_on_it(page: Page, site: Site) -> None:
+    open_repository(page, site)
+    mark = page.locator(".release-mark").first
+    mark.focus()
+    page.keyboard.press("Enter")
+    focused = page.evaluate("document.activeElement.classList.contains('release-mark')")
+    assert focused
+
+
+def test_the_window_starts_at_the_first_commit_and_panning_keeps_it_full(page: Page, site: Site) -> None:
+    data = open_repository(page, site)
+    expect(page.locator("[data-window-text]")).to_contain_text(f"From {data['days']['start']} ")
+    page.get_by_role("button", name="90 days").click()
+    earlier = page.get_by_role("button", name="Earlier")
+    while earlier.is_enabled():
+        earlier.click()
+    expect(page.locator('[data-chart="timeline"] .timeline-bar')).to_have_count(90)

@@ -59,6 +59,8 @@ class Churn:
     months: list[str] = field(default_factory=list)  # "YYYY-MM", the last twelve, oldest first
     area_months: list[tuple[str, list[int | None]]] = field(default_factory=list)  # None: a month not read
     size_histogram: list[int] = field(default_factory=list)  # commits per bucket of files changed
+    folder_depth: int = 2  # how deep the folder tiles group files
+    tile_cap: int = 60  # tiles a heat map level draws at most
 
 
 def folder_of(path: str, depth: int) -> str:
@@ -150,4 +152,5 @@ def measure_churn(
         len(changes), _most_first(files), _most_first(folders), spots,
         _most_first(Counter(folder_of(path, folder_depth) for path in quiet)), len(quiet), median, p90,
         _capped(folder_tiles, tile_cap), _capped(file_tiles, tile_cap), left_out, months, area_months, histogram,
+        folder_depth, tile_cap,
     )  # fmt: skip

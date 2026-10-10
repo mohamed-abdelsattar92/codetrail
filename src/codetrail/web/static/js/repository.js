@@ -108,9 +108,11 @@ function setUpTimeline(data, labels) {
     const step = Math.max(1, Math.floor(shown / 2));
     const maxOffset = Math.max(0, Math.ceil((series.length - shown) / step));
     state.offset = Math.min(state.offset, maxOffset);
-    const end = series.length - state.offset * step;
-    const slice = series.slice(Math.max(0, end - shown), end);
-    return { unit, slice, maxOffset, from: slice[0].time, to: periodEnd(unit, slice[slice.length - 1].time) };
+    // The earliest window keeps its full width: it starts at the first period rather than running short.
+    const start = Math.max(0, series.length - state.offset * step - shown);
+    const slice = series.slice(start, start + shown);
+    const first = Math.max(slice[0].time, dayOf(data.days.start)); // a week or month may begin before the first commit
+    return { unit, slice, maxOffset, from: first, to: periodEnd(unit, slice[slice.length - 1].time), barsFrom: slice[0].time };
   }
 
   function periodLabel(unit, time) {
@@ -121,8 +123,8 @@ function setUpTimeline(data, labels) {
 
   function draw() {
     const shown = view();
-    const { unit, slice, from, to } = shown;
-    const position = (time) => ((time - from) / (to - from)) * 100;
+    const { unit, slice, from, to, barsFrom } = shown;
+    const position = (time) => ((time - barsFrom) / (to - barsFrom)) * 100;
     const highest = Math.max(1, ...slice.map((period) => period.count));
     const total = slice.reduce((sum, period) => sum + period.count, 0);
     container.replaceChildren();
@@ -213,7 +215,12 @@ function setUpTimeline(data, labels) {
       mark.setAttribute("aria-pressed", String(release.index === state.release));
       mark.setAttribute("aria-label", `${release.name}, ${release.date}`);
       mark.style.insetInlineStart = `calc(${position(release.time)}% - 6px)`;
-      mark.addEventListener("click", () => { state.release = release.index; showRelease(); draw(); });
+      mark.addEventListener("click", () => {
+        // The marks stay in place, so the focus stays on the one chosen.
+        state.release = release.index;
+        for (const other of releaseLane.querySelectorAll(".release-mark")) other.setAttribute("aria-pressed", String(other === mark));
+        showRelease();
+      });
       releaseLane.append(mark);
     }
     container.append(releaseLane);
@@ -428,7 +435,7 @@ function setUpHeatmap(data, labels) {
     container.replaceChildren();
     for (const note of document.querySelectorAll("[data-left-out]")) note.hidden = note.dataset.leftOut !== state.level;
     if (!items.length) {
-      container.append(element("p", "chart-fallback muted", labels.text("noAreas")));
+      container.append(element("p", "chart-fallback muted", labels.text(state.level === "areas" ? "noAreas" : "noCode")));
       panel && (panel.hidden = true);
       return;
     }

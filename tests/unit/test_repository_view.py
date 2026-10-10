@@ -7,7 +7,7 @@ from datetime import date
 from codetrail.facts import Snapshot
 from codetrail.guide import Page
 from codetrail.metrics.activity import Activity
-from codetrail.metrics.churn import AreaSpot, Churn, HeatTile
+from codetrail.metrics.churn import AreaSpot, Churn, HeatTile, HotSpot
 from codetrail.metrics.inventory import Change, Inventory
 from codetrail.metrics.releases import Releases
 from codetrail.metrics.repository import RepositoryReport
@@ -132,10 +132,41 @@ def test_languages_keep_four_then_other() -> None:
     sizes = [
         LanguageSize(name, 1, lines) for name, lines in (("A", 50), ("B", 40), ("C", 30), ("D", 20), ("E", 5), ("F", 5))
     ]
-    assert language_segments(sizes) == [("A", 50, 1), ("B", 40, 2), ("C", 30, 3), ("D", 20, 4), ("Other", 10, 5)]
-    assert language_segments(sizes[:2]) == [("A", 50, 1), ("B", 40, 2)]
+    assert language_segments(sizes) == [("A", 50, 1, 33), ("B", 40, 2, 27), ("C", 30, 3, 20), ("D", 20, 4, 13),
+                                        ("Other", 10, 5, 7)]  # fmt: skip
+    assert language_segments(sizes[:2]) == [("A", 50, 1, 56), ("B", 40, 2, 44)]
+    assert language_segments([LanguageSize("Python", 2, 0)]) == [("Python", 0, 1, 0)]  # empty files: no division
 
 
 def test_the_busiest_weekday_counts_commits_by_weekday() -> None:
     assert busiest_weekday(report().activity) == 0  # 2026-09-21 is a Monday, with 3 of the 5
     assert busiest_weekday(None) is None
+
+
+def test_a_folder_lists_only_its_own_files_and_empty_tiles_are_counted_not_drawn() -> None:
+    area = Page("areas/docs", {"kind": "area", "title": "The docs"})
+    churn = Churn(
+        2, [HotSpot("src/a.py", 3), HotSpot("src/codetrail/b.py", 5)], [], [AreaSpot(area, 4, 0, 1, 0)], [], 0, 1, 1,
+        [HeatTile("src", "src", 10, 3), HeatTile("src/codetrail", "src/codetrail", 20, 5),
+         HeatTile("empty", "empty", 0, 0)],
+        [], {"areas": 0, "folders": 0, "files": 0}, [], [], [], folder_depth=2, tile_cap=60,
+    )  # fmt: skip
+    plain = report()
+    with_churn = RepositoryReport(plain.activity, None, plain.releases, plain.size, plain.inventory, churn)
+    document = chart_document(with_churn, ENGLISH, date(2026, 10, 10))
+    heat = document["heat"]
+    assert [tile["files"] for tile in heat["folders"]] == [[["src/a.py", 3]], [["src/codetrail/b.py", 5]]]
+    assert heat["areas"] == []  # an area with no lines of code has no size to draw
+    assert heat["leftOut"] == {"areas": 1, "folders": 1, "files": 0}
+
+
+def test_areas_are_capped_like_the_other_levels() -> None:
+    areas = [AreaSpot(Page(f"areas/{n}", {"kind": "area", "title": str(n)}), 1, 0, 0, 10 + n) for n in range(3)]
+    churn = Churn(1, [], [], areas, [], 0, 1, 1, [], [], {"areas": 1, "folders": 0, "files": 0}, [], [], [],
+                  folder_depth=2, tile_cap=2)  # fmt: skip
+    plain = report()
+    with_churn = RepositoryReport(plain.activity, None, plain.releases, plain.size, plain.inventory, churn)
+    document = chart_document(with_churn, ENGLISH, date(2026, 10, 10))
+    assert [tile["name"] for tile in document["heat"]["areas"]] == ["2", "1"]
+    assert document["heat"]["leftOut"]["areas"] == 1
+    assert document["labels"]["noCode"]

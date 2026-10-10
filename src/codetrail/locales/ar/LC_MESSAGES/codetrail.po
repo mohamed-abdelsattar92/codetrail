@@ -1087,6 +1087,9 @@ msgid ""
 "say they live."
 msgstr "لم يُعثر على سجلات قرارات معمارية حيث تقول إعدادات الهدف إنها موجودة."
 
+msgid "No code to draw yet."
+msgstr "لا كود لرسمه بعد."
+
 msgid "No commits to measure yet."
 msgstr "لا commits لقياسها بعد."
 

@@ -295,3 +295,28 @@ def test_the_grid_shades_each_area_and_month(paths: Paths) -> None:
     grid = page.split('data-chart="grid"', 1)[1].split("</table>", 1)[0]
     assert "The app" in grid and 'class="heat-4"' in grid
     assert chart_data(page)["grid"]["rows"][0]["name"] == "The app"
+
+
+def test_a_repository_of_empty_code_files_still_renders(tmp_path: Path) -> None:
+    paths = Paths(config_dir=tmp_path / "config", data_dir=tmp_path / "data", state_dir=tmp_path / "state")
+    write_target(paths, "shop", make_repository(tmp_path / "target", [{"app/__init__.py": "", "README.md": "# Hi\n"}]),
+                 "develop")  # fmt: skip
+    run_update(paths, "shop", facts_only=True)
+    page = client_for(paths).get("/repository")
+    assert page.status_code == 200 and "Python" in section(page.text, "size")
+
+
+def test_the_calendar_states_its_facts_and_the_grid_names_its_years(paths: Paths) -> None:
+    plan = PlanDraft([{"id": "areas/app", "kind": "area", "title": "The app", "scope_paths": ["app"], "facts": []}])
+
+    def writer(request: PageRequest) -> PageDraft:
+        checks = [{"id": "q", "question": "Why?", "rubric": [{"point": "p", "grounds": ["app/main.py"]}]}]
+        return PageDraft("> [!inferred]\n> It reads well.\n", checks, ["app/main.py"])
+
+    run_update(paths, "shop", claude=FakeAssistant(plans=[plan], page_writer=writer))
+    page = client_for(paths).get("/repository").text
+    calendar = section(page, "calendar")
+    assert "Weeks with a commit" in calendar and "Longest quiet stretch" in calendar
+    header = page.split('data-chart="grid"', 1)[1].split("</thead>", 1)[0]
+    assert re.search(r"<th[^>]*>\w+ 20\d\d</th>", header)  # the first month carries its year
+    assert 'aria-label="Python' in section(page, "size")

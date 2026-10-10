@@ -18,7 +18,7 @@ from babel import Locale
 from babel.dates import get_day_names, get_month_names
 
 from codetrail.metrics.activity import Activity
-from codetrail.metrics.churn import Churn, HotSpot
+from codetrail.metrics.churn import Churn, HotSpot, folder_of
 from codetrail.metrics.repository import RepositoryReport
 from codetrail.metrics.size import LanguageSize
 from codetrail.web.i18n import Language
@@ -93,6 +93,7 @@ def _labels(language: Language) -> dict[str, object]:
             "Commits per day over the last 53 weeks; the numbers by month are in the timeline's table."
         ),
         "noAreas": t.gettext("Areas are counted once your assistant has written the guide's area pages."),
+        "noCode": t.gettext("No code to draw yet."),
         "weekdays": [str(name) for _, name in sorted(get_day_names("abbreviated", locale=_locale(language)).items())],
     }  # fmt: skip
 
@@ -105,25 +106,33 @@ def _top(files: list[HotSpot], keep: Callable[[str], bool]) -> list[list[object]
     return [[spot.name, spot.count] for spot in files if keep(spot.name)][:LISTED_FILES]
 
 
-def _heat(churn: Churn) -> dict[str, object]:
+def _heat(churn: Churn) -> dict[str, Any]:
     def in_folder(folder: str) -> Callable[[str], bool]:
-        return lambda path: "/" not in path if folder == "." else path.startswith(folder + "/")
+        return lambda path: folder_of(path, churn.folder_depth) == folder
 
     def in_scope(scope: tuple[str, ...]) -> Callable[[str], bool]:
         prefixes = [part.strip("/") for part in scope]
         return lambda path: any(not part or path == part or path.startswith(part + "/") for part in prefixes)
 
+    largest_areas = sorted(churn.areas, key=lambda spot: (-spot.lines, spot.page.title))[: churn.tile_cap]
     areas = [
         {"name": spot.page.title, "path": spot.page.id, "href": "/pages/" + quote(spot.page.id), "lines": spot.lines,
          "commits": spot.commits, "documented": spot.documented, "inferred": spot.inferred,
          "mostlyInferred": spot.inferred > spot.documented * 2, "files": _top(churn.files, in_scope(spot.scope))}
-        for spot in churn.areas
+        for spot in largest_areas
     ]  # fmt: skip
     folders = [{"name": tile.name, "path": tile.path, "href": None, "lines": tile.lines, "commits": tile.commits,
                 "files": _top(churn.files, in_folder(tile.path))} for tile in churn.folder_tiles]  # fmt: skip
     files = [{"name": tile.name, "path": tile.path, "href": "/source/" + quote(tile.path), "lines": tile.lines,
               "commits": tile.commits} for tile in churn.file_tiles]  # fmt: skip
-    return {"areas": areas, "folders": folders, "files": files, "leftOut": dict(churn.left_out)}
+    # A tile with no lines of code has no size to draw: it is left out and counted, like the tiles past the cap.
+    levels: dict[str, list[dict[str, Any]]] = {"areas": areas, "folders": folders, "files": files}
+    left_out = dict(churn.left_out)
+    for level, tiles in levels.items():
+        drawn = [tile for tile in tiles if tile["lines"]]
+        left_out[level] = left_out.get(level, 0) + len(tiles) - len(drawn)
+        levels[level] = drawn
+    return {**levels, "leftOut": left_out}
 
 
 def chart_document(report: RepositoryReport, language: Language, today: date) -> dict[str, Any]:
@@ -180,11 +189,14 @@ def ramp_step(count: int, highest: int) -> int:
     return min(4, 1 + (count * 4 - 1) // highest)
 
 
-def language_segments(languages: Sequence[LanguageSize], keep: int = 4) -> list[tuple[str, int, int]]:
-    """The largest languages by lines, each with its color slot, then the rest as Other in the last slot."""
+def language_segments(languages: Sequence[LanguageSize], keep: int = 4) -> list[tuple[str, int, int, int]]:
+    """The largest languages by lines with their color slot and rounded percent, then the rest as Other."""
+    total = sum(size.lines for size in languages)
     segments = [(size.language, size.lines, slot) for slot, size in enumerate(languages[:keep], start=1)]
     rest = sum(size.lines for size in languages[keep:])
-    return [*segments, ("Other", rest, keep + 1)] if rest else segments
+    if rest:
+        segments.append(("Other", rest, keep + 1))
+    return [(name, lines, slot, round(lines / total * 100) if total else 0) for name, lines, slot in segments]
 
 
 def busiest_weekday(activity: Activity | None) -> int | None:

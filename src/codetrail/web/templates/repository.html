@@ -152,6 +152,8 @@
       <p class="chart-fallback muted">{{ _("The charts need the page's script; their numbers are in the tables below.") }}</p>
     </div>
     <dl class="chart-facts">
+      <dt>{{ _("Weeks with a commit") }}</dt><dd>{% trans active=activity.active_weeks|number, weeks=activity.weeks|number %}{{ active }} of {{ weeks }}{% endtrans %}</dd>
+      <dt>{{ _("Longest quiet stretch") }}</dt><dd>{% if activity.longest_gap %}{% set start, end = activity.longest_gap %}{% trans count=(end - start).days %}{{ count }} day{% pluralize %}{{ count }} days{% endtrans %}{% else %}—{% endif %}</dd>
       {% if weekday_name %}<dt>{{ _("Busiest weekday") }}</dt><dd>{{ weekday_name }}</dd>{% endif %}
       <dt>{{ _("Latest commit") }}</dt><dd>{{ activity.latest.isoformat() }}</dd>
     </dl>
@@ -244,7 +246,7 @@
   <p class="muted">{{ _("Commits per month in each guide area over the last year.") }}</p>
   <div class="grid-scroll">
     <table class="heat-grid" data-chart="grid">
-      <thead><tr><th scope="col"><span class="visually-hidden">{{ _("Area") }}</span></th>{% for month in churn.months %}<th scope="col">{{ month_names[month[5:]|int - 1] }}</th>{% endfor %}</tr></thead>
+      <thead><tr><th scope="col"><span class="visually-hidden">{{ _("Area") }}</span></th>{% for month in churn.months %}<th scope="col">{{ month_names[month[5:]|int - 1] }}{% if loop.first or month[5:] == "01" %} {{ month[:4] }}{% endif %}</th>{% endfor %}</tr></thead>
       <tbody>
       {% for page_id, cells in churn.area_months %}
       <tr><th scope="row" lang="en" dir="ltr">{{ area_titles.get(page_id, page_id) }}</th>{% for count in cells %}{% if count is none %}<td class="heat-unread" data-cell="{{ area_titles.get(page_id, page_id) }} · {{ churn.months[loop.index0] }}: {{ _('not read') }}">–</td>{% else %}<td class="heat-{{ ramp_step(count, grid_highest) }}" data-cell="{{ area_titles.get(page_id, page_id) }} · {{ churn.months[loop.index0] }}: {{ count }}">{{ count if count else "" }}</td>{% endif %}{% endfor %}</tr>
@@ -308,8 +310,8 @@
   <p class="muted">{{ _("The files Codetrail may read, without the excluded ones. A file's language comes from its name; documents are the files matching the target's document_globs, and tests those matching its test_globs.") }}</p>
   {% if size.languages %}
   {% set segments = language_segments(size.languages) %}
-  <div class="stack-bar" role="img" aria-label="{% for name, lines, slot in segments %}{{ name }} {{ (lines / size.code_lines * 100)|round|int }}%{% if not loop.last %}, {% endif %}{% endfor %}"><svg viewBox="0 0 1000 20" preserveAspectRatio="none" aria-hidden="true">{% set ns = namespace(x=0) %}{% for name, lines, slot in segments %}{% set width = lines / size.code_lines * 1000 %}<rect class="series-fill-{{ slot }}" x="{{ ns.x|round(1) }}" y="0" height="20" width="{{ [width - 2, 0]|max|round(1) }}"/>{% set ns.x = ns.x + width %}{% endfor %}</svg></div>
-  <ul class="stack-legend" lang="en" dir="ltr">{% for name, lines, slot in segments %}<li><span class="swatch series-{{ slot }}" aria-hidden="true"></span>{% if name == "Other" %}{{ _("Other") }}{% else %}{{ name }}{% endif %}<span class="faint">{{ (lines / size.code_lines * 100)|round|int }}% · {{ lines|number }}</span></li>{% endfor %}</ul>
+  <div class="stack-bar" role="img" aria-label="{% for name, lines, slot, percent in segments %}{% if name == "Other" %}{{ _("Other") }}{% else %}{{ name }}{% endif %} {{ percent }}%{% if not loop.last %}, {% endif %}{% endfor %}"><svg viewBox="0 0 1000 20" preserveAspectRatio="none" aria-hidden="true">{% set ns = namespace(x=0) %}{% for name, lines, slot, percent in segments %}{% set width = (lines / size.code_lines * 1000) if size.code_lines else 0 %}<rect class="series-fill-{{ slot }}" x="{{ ns.x|round(1) }}" y="0" height="20" width="{{ [width - 2, 0]|max|round(1) }}"/>{% set ns.x = ns.x + width %}{% endfor %}</svg></div>
+  <ul class="stack-legend" lang="en" dir="ltr">{% for name, lines, slot, percent in segments %}<li><span class="swatch series-{{ slot }}" aria-hidden="true"></span>{% if name == "Other" %}{{ _("Other") }}{% else %}{{ name }}{% endif %}<span class="faint">{{ percent }}% · {{ lines|number }}</span></li>{% endfor %}</ul>
   {% if size.code_lines %}
   <div class="share-bar" role="img" aria-label="{% trans percent=(size.test_lines / size.code_lines * 100)|round|int %}{{ percent }}% of the lines of code are tests{% endtrans %}"><svg viewBox="0 0 100 10" preserveAspectRatio="none" aria-hidden="true"><rect class="series-fill-1" x="0" y="0" height="10" width="{{ (size.test_lines / size.code_lines * 100)|round(1) }}"/></svg></div>
   {% endif %}
