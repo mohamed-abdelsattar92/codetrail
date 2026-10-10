@@ -95,7 +95,7 @@
 {% set rationale, commits, decisions = report.rationale, report.commits, report.decisions %}
 {% set mentions, explained, has_pages = report.mentions, report.explained, report.rationale.pages %}
 <div class="doc-layout">
-<aside class="doc-overview" aria-label="{{ _('Overview') }}">
+<aside class="doc-overview" aria-label="{{ _('Overview') }}" tabindex="0">{# focusable: it may scroll on its own #}
   {{ tile_card(tiles["documented_share"], _("Documented rationale"), "tile-documented",
                [("tone-documented", rationale.documented, ""), ("tone-inferred", rationale.inferred, "")]) }}
   {{ tile_card(tiles["commit_why_share"], _("Commits that explain why"), "tile-commits",

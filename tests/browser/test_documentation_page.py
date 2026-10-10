@@ -63,3 +63,16 @@ def test_the_overview_stays_in_view_then_becomes_a_row(page: Page, site: Site) -
     assert overview.evaluate("element => getComputedStyle(element).position") == "static"
     columns = overview.evaluate("element => getComputedStyle(element).gridTemplateColumns")
     assert len(columns.split()) >= 2  # the tiles side by side, as a row
+
+
+def test_the_whole_overview_stays_reachable_on_a_laptop_screen(page: Page, site: Site) -> None:
+    page.set_viewport_size({"width": 1280, "height": 720})
+    site.sign_in(page, "/documentation")
+    for name in ("commits", "decisions", "coverage"):
+        fold(page, name).locator(":scope > summary").click()
+    page.locator("#coverage").scroll_into_view_if_needed()
+    box = page.locator(".doc-overview").evaluate(
+        "element => { const box = element.getBoundingClientRect();"
+        " return {top: box.top, bottom: box.bottom, height: innerHeight}; }"
+    )
+    assert box["top"] >= 0 and box["bottom"] <= box["height"]  # its last tile can be scrolled to, not cut off
