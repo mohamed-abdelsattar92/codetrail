@@ -243,7 +243,7 @@ The interface is English first and switches language from the page; it ships in 
 
 ## Status
 
-The latest release is Codetrail 1.1.1 ([release notes](docs/releases/v1.1.1.md), [changelog](CHANGELOG.md)); 1.0.0 was the first public release. Phases 0 to 15 and 17 of the [design](docs/design/2026-10-05-codetrail-design.md) are built and tested; Phases 13 to 15 and 17 are on `develop`, not yet released.
+The latest release is Codetrail 1.1.1 ([release notes](docs/releases/v1.1.1.md), [changelog](CHANGELOG.md)); 1.0.0 was the first public release. Phases 0 to 15, 17 and 18 of the [design](docs/design/2026-10-05-codetrail-design.md) are built and tested; Phases 13 to 15, 17 and 18 are on `develop`, not yet released.
 
 ```mermaid
 flowchart LR
@@ -263,6 +263,7 @@ flowchart LR
     P13 --> P14["14 · Repository statistics ✓"]
     P14 --> P15["15 · Where change happens ✓"]
     P15 --> P17["17 · The Repository page's charts ✓"]
+    P17 --> P18["18 · The Documentation page's charts ✓"]
     P15 -.-> P16["16 · Decision inventory (planned)"]
 ```
 
@@ -285,6 +286,7 @@ flowchart LR
 | 14. Repository statistics | The Repository page, its home card and `codetrail stats`: the branch's history and activity, releases from its tags, code size by language with the test share, and facts by kind with the dependencies that arrived and left, with a trend per update | Done (unreleased) |
 | 15. Where change happens | On the Repository page: the most changed files, folders and guide areas beside each area's documented and inferred rationale, quiet code and commit size | Done (unreleased) |
 | 17. The Repository page's charts | An interactive timeline with releases and dependency changes, a day-by-day activity calendar, a heat map of where change happens by area, folder or file, a grid of each area's commits by month, and charts for commit size, languages, commit types and facts | Done (unreleased) |
+| 18. The Documentation page's charts | The Documentation page as an overview beside folding sections: each metric's bar and trend, a chart in each section, the section most in need open first, and the long lists filtered by kind | Done (unreleased) |
 | 16. Decision inventory | An opt-in paid pass that lists the decisions in the code and looks for a documented "why" for each ([design section 18.8](docs/design/2026-10-05-codetrail-design.md#188-delivery-and-later-work)) | Planned |
 
 Codex and local models are tested against stand-ins and Codetrail's own tests; Claude Code is also tested live. Codex's provider decision is [ADR 0006](docs/adr/0006-assistant-providers-and-subscriptions.md).

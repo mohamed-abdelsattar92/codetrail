@@ -1,15 +1,42 @@
 {% extends "base.html" %}
-{% from "layout/icons.html" import icon %}
 {% block title %}{{ _("Documentation") }}{% endblock %}
 {% block content %}
-{% macro capped(items) -%}
-<ul class="list" lang="en" dir="ltr">{% for item in items[:listed] %}<li>{{ caller(item) }}</li>{% endfor %}</ul>
+{# A list of `listed` items and its folded rest; with a filter, each item carries its kind and the rest's summary
+   is written once per kind, so the chips can show the right count without the script translating anything. #}
+{% macro listing(items, filter=none) -%}
+<ul class="list" lang="en" dir="ltr">{% for item in items[:listed] %}<li{% if filter %} data-kind="{{ filter.kinds[loop.index0] }}"{% endif %}>{{ caller(item) }}</li>{% endfor %}</ul>
 {% if items|length > listed %}
 <details class="more">
-  <summary>{% trans count=items|length - listed %}{{ count }} more{% endtrans %}</summary>
-  <ul class="list" lang="en" dir="ltr">{% for item in items[listed:] %}<li>{{ caller(item) }}</li>{% endfor %}</ul>
+  <summary>{% if filter %}{% for kind, count in filter.folded.items() %}<span data-more="{{ kind }}" data-count="{{ count }}"{% if kind != "all" %} hidden{% endif %}>{% trans count=count %}{{ count }} more{% endtrans %}</span>{% endfor %}{% else %}{% trans count=items|length - listed %}{{ count }} more{% endtrans %}{% endif %}</summary>
+  <ul class="list" lang="en" dir="ltr">{% for item in items[listed:] %}<li{% if filter %} data-kind="{{ filter.kinds[listed + loop.index0] }}"{% endif %}>{{ caller(item) }}</li>{% endfor %}</ul>
 </details>
 {% endif %}
+{%- endmacro %}
+{# Chips only when the list holds two kinds or more: with one, a chip would show what All shows. #}
+{% macro chips(filter, names) -%}
+{% if filter.totals|length > 2 %}
+<div class="segmented filter-chips" role="group" aria-label="{{ _('Show') }}" data-filter hidden>
+  <button type="button" data-show="all" aria-pressed="true">{{ _("All") }} · {{ filter.totals["all"]|number }}</button>
+  {% for kind, label in names %}{% if filter.totals.get(kind) %}<button type="button" data-show="{{ kind }}" aria-pressed="false">{{ label }} · {{ filter.totals[kind]|number }}</button>{% endif %}{% endfor %}
+</div>
+<p class="visually-hidden" data-filter-status aria-live="polite"></p>
+{% endif %}
+{%- endmacro %}
+{# A stacked bar with its legend; parts are (tone, count, name), and the bar's text alternative names each count. #}
+{% macro stack(parts) -%}
+<div class="stack-bar" dir="ltr" role="img" aria-label="{% for tone, count, name in parts %}{{ name }}: {{ count }}{% if not loop.last %}, {% endif %}{% endfor %}"><svg viewBox="0 0 1000 20" preserveAspectRatio="none" aria-hidden="true">{% for tone, x, width in segments(parts) %}<rect class="{{ tone }}" x="{{ x }}" y="0" height="20" width="{{ [width - 2, 0]|max|round(1) }}"/>{% endfor %}</svg></div>
+<ul class="stack-legend">{% for tone, count, name in parts %}<li><span class="swatch {{ tone }}" aria-hidden="true"></span>{{ name }}<span class="faint">{{ count|number }}</span></li>{% endfor %}</ul>
+{%- endmacro %}
+{# A tile's small bar: the tile already says its numbers in words. #}
+{% macro mini(parts) -%}
+<div class="share-bar" dir="ltr" aria-hidden="true"><svg viewBox="0 0 1000 10" preserveAspectRatio="none">{% for tone, x, width in segments(parts) %}<rect class="{{ tone }}" x="{{ x }}" y="0" height="10" width="{{ width }}"/>{% endfor %}</svg></div>
+{%- endmacro %}
+{% macro hbar(label, count, widest, value, tone="series-fill-1") -%}
+<li><span class="hbar-label">{{ label }}</span><svg class="hbar-track" viewBox="0 0 100 12" preserveAspectRatio="none" aria-hidden="true"><rect class="{{ tone }}" x="0" y="0" height="12" width="{{ (count / widest * 100)|round(1) if widest else 0 }}" rx="2"/></svg><span class="hbar-value">{{ value }}</span></li>
+{%- endmacro %}
+{% macro page_bar(row, widest) -%}
+{% set documented = row.documented / widest * 100 %}
+<li><a class="hbar-label" href="/pages/{{ row.page.id }}" lang="en" dir="ltr">{{ row.page.title }}</a><svg class="hbar-track" viewBox="0 0 100 12" preserveAspectRatio="none" role="img" aria-label="{% trans documented=row.documented, inferred=row.inferred %}{{ documented }} documented, {{ inferred }} inferred{% endtrans %}"><rect class="tone-documented" x="0" y="0" height="12" width="{{ documented|round(1) }}"/><rect class="tone-inferred" x="{{ documented|round(1) }}" y="0" height="12" width="{{ (row.inferred / widest * 100)|round(1) }}"/></svg><span class="hbar-value">{{ row.documented }} / {{ row.inferred }}</span></li>
 {%- endmacro %}
 {% macro fact_link(entity) -%}
 <a class="grow" href="/facts/{{ entity.id }}">{{ entity.id }}</a>
@@ -20,7 +47,10 @@
 {% macro share(value) -%}
 {% if value.denominator %}{% trans numerator=value.numerator, denominator=value.denominator %}{{ numerator }} of {{ denominator }}{% endtrans %}{% else %}{{ _("nothing to measure yet") }}{% endif %}
 {%- endmacro %}
-{% macro tile_card(tile, label, title_id) %}
+{% macro about(text) -%}
+<details class="doc-about"><summary>{{ _("What this counts") }}</summary><p class="muted">{{ text }}</p></details>
+{%- endmacro %}
+{% macro tile_card(tile, label, title_id, parts=none) %}
 <section class="stat metric" aria-labelledby="{{ title_id }}">
   <span class="card-label" id="{{ title_id }}">{{ label }}</span>
   {% if tile.value is none %}
@@ -34,6 +64,7 @@
   {% else %}
     <span class="stat-value">{% if tile.percent is not none %}{{ tile.percent }}%{% else %}—{% endif %}</span>
     <span class="stat-note">{{ share(tile.value) }}</span>
+    {% if parts %}{{ mini(parts) }}{% endif %}
   {% endif %}
   {% if tile.value is not none and (tile.value.denominator or tile.metric == "adr_attention") %}
   <span class="stat-note">{% if tile.change is none %}{{ _("No earlier update to compare with.") }}{% elif tile.metric == "adr_attention" %}{% trans change="%+d"|format(tile.change) %}{{ change }} since the last update{% endtrans %}{% else %}{% trans change="%+d"|format(tile.change) %}{{ change }} points since the last update{% endtrans %}{% endif %}</span>
@@ -61,99 +92,155 @@
   {% endif %}
 </section>
 {% else %}
-<div class="stats">
-  {{ tile_card(tiles["documented_share"], _("Documented rationale"), "tile-documented") }}
-  {{ tile_card(tiles["commit_why_share"], _("Commits that explain why"), "tile-commits") }}
+{% set rationale, commits, decisions = report.rationale, report.commits, report.decisions %}
+{% set mentions, explained, has_pages = report.mentions, report.explained, report.rationale.pages %}
+<div class="doc-layout">
+<aside class="doc-overview" aria-label="{{ _('Overview') }}" tabindex="0">{# focusable: it may scroll on its own #}
+  {{ tile_card(tiles["documented_share"], _("Documented rationale"), "tile-documented",
+               [("tone-documented", rationale.documented, ""), ("tone-inferred", rationale.inferred, "")]) }}
+  {{ tile_card(tiles["commit_why_share"], _("Commits that explain why"), "tile-commits",
+               [("series-fill-1", commits.explains_why, ""), ("", commits.measured - commits.explains_why, "")] if commits else none) }}
   {{ tile_card(tiles["adr_attention"], _("ADRs needing attention"), "tile-adrs") }}
-  {{ tile_card(tiles["mentioned_share"], _("Mentioned in a document"), "tile-mentioned") }}
-</div>
+  {{ tile_card(tiles["mentioned_share"], _("Mentioned in a document"), "tile-mentioned",
+               [("series-fill-1", mentions.mentioned|length, ""), ("", mentions.unmentioned|length, "")]) }}
+</aside>
+<div class="doc-sections">
 
 <section id="rationale" aria-labelledby="rationale-title">
-  <h2 id="rationale-title">{{ _("Documented rationale") }}</h2>
-  <p class="muted">{{ _("Rationale blocks in the guide's area and concept pages: documented ones quote a source Codetrail checked, inferred ones are the assistant's reading. It counts only what the guide wrote about.") }}</p>
-  {% set rationale = report.rationale %}
-  <ul class="pills">
-    <li class="pill pill-documented">{% trans count=rationale.by_source.adr %}{{ count }} from an ADR{% pluralize %}{{ count }} from ADRs{% endtrans %}</li>
-    <li class="pill pill-documented">{% trans count=rationale.by_source.docs %}{{ count }} from a document{% pluralize %}{{ count }} from documents{% endtrans %}</li>
-    <li class="pill pill-documented">{% trans count=rationale.by_source.code %}{{ count }} from a code comment{% pluralize %}{{ count }} from code comments{% endtrans %}</li>
-    <li class="pill pill-documented">{% trans count=rationale.by_source.commit %}{{ count }} from a commit message{% pluralize %}{{ count }} from commit messages{% endtrans %}</li>
-    <li class="pill pill-stale">{% trans count=rationale.inferred %}{{ count }} inferred{% pluralize %}{{ count }} inferred{% endtrans %}</li>
-  </ul>
-  {% if rationale.pages %}
-  <table class="metric-table">
-    <thead><tr><th>{{ _("Page") }}</th><th>{{ _("Documented") }}</th><th>{{ _("Inferred") }}</th></tr></thead>
-    <tbody>
-    {% for row in rationale.pages[:listed] %}
-    <tr><td lang="en" dir="ltr"><a href="/pages/{{ row.page.id }}">{{ row.page.title }}</a></td><td>{{ row.documented }}</td><td>{{ row.inferred }}</td></tr>
-    {% endfor %}
-    </tbody>
-  </table>
+<details class="doc-fold"{% if open_section == "rationale" %} open{% endif %}>
+  <summary><h2 id="rationale-title">{{ _("Documented rationale") }}</h2><span class="doc-todo">{% if not has_pages %}{{ _("No pages yet") }}{% elif rationale.inferred %}{% trans count=rationale.inferred %}{{ count }} inferred, worth documenting{% pluralize %}{{ count }} inferred, worth documenting{% endtrans %}{% else %}{{ _("Nothing inferred") }}{% endif %}</span></summary>
+  <div class="doc-body">
+  {{ about(_("Rationale blocks in the guide's area and concept pages: documented ones quote a source Codetrail checked, inferred ones are the assistant's reading. It counts only what the guide wrote about.")) }}
+  {% if not has_pages %}
+  <p class="muted">{{ _("No pages yet: the guide's rationale is measured once your assistant writes it.") }}</p>
+  {% else %}
+  {{ stack([("heat-4", rationale.by_source.adr, _("ADRs")), ("heat-3", rationale.by_source.docs, _("Documents")),
+            ("heat-2", rationale.by_source.code, _("Code comments")), ("heat-1", rationale.by_source.commit, _("Commit messages")),
+            ("tone-inferred", rationale.inferred, _("Inferred"))]) }}
+  <h3>{{ _("By page, most inferred first") }}</h3>
+  {% set ns = namespace(widest=1) %}{% for row in rationale.pages %}{% set ns.widest = [ns.widest, row.documented + row.inferred]|max %}{% endfor %}
+  <ul class="hbars page-bars" dir="ltr">{% for row in rationale.pages[:listed] %}{{ page_bar(row, ns.widest) }}{% endfor %}</ul>
+  {% if rationale.pages|length > listed %}
+  <details class="more"><summary>{% trans count=rationale.pages|length - listed %}{{ count }} more{% endtrans %}</summary><ul class="hbars page-bars" dir="ltr">{% for row in rationale.pages[listed:] %}{{ page_bar(row, ns.widest) }}{% endfor %}</ul></details>
   {% endif %}
   {% if rationale.inferred_blocks %}
   <h3>{{ _("Inferred: worth documenting") }}</h3>
-  {% call(block) capped(rationale.inferred_blocks) %}<a class="grow" href="/pages/{{ block.page.id }}">{{ block.first_line }}</a><span class="faint">{{ block.page.title }}</span>{% endcall %}
+  {% call(block) listing(rationale.inferred_blocks) %}<a class="grow" href="/pages/{{ block.page.id }}">{{ block.first_line }}</a><span class="faint">{{ block.page.title }}</span>{% endcall %}
   {% endif %}
+  {% endif %}
+  </div>
+</details>
 </section>
 
 <section id="commits" aria-labelledby="commits-title">
-  <h2 id="commits-title">{{ _("Commits that explain why") }}</h2>
-  {% if report.commits is none %}
+<details class="doc-fold"{% if open_section == "commits" %} open{% endif %}>
+  <summary><h2 id="commits-title">{{ _("Commits that explain why") }}</h2><span class="doc-todo">{% if commits is none %}{{ _("Not available just now.") }}{% else %}{% trans count=commits.without_why|length, measured=commits.measured %}{{ count }} without a why, of the latest {{ measured }}{% pluralize %}{{ count }} without a why, of the latest {{ measured }}{% endtrans %}{% endif %}</span></summary>
+  <div class="doc-body">
+  {% if commits is none %}
   <p class="muted">{{ _("The commit history couldn't be read just now; the log says why.") }}</p>
   {% else %}
-  {% set commits = report.commits %}
-  <p class="muted">{{ _("The latest commits on the branch, merges left out. A commit explains why when its body matches the target's commit_why_pattern.") }}</p>
-  <ul class="pills">
-    <li class="pill pill-documented">{% trans count=commits.explains_why %}{{ count }} explains why{% pluralize %}{{ count }} explain why{% endtrans %}</li>
-    <li class="pill">{% trans count=commits.body_only %}{{ count }} with a body but no why{% pluralize %}{{ count }} with a body but no why{% endtrans %}</li>
-    <li class="pill">{% trans count=commits.subject_only %}{{ count }} with a subject only{% pluralize %}{{ count }} with a subject only{% endtrans %}</li>
-    {% if commits.withheld %}<li class="pill pill-stale">{% trans count=commits.withheld %}{{ count }} message withheld: gitleaks flagged it{% pluralize %}{{ count }} messages withheld: gitleaks flagged them{% endtrans %}</li>{% endif %}
-  </ul>
+  {{ about(_("The latest commits on the branch, merges left out. A commit explains why when its body matches the target's commit_why_pattern.")) }}
+  {{ stack([("tone-documented", commits.explains_why, _("Explain why")), ("tone-other", commits.body_only, _("Body without a why")),
+            ("tone-quiet", commits.subject_only, _("Subject only"))]) }}
+  {% if commits.withheld %}<p class="muted">{% trans count=commits.withheld %}{{ count }} message withheld: gitleaks flagged it{% pluralize %}{{ count }} messages withheld: gitleaks flagged them{% endtrans %}</p>{% endif %}
   {% if commits.without_why %}
   <h3>{{ _("Without a why") }}</h3>
-  {% call(commit) capped(commits.without_why) %}<code>{{ commit.sha[:7] }}</code><span class="grow">{{ commit.subject }}</span>{% endcall %}
+  <div data-filterable>
+  {{ chips(commit_filter, [("body-only", _("Body without a why")), ("subject-only", _("Subject only"))]) }}
+  {% call(commit) listing(commits.without_why, commit_filter) %}<code>{{ commit.sha[:7] }}</code><span class="grow">{{ commit.subject }}</span><span class="faint">{% if commit.body %}{{ _("body without a why") }}{% else %}{{ _("subject only") }}{% endif %}</span>{% endcall %}
+  </div>
   {% endif %}
   {% endif %}
+  </div>
+</details>
 </section>
 
 <section id="decisions" aria-labelledby="decisions-title">
-  <h2 id="decisions-title">{{ _("Architecture decisions") }}</h2>
-  {% set decisions = report.decisions %}
-  {% if decisions.by_status %}
-  <ul class="pills" lang="en" dir="ltr">
-    {% for status, found in decisions.by_status|dictsort %}<li class="pill">{{ status }} · {{ found|length }}</li>{% endfor %}
-  </ul>
-  {% set has_pages = report.rationale.pages %}
-  {% for heading, found in [(_("Proposed for too long"), decisions.overdue), (_("Superseded or deprecated, still cited by the guide"), decisions.superseded_cited), (_("Proposed, with no date"), decisions.undated), (_("Accepted, but no page cites them"), decisions.uncited if has_pages else [])] %}
-  {% if found %}
-  <h3>{{ heading }}</h3>
-  {% call(decision) capped(found) %}{{ decision_link(decision) }}{% endcall %}
-  {% endif %}
-  {% endfor %}
-  {% else %}
+{% set to_check = decisions.undated|length + (decisions.uncited|length if has_pages else 0) %}
+<details class="doc-fold"{% if open_section == "decisions" %} open{% endif %}>
+  <summary><h2 id="decisions-title">{{ _("Architecture decisions") }}</h2><span class="doc-todo">{% if not decisions.by_status %}{{ _("None found") }}{% else %}{% trans count=decisions.attention %}{{ count }} needs attention{% pluralize %}{{ count }} need attention{% endtrans %}{% if to_check %} · {% trans count=to_check %}{{ count }} to check{% pluralize %}{{ count }} to check{% endtrans %}{% endif %}{% endif %}</span></summary>
+  <div class="doc-body">
+  {% if not decisions.by_status %}
   <p class="muted">{{ _("No architecture decision records were found where the target's settings say they live.") }}</p>
+  {% else %}
+  {{ about(_("A proposed ADR needs attention once it waits longer than the target's settings allow, and a superseded or deprecated one while a guide page still cites it. Worth a look: proposed ADRs with no date, and accepted ones no page cites.")) }}
+  <div class="doc-columns">
+  <div>
+  <h3>{{ _("By status") }}</h3>
+  {% set widest = decisions.by_status.values()|map("length")|max %}
+  <ul class="hbars" lang="en" dir="ltr">{% for status, found in decisions.by_status|dictsort %}{{ hbar(status, found|length, widest, found|length|number, "series-fill-5" if status in ("superseded", "deprecated") else "series-fill-1") }}{% endfor %}</ul>
+  </div>
+  <div>
+  {% if decisions.overdue or decisions.superseded_cited %}
+  <h3>{{ _("Needs attention") }}</h3>
+  {% if decisions.overdue %}
+  <h4>{{ _("Proposed for too long") }}</h4>
+  {% call(decision) listing(decisions.overdue) %}{{ decision_link(decision) }}<span class="faint">{% trans count=days_proposed(decision, today) %}proposed {{ count }} day ago{% pluralize %}proposed {{ count }} days ago{% endtrans %}</span>{% endcall %}
   {% endif %}
+  {% if decisions.superseded_cited %}
+  <h4>{{ _("Superseded or deprecated, still cited by the guide") }}</h4>
+  {% call(decision) listing(decisions.superseded_cited) %}{{ decision_link(decision) }}{% endcall %}
+  {% endif %}
+  {% endif %}
+  {% if to_check %}
+  <h3>{{ _("Worth a look") }}</h3>
+  {% if decisions.undated %}
+  <h4>{{ _("Proposed, with no date") }}</h4>
+  {% call(decision) listing(decisions.undated) %}{{ decision_link(decision) }}{% endcall %}
+  {% endif %}
+  {% if decisions.uncited and has_pages %}
+  <h4>{{ _("Accepted, but no page cites them") }}</h4>
+  {% call(decision) listing(decisions.uncited) %}{{ decision_link(decision) }}{% endcall %}
+  {% endif %}
+  {% endif %}
+  </div>
+  </div>
+  {% endif %}
+  </div>
+</details>
 </section>
 
 <section id="coverage" aria-labelledby="coverage-title">
-  <h2 id="coverage-title">{{ _("Mentioned and explained") }}</h2>
-  {% set mentions = report.mentions %}
+{% set mention_total = mentions.mentioned|length + mentions.unmentioned|length %}
+<details class="doc-fold"{% if open_section == "coverage" %} open{% endif %}>
+  <summary><h2 id="coverage-title">{{ _("Mentioned and explained") }}</h2><span class="doc-todo">{% trans count=mentions.unmentioned|length %}{{ count }} never mentioned{% pluralize %}{{ count }} never mentioned{% endtrans %}{% if has_pages %} · {% trans count=explained.unexplained|length %}{{ count }} unexplained{% pluralize %}{{ count }} unexplained{% endtrans %}{% endif %}</span></summary>
+  <div class="doc-body">
+  {{ about(_("A package counts when a document names it as a whole word, a project when its folder holds a README or a document names its folder, and a resource when a document names its address. A fact is explained when it falls in the scope of a written area or concept page.")) }}
   <p class="muted">{{ _("External packages, projects and infrastructure resources that some document names. A mention isn't a reason: this only shows what no document talks about at all.") }}</p>
-  <p>{% trans mentioned=mentions.mentioned|length, total=mentions.mentioned|length + mentions.unmentioned|length %}{{ mentioned }} of {{ total }} mentioned in a document{% endtrans %}</p>
-  {% if mentions.unmentioned %}
-  <h3>{{ _("Not mentioned in any document") }}</h3>
-  {% call(entity) capped(mentions.unmentioned) %}{{ fact_link(entity) }}{% endcall %}
-  {% endif %}
-  {% set explained = report.explained %}
-  {% if not report.rationale.pages %}
+  <ul class="hbars coverage-bars" dir="ltr">
+    {% set value %}{% trans numerator=mentions.mentioned|length, denominator=mention_total %}{{ numerator }} of {{ denominator }}{% endtrans %}{% endset %}
+    {{ hbar(_("Mentioned in a document"), mentions.mentioned|length, mention_total, value) }}
+    {% if has_pages %}
+    {% set value %}{% trans numerator=explained.explained, denominator=explained.total %}{{ numerator }} of {{ denominator }}{% endtrans %}{% endset %}
+    {{ hbar(_("Explained by a guide page"), explained.explained, explained.total, value) }}
+    {% endif %}
+  </ul>
+  {% if not has_pages %}
   <p class="muted">{{ _("Which facts the guide explains, and which ADRs it cites, are measured once your assistant has written its pages.") }}</p>
-  {% else %}
-  <p>{% trans explained=explained.explained, total=explained.total %}{{ explained }} of {{ total }} facts explained by a guide page{% endtrans %}</p>
   {% endif %}
-  {% if explained.unexplained and report.rationale.pages %}
+  <div class="doc-columns">
+  {% if mentions.unmentioned %}
+  <div>
+  <h3>{{ _("Not mentioned in any document") }}</h3>
+  <div data-filterable>
+  {{ chips(fact_filter, [("package", _("Packages")), ("project", _("Projects")), ("resource", _("Resources"))]) }}
+  {% call(entity) listing(mentions.unmentioned, fact_filter) %}{{ fact_link(entity) }}{% endcall %}
+  </div>
+  </div>
+  {% endif %}
+  {% if explained.unexplained and has_pages %}
+  <div>
   <h3>{{ _("Not explained by any page") }}</h3>
-  {% call(entity) capped(explained.unexplained) %}{{ fact_link(entity) }}{% endcall %}
+  {% call(entity) listing(explained.unexplained) %}{{ fact_link(entity) }}{% endcall %}
+  </div>
   {% endif %}
+  </div>
+  </div>
+</details>
 </section>
+
+</div>
+</div>
 {% endif %}
 </div>
 {% endblock %}

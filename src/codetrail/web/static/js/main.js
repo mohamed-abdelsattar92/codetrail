@@ -3,6 +3,7 @@
 import { post } from "./api.js";
 import { setUpAsk } from "./ask.js";
 import { setUpDiagrams } from "./diagram.js";
+import { setUpDocumentation } from "./documentation.js";
 import { setUpLearning } from "./learning.js";
 import { setUpOutline } from "./outline.js";
 import { setUpPalette } from "./palette.js";
@@ -31,4 +32,5 @@ setUpOutline();
 setUpResize();
 setUpDiagrams();
 setUpRepository();
+setUpDocumentation();
 document.documentElement.dataset.ready = "true"; // every handler is in place

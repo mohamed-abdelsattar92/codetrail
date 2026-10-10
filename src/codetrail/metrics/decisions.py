@@ -46,7 +46,8 @@ def cited_decisions(pages: Iterable[Page], decisions: Iterable[Entity]) -> set[s
     return cited
 
 
-def _date(decision: Entity) -> date | None:
+def written_on(decision: Entity) -> date | None:
+    """The ADR's `Date:`, or None when it gives none Python can read."""
     try:
         return date.fromisoformat(str(decision.attributes.get("date", "")))
     except ValueError:
@@ -64,7 +65,7 @@ def measure_decisions(
         status = str(decision.attributes.get("status") or "none")
         by_status.setdefault(status, []).append(decision)
         if status == "proposed":
-            written = _date(decision)
+            written = written_on(decision)
             if written is None:
                 undated.append(decision)
             elif (today - written).days > proposed_days:

@@ -88,3 +88,14 @@ def test_the_repository_charts_follow_the_language(page: Page, site: Site, error
     assert any(character.isascii() and character.isdigit() for character in text)
     assert not any(0x0660 <= ord(character) <= 0x0669 for character in text)  # no Arabic-Indic digits
     assert errors == []
+
+
+def test_the_documentation_page_follows_the_language(page: Page, site: Site, errors: list[str]) -> None:
+    in_arabic(page, site, "/documentation")
+    expect(page.locator("#rationale .doc-about > summary")).to_have_text("ما الذي يُحسب")
+    bar = page.locator("#rationale .stack-bar")
+    expect(bar).to_have_attribute("dir", "ltr")  # charts run left to right, like their numbers
+    legend = page.locator("#rationale .stack-legend").text_content() or ""
+    assert any(character.isascii() and character.isdigit() for character in legend)
+    assert not any(0x0660 <= ord(character) <= 0x0669 for character in legend)  # no Arabic-Indic digits
+    assert errors == []

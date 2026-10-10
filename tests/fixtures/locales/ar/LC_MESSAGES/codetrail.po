@@ -34,3 +34,6 @@ msgstr "مفهوم"
 msgctxt "month"
 msgid "Jul"
 msgstr "يوليو"
+
+msgid "What this counts"
+msgstr "ما الذي يُحسب"
