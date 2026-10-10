@@ -7,6 +7,8 @@ import pytest
 from codetrail.config import ToolsSettings
 from codetrail.repo.history import (
     WITHHELD_TAG,
+    commit_times,
+    commit_totals,
     commits_between,
     diff_between,
     latest_commits,
@@ -187,3 +189,17 @@ def test_only_tags_in_the_commits_history_are_read(tmp_path: Path, scanner: Secr
     mirror, end = mirror_of(checkout, tmp_path)
     assert sorted(tag.name for tag in read_tags(mirror, end, scanner)) == ["v1", "v2"]
     assert [tag.name for tag in read_tags(mirror, first, scanner)] == ["v1"]
+
+
+def test_commit_totals_and_times_count_the_whole_history(tmp_path: Path) -> None:
+    checkout = make_repository(tmp_path / "t", [{"a": "1"}, {"a": "2"}])
+    git(checkout, "checkout", "-q", "-b", "side")
+    add_commit(checkout, {"b": "1"})
+    git(checkout, "checkout", "-q", "develop")
+    git(checkout, "merge", "-q", "--no-ff", "side", "-m", "Merge side", date=5)
+    mirror, end = mirror_of(checkout, tmp_path)
+    assert commit_totals(mirror, end) == (4, 1)
+    times = commit_times(mirror, end, 10)
+    assert sorted(times, reverse=True) == times
+    assert times[0] == 1_790_000_000 + 5 * 60 and len(times) == 4
+    assert commit_times(mirror, end, 2) == times[:2]

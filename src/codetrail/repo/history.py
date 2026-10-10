@@ -113,6 +113,19 @@ def read_tags(mirror: Path, end: str, scanner: SecretScanner) -> list[Tag]:
     return [Tag(WITHHELD_TAG, tag.commit, tag.date, "") if index in flagged else tag for index, tag in enumerate(tags)]
 
 
+def commit_totals(mirror: Path, end: str) -> tuple[int, int]:
+    """How many commits `end`'s history holds, and how many of them are merges."""
+    total = run_git(["rev-list", "--count", "--end-of-options", end], git_dir=mirror)
+    merges = run_git(["rev-list", "--count", "--merges", "--end-of-options", end], git_dir=mirror)
+    return int(total), int(merges)
+
+
+def commit_times(mirror: Path, end: str, limit: int) -> list[int]:
+    """The author times of the latest `limit` commits, newest first: no message, name or email is read."""
+    output = run_git(["log", f"-n{limit}", "--format=%at", "--end-of-options", end], git_dir=mirror)
+    return [int(line) for line in output.split()]
+
+
 def merges_between(mirror: Path, start: str, end: str) -> int:
     count = run_git(["rev-list", "--count", "--merges", "--first-parent", f"{start}..{end}"], git_dir=mirror)
     return int(count)
