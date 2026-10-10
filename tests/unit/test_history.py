@@ -1,11 +1,21 @@
 """Filtered history: logs and diffs never show excluded paths or secrets (design section 3.3)."""
 
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 
 from codetrail.config import ToolsSettings
-from codetrail.repo.history import commits_between, diff_between, latest_commits, merges_between, recent_commits
+from codetrail.errors import CodetrailError
+from codetrail.repo.history import (
+    changed_paths,
+    commit_count,
+    commits_between,
+    diff_between,
+    latest_commits,
+    merges_between,
+    recent_commits,
+)
 from codetrail.repo.mirror import refresh_mirror
 from codetrail.repo.rules import ExclusionRules
 from codetrail.repo.secrets import SecretScanner
@@ -150,3 +160,48 @@ def test_latest_commits_skip_merges_and_withhold_secrets(tmp_path: Path, scanner
     assert commits[2].body == "Why: because\nit helps."
     assert token not in repr(commits)
     assert len(latest_commits(mirror, end, 2, scanner)) == 2
+
+
+SCANNER = SecretScanner(ToolsSettings())
+HistoryReader = Callable[[Path, str, str], object]
+READERS: dict[str, HistoryReader] = {
+    "commits_between from": lambda mirror, option, end: commits_between(mirror, option, end, visible, SCANNER),
+    "commits_between to": lambda mirror, option, end: commits_between(mirror, None, option, visible, SCANNER),
+    "recent_commits": lambda mirror, option, end: recent_commits(mirror, option, ["a.md"], 5, visible, SCANNER),
+    "latest_commits": lambda mirror, option, end: latest_commits(mirror, option, 5, SCANNER),
+    "commit_count": lambda mirror, option, end: commit_count(mirror, option, end),
+    "merges_between": lambda mirror, option, end: merges_between(mirror, option, end),
+    "diff_between from": lambda mirror, option, end: diff_between(mirror, option, end, visible, SCANNER),
+    "diff_between to": lambda mirror, option, end: diff_between(mirror, end, option, visible, SCANNER),
+    "changed_paths from": lambda mirror, option, end: changed_paths(mirror, option, end),
+    "changed_paths to": lambda mirror, option, end: changed_paths(mirror, end, option),
+}
+
+
+@pytest.mark.parametrize("reader", READERS.values(), ids=READERS.keys())
+def test_a_revision_starting_with_a_dash_is_never_read_as_an_option(tmp_path: Path, reader: HistoryReader) -> None:
+    checkout = make_repository(tmp_path / "t", [{"a.md": "a\n"}, {"a.md": "b\n"}])
+    mirror, end = mirror_of(checkout, tmp_path)
+    written = tmp_path / "written"
+    written.mkdir()
+    with pytest.raises(CodetrailError):
+        reader(mirror, f"--output={written / 'out'}", end)
+    assert list(written.iterdir()) == []
+
+
+DIFF_READERS: dict[str, Callable[[Path, str, str], object]] = {
+    "diff_between": lambda mirror, start, end: diff_between(mirror, start, end, visible, SCANNER),
+    "changed_paths": changed_paths,
+}
+
+
+@pytest.mark.parametrize("reader", DIFF_READERS.values(), ids=DIFF_READERS.keys())
+def test_files_outside_the_repository_are_never_compared_as_revisions(
+    tmp_path: Path, reader: Callable[[Path, str, str], object]
+) -> None:
+    checkout = make_repository(tmp_path / "t", [{"a.md": "a\n"}])
+    mirror, _end = mirror_of(checkout, tmp_path)
+    (tmp_path / "before").write_text("one\n")
+    (tmp_path / "after").write_text("one\n")  # alike, so a file comparison would succeed
+    with pytest.raises(CodetrailError):
+        reader(mirror, str(tmp_path / "before"), str(tmp_path / "after"))

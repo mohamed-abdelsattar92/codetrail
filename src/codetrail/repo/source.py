@@ -8,16 +8,20 @@ Symlinks, submodules and unsafe paths are never written.
 from __future__ import annotations
 
 import json
+import re
 import shutil
 from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass, field
 from pathlib import Path, PurePosixPath
 
+from codetrail.errors import CodetrailError
 from codetrail.repo.mirror import list_tree, read_blobs
 from codetrail.repo.rules import ExclusionRules, Reason, on_disk_key
 from codetrail.repo.secrets import SecretScanner
 
 REGULAR_FILE_MODES = {"100644", "100755"}
+# A full SHA-1 or SHA-256 object name, the only commit a manifest may name: never an option, a ref or a range.
+FULL_COMMIT = re.compile(r"[0-9a-f]{40}|[0-9a-f]{64}")
 
 
 @dataclass(frozen=True)
@@ -41,6 +45,8 @@ class SourceManifest:
         if not path.exists():
             return None
         data = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(data["commit"], str) or not FULL_COMMIT.fullmatch(data["commit"]):
+            raise CodetrailError(f"{path} names no valid commit; run codetrail update again.")
         excluded = [Excluded(item["path"], Reason(item["reason"]), item["rule"]) for item in data["excluded"]]
         return cls(commit=data["commit"], files=data["files"], excluded=excluded)
 

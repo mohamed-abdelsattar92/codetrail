@@ -7,6 +7,9 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 ### Added
 - A Documentation page (in the sidebar, or G then O) and a home card show how well the repository explains itself: how much of the guide's rationale is documented and from where (ADRs, documents, code comments, commits), which commits explain why, which ADRs need attention, and which dependencies, projects and resources no document mentions. Each number lists what's behind it, and each update keeps a trend. `codetrail metrics <target>` prints the same numbers. None of it calls your assistant.
 
+### Security
+- A revision read from Codetrail's data folder can no longer be taken by git as an option, and a `source.json` whose commit isn't a full commit name is refused, with a message to run the update again.
+
 ## [1.1.1] - 2026-10-09
 
 Release notes: [docs/releases/v1.1.1.md](docs/releases/v1.1.1.md).
