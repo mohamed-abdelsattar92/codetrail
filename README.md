@@ -63,7 +63,7 @@ Codetrail uses the assistant for meaning and code for structure: deterministic e
 | ✅ | **Checks** | Open questions on each page, graded against a rubric grounded in the code. |
 | ♻️ | **Staleness** | When the code behind a page you learned changes, the page says so and shows what changed. |
 | 📊 | **Documentation metrics** | How well the repository explains itself: how much of the guide's rationale is documented (and from where: ADRs, documents, code comments, commits), commits that explain why, ADRs to revisit, and dependencies no document mentions. Each number lists what's behind it and keeps a trend across updates. Free: no assistant call. |
-| 📈 | **Repository statistics** | What the repository is: its age, commits and activity month by month, its releases from tags, lines of code by language with the share in tests, and its facts by kind with the dependencies that arrived and left. `codetrail stats <target>` prints the summary. Free: no assistant call. |
+| 📈 | **Repository statistics** | What the repository is: its age, commits and activity month by month, its releases from tags, lines of code by language with the share in tests, its facts by kind with the dependencies that arrived and left, and where change happens: the most changed files, folders and guide areas beside how much of each area's rationale is documented, quiet code and commit size. `codetrail stats <target>` prints the summary. Free: no assistant call. |
 | 💲 | **Estimates first** | Every paid action shows what it will use before it runs: tokens, dollars at API prices, and your plan's usage. |
 
 ## A tour
@@ -243,7 +243,7 @@ The interface is English first and switches language from the page; it ships in 
 
 ## Status
 
-The latest release is Codetrail 1.1.1 ([release notes](docs/releases/v1.1.1.md), [changelog](CHANGELOG.md)); 1.0.0 was the first public release. Phases 0 to 14 of the [design](docs/design/2026-10-05-codetrail-design.md) are built and tested; Phases 13 and 14 are on `develop`, not yet released.
+The latest release is Codetrail 1.1.1 ([release notes](docs/releases/v1.1.1.md), [changelog](CHANGELOG.md)); 1.0.0 was the first public release. Phases 0 to 15 of the [design](docs/design/2026-10-05-codetrail-design.md) are built and tested; Phases 13 to 15 are on `develop`, not yet released.
 
 ```mermaid
 flowchart LR
@@ -261,7 +261,7 @@ flowchart LR
     P11 --> P12["12 · The whole system ✓"]
     P12 --> P13["13 · Documentation metrics ✓"]
     P13 --> P14["14 · Repository statistics ✓"]
-    P14 -.-> P15["15 · Where change happens (planned)"]
+    P14 --> P15["15 · Where change happens ✓"]
     P15 -.-> P16["16 · Decision inventory (planned)"]
 ```
 
@@ -282,7 +282,7 @@ flowchart LR
 | 12. The whole system | Facts for TypeScript, JavaScript and Astro code, deploy evidence from GitHub Actions, and the system pass: a repository's services, apps, libraries, contracts and infrastructure, and how they connect (`codetrail update` prints the count per rule); the system diagram on its own page, on the home page and on area pages, which pages and answers can also place | Done |
 | 13. Documentation metrics | The Documentation page, its home card and `codetrail metrics`: documented rationale by source, commits that explain why, ADR health, and facts a document mentions or the guide explains, with a trend per update | Done (unreleased) |
 | 14. Repository statistics | The Repository page, its home card and `codetrail stats`: the branch's history and activity, releases from its tags, code size by language with the test share, and facts by kind with the dependencies that arrived and left, with a trend per update | Done (unreleased) |
-| 15. Where change happens | Hot spots by file, folder and guide area beside their documented and inferred rationale, quiet code and commit size ([design section 19](docs/design/2026-10-05-codetrail-design.md#19-repository-statistics)) | Planned |
+| 15. Where change happens | On the Repository page: the most changed files, folders and guide areas beside each area's documented and inferred rationale, quiet code and commit size | Done (unreleased) |
 | 16. Decision inventory | An opt-in paid pass that lists the decisions in the code and looks for a documented "why" for each ([design section 18.8](docs/design/2026-10-05-codetrail-design.md#188-delivery-and-later-work)) | Planned |
 
 Codex and local models are tested against stand-ins and Codetrail's own tests; Claude Code is also tested live. Codex's provider decision is [ADR 0006](docs/adr/0006-assistant-providers-and-subscriptions.md).
