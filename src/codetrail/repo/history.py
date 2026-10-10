@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 
 from codetrail.repo.git import run_git
@@ -135,6 +136,38 @@ def first_commit_time(mirror: Path, end: str) -> int | None:
     """The earliest author time among the root commits of `end`'s history: a cheap "started on" for the home card."""
     output = run_git(["log", "--max-parents=0", "--format=%at", "--end-of-options", end], git_dir=mirror)
     return min((int(line) for line in output.split()), default=None)
+
+
+COMMIT_MARK = "\x01"
+
+
+def changed_files(mirror: Path, end: str, limit: int) -> list[list[str]]:
+    """The paths each of the latest `limit` non-merge commits changed, newest first (design section 19.1).
+
+    One git call printing only a mark per commit and its file names, NUL-separated: no message, name or email. Names
+    aren't filtered here; callers name only allowed files.
+    """
+    output = run_git(["log", f"-n{limit}", "--no-merges", "-z", "--name-only", "--format=%x01",
+                      "--end-of-options", end], git_dir=mirror).decode("utf-8", "surrogateescape")  # fmt: skip
+    commits: list[list[str]] = []
+    first_name = False
+    for field in output.split("\0"):
+        if field.lstrip("\n") == COMMIT_MARK:
+            commits.append([])
+            first_name = True
+        elif field and commits:
+            name = field[1:] if first_name and field.startswith("\n") else field  # a newline ends the header
+            first_name = False
+            if name:
+                commits[-1].append(name)
+    return commits
+
+
+def files_changed_since(mirror: Path, end: str, since: date) -> set[str]:
+    """The paths any commit in `end`'s history changed since the date; names only, which callers filter."""
+    output = run_git(["log", f"--since={since.isoformat()}", "-z", "--name-only", "--format=", "--end-of-options", end],
+                     git_dir=mirror)  # fmt: skip
+    return {name.lstrip("\n") for name in output.decode("utf-8", "surrogateescape").split("\0") if name.strip("\n")}
 
 
 def merges_between(mirror: Path, start: str, end: str) -> int:
