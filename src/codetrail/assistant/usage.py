@@ -42,7 +42,8 @@ class UsageLog:
             return 0.0
         cost = usage.cost_usd if usage.cost_usd is not None else priced(usage, self.prices)
         now = datetime.now(UTC).isoformat(timespec="seconds")
-        with self.connection:
+        self.connection.execute("BEGIN")  # the call and its plan readings are saved together or not at all
+        try:
             self.connection.execute(
                 "INSERT INTO assistant_calls (called_at, kind, provider, model, input_tokens, cached_input_tokens,"
                 " output_tokens, cost_usd) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
@@ -57,6 +58,11 @@ class UsageLog:
                     " observed_at = excluded.observed_at",
                     (usage.provider, window.window, window.utilization, window.resets_at, now),
                 )
+            self.connection.execute("COMMIT")
+        except BaseException:
+            if self.connection.in_transaction:  # SQLite ends it itself after some errors
+                self.connection.execute("ROLLBACK")
+            raise
         return cost or 0.0
 
 
