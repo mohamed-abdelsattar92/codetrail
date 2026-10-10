@@ -126,6 +126,12 @@ def commit_times(mirror: Path, end: str, limit: int) -> list[int]:
     return [int(line) for line in output.split()]
 
 
+def first_commit_time(mirror: Path, end: str) -> int | None:
+    """The earliest author time among the root commits of `end`'s history: a cheap "started on" for the home card."""
+    output = run_git(["log", "--max-parents=0", "--format=%at", "--end-of-options", end], git_dir=mirror)
+    return min((int(line) for line in output.split()), default=None)
+
+
 def merges_between(mirror: Path, start: str, end: str) -> int:
     count = run_git(["rev-list", "--count", "--merges", "--first-parent", f"{start}..{end}"], git_dir=mirror)
     return int(count)

@@ -11,6 +11,7 @@ from codetrail.repo.history import (
     commit_totals,
     commits_between,
     diff_between,
+    first_commit_time,
     latest_commits,
     merges_between,
     read_tags,
@@ -203,3 +204,13 @@ def test_commit_totals_and_times_count_the_whole_history(tmp_path: Path) -> None
     assert sorted(times, reverse=True) == times
     assert times[0] == 1_790_000_000 + 5 * 60 and len(times) == 4
     assert commit_times(mirror, end, 2) == times[:2]
+
+
+def test_the_first_commit_time_is_the_earliest_root_commit(tmp_path: Path) -> None:
+    checkout = make_repository(tmp_path / "t", [{"a": "1"}, {"a": "2"}])
+    git(checkout, "checkout", "-q", "--orphan", "imported")
+    git(checkout, "commit", "-q", "--allow-empty", "-m", "Imported", date=9)
+    git(checkout, "checkout", "-q", "develop")
+    git(checkout, "merge", "-q", "--allow-unrelated-histories", "imported", "-m", "Merge", date=10)
+    mirror, end = mirror_of(checkout, tmp_path)
+    assert first_commit_time(mirror, end) == 1_790_000_000

@@ -5,6 +5,7 @@ from __future__ import annotations
 import threading
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
+from datetime import date
 
 from codetrail.metrics.report import Metric, Value
 from codetrail.web.trend import trend_points
@@ -30,6 +31,12 @@ def percent_of(value: Value) -> int | None:
     if value.numerator < (value.denominator or 0):
         percent = min(percent, 99)
     return max(percent, 1) if value.numerator > 0 else percent
+
+
+def age(first: date, today: date) -> tuple[int, int]:
+    """Whole months from `first` to `today`, as years and months; a day of the month not yet reached doesn't count."""
+    months = (today.year - first.year) * 12 + today.month - first.month - (1 if today.day < first.day else 0)
+    return divmod(max(months, 0), 12)
 
 
 def _number(metric: Metric, value: Value) -> float | None:
