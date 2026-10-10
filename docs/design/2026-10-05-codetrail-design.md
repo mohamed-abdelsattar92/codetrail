@@ -955,7 +955,7 @@ The update records four more values in `metric_values` (section 18.3), in the sa
 
 ### 19.5 Where it appears
 - **The Repository page,** `/repository`, listed in the sidebar under Documentation; the shortcut is **G** then **T**. A row of five tiles: **Age** (the first commit's date), **Commits** (with its change since the last update), **Releases** (the latest and its date), **Code** (lines, with its change and trend line) and **Tests** (the test share, with its change and trend line). Below them, sections for the timeline (with the monthly bars as an inline SVG drawn on the server from numbers, and the same numbers as a table for screen readers), commit types, releases, code size, facts and, in Phase 15, where change happens. Lists show their first `metrics.max_listed` items and fold the rest away, as in section 18.4.
-- **The home card** "Repository" says when the repository started, its commits and its lines of code, and links to the page; it is shown once facts exist.
+- **The home card** "Repository" says when the repository started (the earliest root commit's date, one cheap git call), its commits and its lines of code (the values the last update recorded), and links to the page; it is shown once facts exist. It never builds the report, which reads every file.
 - **`codetrail stats <target>`** prints the same summary: first and latest commit, age, commits, releases, lines by language, the test share and facts by kind. It reads the history but never writes it.
 
 ### 19.6 Configuration
