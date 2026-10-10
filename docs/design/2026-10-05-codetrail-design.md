@@ -594,6 +594,8 @@ Each phase is usable on its own, has its own implementation plan, and ends with 
 | 13. Documentation metrics | The `metrics` module, the `metric_values` table, the Documentation page, the home card and `codetrail metrics` (section 18) | How well a repository explains itself, what to document next, and the trend across updates, at no cost | — |
 | 14. Repository statistics | Tags in the mirror; history, releases, code size and facts; the Repository page, the home card and `codetrail stats` (section 19) | How old and big a repository is, how fast it moves, when it released and what it depends on, at no cost | Phase 13 |
 | 15. Where change happens | Hot spots by file, folder and guide area with their rationale, quiet code and commit size (section 19.1) | Where a repository changes most, and where documenting would help most | Phase 14 |
+| 17. The Repository page's charts | The interactive timeline, the activity calendar, the change heat map and grid, and the charts for size, types and facts (section 20) | A repository's history and change at a glance, explorable | Phase 15 |
+| 18. The Documentation page's charts | The overview column, folding sections with a chart each, filter chips, and the code shared with the Repository page (section 21) | How well a repository explains itself at a glance, and what to fix first | Phase 17 |
 | 16. Decision inventory (planned) | An opt-in paid pass listing the decisions in the code and their documented "why" (section 18.8) | The share of the repository's decisions that are documented, beyond what the guide wrote about | Phase 13 |
 
 ## 14. Answers to the brainstorm's open questions
@@ -859,6 +861,7 @@ Migration `0006_metric_values.sql` adds `metric_values(snapshot, metric, numerat
 - **The Documentation page**, `/documentation`, listed in the sidebar under Decisions; the shortcut is **G** then **O**. A row of four tiles (documented share, commits that explain why, ADRs needing attention, mentioned in a document), each with "n of m", its change since the previous update, and a trend line over the last `metrics.trend_updates` updates: an inline SVG drawn on the server, with a text alternative. Below them, a section per metric with what it counts and what it doesn't, and its items: inferred blocks linking to their pages, documented blocks by source type and a table by page, commits without a why (short sha and subject), ADRs linking to their facts, unmentioned and unexplained facts linking to theirs. Long lists show their first `metrics.max_listed` items and the rest inside a `<details>` element. Documented is indigo and inferred amber, as everywhere.
 - **Before the first paid update** only the documented share is missing; its tile says there are no pages yet and links to **Update the guide**, which opens the estimate dialog as usual.
 - **The home card** "Documentation" shows the documented share with its change since the last update, and links to the page; it is shown once facts exist.
+- **Redrawn in Phase 18** as an overview beside folding sections, with a chart for every number (section 21).
 - **`codetrail metrics <target>`** prints each metric with "n of m" and its change since the last update. It reads the history but never writes it.
 
 ### 18.5 Configuration
@@ -1013,3 +1016,93 @@ quiet_days = 365            # Phase 15: code unchanged this long is quiet
 - **Phase 15:** where change happens, in its own feature branch.
 
 The decision inventory planned in section 18.8 becomes Phase 16.
+
+## 20. The Repository page's charts
+
+Approved by the founder on 10 October 2026, from the design made in Claude Design ([the canvas](https://claude.ai/artifact/RTb1VGd8Gd3o9jw4uW1ZS8): the page in light, in dark and at phone width). Section 19 measures the repository; this section draws it. The page keeps every number and list of section 19.5 and shows them as charts a reader can explore, at no cost, in Codetrail's own visual system (section 16.2).
+
+### 20.1 What the page shows
+- **A range picker** above everything: All time, 2 years, 1 year, 90 days. It drives the timeline.
+- **Headline tiles:** age, commits, releases, code and tests, each with a small trend: commits per month over the last year, and the recorded values of code lines and the test share over the last updates (section 19.4).
+- **The timeline,** one horizontal time axis with lanes:
+  - **Commits** as bars, per day when the window spans up to 120 days, per week up to 400 days and per month beyond, so a young repository's history isn't one bar. Hovering or focusing a bar shows its period and count; buttons pan the window earlier and later. Release names show where there is room for them; every release keeps its name on hover and for assistive technology.
+  - **Releases,** a diamond per release; choosing one shows its name, date, notes (section 19.2), the commits since the release before it and the days between them.
+  - **Dependencies** that arrived (+) and left (−), on a band shaded from the first snapshot, labelled "Watched by Codetrail since …": before it there is no history to show (section 19.1).
+  - **The whole history** as a strip of small bars, with the shown window outlined.
+  - **The numbers as a table,** folded away.
+- **Activity, day by day:** a calendar of the last 53 weeks, a square per day shaded by its commits, with active weeks, the longest quiet stretch, the busiest weekday and the latest commit beside it.
+- **Where change happens,** as a heat map:
+  - A treemap at one of three levels, **areas, folders or files**: a tile's size is its lines of code, its shade the commits that changed it among the latest `metrics.churn_window`. Folders are taken `metrics.folder_depth` levels deep (2 by default, so `services/api` and `apps/web` stand apart). Each level draws at most `metrics.heatmap_tiles` tiles, the largest by lines, and says how many it left out.
+  - An amber corner marks an area whose rationale is mostly inferred (more than twice as many inferred blocks as documented ones): where an ADR or a README would help most. Amber is never a chart color otherwise, so it keeps its meaning.
+  - Choosing a tile shows its counts beside the map: commits, lines, an area's documented and inferred blocks as a bar, and the files that changed most in it.
+  - **Change over time, by area:** a grid of the guide's areas against the last 12 months, each cell shaded by the commits that changed the area that month. Months older than the oldest commit read are marked as not read.
+  - **Commit size** as a histogram of the files each commit changes (1, 2, 3, 4–5, 6–10, 11–20, 21 or more), with the median and the 90th percentile; and **quiet code** by folder (section 19.1).
+- **What it is made of:** one bar of lines by language (the four largest languages, then Other), the test share as a bar, and the largest files.
+- **Commit types** as horizontal bars, with the busiest scopes.
+- **Facts by kind,** each with its change and its count over the last updates.
+
+### 20.2 New data
+- **Commits per day.** The history read (section 19.3) already returns each commit's author time; the activity keeps the count per UTC day from the first commit read to today, which the months, weeks, calendar and tiles are all drawn from.
+- **Each commit's time with its files.** `changed_files` returns each latest commit's author time beside its paths, for the area-by-month grid.
+- **Lines per area, folder and file** come from the code size (section 19.1): a folder's or area's lines are its code files' lines.
+- **Configuration:** `metrics.folder_depth` (2) and `metrics.heatmap_tiles` (60), globally.
+
+### 20.3 How it is drawn
+- The server renders the page as before, with every chart's numbers as a table, so it reads without the script and to a screen reader.
+- The charts are drawn by Codetrail's own script, `static/js/repository.js`, as SVG and HTML: no chart library. Its data is one JSON block in the page, `<script type="application/json">`, which the browser never runs, so the security policy (no inline script) is unchanged. The JSON is escaped for HTML (`<`, `>`, `&` and the line separators as `\u` escapes).
+- Text from the repository (paths, tag names and notes, package names) reaches the page only through `textContent` and attribute values, never `innerHTML`.
+- **Language:** the server puts every label the script needs into the JSON, translated: plain strings, the abbreviated month names from Babel, and each counted phrase once per plural category of the language (Babel's plural rule), which the script picks with `Intl.PluralRules`. Numbers are written with Western digits, as everywhere (section 7.2). The charts run left to right in every language, like the numbers and code they show.
+- **Color:** commits and every single-series chart in the accent; the heat map and the calendar in one indigo ramp of five steps, light to dark in the light theme and dark to light in the dark one; languages in four categorical colors checked for color-blind separation in both themes (light `#5b5bd6 #e87ba4 #2a78d6 #008300`, dark `#7c7cee #d55181 #3987e5 #2b8a2b`), then gray for Other. Every color is a token on `:root`, redefined for dark mode.
+- **Interaction:** the range picker, the pan buttons, the releases, the heat map's levels and tiles are buttons; bars, days and cells show their numbers on hover and on keyboard focus (arrow keys move along the timeline); reduced motion turns off transitions.
+
+### 20.4 Security
+Nothing new leaves the machine and nothing calls an assistant. The page stays one `GET` route behind the session. Every name in the JSON comes from the report, so excluded paths never appear (section 19.7), and the script never turns data into markup.
+
+### 20.5 Testing
+- **Unit:** commits per day around gaps and today; each commit's time with its files; lines per area and folder; folder depth; the tile cap and its note; the area-by-month grid with unread months; the size histogram's buckets; the plural templates for English and Arabic; the JSON escaping of `</script>` and `<!--`.
+- **API:** the page carries the JSON with the right numbers; a tag note holding `</script><script>` stays inert text; no excluded path or author appears; the tables read without the script.
+- **Browser:** the charts draw in both themes and in Arabic; switching the range redraws the bars; hovering or focusing a bar shows its count; choosing a release shows its notes; switching the heat map's level and choosing a tile updates the side panel; the page passes the accessibility scan in both themes; no console errors.
+
+### 20.6 Delivery
+Phase 17, in one feature branch.
+
+## 21. The Documentation page's charts
+
+Approved by the founder on 10 October 2026, from mockups reviewed in the design session. Section 18 measures how well a repository explains itself; the page that shows it (section 18.4) reads as walls of paragraphs, pills, tables and lists. This section redraws it as an overview beside folding sections, with a chart for every number, in the way section 20 draws the Repository page, so the two pages work alike. The metrics, their history and their lists don't change.
+
+### 21.1 What the page shows
+- **The header:** the title and one sentence. Each metric's longer explanation moves into its section, behind **What this counts**.
+- **The overview,** a narrow column beside the sections that stays in view while the page scrolls, with a tile per metric: documented rationale, commits that explain why, ADRs needing attention, mentioned in a document. Each tile shows its value, its change since the previous update, a bar (documented rationale's splits documented and inferred) and its trend over the last `metrics.trend_updates` updates. At phone width the column becomes a row of tiles above the sections.
+- **A folding section per metric.** Its header names the metric and what is left to fix ("54 inferred, worth documenting", "3 need attention · 2 to check"), so the page can be read closed. Inside, a **What this counts** panel (folded) with the explanation section 18.4 shows today, a chart, then the items, the most useful first:
+  - **Documented rationale:** one bar of the blocks by source, the four documented sources (ADRs, documents, code comments, commits) in shades of indigo and inferred in amber, with a legend that gives each count; a bar per page, documented against inferred, the most inferred first; then the inferred blocks, linking to their pages.
+  - **Commits that explain why:** one bar of the measured commits (explains why, body without a why, subject only), with the withheld messages counted beside it, since they are left out of the share; then the commits without a why, newest first, each with its short sha, subject and a tag for its kind, with **filter chips**: All, Body without a why, Subject only.
+  - **Architecture decisions:** a bar per status; **Needs attention**, the ADRs the tile counts (proposed too long, tagged with their days; superseded or deprecated and still cited); **Worth a look**, the proposed ADRs with no date and the accepted ones no page cites (once the guide has pages).
+  - **Mentioned and explained:** two bars, mentioned in a document ("64 of 81") and explained by a guide page; then, side by side, the facts no document mentions, with **filter chips** by kind (All, Packages, Projects, Resources), and the facts no page explains. "A mention isn't a reason" stays visible beside the bars, outside **What this counts**, so no reader misses it.
+- **Long lists** show their first `metrics.max_listed` items and fold the rest away, as now. A filter applies to both parts and updates the count of the folded rest.
+- **One section opens on load:** Architecture decisions when an ADR needs attention (they are few and the most urgent); otherwise the section whose tile's share is lowest (documented rationale, commits that explain why, or mentioned in a document), leaving out a share with nothing to measure; none when every share is complete or unmeasured. Comparing raw counts would always open the longest list.
+- **The empty states stay:** no facts yet, the metrics unavailable, no pages yet (the documented share's tile offers **Update the guide**, which opens the estimate dialog), and the history unreadable (the commits section says so and draws nothing).
+
+### 21.2 How it is drawn
+As section 20.3 draws the Repository page, with the code the two pages share:
+- **Shared code.** Phase 17 builds `plural_templates` and `script_json` in `web/repository_view.py` and its drawing in `static/js/repository.js`. With a second page that needs them, they move to `web/chart_data.py` and `static/js/charts.js` (the bar, the split bar, the trend line, number formatting and plural choice), and both pages import them. Nothing else is shared.
+- **The server renders the page:** the tiles' numbers and changes, the sections and their headers, the **What this counts** panels, the item lists with their links, and every chart's numbers as a table folded inside `<details>`, so the page reads without the script and to a screen reader. The folding sections are `<details>` elements, which open with the keyboard and need no script; the server marks the one to open on load with `open`.
+- **The charts' data is one JSON block,** `<script type="application/json" data-documentation-data>`, built by `web/documentation_view.py` and escaped by `script_json`. It holds only what the charts draw: each tile's value, change and trend; the rationale counts by source; the per-page counts with each page's title and id; the commit counts; the counts by status; the mentioned and explained counts; and the translated labels and plural templates.
+- **`static/js/documentation.js`** draws the charts into their containers with `charts.js`. Page titles are set with `textContent`; a page's link is `/pages/` and its id through `encodeURIComponent`.
+- **The item lists stay on the server,** so commit subjects, ADR titles and fact names never reach the script. Each item carries its kind as `data-kind` (`body-only`, `subject-only`, `package`, `project`, `resource`).
+- **The filter chips** are buttons with `aria-pressed`, rendered `hidden` and shown by the script; choosing one shows the items of its kind, in the list and in its folded rest, and announces the count. Without the script every item shows.
+- **Color:** documented and inferred keep their meaning (indigo and amber). The documented sources take four steps of Phase 17's indigo ramp; body without a why and subject only take two gray tokens. Amber stays inferred's alone, as section 20.3 keeps it. Every color is a token on `:root`, redefined for dark mode. Reduced motion turns off transitions.
+
+### 21.3 Data and language
+- **No new metric, stored value, route or setting.** Everything comes from the `MetricsReport` and the trend history (section 18). The view derives four things: a commit's kind (a body or not), an unmentioned fact's kind (from its id), an overdue ADR's age in days (its `Date:` and today), and the section to open.
+- **Language:** every new label goes through the catalogs, and Arabic gets them all; counted phrases are plural templates from `plural_templates`, chosen in the script with `Intl.PluralRules`; digits stay Western and the charts run left to right, as in section 20.3.
+
+### 21.4 Security
+Nothing new leaves the machine and nothing calls an assistant; the page stays one `GET` route behind the session, and the security policy is unchanged (the JSON block is never run). The JSON escapes `<`, `>`, `&`, U+2028 and U+2029. The only repository or guide text it carries is page titles, which the script sets as text. Everything else from the repository is rendered by autoescaping templates. Withheld messages and excluded files never appear, since the report already leaves them out, and authors are never shown.
+
+### 21.5 Testing
+- **Unit:** the shared code's tests move with it and pass unchanged; the JSON document holds every chart's numbers; the section to open (an ADR needing attention wins, then the lowest share, then none); a commit's kind; a fact's kind; an ADR's age around `metrics.proposed_adr_days`.
+- **API:** the page carries the JSON and it parses to the document; a page title or commit subject holding `</script><!--` stays inert text; the chosen section is `open`; each chart's table holds its numbers; every item has its `data-kind`; the empty states; no excluded path, withheld message or author appears; the security headers are unchanged.
+- **Browser:** the charts draw in both themes and in Arabic (Arabic labels, Western digits); sections open and close by click and keyboard; a chip filters the list and its folded rest and the count follows; the overview stays in view on a wide screen and becomes a row at phone width; without the script every item shows; the accessibility scan passes in both themes; no console errors; **G O** opens the page.
+
+### 21.6 Delivery
+Phase 18, in one feature branch started from `develop` once Phase 17 is finished into it. Its first task moves the shared code (section 21.2), and the Repository page keeps passing its tests unchanged.

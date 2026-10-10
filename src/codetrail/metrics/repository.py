@@ -40,6 +40,9 @@ from codetrail.repo.secrets import SecretScanner
 from codetrail.repo.source import SourceManifest, allowed_reader
 
 logger = logging.getLogger(__name__)
+# A part that fails these ways is unavailable and the rest of the report stands. ValueError and OverflowError come
+# from a date past the year 9999, which a commit or tag can claim and Python's dates can't hold.
+UNREADABLE = (CodetrailError, OSError, ValueError, OverflowError)
 
 
 @dataclass(frozen=True)
@@ -85,7 +88,7 @@ def build_repository_report(
             first = first_commit_time(mirror, end) if activity.cut else None
             if first is not None:  # the times read stop short of the first commit
                 activity = replace(activity, first=datetime.fromtimestamp(first, UTC).date())
-        except (CodetrailError, OSError) as error:
+        except UNREADABLE as error:
             logger.warning("The history isn't available: %s", error)
         try:
             scanner = SecretScanner(settings.tools)
@@ -94,16 +97,18 @@ def build_repository_report(
             tags = read_tags(mirror, end, scanner)
             newest = max(tags, key=lambda tag: (tag.date, tag.name), default=None)
             releases = measure_releases(tags, commit_count(mirror, newest.commit, end) if newest else None)
-        except (CodetrailError, OSError) as error:
+        except UNREADABLE as error:
             types = None
             logger.warning("The commit types and releases aren't available: %s", error)
         try:
             changes = changed_files(mirror, end, settings.metrics.churn_window)
             recent = files_changed_since(mirror, end, today - timedelta(days=settings.metrics.quiet_days))
-            code = {file.path for file in size.largest}
+            code_lines = {file.path: file.lines for file in size.largest}
             areas = _areas(data / "guide", target.adr.paths, target.metrics.document_globs)
-            churn = measure_churn(changes, files, code, recent, areas)
-        except (CodetrailError, OSError) as error:
+            metrics = settings.metrics
+            churn = measure_churn(changes, files, code_lines, recent, areas, today, metrics.folder_depth,
+                                  metrics.heatmap_tiles, metrics.churn_window)  # fmt: skip
+        except UNREADABLE as error:
             logger.warning("Where change happens isn't available: %s", error)
     inventory = measure_inventory(store, settings.metrics.trend_updates)
     return RepositoryReport(activity, types, releases, size, inventory, churn)

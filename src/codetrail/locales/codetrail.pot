@@ -29,8 +29,20 @@ msgstr[0] ""
 msgstr[1] ""
 
 #, python-format
+msgid "%(count)s commit"
+msgid_plural "%(count)s commits"
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
 msgid "%(count)s commit behind"
 msgid_plural "%(count)s commits behind"
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
+msgid "%(count)s commit since %(name)s"
+msgid_plural "%(count)s commits since %(name)s"
 msgstr[0] ""
 msgstr[1] ""
 
@@ -49,6 +61,12 @@ msgstr[1] ""
 #, python-format
 msgid "%(count)s day"
 msgid_plural "%(count)s days"
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
+msgid "%(count)s day after it"
+msgid_plural "%(count)s days after it"
 msgstr[0] ""
 msgstr[1] ""
 
@@ -123,6 +141,12 @@ msgstr[0] ""
 msgstr[1] ""
 
 #, python-format
+msgid "%(count)s line"
+msgid_plural "%(count)s lines"
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
 msgid "%(count)s merge"
 msgid_plural "%(count)s merges"
 msgstr[0] ""
@@ -165,6 +189,12 @@ msgstr[1] ""
 #, python-format
 msgid "%(count)s release"
 msgid_plural "%(count)s releases"
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
+msgid "%(count)s smaller one isn't drawn."
+msgid_plural "%(count)s smaller ones aren't drawn."
 msgstr[0] ""
 msgstr[1] ""
 
@@ -261,10 +291,23 @@ msgid "%(percent)s%% of the guide's rationale is documented"
 msgstr ""
 
 #, python-format
+msgid "%(percent)s%% of the lines of code are tests"
+msgstr ""
+
+#, python-format
 msgid "%(reason)s The facts were refreshed; the guide wasn't updated."
 msgstr ""
 
 msgid ", drawn from the code"
+msgstr ""
+
+msgid "1 year"
+msgstr ""
+
+msgid "2 years"
+msgstr ""
+
+msgid "90 days"
 msgstr ""
 
 msgid ""
@@ -281,10 +324,16 @@ msgstr ""
 msgid "Actions"
 msgstr ""
 
+msgid "Activity, day by day"
+msgstr ""
+
 msgid "Age"
 msgstr ""
 
 msgid "All saved answers"
+msgstr ""
+
+msgid "All time"
 msgstr ""
 
 msgid ""
@@ -331,6 +380,10 @@ msgstr ""
 msgid "Apps"
 msgstr ""
 
+msgctxt "month"
+msgid "Apr"
+msgstr ""
+
 msgid "Architecture decisions"
 msgstr ""
 
@@ -341,6 +394,10 @@ msgid "Areas"
 msgstr ""
 
 msgid "Areas are counted once your assistant has written the guide's area pages."
+msgstr ""
+
+#, python-format
+msgid "Arrived: %(name)s"
 msgstr ""
 
 msgid "Ask"
@@ -385,6 +442,10 @@ msgstr ""
 msgid "At commit %(commit)s."
 msgstr ""
 
+msgctxt "month"
+msgid "Aug"
+msgstr ""
+
 msgid "Back to the start"
 msgstr ""
 
@@ -397,6 +458,9 @@ msgstr ""
 msgid "Browse the code"
 msgstr ""
 
+msgid "Busiest weekday"
+msgstr ""
+
 msgid "Call"
 msgstr ""
 
@@ -404,6 +468,9 @@ msgid "Called by"
 msgstr ""
 
 msgid "Cancel"
+msgstr ""
+
+msgid "Change over time, by area"
 msgstr ""
 
 msgid "Changed since you learned it"
@@ -453,14 +520,27 @@ msgstr ""
 msgid "Commits"
 msgstr ""
 
+msgid "Commits by the files they change"
+msgstr ""
+
+msgid "Commits per day"
+msgstr ""
+
+msgid ""
+"Commits per day over the last 53 weeks; the numbers by month are in the "
+"timeline's table."
+msgstr ""
+
 msgid "Commits per month"
 msgstr ""
 
 msgid "Commits per month and per year, as numbers"
 msgstr ""
 
-#, python-format
-msgid "Commits per month: %(months)s"
+msgid "Commits per month in each guide area over the last year."
+msgstr ""
+
+msgid "Commits per week"
 msgstr ""
 
 msgid "Commits that explain why"
@@ -493,10 +573,17 @@ msgstr ""
 msgid "Couldn’t save the answer."
 msgstr ""
 
+msgctxt "month"
+msgid "Dec"
+msgstr ""
+
 msgid "Decision"
 msgstr ""
 
 msgid "Decisions"
+msgstr ""
+
+msgid "Dependencies"
 msgstr ""
 
 msgid "Dependencies of"
@@ -529,7 +616,15 @@ msgstr ""
 msgid "Drag to resize; double-click to reset"
 msgstr ""
 
+msgid ""
+"Each tile's size is its lines of code; its shade, the commits that "
+"changed it."
+msgstr ""
+
 msgid "Each update writes a digest of what changed since the last one."
+msgstr ""
+
+msgid "Earlier"
 msgstr ""
 
 msgctxt "language name"
@@ -565,6 +660,19 @@ msgstr ""
 msgid "Facts:"
 msgstr ""
 
+msgctxt "month"
+msgid "Feb"
+msgstr ""
+
+msgid "Fewer"
+msgstr ""
+
+msgid "Fewer commits"
+msgstr ""
+
+msgid "File"
+msgstr ""
+
 msgid "Files"
 msgstr ""
 
@@ -594,6 +702,9 @@ msgstr ""
 msgid "Folder"
 msgstr ""
 
+msgid "Folders"
+msgstr ""
+
 msgid "For example: how does a request reach the database?"
 msgstr ""
 
@@ -601,6 +712,17 @@ msgid "Found in"
 msgstr ""
 
 msgid "Found in a file you can open"
+msgstr ""
+
+msgctxt "weekday"
+msgid "Fri"
+msgstr ""
+
+msgid "Friday"
+msgstr ""
+
+#, python-format
+msgid "From %(start)s to %(end)s"
 msgstr ""
 
 msgid "Go ahead"
@@ -633,7 +755,13 @@ msgstr ""
 msgid "Go to your system"
 msgstr ""
 
+msgid "Group by"
+msgstr ""
+
 msgid "Guide"
+msgstr ""
+
+msgid "Guide area"
 msgstr ""
 
 msgid "Guide areas"
@@ -671,19 +799,34 @@ msgstr ""
 msgid "Infrastructure"
 msgstr ""
 
+msgctxt "month"
+msgid "Jan"
+msgstr ""
+
+msgctxt "month"
+msgid "Jul"
+msgstr ""
+
+msgctxt "month"
+msgid "Jun"
+msgstr ""
+
 msgid "Keep the answers worth keeping"
 msgstr ""
 
 msgid "Keyboard shortcuts"
 msgstr ""
 
-msgid "Kind"
-msgstr ""
-
 msgid "Language"
 msgstr ""
 
+msgid "Languages, as a table"
+msgstr ""
+
 msgid "Largest files"
+msgstr ""
+
+msgid "Later"
 msgstr ""
 
 msgid "Latest commit"
@@ -697,6 +840,10 @@ msgid "Learned"
 msgstr ""
 
 msgid "Learned, but changed since"
+msgstr ""
+
+#, python-format
+msgid "Left: %(name)s"
 msgstr ""
 
 msgid "Legend"
@@ -714,6 +861,10 @@ msgstr ""
 msgid "Longest quiet stretch"
 msgstr ""
 
+msgctxt "month"
+msgid "Mar"
+msgstr ""
+
 msgid "Mark read"
 msgstr ""
 
@@ -726,6 +877,10 @@ msgstr ""
 msgid "Matched by name: likely, not certain"
 msgstr ""
 
+msgctxt "month"
+msgid "May"
+msgstr ""
+
 msgid "Mentioned and explained"
 msgstr ""
 
@@ -733,6 +888,13 @@ msgid "Mentioned in a document"
 msgstr ""
 
 msgid "Menu"
+msgstr ""
+
+msgctxt "weekday"
+msgid "Mon"
+msgstr ""
+
+msgid "Monday"
 msgstr ""
 
 msgid "Month"
@@ -744,7 +906,13 @@ msgstr ""
 msgid "Most changed files"
 msgstr ""
 
+msgid "Most changed files in it"
+msgstr ""
+
 msgid "Most changed folders"
+msgstr ""
+
+msgid "Mostly inferred rationale: where an ADR or a README would help most"
 msgstr ""
 
 msgid "Next"
@@ -755,6 +923,9 @@ msgid ""
 "say they live."
 msgstr ""
 
+msgid "No code to draw yet."
+msgstr ""
+
 msgid "No commits to measure yet."
 msgstr ""
 
@@ -762,6 +933,9 @@ msgid "No connections between the parts were found."
 msgstr ""
 
 msgid "No decisions found"
+msgstr ""
+
+msgid "No dependency changes in this window."
 msgstr ""
 
 msgid "No digest yet."
@@ -776,9 +950,15 @@ msgstr ""
 msgid "No facts yet"
 msgstr ""
 
+msgid "No file in it changed in the commits read."
+msgstr ""
+
 msgid ""
 "No pages yet: the guide's rationale is measured once your assistant "
 "writes it."
+msgstr ""
+
+msgid "No releases in this window."
 msgstr ""
 
 msgid "No releases: the branch has no tags."
@@ -816,6 +996,9 @@ msgstr ""
 msgid "Not yet"
 msgstr ""
 
+msgid "Notes, from the tag"
+msgstr ""
+
 #, python-format
 msgid "Nothing in the guide matches “%(query)s”."
 msgstr ""
@@ -827,7 +1010,12 @@ msgstr ""
 msgid "Nothing to learn yet"
 msgstr ""
 
-msgid "Now"
+msgctxt "month"
+msgid "Nov"
+msgstr ""
+
+msgctxt "month"
+msgid "Oct"
 msgstr ""
 
 msgid "On this page"
@@ -851,8 +1039,17 @@ msgid_plural "%(count)s wait for the next update."
 msgstr[0] ""
 msgstr[1] ""
 
+msgid "Open the area page"
+msgstr ""
+
+msgid "Open the file"
+msgstr ""
+
 #, python-format
 msgid "Or from a terminal: <code>codetrail update %(name)s</code>"
+msgstr ""
+
+msgid "Other"
 msgstr ""
 
 msgid "Outside the paths"
@@ -954,10 +1151,16 @@ msgid ""
 "reading. It counts only what the guide wrote about."
 msgstr ""
 
+msgid "Rationale in its guide page"
+msgstr ""
+
 msgid "Read"
 msgstr ""
 
 msgid "Refreshing the facts (free)…"
+msgstr ""
+
+msgid "Release"
 msgstr ""
 
 msgid "Releases"
@@ -1003,6 +1206,13 @@ msgid "Run your first update"
 msgstr ""
 
 msgid "Runs on"
+msgstr ""
+
+msgctxt "weekday"
+msgid "Sat"
+msgstr ""
+
+msgid "Saturday"
 msgstr ""
 
 msgid "Save to guide"
@@ -1082,6 +1292,10 @@ msgstr ""
 msgid "Send"
 msgstr ""
 
+msgctxt "month"
+msgid "Sep"
+msgstr ""
+
 msgid "Service or app"
 msgstr ""
 
@@ -1111,6 +1325,13 @@ msgid "Steps"
 msgstr ""
 
 msgid "Steps learned"
+msgstr ""
+
+msgctxt "weekday"
+msgid "Sun"
+msgstr ""
+
+msgid "Sunday"
 msgstr ""
 
 msgid "Superseded or deprecated, still cited by the guide"
@@ -1161,6 +1382,9 @@ msgid ""
 "are read: no author or message."
 msgstr ""
 
+msgid "The charts need the page's script; their numbers are in the tables below."
+msgstr ""
+
 msgid "The commit history couldn't be read just now; the log says why."
 msgstr ""
 
@@ -1194,6 +1418,9 @@ msgid ""
 "target's document_globs, and tests those matching its test_globs."
 msgstr ""
 
+msgid "The first release"
+msgstr ""
+
 msgid "The grade couldn't be read, so nothing was recorded; try again."
 msgstr ""
 
@@ -1204,6 +1431,9 @@ msgid "The history couldn't be read just now."
 msgstr ""
 
 msgid "The history couldn't be read just now; the log says why."
+msgstr ""
+
+msgid "The last 53 weeks, a square per day, shaded by its commits."
 msgstr ""
 
 #, python-format
@@ -1283,6 +1513,16 @@ msgstr ""
 msgid "This file isn't text, or is too large to show."
 msgstr ""
 
+msgctxt "weekday"
+msgid "Thu"
+msgstr ""
+
+msgid "Thursday"
+msgstr ""
+
+msgid "Time range"
+msgstr ""
+
 msgid "Timeline"
 msgstr ""
 
@@ -1308,6 +1548,13 @@ msgid "Trend over %(count)s update: %(values)s"
 msgid_plural "Trend over %(count)s updates: %(values)s"
 msgstr[0] ""
 msgstr[1] ""
+
+msgctxt "weekday"
+msgid "Tue"
+msgstr ""
+
+msgid "Tuesday"
+msgstr ""
 
 msgid "Unread"
 msgstr ""
@@ -1348,10 +1595,28 @@ msgstr ""
 msgid "Updating…"
 msgstr ""
 
+msgid "Use the left and right arrow keys to read each bar."
+msgstr ""
+
 msgid "Used"
 msgstr ""
 
 msgid "Wait a few seconds before the next answer."
+msgstr ""
+
+#, python-format
+msgid "Watched by Codetrail since %(date)s"
+msgstr ""
+
+msgctxt "weekday"
+msgid "Wed"
+msgstr ""
+
+msgid "Wednesday"
+msgstr ""
+
+#, python-format
+msgid "Week of %(date)s"
 msgstr ""
 
 msgid "Weeks with a commit"
@@ -1385,12 +1650,18 @@ msgstr ""
 msgid "Where change happens"
 msgstr ""
 
+msgid "Where change happens, as tables"
+msgstr ""
+
 msgid "Where it fits"
 msgstr ""
 
 msgid ""
 "Which facts the guide explains, and which ADRs it cites, are measured "
 "once your assistant has written its pages."
+msgstr ""
+
+msgid "Whole history"
 msgstr ""
 
 msgid "Why each arrow is there"
@@ -1477,10 +1748,16 @@ msgstr ""
 msgid "changed"
 msgstr ""
 
+msgid "commits"
+msgstr ""
+
 msgid "default model"
 msgstr ""
 
 msgid "depends on"
+msgstr ""
+
+msgid "documented"
 msgstr ""
 
 msgid "free"
@@ -1495,10 +1772,16 @@ msgid_plural "in %(count)s languages"
 msgstr[0] ""
 msgstr[1] ""
 
+msgid "inferred"
+msgstr ""
+
 msgid "is deployed on"
 msgstr ""
 
 msgid "its outline entry changed"
+msgstr ""
+
+msgid "lines of code"
 msgstr ""
 
 msgctxt "text direction"
@@ -1508,10 +1791,19 @@ msgstr ""
 msgid "matched by name:"
 msgstr ""
 
+msgid "more"
+msgstr ""
+
+msgid "mostly inferred rationale"
+msgstr ""
+
 msgid "no charge; the work counts against your plan's usage limits."
 msgstr ""
 
 msgid "no price configured"
+msgstr ""
+
+msgid "not read"
 msgstr ""
 
 msgid "nothing to measure yet"

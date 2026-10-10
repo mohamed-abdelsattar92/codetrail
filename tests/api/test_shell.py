@@ -64,11 +64,14 @@ class Scripts(HTMLParser):
         self.scripts: list[dict[str, str | None]] = []
         self.handlers: list[str] = []
         self.inline: list[str] = []
+        self.data_blocks: list[dict[str, str | None]] = []
         self._in_script = False
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         self.handlers += [name for name, _ in attrs if name.startswith("on") or name == "style"]
-        if tag == "script":
+        if tag == "script" and dict(attrs).get("type") == "application/json":
+            self.data_blocks.append(dict(attrs))  # data the browser never runs (design section 20.3)
+        elif tag == "script":
             self.scripts.append(dict(attrs))
             self._in_script = True
 
@@ -107,6 +110,8 @@ def test_pages_run_no_inline_script_or_handler(paths: Paths, url: str) -> None:
         "/static/js/theme-init.js", "/static/vendor/mermaid.js", "/static/js/main.js",
     ]  # fmt: skip
     assert parser.scripts[2].get("type") == "module"
+    assert all(set(block) == {"type", "data-repository-data"} for block in parser.data_blocks)
+    assert len(parser.data_blocks) == (1 if url == "/repository" else 0)
 
 
 def test_the_sidebar_lists_paths_areas_concepts_and_answers(paths: Paths) -> None:

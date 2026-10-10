@@ -25,6 +25,7 @@ from fastapi import FastAPI, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader, select_autoescape
+from markupsafe import Markup
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.types import ASGIApp, Receive, Scope, Send
 
@@ -63,9 +64,19 @@ from codetrail.web.navigation import (
     steps_of,
 )
 from codetrail.web.render import render_body
+from codetrail.web.repository_view import (
+    bar_heights,
+    busiest_weekday,
+    chart_document,
+    language_segments,
+    month_names,
+    months_table,
+    ramp_step,
+    script_json,
+    weekday_full_names,
+)
 from codetrail.web.security import OPEN_PATHS, SESSION_COOKIE, SecurityMiddleware, SessionState, login_response
 from codetrail.web.target_view import TargetView
-from codetrail.web.trend import bars
 
 LANGUAGE_SETTING = "language"
 logger = logging.getLogger(__name__)
@@ -580,13 +591,22 @@ def create_app(
                 metric: [value for _, value in recent_values(store.connection, metric, settings.metrics.trend_updates)]
                 for metric in Metric
             }
-        activity = report.activity
+        activity, churn, current = report.activity, report.churn, language()
+        weekday = busiest_weekday(activity)
         return render(
             "repository.html", active="repository", report=report, tiles=build_tiles(report.values(), before, history),
             age=age(activity.first, today) if activity and activity.first else None, today=today,
-            bars=bars([count for _, count in activity.months]) if activity else [], listed=settings.metrics.max_listed,
-            history_limit=settings.metrics.history_limit, largest_files=settings.metrics.largest_files,
-            quiet_days=settings.metrics.quiet_days,
+            listed=settings.metrics.max_listed, history_limit=settings.metrics.history_limit,
+            largest_files=settings.metrics.largest_files, quiet_days=settings.metrics.quiet_days,
+            all_months=months_table(activity),
+            # script_json escapes <, > and &, so nothing in the document can end its <script> block.
+            chart_json=Markup(script_json(chart_document(report, current, today))),  # noqa: S704
+            weekday_name=weekday_full_names(current)[weekday] if weekday is not None else None,
+            month_names=month_names(current),
+            area_titles={spot.page.id: spot.page.title for spot in churn.areas} if churn else {},
+            grid_highest=max((count or 0 for _, cells in churn.area_months for count in cells), default=0)
+            if churn else 0,
+            ramp_step=ramp_step, bar_heights=bar_heights, language_segments=language_segments,
         )  # fmt: skip
 
     @app.post("/settings/language")
@@ -646,6 +666,14 @@ def create_app(
     return SecurityMiddleware(TargetInUseMiddleware(app, paths, name), session=session, port=settings.server.port)
 
 
+def day_text(seconds: int) -> str:
+    """The UTC day of a time a repository gave, or a dash for one Python's dates can't hold (past the year 9999)."""
+    try:
+        return datetime.fromtimestamp(seconds, UTC).date().isoformat()
+    except ValueError, OverflowError, OSError:
+        return "—"
+
+
 def _environment(templates: str, language: Language) -> Environment:
     environment = Environment(
         loader=FileSystemLoader(templates),
@@ -657,7 +685,7 @@ def _environment(templates: str, language: Language) -> Environment:
     environment.filters["utc"] = when_text
     environment.filters["dollars"] = lambda value: "" if value is None else f"${value:.2f}"
     environment.filters["number"] = lambda value: f"{value:,}"
-    environment.filters["day"] = lambda seconds: datetime.fromtimestamp(seconds, UTC).date().isoformat()
+    environment.filters["day"] = day_text
     return environment
 
 

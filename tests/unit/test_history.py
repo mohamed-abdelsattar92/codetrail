@@ -298,8 +298,17 @@ def test_changed_files_lists_each_latest_commits_paths(tmp_path: Path) -> None:
     git(checkout, "checkout", "-q", "develop")
     git(checkout, "merge", "-q", "--no-ff", "side", "-m", "Merge side", date=9)
     mirror, end = mirror_of(checkout, tmp_path)
-    assert changed_files(mirror, end, 10) == [["z"], [], ["y"], ["a b/x.txt", "y"]]
-    assert changed_files(mirror, end, 2) == [["z"], []]
+    found = changed_files(mirror, end, 10)
+    assert [paths for _, paths in found] == [["z"], [], ["y"], ["a b/x.txt", "y"]]
+    assert [time for time, _ in found] == [1_790_000_000 + minutes * 60 for minutes in (3, 2, 1, 0)]
+    assert [paths for _, paths in changed_files(mirror, end, 2)] == [["z"], []]
+
+
+def test_a_file_named_like_the_commit_mark_is_a_file(tmp_path: Path) -> None:
+    names = ["\x01", "\x01\u00b2", "\x01999999999999", "y"]
+    checkout = make_repository(tmp_path / "t", [dict.fromkeys(names, "1\n")])
+    mirror, end = mirror_of(checkout, tmp_path)
+    assert changed_files(mirror, end, 10) == [(1_790_000_000, sorted(names, key=str.encode))]  # none poses as a commit
 
 
 def test_files_changed_since_a_date(tmp_path: Path) -> None:

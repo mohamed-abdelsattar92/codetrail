@@ -6,6 +6,8 @@ when it holds a finding, which catches a secret that a commit removed although t
 
 from __future__ import annotations
 
+import re
+import secrets
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import date
@@ -141,25 +143,29 @@ def first_commit_time(mirror: Path, end: str) -> int | None:
 COMMIT_MARK = "\x01"
 
 
-def changed_files(mirror: Path, end: str, limit: int) -> list[list[str]]:
-    """The paths each of the latest `limit` non-merge commits changed, newest first (design section 19.1).
+def changed_files(mirror: Path, end: str, limit: int) -> list[tuple[int, list[str]]]:
+    """Each of the latest `limit` non-merge commits' author time and changed paths, newest first (sections 19.1, 20.2).
 
-    One git call printing only a mark per commit and its file names, NUL-separated: no message, name or email. Names
-    aren't filtered here; callers name only allowed files.
+    One git call printing only a mark with the time per commit, and its file names, NUL-separated: no message, name or
+    email. The mark holds a random token drawn for this call, so no file name can pose as a commit, and only ASCII
+    digits follow it. Names aren't filtered here; callers name only allowed files.
     """
-    output = run_git(["log", f"-n{limit}", "--no-merges", "-z", "--name-only", "--format=%x01",
+    token = secrets.token_hex(16)
+    header_pattern = re.compile(re.escape(COMMIT_MARK + token) + r"([0-9]{1,12})")
+    output = run_git(["log", f"-n{limit}", "--no-merges", "-z", "--name-only", f"--format=%x01{token}%at",
                       "--end-of-options", end], git_dir=mirror).decode("utf-8", "surrogateescape")  # fmt: skip
-    commits: list[list[str]] = []
+    commits: list[tuple[int, list[str]]] = []
     first_name = False
     for field in output.split("\0"):
-        if field.lstrip("\n") == COMMIT_MARK:
-            commits.append([])
+        header = header_pattern.fullmatch(field.lstrip("\n"))
+        if header:
+            commits.append((int(header[1]), []))
             first_name = True
         elif field and commits:
             name = field[1:] if first_name and field.startswith("\n") else field  # a newline ends the header
             first_name = False
             if name:
-                commits[-1].append(name)
+                commits[-1][1].append(name)
     return commits
 
 

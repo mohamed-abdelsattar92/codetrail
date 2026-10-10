@@ -30,3 +30,7 @@ msgstr "منطقة"
 
 msgid "Concept"
 msgstr "مفهوم"
+
+msgctxt "month"
+msgid "Jul"
+msgstr "يوليو"

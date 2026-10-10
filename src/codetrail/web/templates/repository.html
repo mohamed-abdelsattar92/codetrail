@@ -20,9 +20,19 @@
 {% endif %}
 {% endmacro %}
 <div class="wide">
-<header class="page-head">
-  <h1>{{ _("Repository") }}</h1>
-  <p class="muted">{{ _("What the repository is: its history, its releases, its code and its facts. Read from the code and its history, without calling your assistant.") }}</p>
+<header class="page-head repository-head">
+  <div>
+    <h1>{{ _("Repository") }}</h1>
+    <p class="muted">{{ _("What the repository is: its history, its releases, its code and its facts. Read from the code and its history, without calling your assistant.") }}</p>
+  </div>
+  {% if report is not none and report.activity and report.activity.days_start %}
+  <div class="segmented" role="group" aria-label="{{ _('Time range') }}" data-range-picker hidden>
+    <button type="button" data-range="all" aria-pressed="true">{{ _("All time") }}</button>
+    <button type="button" data-range="2y" aria-pressed="false">{{ _("2 years") }}</button>
+    <button type="button" data-range="1y" aria-pressed="false">{{ _("1 year") }}</button>
+    <button type="button" data-range="90d" aria-pressed="false">{{ _("90 days") }}</button>
+  </div>
+  {% endif %}
 </header>
 {% if report is none %}
 <section class="empty">
@@ -96,6 +106,20 @@
   <p class="muted">{{ _("The history couldn't be read just now; the log says why.") }}</p>
   {% else %}
   <p class="muted">{{ _("The branch's whole history, by author date in UTC. Only dates and counts are read: no author or message.") }}</p>
+  <div class="chart-head">
+    <p class="chart-window" data-window-text aria-live="polite"></p>
+    <div class="chart-pan" data-pan hidden>
+      <button type="button" class="icon-button" data-pan-earlier aria-label="{{ _('Earlier') }}">‹</button>
+      <button type="button" class="icon-button" data-pan-later aria-label="{{ _('Later') }}">›</button>
+    </div>
+  </div>
+  <div class="timeline" data-chart="timeline" dir="ltr">
+    <p class="chart-fallback muted">{{ _("The charts need the page's script; their numbers are in the tables below.") }}</p>
+  </div>
+  <div class="release-panel" data-release-panel hidden>
+    <div><span class="card-label">{{ _("Release") }}</span><p class="release-name" data-release-name lang="en" dir="ltr"></p><p class="muted" data-release-meta></p></div>
+    <div><span class="card-label">{{ _("Notes, from the tag") }}</span><p class="release-notes" data-release-notes lang="en" dir="ltr"></p></div>
+  </div>
   <table class="metric-table">
     <tbody>
     <tr><th scope="row">{{ _("First commit") }}</th><td>{{ activity.first.isoformat() }}</td></tr>
@@ -105,15 +129,11 @@
     </tbody>
   </table>
   {% if activity.cut %}<p class="muted">{% trans count=history_limit|number %}The timeline shows the latest {{ count }} commits; the counts cover them all.{% endtrans %}</p>{% endif %}
-  <h3>{{ _("Commits per month") }}</h3>
-  {% set month_text %}{% for month, count in activity.months %}{{ month }}: {{ count }}{% if not loop.last %}, {% endif %}{% endfor %}{% endset %}
-  <svg class="bars" viewBox="0 0 480 96" preserveAspectRatio="none" role="img" aria-label="{% trans months=month_text %}Commits per month: {{ months }}{% endtrans %}">{% for x, y, width, height in bars %}<rect x="{{ '%.1f'|format(x) }}" y="{{ '%.1f'|format(y) }}" width="{{ '%.1f'|format(width) }}" height="{{ '%.1f'|format(height) }}"/>{% endfor %}</svg>
-  <div class="bars-axis" lang="en" dir="ltr"><span>{{ activity.months[0][0] }}</span><span>{{ activity.months[-1][0] }}</span></div>
   <details class="more">
     <summary>{{ _("Commits per month and per year, as numbers") }}</summary>
     <table class="metric-table">
       <thead><tr><th>{{ _("Month") }}</th><th>{{ _("Commits") }}</th></tr></thead>
-      <tbody>{% for month, count in activity.months %}<tr><td>{{ month }}</td><td>{{ count|number }}</td></tr>{% endfor %}</tbody>
+      <tbody>{% for month, count in all_months %}<tr><td>{{ month }}</td><td>{{ count|number }}</td></tr>{% endfor %}</tbody>
     </table>
     <table class="metric-table">
       <thead><tr><th>{{ _("Year") }}</th><th>{{ _("Commits") }}</th></tr></thead>
@@ -122,6 +142,26 @@
   </details>
   {% endif %}
 </section>
+
+{% if activity and activity.days_start %}
+<section id="calendar" aria-labelledby="calendar-title">
+  <h2 id="calendar-title">{{ _("Activity, day by day") }}</h2>
+  <p class="muted">{{ _("The last 53 weeks, a square per day, shaded by its commits.") }}</p>
+  <div class="calendar-layout">
+    <div class="calendar" data-chart="calendar" dir="ltr">
+      <p class="chart-fallback muted">{{ _("The charts need the page's script; their numbers are in the tables below.") }}</p>
+    </div>
+    <dl class="chart-facts">
+      <dt>{{ _("Weeks with a commit") }}</dt><dd>{% trans active=activity.active_weeks|number, weeks=activity.weeks|number %}{{ active }} of {{ weeks }}{% endtrans %}</dd>
+      <dt>{{ _("Longest quiet stretch") }}</dt><dd>{% if activity.longest_gap %}{% set start, end = activity.longest_gap %}{% trans count=(end - start).days %}{{ count }} day{% pluralize %}{{ count }} days{% endtrans %}{% else %}—{% endif %}</dd>
+      {% if weekday_name %}<dt>{{ _("Busiest weekday") }}</dt><dd>{{ weekday_name }}</dd>{% endif %}
+      <dt>{{ _("Latest commit") }}</dt><dd>{{ activity.latest.isoformat() }}</dd>
+    </dl>
+  </div>
+  <div class="ramp-legend" aria-hidden="true"><span>{{ _("Fewer") }}</span>{% for step in range(5) %}<span class="ramp-swatch heat-{{ step }}"></span>{% endfor %}<span>{{ _("More") }}</span></div>
+  <p class="chart-status muted" data-calendar-status aria-live="polite"></p>
+</section>
+{% endif %}
 
 <section id="types" aria-labelledby="types-title">
   <h2 id="types-title">{{ _("Commit types") }}</h2>
@@ -133,7 +173,8 @@
   {% if not types.used %}
   <p>{{ _("The repository doesn't appear to use typed commit subjects.") }}</p>
   {% else %}
-  <ul class="pills" lang="en" dir="ltr">{% for name, count in types.types %}<li class="pill">{{ name }} · {{ count }}</li>{% endfor %}</ul>
+  {% set widest = types.types[0][1] if types.types else 0 %}
+  <ul class="hbars" lang="en" dir="ltr">{% for name, count in types.types %}<li><span class="hbar-label">{{ name }}</span><svg class="hbar-track" viewBox="0 0 100 12" preserveAspectRatio="none" aria-hidden="true"><rect class="series-fill-1" x="0" y="0" height="12" width="{{ (count / widest * 100)|round(1) }}" rx="2"/></svg><span class="hbar-value">{{ count|number }}</span></li>{% endfor %}</ul>
   {% if types.scopes %}
   <h3>{{ _("Scopes") }}</h3>
   <ul class="pills" lang="en" dir="ltr">{% for name, count in types.scopes[:listed] %}<li class="pill">{{ name }} · {{ count }}</li>{% endfor %}</ul>
@@ -166,6 +207,57 @@
   <p class="muted">{{ _("The history couldn't be read just now; the log says why.") }}</p>
   {% else %}
   <p class="muted">{% trans count=churn.commits %}Over the latest {{ count }} commit, merges left out. Only files Codetrail may read are named.{% pluralize %}Over the latest {{ count }} commits, merges left out. Only files Codetrail may read are named.{% endtrans %}</p>
+  <div class="chart-head">
+    <p class="muted">{{ _("Each tile's size is its lines of code; its shade, the commits that changed it.") }}</p>
+    <div class="segmented" role="group" aria-label="{{ _('Group by') }}" data-level-picker hidden>
+      <button type="button" data-level="areas" aria-pressed="false">{{ _("Areas") }}</button>
+      <button type="button" data-level="folders" aria-pressed="false">{{ _("Folders") }}</button>
+      <button type="button" data-level="files" aria-pressed="false">{{ _("Files") }}</button>
+    </div>
+  </div>
+  <div class="heatmap-layout">
+    <div class="heatmap-main">
+      <div class="heatmap" data-chart="heatmap" dir="ltr">
+        <p class="chart-fallback muted">{{ _("The charts need the page's script; their numbers are in the tables below.") }}</p>
+      </div>
+      {% for level, count in churn.left_out.items() %}{% if count %}<p class="muted" data-left-out="{{ level }}" hidden>{% trans count=count %}{{ count }} smaller one isn't drawn.{% pluralize %}{{ count }} smaller ones aren't drawn.{% endtrans %}</p>{% endif %}{% endfor %}
+      <div class="ramp-legend"><span>{{ _("Fewer commits") }}</span>{% for step in range(5) %}<span class="ramp-swatch heat-{{ step }}" aria-hidden="true"></span>{% endfor %}<span>{{ _("more") }}</span><span class="inferred-mark" aria-hidden="true"></span><span>{{ _("Mostly inferred rationale: where an ADR or a README would help most") }}</span></div>
+    </div>
+    <aside class="heat-panel" data-heat-panel aria-live="polite" hidden>
+      <span class="card-label" data-panel-kind></span>
+      <p class="heat-panel-name" data-panel-name lang="en" dir="ltr"></p>
+      <p class="heat-panel-path" data-panel-path lang="en" dir="ltr"></p>
+      <div class="heat-panel-numbers">
+        <div><span class="stat-value" data-panel-commits></span><span class="stat-note">{{ _("commits") }}</span></div>
+        <div><span class="stat-value" data-panel-lines></span><span class="stat-note">{{ _("lines of code") }}</span></div>
+      </div>
+      <div data-panel-rationale hidden>
+        <span class="stat-note">{{ _("Rationale in its guide page") }}</span>
+        <div class="split-bar" aria-hidden="true" data-panel-split><span class="split-documented" data-panel-documented-bar></span><span class="split-inferred" data-panel-inferred-bar></span></div>
+        <p class="split-legend"><span class="documented-text"><span data-panel-documented></span> {{ _("documented") }}</span><span class="inferred-text"><span data-panel-inferred></span> {{ _("inferred") }}</span></p>
+      </div>
+      <span class="stat-note">{{ _("Most changed files in it") }}</span>
+      <ul class="list" data-panel-files lang="en" dir="ltr"></ul>
+      <a data-panel-link hidden></a>
+    </aside>
+  </div>
+  {% if churn.area_months %}
+  <h3>{{ _("Change over time, by area") }}</h3>
+  <p class="muted">{{ _("Commits per month in each guide area over the last year.") }}</p>
+  <div class="grid-scroll">
+    <table class="heat-grid" data-chart="grid">
+      <thead><tr><th scope="col"><span class="visually-hidden">{{ _("Area") }}</span></th>{% for month in churn.months %}<th scope="col">{{ month_names[month[5:]|int - 1] }}{% if loop.first or month[5:] == "01" %} {{ month[:4] }}{% endif %}</th>{% endfor %}</tr></thead>
+      <tbody>
+      {% for page_id, cells in churn.area_months %}
+      <tr><th scope="row" lang="en" dir="ltr">{{ area_titles.get(page_id, page_id) }}</th>{% for count in cells %}{% if count is none %}<td class="heat-unread" data-cell="{{ area_titles.get(page_id, page_id) }} · {{ churn.months[loop.index0] }}: {{ _('not read') }}">–</td>{% else %}<td class="heat-{{ ramp_step(count, grid_highest) }}" data-cell="{{ area_titles.get(page_id, page_id) }} · {{ churn.months[loop.index0] }}: {{ count }}">{{ count if count else "" }}</td>{% endif %}{% endfor %}</tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <p class="chart-status muted" data-grid-status aria-live="polite"></p>
+  {% endif %}
+  <details class="more">
+  <summary>{{ _("Where change happens, as tables") }}</summary>
   <h3>{{ _("Guide areas") }}</h3>
   {% if churn.areas %}
   <p class="muted">{{ _("An area with much change and mostly inferred rationale is where an ADR or a README would help most.") }}</p>
@@ -186,12 +278,21 @@
   <h3>{{ _("Most changed folders") }}</h3>
   <ul class="pills" lang="en" dir="ltr">{% for spot in churn.folders[:listed] %}<li class="pill">{{ spot.name }} · {{ spot.count|number }}</li>{% endfor %}</ul>
   {% endif %}
+  </details>
+  <div class="change-extras">
+  <div>
   <h3>{{ _("Commit size") }}</h3>
   {% if churn.median_files is none %}
   <p class="muted">{{ _("No commits to measure yet.") }}</p>
   {% else %}
   <p>{% trans median="%g"|format(churn.median_files), p90="%g"|format(churn.p90_files) %}Files a commit changes: {{ median }} at the median, {{ p90 }} at the 90th percentile.{% endtrans %}</p>
+  <figure class="histogram" dir="ltr">
+    {% for height in bar_heights(churn.size_histogram) %}<div class="histogram-column"><span class="histogram-count">{{ churn.size_histogram[loop.index0]|number }}</span><svg class="histogram-bar" viewBox="0 0 10 100" preserveAspectRatio="none" aria-hidden="true"><rect class="series-fill-1" x="0" y="{{ 100 - height }}" width="10" height="{{ height }}"/></svg><span class="histogram-label">{{ ["1", "2", "3", "4–5", "6–10", "11–20", "21+"][loop.index0] }}</span></div>{% endfor %}
+    <figcaption class="visually-hidden">{{ _("Commits by the files they change") }}</figcaption>
+  </figure>
   {% endif %}
+  </div>
+  <div>
   <h3>{{ _("Quiet code") }}</h3>
   {% if churn.quiet %}
   <p class="muted">{% trans count=churn.quiet_files, days=quiet_days %}{{ count }} file of code no commit has changed in the last {{ days }} days, by folder.{% pluralize %}{{ count }} files of code no commit has changed in the last {{ days }} days, by folder.{% endtrans %}</p>
@@ -199,6 +300,8 @@
   {% else %}
   <p class="muted">{% trans days=quiet_days %}Every file of code changed in the last {{ days }} days.{% endtrans %}</p>
   {% endif %}
+  </div>
+  </div>
   {% endif %}
 </section>
 
@@ -206,6 +309,13 @@
   <h2 id="size-title">{{ _("Code size") }}</h2>
   <p class="muted">{{ _("The files Codetrail may read, without the excluded ones. A file's language comes from its name; documents are the files matching the target's document_globs, and tests those matching its test_globs.") }}</p>
   {% if size.languages %}
+  {% set segments = language_segments(size.languages) %}
+  <div class="stack-bar" role="img" aria-label="{% for name, lines, slot, percent in segments %}{% if name == "Other" %}{{ _("Other") }}{% else %}{{ name }}{% endif %} {{ percent }}%{% if not loop.last %}, {% endif %}{% endfor %}"><svg viewBox="0 0 1000 20" preserveAspectRatio="none" aria-hidden="true">{% set ns = namespace(x=0) %}{% for name, lines, slot, percent in segments %}{% set width = (lines / size.code_lines * 1000) if size.code_lines else 0 %}<rect class="series-fill-{{ slot }}" x="{{ ns.x|round(1) }}" y="0" height="20" width="{{ [width - 2, 0]|max|round(1) }}"/>{% set ns.x = ns.x + width %}{% endfor %}</svg></div>
+  <ul class="stack-legend" lang="en" dir="ltr">{% for name, lines, slot, percent in segments %}<li><span class="swatch series-{{ slot }}" aria-hidden="true"></span>{% if name == "Other" %}{{ _("Other") }}{% else %}{{ name }}{% endif %}<span class="faint">{{ percent }}% · {{ lines|number }}</span></li>{% endfor %}</ul>
+  {% if size.code_lines %}
+  <div class="share-bar" role="img" aria-label="{% trans percent=(size.test_lines / size.code_lines * 100)|round|int %}{{ percent }}% of the lines of code are tests{% endtrans %}"><svg viewBox="0 0 100 10" preserveAspectRatio="none" aria-hidden="true"><rect class="series-fill-1" x="0" y="0" height="10" width="{{ (size.test_lines / size.code_lines * 100)|round(1) }}"/></svg></div>
+  {% endif %}
+  <details class="more"><summary>{{ _("Languages, as a table") }}</summary>
   <table class="metric-table">
     <thead><tr><th>{{ _("Language") }}</th><th>{{ _("Files") }}</th><th>{{ _("Lines") }}</th></tr></thead>
     <tbody>
@@ -214,6 +324,7 @@
     {% endfor %}
     </tbody>
   </table>
+  </details>
   {% endif %}
   <ul class="pills">
     <li class="pill pill-documented">{% trans count=size.documents.files, files=size.documents.files|number, lines=size.documents.lines|number %}{{ files }} document, {{ lines }} lines{% pluralize %}{{ files }} documents, {{ lines }} lines{% endtrans %}</li>
@@ -233,14 +344,15 @@
   {% set inventory = report.inventory %}
   {% if inventory.since %}<p class="muted">{% trans date=inventory.since.taken_at[:10] %}What Codetrail's extractors found, by kind. Codetrail's history of this repository starts on {{ date }}: packages present then are counted as there from the start.{% endtrans %}</p>{% endif %}
   {% if inventory.kinds %}
-  <table class="metric-table">
-    <thead><tr><th>{{ _("Kind") }}</th><th>{{ _("Now") }}</th><th>{{ _("Since the last update") }}</th><th>{{ _("Over the last updates") }}</th></tr></thead>
-    <tbody>
+  <ul class="fact-cards">
     {% for row in inventory.kinds %}
-    <tr><td lang="en" dir="ltr">{{ row.kind }}</td><td>{{ row.count|number }}</td><td>{% if row.change is none %}—{% else %}{{ "%+d"|format(row.change) }}{% endif %}</td><td>{{ row.trend|join(", ") }}</td></tr>
+    <li class="fact-card">
+      <span class="stat-note" lang="en" dir="ltr">{{ row.kind }}</span>
+      <span><span class="stat-value">{{ row.count|number }}</span> <span class="stat-note">{% if row.change is none %}—{% else %}{{ "%+d"|format(row.change) }}{% endif %}</span></span>
+      <span class="spark" role="img" aria-label="{{ _('Over the last updates') }}: {{ row.trend|join(', ') }}"><svg viewBox="0 0 {{ row.trend|length * 10 }} 24" preserveAspectRatio="none" aria-hidden="true">{% for height in bar_heights(row.trend) %}{% set bar = [height, 8]|max * 0.24 %}<rect class="series-fill-1" x="{{ loop.index0 * 10 + 1 }}" y="{{ (24 - bar)|round(1) }}" width="8" height="{{ bar|round(1) }}" rx="1"/>{% endfor %}</svg></span>
+    </li>
     {% endfor %}
-    </tbody>
-  </table>
+  </ul>
   {% endif %}
   {% if inventory.arrived %}
   <h3>{{ _("Dependencies that arrived") }}</h3>
@@ -251,6 +363,7 @@
   {% call(item) capped(inventory.left) %}<span class="grow">{{ item.package }}</span><span class="faint">{{ item.snapshot.taken_at[:10] }} · {{ item.snapshot.commit[:7] }}</span>{% endcall %}
   {% endif %}
 </section>
+<script type="application/json" data-repository-data>{{ chart_json }}</script>
 {% endif %}
 </div>
 {% endblock %}

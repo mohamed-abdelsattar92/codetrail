@@ -39,9 +39,12 @@ def test_pages_have_no_errors_and_no_serious_accessibility_issue(
     assert [error for error in errors if not any(text in error for text in expected)] == []
 
 
-def test_the_activity_bars_name_every_month(page: Page, site: Site) -> None:
+def test_the_charts_have_text_alternatives(page: Page, site: Site) -> None:
     site.sign_in(page, "/repository")
-    label = page.locator("svg.bars").get_attribute("aria-label") or ""
-    assert label.startswith("Commits per month: ")
-    assert label.count(":") == 25  # the heading's and one per month of the default 24
-    assert page.locator("svg.bars rect").count() == 24
+    page.wait_for_load_state("networkidle")
+    plot = page.locator('[data-chart="timeline"] .timeline-plot')
+    assert (plot.get_attribute("aria-label") or "").startswith("Commits per month.")
+    calendar = page.locator('[data-chart="calendar"] svg')
+    assert calendar.get_attribute("role") == "img" and calendar.get_attribute("aria-label")
+    tiles = page.locator('[data-chart="heatmap"] .heat-tile button')
+    assert all((tiles.nth(index).get_attribute("aria-label") or "").count(":") == 1 for index in range(tiles.count()))

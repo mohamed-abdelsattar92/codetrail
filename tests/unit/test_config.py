@@ -303,6 +303,7 @@ def test_repository_statistics_settings_have_their_defaults(paths: Paths, tmp_pa
     assert (settings.metrics.activity_months, settings.metrics.history_limit) == (24, 1_000_000)
     assert settings.metrics.largest_files == 10
     assert (settings.metrics.churn_window, settings.metrics.quiet_days) == (500, 365)
+    assert (settings.metrics.folder_depth, settings.metrics.heatmap_tiles) == (2, 60)
     assert settings.metrics.languages[".py"] == "Python"
     assert settings.metrics.languages["dockerfile"] == "Dockerfile"
     write_target(paths, "shop", tmp_path / "repo", "develop")
