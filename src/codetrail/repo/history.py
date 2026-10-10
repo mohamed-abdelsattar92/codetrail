@@ -42,7 +42,8 @@ def commits_between(
     Each commit is read on its own, with NUL between fields (git messages can't hold NUL), so no text in a message
     can forge or break a record.
     """
-    revisions = run_git(["rev-list", "--reverse", end if start is None else f"{start}..{end}"], git_dir=mirror)
+    revision_range = end if start is None else f"{start}..{end}"
+    revisions = run_git(["rev-list", "--reverse", "--end-of-options", revision_range], git_dir=mirror)
     commits = [_read_commit(mirror, sha, visible) for sha in revisions.decode().split()]
     return _withhold_flagged_messages(commits, scanner)
 
@@ -66,9 +67,10 @@ def latest_commits(mirror: Path, end: str, limit: int, scanner: SecretScanner) -
 
     One git call: fields and records are separated by NUL, which no message can hold. Files aren't listed.
     """
-    output = run_git(["log", f"-n{limit}", "--no-merges", "-z", "--format=%H%x00%an%x00%aI%x00%s%x00%b",
-                      "--end-of-options", end],
-                     git_dir=mirror).decode("utf-8", "replace")  # fmt: skip
+    output = run_git(
+        ["log", f"-n{limit}", "--no-merges", "-z", "--format=%H%x00%an%x00%aI%x00%s%x00%b", "--end-of-options", end],
+        git_dir=mirror,
+    ).decode("utf-8", "replace")
     fields = output.split("\0")
     records = (fields[start : start + LOG_FIELDS] for start in range(0, len(fields) - LOG_FIELDS + 1, LOG_FIELDS))
     commits = [
@@ -78,20 +80,21 @@ def latest_commits(mirror: Path, end: str, limit: int, scanner: SecretScanner) -
 
 
 def merges_between(mirror: Path, start: str, end: str) -> int:
-    count = run_git(["rev-list", "--count", "--merges", "--first-parent", f"{start}..{end}"], git_dir=mirror)
+    count = run_git(["rev-list", "--count", "--merges", "--first-parent", "--end-of-options", f"{start}..{end}"],
+                    git_dir=mirror)  # fmt: skip
     return int(count)
 
 
 def diff_between(
     mirror: Path, start: str, end: str, visible: Callable[[str], bool], scanner: SecretScanner
 ) -> list[FileDiff]:
-    output = run_git(["diff", "--name-status", "--no-renames", "-z", start, end], git_dir=mirror)
+    output = run_git(["diff", "--name-status", "--no-renames", "-z", "--end-of-options", start, end], git_dir=mirror)
     fields = output.decode("utf-8", "surrogateescape").split("\0")
     changes = [(fields[i], fields[i + 1]) for i in range(0, len(fields) - 1, 2) if visible(fields[i + 1])]
     patches = [
-        run_git(["diff", "--no-renames", start, end, "--", f":(literal){path}"], git_dir=mirror).decode(
-            "utf-8", "replace"
-        )
+        run_git(
+            ["diff", "--no-renames", "--end-of-options", start, end, "--", f":(literal){path}"], git_dir=mirror
+        ).decode("utf-8", "replace")
         for _status, path in changes
     ]
     flagged = _flagged_indexes(patches, scanner)
@@ -126,12 +129,12 @@ def _flagged_indexes(texts: Sequence[str], scanner: SecretScanner) -> set[int]:
 
 
 def commit_count(mirror: Path, start: str, end: str) -> int:
-    return int(run_git(["rev-list", "--count", f"{start}..{end}"], git_dir=mirror))
+    return int(run_git(["rev-list", "--count", "--end-of-options", f"{start}..{end}"], git_dir=mirror))
 
 
 def changed_paths(mirror: Path, start: str, end: str) -> list[str]:
     """Paths changed between two commits; only names, which callers filter before showing."""
-    output = run_git(["diff", "--name-only", "--no-renames", "-z", start, end], git_dir=mirror)
+    output = run_git(["diff", "--name-only", "--no-renames", "-z", "--end-of-options", start, end], git_dir=mirror)
     return [name for name in output.decode("utf-8", "surrogateescape").split("\0") if name]
 
 
@@ -145,6 +148,7 @@ def recent_commits(
 ) -> list[Commit]:
     """The latest commits (at most `limit`, oldest first) that touched any of `paths`, filtered like commits_between."""
     pathspecs = [f":(literal){path}" for path in paths if path] or ["."]
-    shas = run_git(["log", f"-n{limit}", "--format=%H", end, "--", *pathspecs], git_dir=mirror).decode().split()
+    shas = run_git(["log", f"-n{limit}", "--format=%H", "--end-of-options", end, "--", *pathspecs],
+                   git_dir=mirror).decode().split()  # fmt: skip
     commits = [_read_commit(mirror, sha, visible) for sha in reversed(shas)]
     return _withhold_flagged_messages(commits, scanner)
