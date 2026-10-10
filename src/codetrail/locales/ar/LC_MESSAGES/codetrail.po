@@ -145,6 +145,24 @@ msgstr[4] "%(count)s ملف"
 msgstr[5] "%(count)s ملفًا"
 
 #, python-format
+msgid ""
+"%(count)s file of code no commit has changed in the last %(days)s days, "
+"by folder."
+msgid_plural ""
+"%(count)s files of code no commit has changed in the last %(days)s days, "
+"by folder."
+msgstr[0] "%(count)s ملف كود لم يغيّره أي commit في آخر %(days)s يومًا، حسب المجلد."
+msgstr[1] "ملف كود واحد لم يغيّره أي commit في آخر %(days)s يومًا، حسب المجلد."
+msgstr[2] "ملفا كود لم يغيّرهما أي commit في آخر %(days)s يومًا، حسب المجلد."
+msgstr[3] ""
+"%(count)s ملفات كود لم يغيّرها أي commit في آخر %(days)s يومًا، حسب "
+"المجلد."
+msgstr[4] "%(count)s ملف كود لم يغيّره أي commit في آخر %(days)s يومًا، حسب المجلد."
+msgstr[5] ""
+"%(count)s ملفًا من الكود لم يغيّرها أي commit في آخر %(days)s يومًا، حسب "
+"المجلد."
+
+#, python-format
 msgid "%(count)s file too large to count"
 msgid_plural "%(count)s files too large to count"
 msgstr[0] "%(count)s ملف أكبر من أن يُعدّ"
@@ -438,6 +456,13 @@ msgid "All saved answers"
 msgstr "كل الإجابات المحفوظة"
 
 msgid ""
+"An area with much change and mostly inferred rationale is where an ADR or"
+" a README would help most."
+msgstr ""
+"المنطقة الكثيرة التغيّر التي معظم مبرراتها مُستنتَجة هي حيث يفيد ADR أو "
+"README أكثر من غيره."
+
+msgid ""
 "An estimate. On a subscription this counts against your plan’s usage "
 "limits; with an API key it is billed at these prices."
 msgstr ""
@@ -488,6 +513,9 @@ msgstr "منطقة"
 
 msgid "Areas"
 msgstr "المناطق"
+
+msgid "Areas are counted once your assistant has written the guide's area pages."
+msgstr "تُحتسب المناطق بعد أن يكتب مساعدك صفحات المناطق في الدليل."
 
 msgid "Ask"
 msgstr "اسأل"
@@ -600,6 +628,9 @@ msgstr ""
 "يقرأ Codetrail الكود مجانًا، ثم يكتب مساعدك الدليل: صفحات المفاهيم "
 "والمسارات الموجَّهة والاختبارات. سترى التقدير قبل أن يُنفَق أي شيء."
 
+msgid "Commit size"
+msgstr "حجم الـ commit"
+
 msgid "Commit types"
 msgstr "أنواع commits"
 
@@ -692,6 +723,10 @@ msgstr "العربية"
 msgid "Enlarge the diagram"
 msgstr "كبّر المخطط"
 
+#, python-format
+msgid "Every file of code changed in the last %(days)s days."
+msgstr "تغيّر كل ملف كود في آخر %(days)s يومًا."
+
 msgid "Every path learned"
 msgstr "تعلّمت كل المسارات"
 
@@ -718,6 +753,14 @@ msgstr "الحقائق:"
 
 msgid "Files"
 msgstr "الملفات"
+
+#, python-format
+msgid ""
+"Files a commit changes: %(median)s at the median, %(p90)s at the 90th "
+"percentile."
+msgstr ""
+"الملفات التي يغيّرها الـ commit: %(median)s في الوسيط، و%(p90)s عند "
+"المئين التسعين."
 
 msgid ""
 "Files this answer was written from have changed since. Saved answers "
@@ -782,6 +825,9 @@ msgstr "اذهب إلى نظامك"
 
 msgid "Guide"
 msgstr "الدليل"
+
+msgid "Guide areas"
+msgstr "مناطق الدليل"
 
 msgid "Home"
 msgstr "الرئيسية"
@@ -887,6 +933,12 @@ msgstr "الشهر"
 msgid "More"
 msgstr "المزيد"
 
+msgid "Most changed files"
+msgstr "أكثر الملفات تغيّرًا"
+
+msgid "Most changed folders"
+msgstr "أكثر المجلدات تغيّرًا"
+
 msgid "Next"
 msgstr "التالي"
 
@@ -894,6 +946,9 @@ msgid ""
 "No architecture decision records were found where the target's settings "
 "say they live."
 msgstr "لم يُعثر على سجلات قرارات معمارية حيث تقول إعدادات الهدف إنها موجودة."
+
+msgid "No commits to measure yet."
+msgstr "لا commits لقياسها بعد."
 
 msgid "No connections between the parts were found."
 msgstr "لم يُعثر على ارتباطات بين الأجزاء."
@@ -1012,6 +1067,32 @@ msgstr "خارج المسارات"
 msgid "Over the last updates"
 msgstr "عبر التحديثات الأخيرة"
 
+#, python-format
+msgid ""
+"Over the latest %(count)s commit, merges left out. Only files Codetrail "
+"may read are named."
+msgid_plural ""
+"Over the latest %(count)s commits, merges left out. Only files Codetrail "
+"may read are named."
+msgstr[0] ""
+"عبر آخر %(count)s commits، دون الـ merges. لا تُسمّى إلا الملفات التي "
+"يجوز لـ Codetrail قراءتها."
+msgstr[1] ""
+"عبر آخر commit، دون الـ merges. لا تُسمّى إلا الملفات التي يجوز لـ "
+"Codetrail قراءتها."
+msgstr[2] ""
+"عبر آخر %(count)s commits، دون الـ merges. لا تُسمّى إلا الملفات التي "
+"يجوز لـ Codetrail قراءتها."
+msgstr[3] ""
+"عبر آخر %(count)s commits، دون الـ merges. لا تُسمّى إلا الملفات التي "
+"يجوز لـ Codetrail قراءتها."
+msgstr[4] ""
+"عبر آخر %(count)s commits، دون الـ merges. لا تُسمّى إلا الملفات التي "
+"يجوز لـ Codetrail قراءتها."
+msgstr[5] ""
+"عبر آخر %(count)s commits، دون الـ merges. لا تُسمّى إلا الملفات التي "
+"يجوز لـ Codetrail قراءتها."
+
 msgid "Page"
 msgstr "الصفحة"
 
@@ -1089,6 +1170,9 @@ msgstr "المزوّد والنموذج"
 #, python-format
 msgid "Questions are limited to %(count)s characters."
 msgstr "الحد الأقصى لطول السؤال: %(count)s حرف."
+
+msgid "Quiet code"
+msgstr "الكود الهادئ"
 
 msgid ""
 "Rationale blocks in the guide's area and concept pages: documented ones "
@@ -1559,6 +1643,9 @@ msgid ""
 msgstr ""
 "ما هو المستودع: تاريخه وإصداراته وكوده وحقائقه. يُقرأ من الكود وتاريخه، "
 "دون استدعاء مساعدك."
+
+msgid "Where change happens"
+msgstr "أين يحدث التغيير"
 
 msgid "Where it fits"
 msgstr "موقعها من النظام"

@@ -3,6 +3,7 @@
 import os
 import subprocess
 from collections.abc import Callable
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -11,12 +12,14 @@ from codetrail.config import ToolsSettings
 from codetrail.errors import CodetrailError
 from codetrail.repo.history import (
     WITHHELD_TAG,
+    changed_files,
     changed_paths,
     commit_count,
     commit_times,
     commit_totals,
     commits_between,
     diff_between,
+    files_changed_since,
     first_commit_time,
     latest_commits,
     merges_between,
@@ -26,7 +29,7 @@ from codetrail.repo.history import (
 from codetrail.repo.mirror import refresh_mirror
 from codetrail.repo.rules import ExclusionRules
 from codetrail.repo.secrets import SecretScanner
-from tests.fixtures.repos import GIT_ENVIRONMENT, add_commit, fake_github_token, git, make_repository
+from tests.fixtures.repos import GIT_ENVIRONMENT, add_commit, fake_github_token, git, make_repository, write_commit
 
 RULES = ExclusionRules(["docs/private/"])
 
@@ -253,6 +256,8 @@ READERS: dict[str, HistoryReader] = {
     "commit_times": lambda mirror, option, end: commit_times(mirror, option, 5),
     "first_commit_time": lambda mirror, option, end: first_commit_time(mirror, option),
     "read_tags": lambda mirror, option, end: read_tags(mirror, option, SCANNER),
+    "changed_files": lambda mirror, option, end: changed_files(mirror, option, 5),
+    "files_changed_since": lambda mirror, option, end: files_changed_since(mirror, option, date(2026, 1, 1)),
 }
 
 
@@ -283,3 +288,30 @@ def test_files_outside_the_repository_are_never_compared_as_revisions(
     (tmp_path / "after").write_text("one\n")  # alike, so a file comparison would succeed
     with pytest.raises(CodetrailError):
         reader(mirror, str(tmp_path / "before"), str(tmp_path / "after"))
+
+
+def test_changed_files_lists_each_latest_commits_paths(tmp_path: Path) -> None:
+    checkout = make_repository(tmp_path / "t", [{"a b/x.txt": "1\n", "y": "1\n"}, {"y": "2\n"}])
+    git(checkout, "commit", "-q", "--allow-empty", "-m", "Nothing", date=2)
+    git(checkout, "checkout", "-q", "-b", "side")
+    add_commit(checkout, {"z": "1\n"})
+    git(checkout, "checkout", "-q", "develop")
+    git(checkout, "merge", "-q", "--no-ff", "side", "-m", "Merge side", date=9)
+    mirror, end = mirror_of(checkout, tmp_path)
+    assert changed_files(mirror, end, 10) == [["z"], [], ["y"], ["a b/x.txt", "y"]]
+    assert changed_files(mirror, end, 2) == [["z"], []]
+
+
+def test_files_changed_since_a_date(tmp_path: Path) -> None:
+    checkout = make_repository(tmp_path / "t", [{"old": "1\n"}])
+    write_commit(checkout, {"new": "1\n"}, "Later", date=60 * 24 * 40)  # 40 days after 2026-09-21
+    mirror, end = mirror_of(checkout, tmp_path)
+    assert files_changed_since(mirror, end, date(2026, 10, 1)) == {"new"}
+    assert files_changed_since(mirror, end, date(2026, 9, 1)) == {"old", "new"}  # before the first commit: all
+
+
+def test_files_changed_since_keep_a_leading_newline(tmp_path: Path) -> None:
+    checkout = make_repository(tmp_path / "t", [{"old": "1\n"}])
+    write_commit(checkout, {"\nlead": "1\n"}, "Later", date=60 * 24 * 40)
+    mirror, end = mirror_of(checkout, tmp_path)
+    assert files_changed_since(mirror, end, date(2026, 10, 1)) == {"\nlead"}

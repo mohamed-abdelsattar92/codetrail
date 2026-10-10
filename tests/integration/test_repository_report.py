@@ -8,6 +8,8 @@ from pathlib import Path
 
 import pytest
 
+from codetrail.assistant import PageDraft, PageRequest, PlanDraft
+from codetrail.assistant.fake import FakeAssistant
 from codetrail.config import GlobalConfig, MetricsSettings, Paths, write_target
 from codetrail.database import connect
 from codetrail.facts.store import FactStore
@@ -123,3 +125,26 @@ def test_a_cut_history_keeps_exact_counts_and_the_real_first_commit(paths: Paths
     assert (report.activity.commits, report.activity.cut) == (4, True)
     assert report.activity.first == date(2026, 9, 21)  # the first commit, not the oldest of the times read
     assert sum(count for _, count in report.activity.years) == 1
+
+
+PLAN = PlanDraft([{"id": "areas/app", "kind": "area", "title": "The app", "scope_paths": ["app"], "facts": []}])
+
+
+def page_writer(request: PageRequest) -> PageDraft:
+    checks = [{"id": "q", "question": "Why?", "rubric": [{"point": "p", "grounds": ["app/main.py"]}]}]
+    return PageDraft("> [!inferred]\n> It reads well.\n", checks, ["app/main.py"])
+
+
+def test_the_report_finds_where_change_happens(paths: Paths) -> None:
+    run_update(paths, "shop", claude=FakeAssistant(plans=[PLAN], page_writer=page_writer))
+    with store_of(paths) as store:
+        report = build_repository_report(paths, "shop", GlobalConfig(), store, date(2026, 10, 10))
+    churn = report.churn
+    assert churn is not None and churn.commits == 3
+    assert churn.files[0].name == "app/db.py" and churn.files[0].count == 3
+    assert churn.folders[0].name == "app"
+    assert all(".env" not in spot.name for spot in churn.files + churn.folders)
+    assert [(spot.page.id, spot.commits, spot.documented, spot.inferred) for spot in churn.areas] == [
+        ("areas/app", 3, 0, 1)
+    ]
+    assert churn.quiet_files == 0  # every file changed within the last year of the fixture's dates

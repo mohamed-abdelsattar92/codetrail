@@ -896,9 +896,10 @@ Nothing new leaves the machine and nothing calls an assistant. The page is one `
 ### 18.8 Delivery and later work
 Phase 13, in one feature branch, reviewed and finished into `develop`.
 
+Built since: **undocumented hot spots**, areas with the most change and the most inferred rationale, where an ADR or a README would help most, in Phase 15 (section 19.1).
+
 Planned, not built yet:
 - **Phase 16, the decision inventory** (numbered 14 until section 19 took 14 and 15). An opt-in paid pass in which the assistant lists the decisions it can see in the code (patterns, conventions, trade-offs, not only what facts capture) and looks for a documented "why" for each, quoted and verified like any documented block. The inventory is kept and only added to, like the outline, so two runs on one commit don't move the trend. Every run shows its estimate first. Its share would join the page as a fifth tile.
-- **Undocumented hot spots:** areas with the most change and the most inferred rationale, where an ADR or a README would help most. Phase 15 shows them (section 19.1).
 - **Freshness and learning on the same page:** affected pages, sources changed, merges behind, pages learned and gone stale.
 - **Word documents:** `.docx` files are binary, so neither the metrics nor the assistant can read them; a reader for them needs a proposed ADR for its dependency.
 
@@ -951,6 +952,7 @@ New files in the `metrics` module: `activity.py` (history, commit types), `relea
 - **History** is read with `git rev-list --count` (all commits, then merges) and one `git log` of at most `history_limit` commits printing only each commit's author timestamp: no message, name or email. When the history is longer, the first commit's date comes from the root commits, so the age stays right.
 - **Commit types** reuse `latest_commits` (section 18.2), so the messages are scanned before they're matched; a subject is matched up to `metrics.max_message_chars`.
 - **Code size** reads each allowed file once; languages are looked up in a dictionary, never by a pattern.
+- **Where change happens** reads the latest `churn_window` commits' file names with one `git log` printing a mark and names only, and quiet code with one tree diff between the last commit before `quiet_days` ago and the head, however many commits came since.
 - **Facts** come from one query over the validity ranges for the counts per snapshot and kind, and one for the packages' first and last snapshots.
 - **When:** the page computes the report the first time it is shown after the facts or the guide move on, and keeps it in memory keyed like the documentation report (section 18.2).
 

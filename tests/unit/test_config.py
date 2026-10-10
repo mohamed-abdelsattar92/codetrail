@@ -302,6 +302,7 @@ def test_repository_statistics_settings_have_their_defaults(paths: Paths, tmp_pa
     settings = load_global(paths)
     assert (settings.metrics.activity_months, settings.metrics.history_limit) == (24, 1_000_000)
     assert settings.metrics.largest_files == 10
+    assert (settings.metrics.churn_window, settings.metrics.quiet_days) == (500, 365)
     assert settings.metrics.languages[".py"] == "Python"
     assert settings.metrics.languages["dockerfile"] == "Dockerfile"
     write_target(paths, "shop", tmp_path / "repo", "develop")
@@ -327,3 +328,10 @@ def test_language_names_are_lower_cased(paths: Paths) -> None:
     paths.config_dir.mkdir(parents=True, exist_ok=True)
     (paths.config_dir / "config.toml").write_text('[metrics.languages]\n".PY" = "Python"\n')
     assert load_global(paths).metrics.languages == {".py": "Python"}
+
+
+def test_quiet_days_are_bounded(paths: Paths) -> None:
+    paths.config_dir.mkdir(parents=True, exist_ok=True)
+    (paths.config_dir / "config.toml").write_text("[metrics]\nquiet_days = 10000000\n")
+    with pytest.raises(CodetrailError, match="quiet_days"):
+        load_global(paths)

@@ -77,6 +77,16 @@ msgstr[0] ""
 msgstr[1] ""
 
 #, python-format
+msgid ""
+"%(count)s file of code no commit has changed in the last %(days)s days, "
+"by folder."
+msgid_plural ""
+"%(count)s files of code no commit has changed in the last %(days)s days, "
+"by folder."
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
 msgid "%(count)s file too large to count"
 msgid_plural "%(count)s files too large to count"
 msgstr[0] ""
@@ -278,6 +288,11 @@ msgid "All saved answers"
 msgstr ""
 
 msgid ""
+"An area with much change and mostly inferred rationale is where an ADR or"
+" a README would help most."
+msgstr ""
+
+msgid ""
 "An estimate. On a subscription this counts against your plan’s usage "
 "limits; with an API key it is billed at these prices."
 msgstr ""
@@ -323,6 +338,9 @@ msgid "Area"
 msgstr ""
 
 msgid "Areas"
+msgstr ""
+
+msgid "Areas are counted once your assistant has written the guide's area pages."
 msgstr ""
 
 msgid "Ask"
@@ -426,6 +444,9 @@ msgid ""
 "anything is spent."
 msgstr ""
 
+msgid "Commit size"
+msgstr ""
+
 msgid "Commit types"
 msgstr ""
 
@@ -518,6 +539,10 @@ msgstr ""
 msgid "Enlarge the diagram"
 msgstr ""
 
+#, python-format
+msgid "Every file of code changed in the last %(days)s days."
+msgstr ""
+
 msgid "Every path learned"
 msgstr ""
 
@@ -541,6 +566,12 @@ msgid "Facts:"
 msgstr ""
 
 msgid "Files"
+msgstr ""
+
+#, python-format
+msgid ""
+"Files a commit changes: %(median)s at the median, %(p90)s at the 90th "
+"percentile."
 msgstr ""
 
 msgid ""
@@ -603,6 +634,9 @@ msgid "Go to your system"
 msgstr ""
 
 msgid "Guide"
+msgstr ""
+
+msgid "Guide areas"
 msgstr ""
 
 msgid "Home"
@@ -707,12 +741,21 @@ msgstr ""
 msgid "More"
 msgstr ""
 
+msgid "Most changed files"
+msgstr ""
+
+msgid "Most changed folders"
+msgstr ""
+
 msgid "Next"
 msgstr ""
 
 msgid ""
 "No architecture decision records were found where the target's settings "
 "say they live."
+msgstr ""
+
+msgid "No commits to measure yet."
 msgstr ""
 
 msgid "No connections between the parts were found."
@@ -818,6 +861,16 @@ msgstr ""
 msgid "Over the last updates"
 msgstr ""
 
+#, python-format
+msgid ""
+"Over the latest %(count)s commit, merges left out. Only files Codetrail "
+"may read are named."
+msgid_plural ""
+"Over the latest %(count)s commits, merges left out. Only files Codetrail "
+"may read are named."
+msgstr[0] ""
+msgstr[1] ""
+
 msgid "Page"
 msgstr ""
 
@@ -890,6 +943,9 @@ msgstr ""
 
 #, python-format
 msgid "Questions are limited to %(count)s characters."
+msgstr ""
+
+msgid "Quiet code"
 msgstr ""
 
 msgid ""
@@ -1324,6 +1380,9 @@ msgid ""
 "What the repository is: its history, its releases, its code and its "
 "facts. Read from the code and its history, without calling your "
 "assistant."
+msgstr ""
+
+msgid "Where change happens"
 msgstr ""
 
 msgid "Where it fits"
