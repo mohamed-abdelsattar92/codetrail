@@ -1,4 +1,12 @@
 #, python-format
+msgid "%(change)s points since the last update"
+msgstr ""
+
+#, python-format
+msgid "%(change)s since the last update"
+msgstr ""
+
+#, python-format
 msgid "%(count)s changed since you learned it"
 msgid_plural "%(count)s changed since you learned them"
 msgstr[0] ""
@@ -17,8 +25,44 @@ msgstr[0] ""
 msgstr[1] ""
 
 #, python-format
+msgid "%(count)s explains why"
+msgid_plural "%(count)s explain why"
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
 msgid "%(count)s file"
 msgid_plural "%(count)s files"
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
+msgid "%(count)s from a code comment"
+msgid_plural "%(count)s from code comments"
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
+msgid "%(count)s from a commit message"
+msgid_plural "%(count)s from commit messages"
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
+msgid "%(count)s from a document"
+msgid_plural "%(count)s from documents"
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
+msgid "%(count)s from an ADR"
+msgid_plural "%(count)s from ADRs"
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
+msgid "%(count)s inferred"
+msgid_plural "%(count)s inferred"
 msgstr[0] ""
 msgstr[1] ""
 
@@ -27,6 +71,16 @@ msgid "%(count)s merge landed"
 msgid_plural "%(count)s merges landed"
 msgstr[0] ""
 msgstr[1] ""
+
+#, python-format
+msgid "%(count)s message withheld: gitleaks flagged it"
+msgid_plural "%(count)s messages withheld: gitleaks flagged them"
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
+msgid "%(count)s more"
+msgstr ""
 
 #, python-format
 msgid "%(count)s part"
@@ -47,7 +101,23 @@ msgstr[0] ""
 msgstr[1] ""
 
 #, python-format
+msgid "%(count)s with a body but no why"
+msgid_plural "%(count)s with a body but no why"
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
+msgid "%(count)s with a subject only"
+msgid_plural "%(count)s with a subject only"
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
 msgid "%(expected)s to %(maximum)s"
+msgstr ""
+
+#, python-format
+msgid "%(explained)s of %(total)s facts explained by a guide page"
 msgstr ""
 
 #, python-format
@@ -56,6 +126,18 @@ msgstr ""
 
 #, python-format
 msgid "%(learned)s of %(total)s learned"
+msgstr ""
+
+#, python-format
+msgid "%(mentioned)s of %(total)s mentioned in a document"
+msgstr ""
+
+#, python-format
+msgid "%(numerator)s of %(denominator)s"
+msgstr ""
+
+#, python-format
+msgid "%(percent)s%% of the guide's rationale is documented"
 msgstr ""
 
 #, python-format
@@ -68,6 +150,12 @@ msgstr ""
 msgid ""
 "A page is learned when you pass its checks. When an update changes a page"
 " you learned, it shows here until you learn it again."
+msgstr ""
+
+msgid "ADRs needing attention"
+msgstr ""
+
+msgid "Accepted, but no page cites them"
 msgstr ""
 
 msgid "Actions"
@@ -113,6 +201,9 @@ msgid ""
 msgstr ""
 
 msgid "Apps"
+msgstr ""
+
+msgid "Architecture decisions"
 msgstr ""
 
 msgid "Area"
@@ -202,6 +293,9 @@ msgstr ""
 msgid "Close the palette, the panel or a dialog"
 msgstr ""
 
+msgid "Codetrail couldn't read the target's data; the log says why."
+msgstr ""
+
 msgid ""
 "Codetrail looks for architecture decision records where the target's "
 "settings say they live."
@@ -211,6 +305,9 @@ msgid ""
 "Codetrail reads the code for free, then your assistant writes the guide: "
 "concept pages, guided paths and checks. You'll see the estimate before "
 "anything is spent."
+msgstr ""
+
+msgid "Commits that explain why"
 msgstr ""
 
 msgid "Concept"
@@ -258,6 +355,15 @@ msgstr ""
 msgid "Digests"
 msgstr ""
 
+msgid "Documentation"
+msgstr ""
+
+msgid "Documented"
+msgstr ""
+
+msgid "Documented rationale"
+msgstr ""
+
 msgid "Drag to resize; double-click to reset"
 msgstr ""
 
@@ -276,6 +382,12 @@ msgstr ""
 
 #, python-format
 msgid "Expected: ~%(expected)s tokens; at most ~%(maximum)s."
+msgstr ""
+
+msgid ""
+"External packages, projects and infrastructure resources that some "
+"document names. A mention isn't a reason: this only shows what no "
+"document talks about at all."
 msgstr ""
 
 msgid "Fact"
@@ -324,6 +436,9 @@ msgstr ""
 msgid "Go to digests"
 msgstr ""
 
+msgid "Go to documentation"
+msgstr ""
+
 msgid "Go to progress"
 msgstr ""
 
@@ -345,10 +460,27 @@ msgstr ""
 msgid "How many"
 msgstr ""
 
+msgid ""
+"How well the repository explains itself: its guide's rationale, its "
+"commits, its decisions and its documents. Measured from the code and the "
+"guide, without calling your assistant."
+msgstr ""
+
+msgid ""
+"How well the repository explains itself: rationale, commits, decisions "
+"and documents."
+msgstr ""
+
 msgid "Imports"
 msgstr ""
 
 msgid "In this path"
+msgstr ""
+
+msgid "Inferred"
+msgstr ""
+
+msgid "Inferred: worth documenting"
 msgstr ""
 
 msgid "Infrastructure"
@@ -390,6 +522,12 @@ msgstr ""
 msgid "Matched by name: likely, not certain"
 msgstr ""
 
+msgid "Mentioned and explained"
+msgstr ""
+
+msgid "Mentioned in a document"
+msgstr ""
+
 msgid "Menu"
 msgstr ""
 
@@ -397,6 +535,11 @@ msgid "More"
 msgstr ""
 
 msgid "Next"
+msgstr ""
+
+msgid ""
+"No architecture decision records were found where the target's settings "
+"say they live."
 msgstr ""
 
 msgid "No connections between the parts were found."
@@ -411,6 +554,17 @@ msgstr ""
 msgid "No digests yet"
 msgstr ""
 
+msgid "No earlier update to compare with."
+msgstr ""
+
+msgid "No facts yet"
+msgstr ""
+
+msgid ""
+"No pages yet: the guide's rationale is measured once your assistant "
+"writes it."
+msgstr ""
+
 msgid ""
 "No shortcut spends anything: questions are sent by their Send button, and"
 " updates start only when you choose Go ahead."
@@ -422,7 +576,16 @@ msgid ""
 "repository."
 msgstr ""
 
+msgid "Not available just now."
+msgstr ""
+
+msgid "Not explained by any page"
+msgstr ""
+
 msgid "Not found"
+msgstr ""
+
+msgid "Not mentioned in any document"
 msgstr ""
 
 msgid "Not read yet"
@@ -462,6 +625,9 @@ msgid "Or from a terminal: <code>codetrail update %(name)s</code>"
 msgstr ""
 
 msgid "Outside the paths"
+msgstr ""
+
+msgid "Page"
 msgstr ""
 
 msgid "Pages"
@@ -522,11 +688,23 @@ msgstr ""
 msgid "Progress"
 msgstr ""
 
+msgid "Proposed for too long"
+msgstr ""
+
+msgid "Proposed, with no date"
+msgstr ""
+
 msgid "Provider and model"
 msgstr ""
 
 #, python-format
 msgid "Questions are limited to %(count)s characters."
+msgstr ""
+
+msgid ""
+"Rationale blocks in the guide's area and concept pages: documented ones "
+"quote a source Codetrail checked, inferred ones are the assistant's "
+"reading. It counts only what the guide wrote about."
 msgstr ""
 
 msgid "Read"
@@ -636,6 +814,9 @@ msgstr ""
 msgid "See the whole system"
 msgstr ""
 
+msgid "See what's documented"
+msgstr ""
+
 msgid "See your progress"
 msgstr ""
 
@@ -667,6 +848,9 @@ msgid "Steps"
 msgstr ""
 
 msgid "Steps learned"
+msgstr ""
+
+msgid "Superseded or deprecated, still cited by the guide"
 msgstr ""
 
 msgid "Switch theme"
@@ -706,6 +890,9 @@ msgstr ""
 msgid "The assistant is reading the code…"
 msgstr ""
 
+msgid "The commit history couldn't be read just now; the log says why."
+msgstr ""
+
 msgid "The estimate expired before it was confirmed, so nothing was spent."
 msgstr ""
 
@@ -735,6 +922,14 @@ msgstr ""
 
 #, python-format
 msgid "The last update used ~%(tokens)s tokens (%(cost)s at API prices)."
+msgstr ""
+
+msgid ""
+"The latest commits on the branch, merges left out. A commit explains why "
+"when its body matches the target's commit_why_pattern."
+msgstr ""
+
+msgid "The metrics aren't available just now"
 msgstr ""
 
 msgid "The parts in this folder and the parts they connect to."
@@ -799,6 +994,12 @@ msgid ""
 "with the number of connections on each arrow. Every part is listed below."
 msgstr ""
 
+#, python-format
+msgid "Trend over %(count)s update: %(values)s"
+msgid_plural "Trend over %(count)s updates: %(values)s"
+msgstr[0] ""
+msgstr[1] ""
+
 msgid "Unread"
 msgstr ""
 
@@ -814,6 +1015,11 @@ msgstr ""
 msgid ""
 "Update the guide and its guided paths appear here, with what you've "
 "learned on each."
+msgstr ""
+
+msgid ""
+"Update the guide once: reading the code is free, and the metrics come "
+"from it."
 msgstr ""
 
 msgid "Update the guide…"
@@ -849,7 +1055,15 @@ msgstr ""
 msgid "Where it fits"
 msgstr ""
 
+msgid ""
+"Which facts the guide explains, and which ADRs it cites, are measured "
+"once your assistant has written its pages."
+msgstr ""
+
 msgid "Why each arrow is there"
+msgstr ""
+
+msgid "Without a why"
 msgstr ""
 
 msgid "Writing the digest…"
@@ -958,6 +1172,9 @@ msgstr ""
 msgid "no price configured"
 msgstr ""
 
+msgid "nothing to measure yet"
+msgstr ""
+
 #, python-format
 msgid "one of its facts changed in this update"
 msgid_plural "%(count)s of its facts changed in this update"
@@ -965,6 +1182,9 @@ msgstr[0] ""
 msgstr[1] ""
 
 msgid "pages, by passing their checks"
+msgstr ""
+
+msgid "proposed too long, or retired and still cited"
 msgstr ""
 
 msgid "revised"

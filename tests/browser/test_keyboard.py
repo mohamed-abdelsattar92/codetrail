@@ -58,10 +58,13 @@ def test_a_opens_the_ask_panel(page: Page, site: Site) -> None:
     expect(page.locator("[data-ask]")).to_be_hidden()
 
 
-@pytest.mark.parametrize(
-    ("key", "path"),
-    [("h", "/"), ("p", "/progress"), ("y", "/system"), ("s", "/answers"), ("d", "/digests"), ("r", "/decisions")],
-)
+PLACES = [
+    ("h", "/"), ("p", "/progress"), ("y", "/system"), ("s", "/answers"), ("d", "/digests"), ("r", "/decisions"),
+    ("o", "/documentation"),
+]  # fmt: skip
+
+
+@pytest.mark.parametrize(("key", "path"), PLACES)
 def test_g_then_a_letter_goes_places(page: Page, site: Site, key: str, path: str) -> None:
     site.sign_in(page, "/pages/areas/app")
     page.keyboard.press("g")
