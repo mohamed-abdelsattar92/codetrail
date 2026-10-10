@@ -2,13 +2,17 @@
 
 import os
 import subprocess
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 
 from codetrail.config import ToolsSettings
+from codetrail.errors import CodetrailError
 from codetrail.repo.history import (
     WITHHELD_TAG,
+    changed_paths,
+    commit_count,
     commit_times,
     commit_totals,
     commits_between,
@@ -230,3 +234,52 @@ def test_a_tag_without_a_tagger_takes_its_commits_date(tmp_path: Path, scanner: 
     [found] = read_tags(mirror, end, scanner)
     assert (found.name, found.commit, found.message) == ("ancient", commit, "An early release")
     assert found.date == 1_790_000_000  # the commit's date
+
+
+SCANNER = SecretScanner(ToolsSettings())
+HistoryReader = Callable[[Path, str, str], object]
+READERS: dict[str, HistoryReader] = {
+    "commits_between from": lambda mirror, option, end: commits_between(mirror, option, end, visible, SCANNER),
+    "commits_between to": lambda mirror, option, end: commits_between(mirror, None, option, visible, SCANNER),
+    "recent_commits": lambda mirror, option, end: recent_commits(mirror, option, ["a.md"], 5, visible, SCANNER),
+    "latest_commits": lambda mirror, option, end: latest_commits(mirror, option, 5, SCANNER),
+    "commit_count": lambda mirror, option, end: commit_count(mirror, option, end),
+    "merges_between": lambda mirror, option, end: merges_between(mirror, option, end),
+    "diff_between from": lambda mirror, option, end: diff_between(mirror, option, end, visible, SCANNER),
+    "diff_between to": lambda mirror, option, end: diff_between(mirror, end, option, visible, SCANNER),
+    "changed_paths from": lambda mirror, option, end: changed_paths(mirror, option, end),
+    "changed_paths to": lambda mirror, option, end: changed_paths(mirror, end, option),
+    "commit_totals": lambda mirror, option, end: commit_totals(mirror, option),
+    "commit_times": lambda mirror, option, end: commit_times(mirror, option, 5),
+    "first_commit_time": lambda mirror, option, end: first_commit_time(mirror, option),
+    "read_tags": lambda mirror, option, end: read_tags(mirror, option, SCANNER),
+}
+
+
+@pytest.mark.parametrize("reader", READERS.values(), ids=READERS.keys())
+def test_a_revision_starting_with_a_dash_is_never_read_as_an_option(tmp_path: Path, reader: HistoryReader) -> None:
+    checkout = make_repository(tmp_path / "t", [{"a.md": "a\n"}, {"a.md": "b\n"}])
+    mirror, end = mirror_of(checkout, tmp_path)
+    written = tmp_path / "written"
+    written.mkdir()
+    with pytest.raises(CodetrailError):
+        reader(mirror, f"--output={written / 'out'}", end)
+    assert list(written.iterdir()) == []
+
+
+DIFF_READERS: dict[str, Callable[[Path, str, str], object]] = {
+    "diff_between": lambda mirror, start, end: diff_between(mirror, start, end, visible, SCANNER),
+    "changed_paths": changed_paths,
+}
+
+
+@pytest.mark.parametrize("reader", DIFF_READERS.values(), ids=DIFF_READERS.keys())
+def test_files_outside_the_repository_are_never_compared_as_revisions(
+    tmp_path: Path, reader: Callable[[Path, str, str], object]
+) -> None:
+    checkout = make_repository(tmp_path / "t", [{"a.md": "a\n"}])
+    mirror, _end = mirror_of(checkout, tmp_path)
+    (tmp_path / "before").write_text("one\n")
+    (tmp_path / "after").write_text("one\n")  # alike, so a file comparison would succeed
+    with pytest.raises(CodetrailError):
+        reader(mirror, str(tmp_path / "before"), str(tmp_path / "after"))

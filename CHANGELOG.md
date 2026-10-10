@@ -11,6 +11,9 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 ### Changed
 - Codetrail's mirror of a repository now keeps the tags that point into its branch, for the releases; tags elsewhere, and their commits, still never come in.
 
+### Security
+- A revision read from Codetrail's data folder can no longer be taken by git as an option, and a `source.json` whose commit isn't a full commit name is refused, with a message to run the update again.
+
 ## [1.1.1] - 2026-10-09
 
 Release notes: [docs/releases/v1.1.1.md](docs/releases/v1.1.1.md).
