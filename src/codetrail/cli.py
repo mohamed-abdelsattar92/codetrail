@@ -346,7 +346,7 @@ def print_stats(report: RepositoryReport, today: date, listed: int) -> None:
         if years or months:
             ago = f"{_plural(years, 'year')}, {_plural(months, 'month')}"
         else:
-            ago = _plural((today - activity.first).days, "day")
+            ago = _plural(max((today - activity.first).days, 0), "day")
         print(f"First commit: {activity.first.isoformat()} ({ago} ago)")
         print(f"Latest commit: {activity.latest.isoformat()}")
         print(f"Commits: {activity.commits} ({_plural(activity.merges, 'merge')})")

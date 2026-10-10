@@ -159,6 +159,7 @@ def create_app(
     index_built: dict[str, object] = {"key": None, "index": None}
     reports: ReportCache[MetricsReport] = ReportCache()
     repository_reports: ReportCache[RepositoryReport] = ReportCache()
+    home_summaries: ReportCache[dict[str, object]] = ReportCache()
 
     def search_index() -> SearchIndex | None:
         """The index, rebuilt whenever the guide or the facts moved on (an update, a saved answer); None if broken.
@@ -306,7 +307,8 @@ def create_app(
                     {},
                 )[Metric.DOCUMENTED_SHARE]
                 if snapshot is not None:
-                    repository = repository_summary(store.connection, snapshot.commit)
+                    connection, commit = store.connection, snapshot.commit
+                    repository = home_summaries.get(snapshot.id, lambda: repository_summary(connection, commit))
         pages = guide.pages() if guide.root.exists() else []
         nav = navigation(pages)
         guide_pages = [page for page in pages if page.kind in ("area", "concept")]
@@ -535,7 +537,10 @@ def create_app(
         )  # fmt: skip
 
     def repository_summary(connection: sqlite3.Connection, commit: str) -> dict[str, object]:
-        """The home card's numbers (design section 19.5): recorded values and one cheap git call, never the report."""
+        """The home card's numbers (design section 19.5): recorded values and one git call, never the report.
+
+        Kept per snapshot: the values change only with an update, and the git call walks the whole history.
+        """
         summary: dict[str, object] = {}
         for metric in (Metric.COMMITS, Metric.CODE_LINES):
             recorded = recent_values(connection, metric, 1)

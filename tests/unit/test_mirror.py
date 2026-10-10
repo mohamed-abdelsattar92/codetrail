@@ -114,3 +114,15 @@ def test_fetching_tags_leaves_the_target_untouched(checkout: Path, tmp_path: Pat
     before = snapshot_tree(checkout)
     refresh_mirror(mirror, checkout, "develop")  # deletes the mirror's stale tag
     assert snapshot_tree(checkout) == before
+
+
+def test_a_failed_tag_cleanup_never_names_the_tag(checkout: Path, tmp_path: Path) -> None:
+    git(checkout, "tag", "unscanned-tag-name")
+    mirror = tmp_path / "mirror.git"
+    refresh_mirror(mirror, checkout, "develop")
+    git(checkout, "tag", "-d", "unscanned-tag-name")
+    (mirror / "refs" / "tags" / "unscanned-tag-name.lock").write_text("")  # a lock left behind makes the delete fail
+    with pytest.raises(CodetrailError) as raised:
+        refresh_mirror(mirror, checkout, "develop")
+    assert "unscanned-tag-name" not in str(raised.value)
+    assert "stale tag" in str(raised.value)

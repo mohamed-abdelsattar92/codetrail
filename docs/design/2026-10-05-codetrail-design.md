@@ -945,7 +945,7 @@ Tags are read only by `repo`, with one `git for-each-ref --merged <head>`: field
 
 ### 19.3 How it is computed
 New files in the `metrics` module: `activity.py` (history, commit types), `releases.py`, `size.py`, `inventory.py` (facts) and, in Phase 15, `churn.py`; `repository.py` builds a `RepositoryReport` from them, as `report.py` builds a `MetricsReport`. They read the target only through `repo` (new: the commit dates and counts, the tags, and in Phase 15 the files each commit changed) and the guide only through `guide`.
-- **History** is read with `git rev-list --count` (all commits, then merges) and one `git log` of at most `history_limit` commits printing only each commit's author timestamp and parents: no message, name or email.
+- **History** is read with `git rev-list --count` (all commits, then merges) and one `git log` of at most `history_limit` commits printing only each commit's author timestamp: no message, name or email. When the history is longer, the first commit's date comes from the root commits, so the age stays right.
 - **Commit types** reuse `latest_commits` (section 18.2), so the messages are scanned before they're matched; a subject is matched up to `metrics.max_message_chars`.
 - **Code size** reads each allowed file once; languages are looked up in a dictionary, never by a pattern.
 - **Facts** come from one query over the validity ranges for the counts per snapshot and kind, and one for the packages' first and last snapshots.

@@ -81,8 +81,12 @@ def _drop_stale_tags(mirror: Path, url: str) -> None:
         if ref.startswith("refs/tags/") and remote.get(ref) != sha:
             stale.append(f"delete {ref}\0{sha}\0")
     if stale:
-        run_git(["update-ref", "-z", "--stdin"], git_dir=mirror,
-                input="".join(stale).encode("utf-8", "surrogateescape"))  # fmt: skip
+        try:
+            run_git(["update-ref", "-z", "--stdin"], git_dir=mirror,
+                    input="".join(stale).encode("utf-8", "surrogateescape"))  # fmt: skip
+        except CodetrailError:
+            # git's message names the tag, which no scan has passed yet; the update's error would show it.
+            raise CodetrailError(f"git couldn't remove {len(stale)} stale tag(s) from the mirror.") from None
 
 
 def head_commit(mirror: Path, branch: str) -> str:

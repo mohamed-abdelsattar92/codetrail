@@ -8,8 +8,8 @@ the report stands.
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
-from datetime import date
+from dataclasses import dataclass, replace
+from datetime import UTC, date, datetime
 
 from pathspec import GitIgnoreSpec
 
@@ -21,7 +21,14 @@ from codetrail.metrics.inventory import Inventory, measure_inventory
 from codetrail.metrics.releases import Releases, measure_releases
 from codetrail.metrics.report import Metric, Value
 from codetrail.metrics.size import CodeSize, measure_size
-from codetrail.repo.history import commit_count, commit_times, commit_totals, latest_commits, read_tags
+from codetrail.repo.history import (
+    commit_count,
+    commit_times,
+    commit_totals,
+    first_commit_time,
+    latest_commits,
+    read_tags,
+)
 from codetrail.repo.secrets import SecretScanner
 from codetrail.repo.source import SourceManifest, allowed_reader
 
@@ -67,6 +74,9 @@ def build_repository_report(
             commits, merges = commit_totals(mirror, end)
             times = commit_times(mirror, end, settings.metrics.history_limit)
             activity = measure_activity(times, commits, merges, today, settings.metrics.activity_months)
+            first = first_commit_time(mirror, end) if activity.cut else None
+            if first is not None:  # the times read stop short of the first commit
+                activity = replace(activity, first=datetime.fromtimestamp(first, UTC).date())
         except (CodetrailError, OSError) as error:
             logger.warning("The history isn't available: %s", error)
         try:

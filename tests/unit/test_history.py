@@ -1,5 +1,7 @@
 """Filtered history: logs and diffs never show excluded paths or secrets (design section 3.3)."""
 
+import os
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -20,7 +22,7 @@ from codetrail.repo.history import (
 from codetrail.repo.mirror import refresh_mirror
 from codetrail.repo.rules import ExclusionRules
 from codetrail.repo.secrets import SecretScanner
-from tests.fixtures.repos import add_commit, fake_github_token, git, make_repository
+from tests.fixtures.repos import GIT_ENVIRONMENT, add_commit, fake_github_token, git, make_repository
 
 RULES = ExclusionRules(["docs/private/"])
 
@@ -214,3 +216,17 @@ def test_the_first_commit_time_is_the_earliest_root_commit(tmp_path: Path) -> No
     git(checkout, "merge", "-q", "--allow-unrelated-histories", "imported", "-m", "Merge", date=10)
     mirror, end = mirror_of(checkout, tmp_path)
     assert first_commit_time(mirror, end) == 1_790_000_000
+
+
+def test_a_tag_without_a_tagger_takes_its_commits_date(tmp_path: Path, scanner: SecretScanner) -> None:
+    checkout = make_repository(tmp_path / "t", [{"a.txt": "a\n"}])
+    commit = git(checkout, "rev-parse", "HEAD")
+    content = f"object {commit}\ntype commit\ntag ancient\n\nAn early release\n"  # tags made before git had taggers
+    tag = subprocess.run(["git", "-C", str(checkout), "hash-object", "-t", "tag", "--literally", "-w", "--stdin"],
+                         input=content, env={**os.environ, **GIT_ENVIRONMENT}, capture_output=True, text=True,
+                         check=True).stdout.strip()  # fmt: skip
+    git(checkout, "update-ref", "refs/tags/ancient", tag)
+    mirror, end = mirror_of(checkout, tmp_path)
+    [found] = read_tags(mirror, end, scanner)
+    assert (found.name, found.commit, found.message) == ("ancient", commit, "An early release")
+    assert found.date == 1_790_000_000  # the commit's date

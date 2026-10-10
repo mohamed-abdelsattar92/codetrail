@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 
 from codetrail.config import GlobalConfig, MetricsSettings, Paths, write_target
 from codetrail.errors import CodetrailError
+from codetrail.repo.history import first_commit_time
 from codetrail.repo.secrets import SecretScanner
 from codetrail.update import run_update
 from codetrail.web.app import create_app
@@ -160,3 +161,38 @@ def test_only_the_largest_files_are_listed(paths: Paths) -> None:
     page = client_for(paths, GlobalConfig(metrics=MetricsSettings(largest_files=1))).get("/repository").text
     largest = section(page, "size").split("Largest files", 1)[1]
     assert largest.count('href="/source/') == 1 and "more" not in largest
+
+
+class EarlyDate(date):
+    @classmethod
+    def today(cls) -> EarlyDate:
+        return cls(2026, 9, 20)  # a clock a day behind the commits' dates, or a reader west of UTC
+
+
+def test_days_ago_never_go_negative(paths: Paths, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("codetrail.web.app.date", EarlyDate)
+    run_update(paths, "shop", facts_only=True)
+    page = client_for(paths).get("/repository").text
+    assert "-1 day" not in page
+    assert "0 days ago" in section(page, "timeline")
+
+
+def test_a_cut_history_says_so(paths: Paths) -> None:
+    run_update(paths, "shop", facts_only=True)
+    page = client_for(paths, GlobalConfig(metrics=MetricsSettings(history_limit=1))).get("/repository").text
+    assert "The timeline shows the latest 1 commits" in section(page, "timeline")
+
+
+def test_the_home_card_reads_the_first_commit_once_per_snapshot(paths: Paths, monkeypatch: pytest.MonkeyPatch) -> None:
+    calls = []
+
+    def counted(mirror: Path, end: str) -> int | None:
+        calls.append(end)
+        return first_commit_time(mirror, end)
+
+    monkeypatch.setattr("codetrail.web.app.first_commit_time", counted)
+    run_update(paths, "shop", facts_only=True)
+    client = client_for(paths)
+    assert "Started on 2026-09-21" in client.get("/").text
+    client.get("/")
+    assert len(calls) == 1

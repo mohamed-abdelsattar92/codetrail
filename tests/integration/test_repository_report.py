@@ -8,13 +8,13 @@ from pathlib import Path
 
 import pytest
 
-from codetrail.config import GlobalConfig, Paths, write_target
+from codetrail.config import GlobalConfig, MetricsSettings, Paths, write_target
 from codetrail.database import connect
 from codetrail.facts.store import FactStore
 from codetrail.metrics.report import Metric, Value
 from codetrail.metrics.repository import build_repository_report
 from codetrail.update import run_update
-from tests.fixtures.repos import Commit, add_commit, git, make_repository
+from tests.fixtures.repos import Commit, add_commit, git, make_repository, write_commit
 
 FILES: Commit = {
     "pyproject.toml": '[project]\nname = "shop"\ndependencies = ["fastapi", "httpx"]\n',
@@ -111,3 +111,15 @@ def test_a_failing_repository_report_still_records_the_documentation_metrics(
     recorded = rows(paths)[1]
     assert str(Metric.DOCUMENTED_SHARE) in recorded and str(Metric.COMMITS) not in recorded
     assert "The repository statistics weren't recorded" in caplog.text
+
+
+def test_a_cut_history_keeps_exact_counts_and_the_real_first_commit(paths: Paths, tmp_path: Path) -> None:
+    write_commit(tmp_path / "target", {"app/db.py": "x = 3\n"}, "fix: later", date=60 * 24 * 40)  # 40 days on
+    run_update(paths, "shop", facts_only=True)
+    settings = GlobalConfig(metrics=MetricsSettings(history_limit=1))
+    with store_of(paths) as store:
+        report = build_repository_report(paths, "shop", settings, store, date(2026, 10, 10))
+    assert report.activity is not None
+    assert (report.activity.commits, report.activity.cut) == (4, True)
+    assert report.activity.first == date(2026, 9, 21)  # the first commit, not the oldest of the times read
+    assert sum(count for _, count in report.activity.years) == 1

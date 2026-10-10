@@ -44,7 +44,7 @@
     <span class="stat-value">—</span><span class="stat-note">{{ _("The history couldn't be read just now.") }}</span>
     {% else %}
     {% set years, months = age %}
-    <span class="stat-value">{% if not years and not months %}{% trans count=(today - activity.first).days %}{{ count }} day{% pluralize %}{{ count }} days{% endtrans %}{% else %}{% if years %}{% trans count=years %}{{ count }} year{% pluralize %}{{ count }} years{% endtrans %}{% endif %}{% if years and months %}, {% endif %}{% if months %}{% trans count=months %}{{ count }} month{% pluralize %}{{ count }} months{% endtrans %}{% endif %}{% endif %}</span>
+    <span class="stat-value">{% if not years and not months %}{% trans count=[(today - activity.first).days, 0]|max %}{{ count }} day{% pluralize %}{{ count }} days{% endtrans %}{% else %}{% if years %}{% trans count=years %}{{ count }} year{% pluralize %}{{ count }} years{% endtrans %}{% endif %}{% if years and months %}, {% endif %}{% if months %}{% trans count=months %}{{ count }} month{% pluralize %}{{ count }} months{% endtrans %}{% endif %}{% endif %}</span>
     <span class="stat-note">{% trans date=activity.first.isoformat() %}First commit on <span class="nowrap">{{ date }}</span>{% endtrans %}</span>
     {% endif %}
   </section>
@@ -99,7 +99,7 @@
   <table class="metric-table">
     <tbody>
     <tr><th scope="row">{{ _("First commit") }}</th><td>{{ activity.first.isoformat() }}</td></tr>
-    <tr><th scope="row">{{ _("Latest commit") }}</th><td>{{ activity.latest.isoformat() }} · {% trans count=(today - activity.latest).days %}{{ count }} day ago{% pluralize %}{{ count }} days ago{% endtrans %}</td></tr>
+    <tr><th scope="row">{{ _("Latest commit") }}</th><td>{{ activity.latest.isoformat() }} · {% trans count=[(today - activity.latest).days, 0]|max %}{{ count }} day ago{% pluralize %}{{ count }} days ago{% endtrans %}</td></tr>
     <tr><th scope="row">{{ _("Weeks with a commit") }}</th><td>{% trans active=activity.active_weeks|number, weeks=activity.weeks|number %}{{ active }} of {{ weeks }}{% endtrans %}</td></tr>
     <tr><th scope="row">{{ _("Longest quiet stretch") }}</th><td>{% if activity.longest_gap %}{% set start, end = activity.longest_gap %}{% trans count=(end - start).days, start=start.isoformat(), end=end.isoformat() %}{{ count }} day, from {{ start }} to {{ end }}{% pluralize %}{{ count }} days, from {{ start }} to {{ end }}{% endtrans %}{% else %}—{% endif %}</td></tr>
     </tbody>
