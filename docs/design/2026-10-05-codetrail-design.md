@@ -174,7 +174,7 @@ SQLite through the standard library's `sqlite3` ([ADR 0003](../adr/0003-facts-wi
 - `entities(id, kind, attributes, hash, sources, first_seen, last_seen)` and `relations(source_id, kind, target_id, attributes, hash, sources, first_seen, last_seen)`. `first_seen` is the snapshot a version appeared in; `last_seen` is the last snapshot it was valid in, `NULL` while current. `sources` is JSON, updated in place while the version is current.
 - An update compares new facts with current ones: unchanged facts get their sources refreshed; changed facts get their current row closed and a new row opened; missing facts are closed.
 - The diff for snapshot N is: added (opened at N with no row closed at N−1), changed (opened at N with a row closed at N−1), removed (closed at N−1 with nothing opened at N).
-- Schema changes are ordered SQL files applied at startup and tracked with `PRAGMA user_version`.
+- Schema changes are ordered SQL files applied at startup and tracked with `PRAGMA user_version`. A connection that finds the database behind applies them under the write lock and reads the version again first, so connections opening a new database together (the page's requests and its update) apply them once.
 
 Storage grows with churn, not with repository size.
 
