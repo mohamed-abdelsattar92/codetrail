@@ -55,7 +55,7 @@ One module per part of the system. Every other module reads the target only thro
 | `system` | The system pass: a repository's parts and the connections between them, from facts (section 17.3) | `facts`, `repo` |
 | `bridge` | FastAPI router for questions, streamed answers, grading and "save to guide" | `assistant`, `guide`, `learn` |
 | `learn` | Progress, check attempts, staleness and settings in SQLite | `facts`, `guide` |
-| `metrics` | Documentation metrics and their trend, from the guide, the facts and the history (section 18) | `guide`, `facts`, `repo` |
+| `metrics` | Documentation metrics and their trend, from the guide, the facts and the history (section 18) | `guide`, `facts`, `repo`, `generate` (its rationale and scope rules) |
 
 ### 2.3 Where things live
 Codetrail follows the XDG base directories, on macOS too; configuration can move any of them.

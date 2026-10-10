@@ -481,7 +481,7 @@ The report is cached in memory under a lock, keyed by `(latest snapshot id, guid
 
 - [ ] **Step 1: Write the failing tests**
   - `/documentation` without the session is refused like every page (`test_security`'s helper);
-  - after a facts-only update: the page renders; the documented tile says there are no pages yet and links to the update dialog's opener (`data-update-open`), not to a POST; ADR, commit and mention sections show their counts;
+  - after a facts-only update: the page renders; the documented tile says there are no pages yet and links to the update dialog's opener (`data-update-button`), not to a POST; ADR, commit and mention sections show their counts;
   - after a full update with the fake assistant: "1 of 2" for the documented share, the inferred block's first line linking to `/pages/areas/app`, the commit without a why listed with its short sha and subject, no author name anywhere;
   - a commit whose message holds a fake GitHub token: the token isn't on the page, the withheld text is;
   - a file excluded by the target's ignore rules, matching the document globs and naming a dependency: the dependency is still listed as unmentioned, and the file's text isn't on the page;
