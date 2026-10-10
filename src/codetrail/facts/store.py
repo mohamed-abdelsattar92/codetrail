@@ -59,7 +59,8 @@ class FactStore:
             self._write("relations", RELATION_KEY, relation_rows, snapshot.id, closing)
             connection.execute("COMMIT")
         except BaseException:
-            connection.execute("ROLLBACK")
+            if connection.in_transaction:  # SQLite ends it itself after some errors
+                connection.execute("ROLLBACK")
             raise
         return snapshot, self.diff(snapshot)
 
