@@ -190,7 +190,7 @@
   {% if churn.median_files is none %}
   <p class="muted">{{ _("No commits to measure yet.") }}</p>
   {% else %}
-  <p>{% trans median="%g"|format(churn.median_files), p90="%g"|format(churn.p90_files) %}A commit changes {{ median }} files at the median, and {{ p90 }} at the 90th percentile.{% endtrans %}</p>
+  <p>{% trans median="%g"|format(churn.median_files), p90="%g"|format(churn.p90_files) %}Files a commit changes: {{ median }} at the median, {{ p90 }} at the 90th percentile.{% endtrans %}</p>
   {% endif %}
   <h3>{{ _("Quiet code") }}</h3>
   {% if churn.quiet %}

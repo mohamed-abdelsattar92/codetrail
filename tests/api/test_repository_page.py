@@ -6,6 +6,8 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
+from codetrail.assistant import PageDraft, PageRequest, PlanDraft
+from codetrail.assistant.fake import FakeAssistant
 from codetrail.config import GlobalConfig, MetricsSettings, Paths, write_target
 from codetrail.database import connect
 from codetrail.errors import CodetrailError
@@ -236,3 +238,17 @@ def test_without_the_history_the_change_section_says_so(paths: Paths, monkeypatc
     page = client_for(paths).get("/repository").text
     assert "couldn't be read" in section(page, "change")
     assert "Python" in section(page, "size")
+
+
+def test_the_change_section_lists_the_guide_areas_with_their_rationale(paths: Paths) -> None:
+    plan = PlanDraft([{"id": "areas/app", "kind": "area", "title": "The app", "scope_paths": ["app"], "facts": []}])
+
+    def writer(request: PageRequest) -> PageDraft:
+        checks = [{"id": "q", "question": "Why?", "rubric": [{"point": "p", "grounds": ["app/main.py"]}]}]
+        return PageDraft("> [!inferred]\n> It reads well.\n", checks, ["app/main.py"])
+
+    run_update(paths, "shop", claude=FakeAssistant(plans=[plan], page_writer=writer))
+    change = section(client_for(paths).get("/repository").text, "change")
+    row = change.split('href="/pages/areas/app"', 1)[1].split("</tr>", 1)[0]
+    assert "The app" in row and "<td>3</td><td>0</td><td>1</td>" in row
+    assert "Files a commit changes" in change

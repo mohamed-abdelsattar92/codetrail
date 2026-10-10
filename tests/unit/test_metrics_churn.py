@@ -42,8 +42,12 @@ def test_quiet_code_is_code_no_recent_commit_changed_by_folder() -> None:
 
 def test_commit_size_counts_every_file_excluded_ones_too() -> None:
     churn = measure_churn(CHANGES, ALLOWED, CODE, set(), [])
-    assert churn.median_files == 2  # sizes 2, 2, 3, 1, 0
-    assert churn.p90_files is not None and churn.p90_files >= 2
+    assert (churn.median_files, churn.p90_files) == (2, 2.6)  # sizes 2, 2, 3, 1, 0
+
+
+def test_the_90th_percentile_never_passes_the_largest_commit() -> None:
+    churn = measure_churn([["a"], ["a"], ["a"], [str(number) for number in range(20)]], set(), set(), set(), [])
+    assert churn.p90_files is not None and churn.p90_files <= 20
 
 
 def test_one_commit_gives_its_own_size_and_none_give_nothing() -> None:

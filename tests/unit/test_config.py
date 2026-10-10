@@ -328,3 +328,10 @@ def test_language_names_are_lower_cased(paths: Paths) -> None:
     paths.config_dir.mkdir(parents=True, exist_ok=True)
     (paths.config_dir / "config.toml").write_text('[metrics.languages]\n".PY" = "Python"\n')
     assert load_global(paths).metrics.languages == {".py": "Python"}
+
+
+def test_quiet_days_are_bounded(paths: Paths) -> None:
+    paths.config_dir.mkdir(parents=True, exist_ok=True)
+    (paths.config_dir / "config.toml").write_text("[metrics]\nquiet_days = 10000000\n")
+    with pytest.raises(CodetrailError, match="quiet_days"):
+        load_global(paths)

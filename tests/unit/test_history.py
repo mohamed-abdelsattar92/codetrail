@@ -307,4 +307,11 @@ def test_files_changed_since_a_date(tmp_path: Path) -> None:
     write_commit(checkout, {"new": "1\n"}, "Later", date=60 * 24 * 40)  # 40 days after 2026-09-21
     mirror, end = mirror_of(checkout, tmp_path)
     assert files_changed_since(mirror, end, date(2026, 10, 1)) == {"new"}
-    assert files_changed_since(mirror, end, date(2026, 9, 1)) == {"old", "new"}
+    assert files_changed_since(mirror, end, date(2026, 9, 1)) == {"old", "new"}  # before the first commit: all
+
+
+def test_files_changed_since_keep_a_leading_newline(tmp_path: Path) -> None:
+    checkout = make_repository(tmp_path / "t", [{"old": "1\n"}])
+    write_commit(checkout, {"\nlead": "1\n"}, "Later", date=60 * 24 * 40)
+    mirror, end = mirror_of(checkout, tmp_path)
+    assert files_changed_since(mirror, end, date(2026, 10, 1)) == {"\nlead"}

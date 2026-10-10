@@ -433,12 +433,6 @@ msgstr "%(reason)s حُدّثت الحقائق، ولم يُحدَّث الدل�
 msgid ", drawn from the code"
 msgstr "، مرسومة من الكود"
 
-#, python-format
-msgid ""
-"A commit changes %(median)s files at the median, and %(p90)s at the 90th "
-"percentile."
-msgstr "يغيّر الـ commit %(median)s ملفات في الوسيط، و%(p90)s عند المئين التسعين."
-
 msgid ""
 "A page is learned when you pass its checks. When an update changes a page"
 " you learned, it shows here until you learn it again."
@@ -759,6 +753,14 @@ msgstr "الحقائق:"
 
 msgid "Files"
 msgstr "الملفات"
+
+#, python-format
+msgid ""
+"Files a commit changes: %(median)s at the median, %(p90)s at the 90th "
+"percentile."
+msgstr ""
+"الملفات التي يغيّرها الـ commit: %(median)s في الوسيط، و%(p90)s عند "
+"المئين التسعين."
 
 msgid ""
 "Files this answer was written from have changed since. Saved answers "

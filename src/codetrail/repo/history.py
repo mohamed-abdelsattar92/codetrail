@@ -164,10 +164,18 @@ def changed_files(mirror: Path, end: str, limit: int) -> list[list[str]]:
 
 
 def files_changed_since(mirror: Path, end: str, since: date) -> set[str]:
-    """The paths any commit in `end`'s history changed since the date; names only, which callers filter."""
-    output = run_git(["log", f"--since={since.isoformat()}", "-z", "--name-only", "--format=", "--end-of-options", end],
-                     git_dir=mirror)  # fmt: skip
-    return {name.lstrip("\n") for name in output.decode("utf-8", "surrogateescape").split("\0") if name.strip("\n")}
+    """The paths that differ between the last commit before the date and `end`: names only, which callers filter.
+
+    One tree diff, however many commits came since; with no commit before the date, every path in `end` counts.
+    """
+    base = run_git(["rev-list", "-1", f"--before={since.isoformat()}", "--end-of-options", end], git_dir=mirror)
+    if base.strip():
+        arguments = ["diff-tree", "-r", "--name-only", "--no-renames", "-z", "--end-of-options", base.decode().strip(),
+                     end]  # fmt: skip
+    else:
+        arguments = ["ls-tree", "-r", "--name-only", "-z", "--end-of-options", end]
+    output = run_git(arguments, git_dir=mirror)
+    return {name for name in output.decode("utf-8", "surrogateescape").split("\0") if name}
 
 
 def merges_between(mirror: Path, start: str, end: str) -> int:

@@ -267,12 +267,6 @@ msgstr ""
 msgid ", drawn from the code"
 msgstr ""
 
-#, python-format
-msgid ""
-"A commit changes %(median)s files at the median, and %(p90)s at the 90th "
-"percentile."
-msgstr ""
-
 msgid ""
 "A page is learned when you pass its checks. When an update changes a page"
 " you learned, it shows here until you learn it again."
@@ -572,6 +566,12 @@ msgid "Facts:"
 msgstr ""
 
 msgid "Files"
+msgstr ""
+
+#, python-format
+msgid ""
+"Files a commit changes: %(median)s at the median, %(p90)s at the 90th "
+"percentile."
 msgstr ""
 
 msgid ""

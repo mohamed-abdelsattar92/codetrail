@@ -71,6 +71,7 @@ def measure_churn(
     quiet = [path for path in code if path not in recently_changed]
     sizes = [len(paths) for paths in changes]
     median = statistics.median(sizes) if sizes else None
-    p90 = statistics.quantiles(sizes, n=10)[8] if len(sizes) > 1 else median
+    # Inclusive: the default method extrapolates past the largest commit when there are few.
+    p90 = statistics.quantiles(sizes, n=10, method="inclusive")[8] if len(sizes) > 1 else median
     return Churn(len(changes), _most_first(files), _most_first(folders), spots,
                  _most_first(Counter(_folder(path) for path in quiet)), len(quiet), median, p90)  # fmt: skip

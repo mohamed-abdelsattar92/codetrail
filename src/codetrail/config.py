@@ -185,7 +185,7 @@ class MetricsSettings(Settings):
     history_limit: int = Field(default=1_000_000, gt=0, le=100_000_000)  # commits whose dates are read
     largest_files: int = Field(default=10, gt=0, le=1000)  # files the Repository page lists by size
     churn_window: int = Field(default=500, gt=0, le=100_000)  # the latest non-merge commits the hot spots read
-    quiet_days: int = Field(default=365, gt=0)  # code no commit changed for this long is quiet
+    quiet_days: int = Field(default=365, gt=0, le=36_500)  # code no commit changed for this long is quiet
     languages: dict[str, str] = DEFAULT_LANGUAGES
 
     @field_validator("languages")
