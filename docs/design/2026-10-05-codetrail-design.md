@@ -55,7 +55,7 @@ One module per part of the system. Every other module reads the target only thro
 | `system` | The system pass: a repository's parts and the connections between them, from facts (section 17.3) | `facts`, `repo` |
 | `bridge` | FastAPI router for questions, streamed answers, grading and "save to guide" | `assistant`, `guide`, `learn` |
 | `learn` | Progress, check attempts, staleness and settings in SQLite | `facts`, `guide` |
-| `metrics` | Documentation metrics and their trend, from the guide, the facts and the history (section 18) | `guide`, `facts`, `repo`, `generate` (its rationale and scope rules) |
+| `metrics` | Documentation metrics, repository statistics and their trend, from the guide, the facts, the history and the tags (sections 18 and 19) | `guide`, `facts`, `repo`, `generate` (its rationale and scope rules) |
 
 ### 2.3 Where things live
 Codetrail follows the XDG base directories, on macOS too; configuration can move any of them.
@@ -114,6 +114,8 @@ grade = "claude-sonnet-5-5"
 [metrics]                        # section 18.5
 document_globs = ["README*", "*.md", "*.rst", "*.adoc", "*.txt", "docs/**"]
 commit_why_pattern = '(?im)^[ \t]*(?:#+[ \t]*)?why\b'
+test_globs = ["test/**", "tests/**", "**/test_*.py", "**/*_test.*", "**/*.test.*", "**/*.spec.*", "**/__tests__/**", "**/Tests/**"]   # section 19.6
+commit_type_pattern = '^(?P<type>[A-Za-z]+)(?:\((?P<scope>[^()\r\n]*)\))?!?:[ \t]'
 ```
 
 Unknown keys are refused. Model names and every limit live here or in the global file, never in code.
@@ -122,6 +124,7 @@ Unknown keys are refused. Model names and every limit live here or in the global
 - `mirror.git` is a bare clone of the founder's checkout, made with `--no-local` over the `file://` transport and refreshed by fetching the configured branch the same way. Only git's `upload-pack` reads the checkout: no command runs inside it, and no file of it is hardlinked (a plain local clone would hardlink its objects). A `git worktree` is not used, because it writes metadata into the target's `.git`. A test snapshots every file under a checkout, `.git` included (size, times, inode, link count, hash), and proves it unchanged.
 - `source/` holds only the allowed files (section 3.3) at the snapshot commit, written from git objects. It has no `.git` directory. Each refresh rebuilds it in full into `source.next/`, scans it (section 3.4) and renames it into place, so a failed refresh leaves the previous `source/` intact. `source.json`, beside it, records the commit, every file with its blob, and every exclusion with its reason. At large scale, reusing unchanged files and scanning only changed ones would make this incremental.
 - Symlinks and submodules are never materialized.
+- The mirror also keeps the target's tags that point into the branch's history, for the repository statistics (section 19.2); nothing else reads them.
 - Extractors, Claude's tools and the page's source views read only `source/`. Only `repo` reads `mirror.git`.
 
 ### 3.3 Exclusion rules
@@ -484,6 +487,11 @@ proposed_adr_days = 30
 trend_updates = 12
 max_listed = 50
 max_message_chars = 20000
+activity_months = 24           # section 19.6
+history_limit = 1000000
+churn_window = 500
+quiet_days = 365
+# [metrics.languages] maps a file name or suffix to its language (section 19.6)
 
 [extract]
 max_file_bytes = 1_000_000   # larger files are skipped with a warning
@@ -583,7 +591,9 @@ Each phase is usable on its own, has its own implementation plan, and ends with 
 | 11. The page's design | Search, the new shell and visual system, the progress and saved-answers pages, the palette, shortcuts and the Ask panel, browser tests (section 16) | A page people enjoy using, where anything in the guide is a keystroke away | ADRs 0007, 0008 |
 | 12. The whole system | The `typescript` and `github_actions` extractors, the system pass, the system diagram, page and home card (section 17) | One diagram of how a repository's parts fit together, and facts for TypeScript, JavaScript and Astro code | ADR 0009 |
 | 13. Documentation metrics | The `metrics` module, the `metric_values` table, the Documentation page, the home card and `codetrail metrics` (section 18) | How well a repository explains itself, what to document next, and the trend across updates, at no cost | — |
-| 14. Decision inventory (planned) | An opt-in paid pass listing the decisions in the code and their documented "why" (section 18.8) | The share of the repository's decisions that are documented, beyond what the guide wrote about | Phase 13 |
+| 14. Repository statistics | Tags in the mirror; history, releases, code size and facts; the Repository page, the home card and `codetrail stats` (section 19) | How old and big a repository is, how fast it moves, when it released and what it depends on, at no cost | Phase 13 |
+| 15. Where change happens | Hot spots by file, folder and guide area with their rationale, quiet code and commit size (section 19.1) | Where a repository changes most, and where documenting would help most | Phase 14 |
+| 16. Decision inventory (planned) | An opt-in paid pass listing the decisions in the code and their documented "why" (section 18.8) | The share of the repository's decisions that are documented, beyond what the guide wrote about | Phase 13 |
 
 ## 14. Answers to the brainstorm's open questions
 
@@ -886,7 +896,113 @@ Nothing new leaves the machine and nothing calls an assistant. The page is one `
 Phase 13, in one feature branch, reviewed and finished into `develop`.
 
 Planned, not built yet:
-- **Phase 14, the decision inventory.** An opt-in paid pass in which the assistant lists the decisions it can see in the code (patterns, conventions, trade-offs, not only what facts capture) and looks for a documented "why" for each, quoted and verified like any documented block. The inventory is kept and only added to, like the outline, so two runs on one commit don't move the trend. Every run shows its estimate first. Its share would join the page as a fifth tile.
-- **Undocumented hot spots:** areas with the most change and the most inferred rationale, where an ADR or a README would help most.
+- **Phase 16, the decision inventory** (numbered 14 until section 19 took 14 and 15). An opt-in paid pass in which the assistant lists the decisions it can see in the code (patterns, conventions, trade-offs, not only what facts capture) and looks for a documented "why" for each, quoted and verified like any documented block. The inventory is kept and only added to, like the outline, so two runs on one commit don't move the trend. Every run shows its estimate first. Its share would join the page as a fifth tile.
+- **Undocumented hot spots:** areas with the most change and the most inferred rationale, where an ADR or a README would help most. Phase 15 shows them (section 19.1).
 - **Freshness and learning on the same page:** affected pages, sources changed, merges behind, pages learned and gone stale.
 - **Word documents:** `.docx` files are binary, so neither the metrics nor the assistant can read them; a reader for them needs a proposed ADR for its dependency.
+
+## 19. Repository statistics
+
+Approved by the founder in the design session of 10 October 2026. Section 18 measures how well a repository explains itself; this section says what the repository is: how old, how big, how fast it moves, when it released, what it depends on and where its change happens. It helps a reader get their bearings before reading the guide. Like section 18, everything here is free: no assistant is called, and only what Codetrail can already see is read (the mirror's history of the target's branch, its tags, the allowed files in `source/` and the fact store).
+
+The statistics are about the repository, not about people: no author, contributor count or number per person is read or shown, as in section 18.6.
+
+### 19.1 What is shown
+**History**, from the branch's whole history:
+- **Commits:** how many the branch holds, and how many of them are merges.
+- **First and latest commit,** by author date in UTC, and the repository's **age** from its first commit to today.
+- **Activity:** commits per month over the last `metrics.activity_months` months, drawn as bars, and commits per year over the whole history; the share of weeks between the first and the latest commit that have a commit (**active weeks**); the **longest gap** between two consecutive commits, with its dates; and the days since the latest commit. At most `metrics.history_limit` commits are read; a longer history says it shows the latest ones.
+- **Commit types:** of the commits the commit metric reads (section 18.1: the last `metrics.commit_window` non-merge commits, scanned, withheld messages left out), the subjects that match the target's `[metrics] commit_type_pattern` (by default a Conventional Commit: `type(scope)!: subject`), counted by type and by scope. They are shown when at least half of the subjects match; otherwise the page says the repository doesn't appear to use such subjects.
+
+**Releases**, from the target's tags that point into the branch's history (section 19.2):
+- How many there are, the latest with its date, the commits since it, and the median days between consecutive releases.
+- Each release, newest first: its name, its date (the tagger's date for an annotated tag, the commit's otherwise), its commit's short sha, and an annotated tag's message, folded away. A tag whose name or message gitleaks flags is shown with both withheld. The tagger is never read.
+
+**Code size**, from the allowed files in `source.json`, read through the allowed-files reader (section 17.3):
+- **Files and lines by language.** A file's language comes from its name or suffix in the `metrics.languages` map. Files matching the target's `document_globs` are **documents** whatever their suffix; files in no language are **other**. Lines are the newline bytes, plus one for a last line without one. A file with a NUL byte is **binary**, and a file over `extract.max_file_bytes` is **too large**: both are counted as files, without lines.
+- **Tests:** files with a language that match the target's `[metrics] test_globs`. The **test share** is their lines among all lines with a language.
+- **Largest files:** the files with a language, by lines.
+
+**From the facts:**
+- **Facts by kind,** with each kind's change since the previous snapshot and its count over the last `metrics.trend_updates` snapshots, read from the validity ranges (ADR 0003).
+- **Dependencies that arrived and left:** package facts first seen after the first snapshot, with the date and commit of the snapshot that saw them, and package facts no longer current, with the snapshot that no longer saw them. The page says when Codetrail's history starts (the first snapshot's date); packages present then are listed as present from the start, not as arrivals.
+
+**Where change happens** (Phase 15), from the last `metrics.churn_window` non-merge commits:
+- **Hot spots:** the allowed files changed by the most commits, and the same counted by top-level folder and by guide area (a commit counts once for an area when it changes any file in the area's scope paths). Each area shows its documented and inferred rationale blocks beside its count, so the **undocumented hot spots** of section 18.8 stand out: much change, mostly inferred.
+- **Quiet code:** files with a language that no commit has changed in the last `metrics.quiet_days` days, counted and listed by folder.
+- **Commit size:** the median and the 90th percentile of the files each commit changes.
+
+Statistics are a fixed list in code, like the metrics.
+
+### 19.2 Tags in the mirror
+The mirror keeps the target's tags that point into the branch's history, and nothing else from outside the branch. Every refresh reconciles them in `refresh_mirror`, in this order:
+1. `git ls-remote --tags` over `file://` lists the target's tags; as for the branch, only `upload-pack` reads the target.
+2. Every mirror tag the target no longer has, or that now points at a different object, is deleted from the mirror, in one `git update-ref -z --stdin` with each tag's old value. Only refs under `refs/tags/` are touched.
+3. The branch's fetch, now without `--no-tags`, lets git's tag auto-follow bring the tags that point at objects the mirror holds. It brings no commit from another branch. Checked on 10 October 2026: a tag on another branch isn't fetched, and auto-follow never moves or removes a tag, hence step 2. A first clone keeps `--no-tags` and is followed by the same three steps.
+
+Tags are read only by `repo`, with one `git for-each-ref --merged <head>`: fields separated by NUL, only tags that peel to a commit, an annotated tag's subject and body but never its tagger. Names and messages are scanned with gitleaks in one run, as commit messages are. Nothing else in Codetrail reads a tag; extractors, the guide and the history keep reading the branch.
+
+### 19.3 How it is computed
+New files in the `metrics` module: `activity.py` (history, commit types), `releases.py`, `size.py`, `inventory.py` (facts) and, in Phase 15, `churn.py`; `repository.py` builds a `RepositoryReport` from them, as `report.py` builds a `MetricsReport`. They read the target only through `repo` (new: the commit dates and counts, the tags, and in Phase 15 the files each commit changed) and the guide only through `guide`.
+- **History** is read with `git rev-list --count` (all commits, then merges) and one `git log` of at most `history_limit` commits printing only each commit's author timestamp and parents: no message, name or email.
+- **Commit types** reuse `latest_commits` (section 18.2), so the messages are scanned before they're matched; a subject is matched up to `metrics.max_message_chars`.
+- **Code size** reads each allowed file once; languages are looked up in a dictionary, never by a pattern.
+- **Facts** come from one query over the validity ranges for the counts per snapshot and kind, and one for the packages' first and last snapshots.
+- **When:** the page computes the report the first time it is shown after the facts or the guide move on, and keeps it in memory keyed like the documentation report (section 18.2).
+
+### 19.4 The trend
+The update records four more values in `metric_values` (section 18.3), in the same row set as the documentation metrics: `commits` (a count), `code_lines` (a count, lines with a language), `source_files` (a count, allowed files) and `test_share` (test lines of lines with a language). Each report's values are computed on their own, so one failing still writes the other's; the failure is logged as a warning and never fails the update. Fact counts need no rows: their history is in the validity ranges.
+
+### 19.5 Where it appears
+- **The Repository page,** `/repository`, listed in the sidebar under Documentation; the shortcut is **G** then **T**. A row of five tiles: **Age** (the first commit's date), **Commits** (with its change since the last update), **Releases** (the latest and its date), **Code** (lines, with its change and trend line) and **Tests** (the test share, with its change and trend line). Below them, sections for the timeline (with the monthly bars as an inline SVG drawn on the server from numbers, and the same numbers as a table for screen readers), commit types, releases, code size, facts and, in Phase 15, where change happens. Lists show their first `metrics.max_listed` items and fold the rest away, as in section 18.4.
+- **The home card** "Repository" says when the repository started, its commits and its lines of code, and links to the page; it is shown once facts exist.
+- **`codetrail stats <target>`** prints the same summary: first and latest commit, age, commits, releases, lines by language, the test share and facts by kind. It reads the history but never writes it.
+
+### 19.6 Configuration
+Per target:
+
+```toml
+[metrics]
+test_globs = ["test/**", "tests/**", "**/test_*.py", "**/*_test.*", "**/*.test.*", "**/*.spec.*", "**/__tests__/**", "**/Tests/**"]   # gitignore syntax
+commit_type_pattern = '^(?P<type>[A-Za-z]+)(?:\((?P<scope>[^()\r\n]*)\))?!?:[ \t]'                                                       # a Python regular expression
+```
+
+`commit_type_pattern` is compiled when the configuration is loaded, and refused unless it compiles and has a `type` group; a `scope` group is optional.
+
+Globally:
+
+```toml
+[metrics]
+activity_months = 24        # months the activity bars show
+history_limit = 1000000     # commits whose dates are read
+churn_window = 500          # Phase 15: the latest non-merge commits the hot spots read
+quiet_days = 365            # Phase 15: code unchanged this long is quiet
+
+[metrics.languages]         # a file name or suffix, lower-cased, and its language; replaces the default map
+".py" = "Python"
+".ts" = "TypeScript"
+"dockerfile" = "Dockerfile"
+# … the default map covers the common languages
+```
+
+### 19.7 Security
+- **Tags come in only from the branch.** The reconcile reads the target with `upload-pack` only and writes only the mirror's own `refs/tags/`. Auto-follow fetches tag objects for objects the mirror already has; it brings no other branch's commits. Tags that don't peel to a commit, such as a tag on a blob of an excluded file, are never read.
+- **Tag text passes gitleaks** before it is shown, and a flagged tag's name and message are withheld. The tagger is never read.
+- **Files come from `source/` through the allowed-files reader,** so excluded and secret files are never read; Phase 15 counts only paths in the current allowed files, so excluded paths never appear.
+- **The history read prints no text,** only timestamps and parent ids; commit subjects reach the commit types only after gitleaks.
+- **Nothing a repository controls becomes a pattern:** languages are a dictionary lookup, and the patterns come from the reader's own configuration and are matched against capped text.
+- The page is one `GET` route behind the session and changes nothing; everything is autoescaped, and the bars and trend lines are SVG built from numbers.
+
+### 19.8 Testing
+- **Unit:** activity from fixed dates (months with no commit, the longest gap, active weeks, the history limit); commit types above and below the half threshold, scopes, withheld subjects; release order, median days, commits since the latest; language by name and suffix, documents winning over languages, binary and too-large files, tests and the test share; facts by kind per snapshot, arrivals after the first snapshot only, removals; the configuration refusing a pattern without a `type` group.
+- **Integration, with real git repositories:** tags are fetched for the branch only; a tag on another branch never arrives, with its commit; a deleted tag leaves the mirror and a moved tag follows; a tag on a blob is never read; a flagged tag is withheld; the target's checkout is unchanged, as in section 3.2's test.
+- **Update:** a finished, declined or facts-only update writes the new values beside the documentation metrics; a failure in either report still writes the other's.
+- **API:** `/repository` needs the session; it renders before the first paid update and before any tag; it never shows an excluded path, a withheld tag or an author; its security headers are unchanged; the home card appears with facts.
+- **Command:** `codetrail stats` prints the summary and writes nothing.
+- **Browser:** the page passes the accessibility scan in both themes; **G T** opens it; the bars and trend lines have their text alternatives.
+
+### 19.9 Delivery
+- **Phase 14:** tags in the mirror, history, releases, code size and facts, the Repository page, the home card and `codetrail stats`, in one feature branch.
+- **Phase 15:** where change happens, in its own feature branch.
+
+The decision inventory planned in section 18.8 becomes Phase 16.
