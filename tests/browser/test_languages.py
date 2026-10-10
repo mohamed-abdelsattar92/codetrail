@@ -72,3 +72,19 @@ def test_the_palette_names_kinds_in_the_reader_s_language_and_keeps_results_engl
     assert result.locator(".title").get_attribute("dir") == "ltr"
     assert result.locator(".kind").get_attribute("dir") == "rtl"
     assert result.locator(".snippet").get_attribute("dir") == "ltr"
+
+
+def test_the_repository_charts_follow_the_language(page: Page, site: Site, errors: list[str]) -> None:
+    in_arabic(page, site, "/repository")
+    timeline = page.locator('[data-chart="timeline"]')
+    expect(timeline).to_have_attribute("dir", "ltr")  # charts run left to right, like their numbers
+    expect(timeline.locator(".timeline-axis")).to_contain_text("يوليو")  # July, from Babel's Arabic month names
+    plot = timeline.locator(".timeline-plot")
+    plot.focus()
+    page.keyboard.press("End")
+    tip = page.locator(".timeline-tip")
+    expect(tip).to_be_visible()
+    text = tip.text_content() or ""
+    assert any(character.isascii() and character.isdigit() for character in text)
+    assert not any(0x0660 <= ord(character) <= 0x0669 for character in text)  # no Arabic-Indic digits
+    assert errors == []
