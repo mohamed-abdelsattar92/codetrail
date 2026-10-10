@@ -11,6 +11,9 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 ### Changed
 - Codetrail's mirror of a repository now keeps the tags that point into its branch, for the releases; tags elsewhere, and their commits, still never come in.
 
+### Fixed
+- The first update of a new target, started from the page, no longer fails now and then with an error in the update panel ("table … already exists"), or leaves the database locked, when the page reads the database while the update creates it.
+
 ### Security
 - A revision read from Codetrail's data folder can no longer be taken by git as an option, and a `source.json` whose commit isn't a full commit name is refused, with a message to run the update again.
 
