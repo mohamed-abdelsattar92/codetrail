@@ -113,7 +113,7 @@ grade = "claude-sonnet-5-5"
 
 [metrics]                        # section 18.5
 document_globs = ["README*", "*.md", "*.rst", "*.adoc", "*.txt", "docs/**"]
-commit_why_pattern = '(?im)^\s*(?:#+\s*)?why\b'
+commit_why_pattern = '(?im)^[ \t]*(?:#+[ \t]*)?why\b'
 ```
 
 Unknown keys are refused. Model names and every limit live here or in the global file, never in code.
@@ -483,6 +483,7 @@ commit_window = 200
 proposed_adr_days = 30
 trend_updates = 12
 max_listed = 50
+max_message_chars = 20000
 
 [extract]
 max_file_bytes = 1_000_000   # larger files are skipped with a warning
@@ -855,7 +856,7 @@ Per target, since conventions differ between repositories:
 ```toml
 [metrics]
 document_globs = ["README*", "*.md", "*.rst", "*.adoc", "*.txt", "docs/**"]   # gitignore syntax
-commit_why_pattern = '(?im)^\s*(?:#+\s*)?why\b'                              # a Python regular expression
+commit_why_pattern = '(?im)^[ \t]*(?:#+[ \t]*)?why\b'                              # a Python regular expression
 ```
 
 Globally:
@@ -866,9 +867,10 @@ commit_window = 200        # the latest non-merge commits the commit metric read
 proposed_adr_days = 30     # a proposed ADR older than this needs attention
 trend_updates = 12         # updates the trend lines show
 max_listed = 50            # items a list shows before the rest fold away
+max_message_chars = 20000  # of a commit body, matched for a why
 ```
 
-`commit_why_pattern` is compiled when the configuration is loaded; an invalid one is refused there, by name.
+`commit_why_pattern` is compiled when the configuration is loaded; an invalid one is refused there, by name. It is matched against at most `max_message_chars` of each body, and the default uses spaces and tabs rather than `\s`, so a long run of blank lines in a hostile message can't make matching quadratic.
 
 ### 18.6 Security
 Nothing new leaves the machine and nothing calls an assistant. The page is one `GET` route behind the session, and it changes nothing. Document files come from `source/` through the allowed-files reader, so excluded and secret files are never read; commit messages pass gitleaks before they are shown; rationale comes from pages that passed validation. Everything is rendered by autoescaping templates, and the trend line's SVG is built from numbers only. Names are matched by set lookup, so a hostile package or resource name can't make matching slow. Commit authors are never shown: the metrics are about the repository, not about people.

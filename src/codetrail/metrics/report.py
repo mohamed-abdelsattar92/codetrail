@@ -90,7 +90,7 @@ def build_report(paths: Paths, name: str, settings: GlobalConfig, store: FactSto
         try:
             found = latest_commits(data / "mirror.git", manifest.commit, settings.metrics.commit_window,
                                    SecretScanner(settings.tools))  # fmt: skip
-            commits = measure_commits(found, target.metrics.why)
+            commits = measure_commits(found, target.metrics.why, settings.metrics.max_message_chars)
         except (CodetrailError, OSError) as error:
             logger.warning("The commit metric isn't available: %s", error)
     entities = store.entities()

@@ -27,13 +27,14 @@ class CommitMetric:
         return self.explains_why + self.body_only + self.subject_only
 
 
-def measure_commits(commits: Iterable[Commit], why: re.Pattern[str]) -> CommitMetric:
+def measure_commits(commits: Iterable[Commit], why: re.Pattern[str], max_chars: int = 20_000) -> CommitMetric:
+    """Sorts each commit into one level; only the start of a body is matched, so no message can make it slow."""
     explains_why = body_only = subject_only = withheld = 0
     without_why = []
     for commit in commits:
         if commit.subject == WITHHELD_MESSAGE:
             withheld += 1
-        elif why.search(commit.body):
+        elif why.search(commit.body[:max_chars]):
             explains_why += 1
         else:
             without_why.append(commit)

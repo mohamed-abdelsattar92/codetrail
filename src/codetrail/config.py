@@ -165,6 +165,7 @@ class MetricsSettings(Settings):
     proposed_adr_days: int = Field(default=30, ge=0)  # a proposed ADR older than this needs attention
     trend_updates: int = Field(default=12, ge=2, le=200)  # updates a trend line shows
     max_listed: int = Field(default=50, gt=0, le=5000)  # items a list shows before the rest fold away
+    max_message_chars: int = Field(default=20_000, gt=0, le=1_000_000)  # of a commit body, matched for a why
 
 
 class ProvidersSettings(Settings):
@@ -254,7 +255,9 @@ class TargetMetricsSettings(Settings):
     """What counts as a document and as a commit that explains why, in this repository (design section 18.5)."""
 
     document_globs: list[str] = ["README*", "*.md", "*.rst", "*.adoc", "*.txt", "docs/**"]  # gitignore syntax
-    commit_why_pattern: str = r"(?im)^\s*(?:#+\s*)?why\b"
+    # Spaces and tabs only, never \s: whitespace that could cross lines would take quadratic time on a long run of
+    # blank lines in a message.
+    commit_why_pattern: str = r"(?im)^[ \t]*(?:#+[ \t]*)?why\b"
 
     @field_validator("commit_why_pattern")
     @classmethod

@@ -66,7 +66,8 @@ def latest_commits(mirror: Path, end: str, limit: int, scanner: SecretScanner) -
 
     One git call: fields and records are separated by NUL, which no message can hold. Files aren't listed.
     """
-    output = run_git(["log", f"-n{limit}", "--no-merges", "-z", "--format=%H%x00%an%x00%aI%x00%s%x00%b", end],
+    output = run_git(["log", f"-n{limit}", "--no-merges", "-z", "--format=%H%x00%an%x00%aI%x00%s%x00%b",
+                      "--end-of-options", end],
                      git_dir=mirror).decode("utf-8", "replace")  # fmt: skip
     fields = output.split("\0")
     records = (fields[start : start + LOG_FIELDS] for start in range(0, len(fields) - LOG_FIELDS + 1, LOG_FIELDS))

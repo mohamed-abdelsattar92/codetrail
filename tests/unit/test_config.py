@@ -286,6 +286,8 @@ def test_metrics_settings_have_their_defaults(paths: Paths, tmp_path: Path) -> N
     assert metrics.why.search("Why: because")
     assert metrics.why.search("What: this\n\n## Why\nbecause")
     assert not metrics.why.search("Nobody asked why.")
+    assert "\\s" not in metrics.commit_why_pattern  # whitespace that crosses lines makes matching quadratic
+    assert load_global(paths).metrics.max_message_chars == 20_000
 
 
 def test_an_invalid_why_pattern_is_refused_by_name(paths: Paths, tmp_path: Path) -> None:
