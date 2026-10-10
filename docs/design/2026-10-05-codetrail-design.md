@@ -594,6 +594,7 @@ Each phase is usable on its own, has its own implementation plan, and ends with 
 | 13. Documentation metrics | The `metrics` module, the `metric_values` table, the Documentation page, the home card and `codetrail metrics` (section 18) | How well a repository explains itself, what to document next, and the trend across updates, at no cost | — |
 | 14. Repository statistics | Tags in the mirror; history, releases, code size and facts; the Repository page, the home card and `codetrail stats` (section 19) | How old and big a repository is, how fast it moves, when it released and what it depends on, at no cost | Phase 13 |
 | 15. Where change happens | Hot spots by file, folder and guide area with their rationale, quiet code and commit size (section 19.1) | Where a repository changes most, and where documenting would help most | Phase 14 |
+| 17. The Repository page's charts | The interactive timeline, the activity calendar, the change heat map and grid, and the charts for size, types and facts (section 20) | A repository's history and change at a glance, explorable | Phase 15 |
 | 16. Decision inventory (planned) | An opt-in paid pass listing the decisions in the code and their documented "why" (section 18.8) | The share of the repository's decisions that are documented, beyond what the guide wrote about | Phase 13 |
 
 ## 14. Answers to the brainstorm's open questions
@@ -1013,3 +1014,52 @@ quiet_days = 365            # Phase 15: code unchanged this long is quiet
 - **Phase 15:** where change happens, in its own feature branch.
 
 The decision inventory planned in section 18.8 becomes Phase 16.
+
+## 20. The Repository page's charts
+
+Approved by the founder on 10 October 2026, from the design made in Claude Design ([the canvas](https://claude.ai/artifact/RTb1VGd8Gd3o9jw4uW1ZS8): the page in light, in dark and at phone width). Section 19 measures the repository; this section draws it. The page keeps every number and list of section 19.5 and shows them as charts a reader can explore, at no cost, in Codetrail's own visual system (section 16.2).
+
+### 20.1 What the page shows
+- **A range picker** above everything: All time, 2 years, 1 year, 90 days. It drives the timeline.
+- **Headline tiles:** age, commits, releases, code and tests, each with a small trend: commits per month over the last year, and the recorded values of code lines and the test share over the last updates (section 19.4).
+- **The timeline,** one horizontal time axis with lanes:
+  - **Commits** as bars: per month for All time and 2 years, per week for 1 year, per day for 90 days. Hovering or focusing a bar shows its period and count; buttons pan the window earlier and later.
+  - **Releases,** a diamond per release; choosing one shows its name, date, notes (section 19.2), the commits since the release before it and the days between them.
+  - **Dependencies** that arrived (+) and left (−), on a band shaded from the first snapshot, labelled "Watched by Codetrail since …": before it there is no history to show (section 19.1).
+  - **The whole history** as a strip of small bars, with the shown window outlined.
+  - **The numbers as a table,** folded away.
+- **Activity, day by day:** a calendar of the last 53 weeks, a square per day shaded by its commits, with active weeks, the longest quiet stretch, the busiest weekday and the latest commit beside it.
+- **Where change happens,** as a heat map:
+  - A treemap at one of three levels, **areas, folders or files**: a tile's size is its lines of code, its shade the commits that changed it among the latest `metrics.churn_window`. Folders are taken `metrics.folder_depth` levels deep (2 by default, so `services/api` and `apps/web` stand apart). Each level draws at most `metrics.heatmap_tiles` tiles, the largest by lines, and says how many it left out.
+  - An amber corner marks an area whose rationale is mostly inferred (more than twice as many inferred blocks as documented ones): where an ADR or a README would help most. Amber is never a chart color otherwise, so it keeps its meaning.
+  - Choosing a tile shows its counts beside the map: commits, lines, an area's documented and inferred blocks as a bar, and the files that changed most in it.
+  - **Change over time, by area:** a grid of the guide's areas against the last 12 months, each cell shaded by the commits that changed the area that month. Months older than the oldest commit read are marked as not read.
+  - **Commit size** as a histogram of the files each commit changes (1, 2, 3, 4–5, 6–10, 11–20, 21 or more), with the median and the 90th percentile; and **quiet code** by folder (section 19.1).
+- **What it is made of:** one bar of lines by language (the four largest languages, then Other), the test share as a bar, and the largest files.
+- **Commit types** as horizontal bars, with the busiest scopes.
+- **Facts by kind,** each with its change and its count over the last updates.
+
+### 20.2 New data
+- **Commits per day.** The history read (section 19.3) already returns each commit's author time; the activity keeps the count per UTC day from the first commit read to today, which the months, weeks, calendar and tiles are all drawn from.
+- **Each commit's time with its files.** `changed_files` returns each latest commit's author time beside its paths, for the area-by-month grid.
+- **Lines per area, folder and file** come from the code size (section 19.1): a folder's or area's lines are its code files' lines.
+- **Configuration:** `metrics.folder_depth` (2) and `metrics.heatmap_tiles` (60), globally.
+
+### 20.3 How it is drawn
+- The server renders the page as before, with every chart's numbers as a table, so it reads without the script and to a screen reader.
+- The charts are drawn by Codetrail's own script, `static/js/repository.js`, as SVG and HTML: no chart library. Its data is one JSON block in the page, `<script type="application/json">`, which the browser never runs, so the security policy (no inline script) is unchanged. The JSON is escaped for HTML (`<`, `>`, `&` and the line separators as `\u` escapes).
+- Text from the repository (paths, tag names and notes, package names) reaches the page only through `textContent` and attribute values, never `innerHTML`.
+- **Language:** the server puts every label the script needs into the JSON, translated: plain strings, the abbreviated month names from Babel, and each counted phrase once per plural category of the language (Babel's plural rule), which the script picks with `Intl.PluralRules`. Numbers are written with Western digits, as everywhere (section 7.2). The charts run left to right in every language, like the numbers and code they show.
+- **Color:** commits and every single-series chart in the accent; the heat map and the calendar in one indigo ramp of five steps, light to dark in the light theme and dark to light in the dark one; languages in four categorical colors checked for color-blind separation in both themes (light `#5b5bd6 #e87ba4 #2a78d6 #008300`, dark `#7c7cee #d55181 #3987e5 #2b8a2b`), then gray for Other. Every color is a token on `:root`, redefined for dark mode.
+- **Interaction:** the range picker, the pan buttons, the releases, the heat map's levels and tiles are buttons; bars, days and cells show their numbers on hover and on keyboard focus (arrow keys move along the timeline); reduced motion turns off transitions.
+
+### 20.4 Security
+Nothing new leaves the machine and nothing calls an assistant. The page stays one `GET` route behind the session. Every name in the JSON comes from the report, so excluded paths never appear (section 19.7), and the script never turns data into markup.
+
+### 20.5 Testing
+- **Unit:** commits per day around gaps and today; each commit's time with its files; lines per area and folder; folder depth; the tile cap and its note; the area-by-month grid with unread months; the size histogram's buckets; the plural templates for English and Arabic; the JSON escaping of `</script>` and `<!--`.
+- **API:** the page carries the JSON with the right numbers; a tag note holding `</script><script>` stays inert text; no excluded path or author appears; the tables read without the script.
+- **Browser:** the charts draw in both themes and in Arabic; switching the range redraws the bars; hovering or focusing a bar shows its count; choosing a release shows its notes; switching the heat map's level and choosing a tile updates the side panel; the page passes the accessibility scan in both themes; no console errors.
+
+### 20.6 Delivery
+Phase 17, in one feature branch.
