@@ -7,6 +7,7 @@ when it holds a finding, which catches a secret that a commit removed although t
 from __future__ import annotations
 
 import re
+import secrets
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import date
@@ -140,21 +141,23 @@ def first_commit_time(mirror: Path, end: str) -> int | None:
 
 
 COMMIT_MARK = "\x01"
-COMMIT_HEADER = re.compile(r"\x01([0-9]{1,12})")  # ASCII digits only: str.isdigit accepts digits int() refuses
 
 
 def changed_files(mirror: Path, end: str, limit: int) -> list[tuple[int, list[str]]]:
     """Each of the latest `limit` non-merge commits' author time and changed paths, newest first (sections 19.1, 20.2).
 
     One git call printing only a mark with the time per commit, and its file names, NUL-separated: no message, name or
-    email. Names aren't filtered here; callers name only allowed files.
+    email. The mark holds a random token drawn for this call, so no file name can pose as a commit, and only ASCII
+    digits follow it. Names aren't filtered here; callers name only allowed files.
     """
-    output = run_git(["log", f"-n{limit}", "--no-merges", "-z", "--name-only", "--format=%x01%at",
+    token = secrets.token_hex(16)
+    header_pattern = re.compile(re.escape(COMMIT_MARK + token) + r"([0-9]{1,12})")
+    output = run_git(["log", f"-n{limit}", "--no-merges", "-z", "--name-only", f"--format=%x01{token}%at",
                       "--end-of-options", end], git_dir=mirror).decode("utf-8", "surrogateescape")  # fmt: skip
     commits: list[tuple[int, list[str]]] = []
     first_name = False
     for field in output.split("\0"):
-        header = COMMIT_HEADER.fullmatch(field.lstrip("\n"))
+        header = header_pattern.fullmatch(field.lstrip("\n"))
         if header:
             commits.append((int(header[1]), []))
             first_name = True

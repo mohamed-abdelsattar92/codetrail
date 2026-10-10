@@ -116,7 +116,11 @@ def _labels(language: Language) -> dict[str, object]:
 
 
 def _day(seconds: int) -> str:
-    return datetime.fromtimestamp(seconds, UTC).date().isoformat()
+    """The UTC day of a time, or "" for one Python's dates can't hold (past the year 9999)."""
+    try:
+        return datetime.fromtimestamp(seconds, UTC).date().isoformat()
+    except ValueError, OverflowError, OSError:
+        return ""
 
 
 def _top(files: list[HotSpot], keep: Callable[[str], bool]) -> list[list[object]]:

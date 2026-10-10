@@ -173,3 +173,15 @@ def test_areas_are_capped_like_the_other_levels() -> None:
     assert [tile["name"] for tile in document["heat"]["areas"]] == ["2", "1"]
     assert document["heat"]["leftOut"]["areas"] == 1
     assert document["labels"]["noCode"]
+
+
+def test_a_date_past_the_calendar_is_shown_as_unknown() -> None:
+    from codetrail.web.app import day_text
+
+    assert day_text(1_790_000_000) == "2026-09-21"
+    assert day_text(300_000_000_000) == "—"
+    far = Releases([Tag("v9", "a" * 40, 300_000_000_000, "")], 0, None)
+    plain = report()
+    document = chart_document(RepositoryReport(plain.activity, None, far, plain.size, plain.inventory, None),
+                              ENGLISH, date(2026, 10, 10))  # fmt: skip
+    assert document["releases"][0]["date"] == ""

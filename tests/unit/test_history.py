@@ -305,9 +305,10 @@ def test_changed_files_lists_each_latest_commits_paths(tmp_path: Path) -> None:
 
 
 def test_a_file_named_like_the_commit_mark_is_a_file(tmp_path: Path) -> None:
-    checkout = make_repository(tmp_path / "t", [{"\x01": "1\n", "\x01\u00b2": "1\n", "y": "1\n"}])
+    names = ["\x01", "\x01\u00b2", "\x01999999999999", "y"]
+    checkout = make_repository(tmp_path / "t", [dict.fromkeys(names, "1\n")])
     mirror, end = mirror_of(checkout, tmp_path)
-    assert [paths for _, paths in changed_files(mirror, end, 10)] == [["\x01", "\x01\u00b2", "y"]]
+    assert changed_files(mirror, end, 10) == [(1_790_000_000, sorted(names, key=str.encode))]  # none poses as a commit
 
 
 def test_files_changed_since_a_date(tmp_path: Path) -> None:

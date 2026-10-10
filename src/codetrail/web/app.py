@@ -666,6 +666,14 @@ def create_app(
     return SecurityMiddleware(TargetInUseMiddleware(app, paths, name), session=session, port=settings.server.port)
 
 
+def day_text(seconds: int) -> str:
+    """The UTC day of a time a repository gave, or a dash for one Python's dates can't hold (past the year 9999)."""
+    try:
+        return datetime.fromtimestamp(seconds, UTC).date().isoformat()
+    except ValueError, OverflowError, OSError:
+        return "—"
+
+
 def _environment(templates: str, language: Language) -> Environment:
     environment = Environment(
         loader=FileSystemLoader(templates),
@@ -677,7 +685,7 @@ def _environment(templates: str, language: Language) -> Environment:
     environment.filters["utc"] = when_text
     environment.filters["dollars"] = lambda value: "" if value is None else f"${value:.2f}"
     environment.filters["number"] = lambda value: f"{value:,}"
-    environment.filters["day"] = lambda seconds: datetime.fromtimestamp(seconds, UTC).date().isoformat()
+    environment.filters["day"] = day_text
     return environment
 
 

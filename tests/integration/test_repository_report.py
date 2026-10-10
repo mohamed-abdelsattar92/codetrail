@@ -152,3 +152,15 @@ def test_the_report_finds_where_change_happens(paths: Paths) -> None:
     assert sum(churn.size_histogram) == 3
     assert report.activity is not None and sum(report.activity.days) == 3
     assert churn.quiet_files == 0  # every file changed within the last year of the fixture's dates
+
+
+def test_dates_beyond_the_calendar_leave_their_parts_unavailable(paths: Paths, monkeypatch: pytest.MonkeyPatch) -> None:
+    run_update(paths, "shop", facts_only=True)
+    far = 300_000_000_000  # past the year 9999, which Python's dates can't hold
+    monkeypatch.setattr("codetrail.metrics.repository.commit_times", lambda *arguments: [far])
+    monkeypatch.setattr("codetrail.metrics.repository.changed_files", lambda *arguments: [(far, ["app/db.py"])])
+    settings = GlobalConfig(metrics=MetricsSettings(churn_window=1))  # a cut window reads the oldest commit's month
+    with store_of(paths) as store:
+        report = build_repository_report(paths, "shop", settings, store, date(2026, 10, 10))
+    assert (report.activity, report.churn) == (None, None)
+    assert report.size.code_lines > 0  # the rest of the report stands
