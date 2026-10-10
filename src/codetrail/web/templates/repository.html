@@ -159,6 +159,49 @@
   {% endif %}
 </section>
 
+<section id="change" aria-labelledby="change-title">
+  <h2 id="change-title">{{ _("Where change happens") }}</h2>
+  {% set churn = report.churn %}
+  {% if churn is none %}
+  <p class="muted">{{ _("The history couldn't be read just now; the log says why.") }}</p>
+  {% else %}
+  <p class="muted">{% trans count=churn.commits %}Over the latest {{ count }} commit, merges left out. Only files Codetrail may read are named.{% pluralize %}Over the latest {{ count }} commits, merges left out. Only files Codetrail may read are named.{% endtrans %}</p>
+  <h3>{{ _("Guide areas") }}</h3>
+  {% if churn.areas %}
+  <p class="muted">{{ _("An area with much change and mostly inferred rationale is where an ADR or a README would help most.") }}</p>
+  <table class="metric-table">
+    <thead><tr><th>{{ _("Area") }}</th><th>{{ _("Commits") }}</th><th>{{ _("Documented") }}</th><th>{{ _("Inferred") }}</th></tr></thead>
+    <tbody>
+    {% for spot in churn.areas[:listed] %}
+    <tr><td lang="en" dir="ltr"><a href="/pages/{{ spot.page.id }}">{{ spot.page.title }}</a></td><td>{{ spot.commits|number }}</td><td>{{ spot.documented }}</td><td>{{ spot.inferred }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="muted">{{ _("Areas are counted once your assistant has written the guide's area pages.") }}</p>
+  {% endif %}
+  {% if churn.files %}
+  <h3>{{ _("Most changed files") }}</h3>
+  <ul class="list" lang="en" dir="ltr">{% for spot in churn.files[:largest_files] %}<li><a class="grow" href="/source/{{ spot.name }}">{{ spot.name }}</a><span class="faint">{{ spot.count|number }}</span></li>{% endfor %}</ul>
+  <h3>{{ _("Most changed folders") }}</h3>
+  <ul class="pills" lang="en" dir="ltr">{% for spot in churn.folders[:listed] %}<li class="pill">{{ spot.name }} · {{ spot.count|number }}</li>{% endfor %}</ul>
+  {% endif %}
+  <h3>{{ _("Commit size") }}</h3>
+  {% if churn.median_files is none %}
+  <p class="muted">{{ _("No commits to measure yet.") }}</p>
+  {% else %}
+  <p>{% trans median="%g"|format(churn.median_files), p90="%g"|format(churn.p90_files) %}A commit changes {{ median }} files at the median, and {{ p90 }} at the 90th percentile.{% endtrans %}</p>
+  {% endif %}
+  <h3>{{ _("Quiet code") }}</h3>
+  {% if churn.quiet %}
+  <p class="muted">{% trans count=churn.quiet_files, days=quiet_days %}{{ count }} file of code no commit has changed in the last {{ days }} days, by folder.{% pluralize %}{{ count }} files of code no commit has changed in the last {{ days }} days, by folder.{% endtrans %}</p>
+  <ul class="pills" lang="en" dir="ltr">{% for spot in churn.quiet[:listed] %}<li class="pill">{{ spot.name }} · {{ spot.count|number }}</li>{% endfor %}</ul>
+  {% else %}
+  <p class="muted">{% trans days=quiet_days %}Every file of code changed in the last {{ days }} days.{% endtrans %}</p>
+  {% endif %}
+  {% endif %}
+</section>
+
 <section id="size" aria-labelledby="size-title">
   <h2 id="size-title">{{ _("Code size") }}</h2>
   <p class="muted">{{ _("The files Codetrail may read, without the excluded ones. A file's language comes from its name; documents are the files matching the target's document_globs, and tests those matching its test_globs.") }}</p>

@@ -567,8 +567,10 @@ def create_app(
             if snapshot is None:
                 return render("repository.html", active="repository", report=None)
             today = date.today()
+            tracked = guide.git_dir.exists()
+            key = (snapshot.id, guide.head() if tracked else None, tracked and guide.has_uncommitted_changes(), today)
             try:
-                report = repository_reports.get((snapshot.id, today), lambda: build_repository_report(
+                report = repository_reports.get(key, lambda: build_repository_report(
                     paths, name, settings, store, today))  # fmt: skip
             except (CodetrailError, OSError) as error:
                 logger.warning("The repository statistics aren't available: %s", error)
@@ -584,6 +586,7 @@ def create_app(
             age=age(activity.first, today) if activity and activity.first else None, today=today,
             bars=bars([count for _, count in activity.months]) if activity else [], listed=settings.metrics.max_listed,
             history_limit=settings.metrics.history_limit, largest_files=settings.metrics.largest_files,
+            quiet_days=settings.metrics.quiet_days,
         )  # fmt: skip
 
     @app.post("/settings/language")

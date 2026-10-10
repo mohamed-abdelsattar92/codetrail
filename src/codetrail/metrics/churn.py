@@ -17,7 +17,7 @@ from codetrail.guide import Page
 @dataclass(frozen=True)
 class HotSpot:
     name: str  # a file, or a top-level folder ("." for the repository's root)
-    commits: int
+    count: int  # commits that changed it, or for quiet code, its quiet files
 
 
 @dataclass(frozen=True)

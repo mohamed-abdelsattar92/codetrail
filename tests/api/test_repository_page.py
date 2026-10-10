@@ -216,3 +216,23 @@ def test_the_home_card_catches_up_once_the_update_records_its_values(
     finally:
         connection.close()
     assert "4 commits" in client.get("/").text
+
+
+def test_the_page_shows_where_change_happens(paths: Paths) -> None:
+    run_update(paths, "shop", facts_only=True)
+    change = section(client_for(paths).get("/repository").text, "change")
+    assert "app/db.py" in change and "Commit size" in change
+    assert "hidden_module" not in change
+    assert "once your assistant has written" in change  # no area pages yet
+
+
+def test_without_the_history_the_change_section_says_so(paths: Paths, monkeypatch: pytest.MonkeyPatch) -> None:
+    run_update(paths, "shop", facts_only=True)
+
+    def broken(*arguments: object) -> None:
+        raise CodetrailError("git failed")
+
+    monkeypatch.setattr("codetrail.metrics.repository.changed_files", broken)
+    page = client_for(paths).get("/repository").text
+    assert "couldn't be read" in section(page, "change")
+    assert "Python" in section(page, "size")
