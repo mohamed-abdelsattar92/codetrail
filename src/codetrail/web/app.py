@@ -53,7 +53,16 @@ from codetrail.repo.signal import Signal, behind
 from codetrail.search import Result, SearchIndex, guide_documents
 from codetrail.update import run_update
 from codetrail.web.diagrams import dependencies_diagram, imports_diagram, system_diagram, system_parts
-from codetrail.web.documentation import ReportCache, age, build_tiles
+from codetrail.web.documentation import (
+    ReportCache,
+    age,
+    build_tiles,
+    commit_kind,
+    days_proposed,
+    filtered,
+    section_to_open,
+    segments,
+)
 from codetrail.web.i18n import Language, installed_languages
 from codetrail.web.navigation import (
     Navigation,
@@ -541,9 +550,14 @@ def create_app(
                 metric: [value for _, value in recent_values(store.connection, metric, settings.metrics.trend_updates)]
                 for metric in Metric
             }
+        values, listed = report.values(), settings.metrics.max_listed
+        without_why = report.commits.without_why if report.commits else []
         return render(
-            "documentation.html", active="documentation", report=report, tiles=build_tiles(report.values(), before,
-            history), listed=settings.metrics.max_listed,
+            "documentation.html", active="documentation", report=report, tiles=build_tiles(values, before, history),
+            listed=listed, today=today, open_section=section_to_open(values),
+            commit_filter=filtered([commit_kind(commit) for commit in without_why], listed),
+            fact_filter=filtered([str(entity.kind) for entity in report.mentions.unmentioned], listed),
+            segments=segments, days_proposed=days_proposed,
         )  # fmt: skip
 
     def repository_summary(connection: sqlite3.Connection, snapshot_id: int, commit: str) -> dict[str, object]:

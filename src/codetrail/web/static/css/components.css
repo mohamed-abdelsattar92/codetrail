@@ -918,6 +918,122 @@ dialog[open] {
   stroke-linecap: round;
 }
 
+/* The Documentation page's layout (design section 21): the overview beside its folding sections. */
+.doc-layout {
+  display: grid;
+  grid-template-columns: 15rem minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-6);
+}
+
+.doc-overview {
+  position: sticky;
+  inset-block-start: calc(var(--header-height) + var(--space-4));
+  display: grid;
+  gap: var(--space-3);
+}
+
+.doc-fold {
+  margin-block-end: var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--page);
+}
+
+.doc-fold > summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-card);
+  list-style: none;
+  cursor: pointer;
+}
+
+.doc-fold > summary::-webkit-details-marker {
+  display: none;
+}
+
+.doc-fold > summary:focus-visible {
+  box-shadow: var(--focus);
+  outline: none;
+}
+
+.doc-fold > summary h2 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.doc-fold > summary h2::before {
+  content: "›";
+  display: inline-block;
+  inline-size: 1em;
+  color: var(--text-faint);
+  transition: transform var(--duration) var(--ease);
+}
+
+.doc-fold[open] > summary h2::before {
+  transform: rotate(90deg);
+}
+
+.doc-todo {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.doc-body {
+  padding: 0 var(--space-4) var(--space-4);
+  border-block-start: 1px solid var(--line);
+}
+
+.doc-about > summary {
+  margin-block: var(--space-3);
+  color: var(--text-faint);
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.doc-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--space-4);
+}
+
+.hbars.page-bars li,
+.hbars.coverage-bars li {
+  grid-template-columns: minmax(6rem, 12rem) minmax(0, 1fr) 5rem;
+}
+
+.hbars.page-bars .hbar-label,
+.hbars.coverage-bars .hbar-label {
+  overflow: hidden;
+  font-family: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.filter-chips {
+  margin-block-end: var(--space-2);
+}
+
+.tone-documented { background: var(--documented); fill: var(--documented); }
+.tone-inferred { background: var(--inferred); fill: var(--inferred); }
+.tone-other { background: var(--series-other); fill: var(--series-other); }
+.tone-quiet { background: var(--line-strong); fill: var(--line-strong); }
+
+@media (max-width: 60rem) {
+  .doc-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .doc-overview {
+    position: static;
+    grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+  }
+}
+
 /* The Repository page and its charts (design sections 19.5 and 20). Charts draw left to right in every language. */
 .repository-head {
   display: flex;

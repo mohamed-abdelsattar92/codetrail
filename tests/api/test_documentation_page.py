@@ -136,3 +136,75 @@ def test_the_page_carries_the_same_security_headers(paths: Paths) -> None:
     page, decisions = client.get("/documentation"), client.get("/decisions")
     for header in ("content-security-policy", "x-frame-options", "referrer-policy", "cache-control"):
         assert page.headers.get(header) == decisions.headers.get(header), header
+
+
+def section(page: str, name: str) -> str:
+    """One metric's section of the page, from its id to its end."""
+    return page.split(f'<section id="{name}"', 1)[1].split("</section>", 1)[0]
+
+
+def client_listing(paths: Paths, listed: int) -> TestClient:
+    session = SessionState(60)
+    settings = GlobalConfig.model_validate({"metrics": {"max_listed": listed}})
+    client = TestClient(create_app(paths, "shop", session, settings), base_url=ORIGIN, follow_redirects=False)
+    assert client.get(f"/login?code={session.issue_login_code()}").status_code == 303
+    return client
+
+
+def test_the_section_most_in_need_opens_and_no_other(paths: Paths) -> None:
+    run_update(paths, "shop", facts_only=True)  # ADR 0002 has been proposed since 2020
+    page = client_for(paths).get("/documentation").text
+    assert page.count('<details class="doc-fold" open>') == 1
+    assert '<details class="doc-fold" open>' in section(page, "decisions")
+    assert 'class="doc-overview"' in page
+
+
+def test_each_chart_prints_its_numbers(paths: Paths) -> None:
+    run_update(paths, "shop", claude=FakeAssistant(plans=[PLAN], page_writer=page_writer))
+    page = client_for(paths).get("/documentation").text
+    rationale, commits = section(page, "rationale"), section(page, "commits")
+    assert 'aria-label="ADRs: 1, Documents: 0, Code comments: 0, Commit messages: 0, Inferred: 1"' in rationale
+    assert 'href="/pages/areas/app"' in rationale and "1 / 1" in rationale  # the page's bar: documented / inferred
+    assert 'aria-label="Explain why: 1, Body without a why: 1, Subject only: 1"' in commits
+    decisions = section(page, "decisions")
+    assert ">accepted<" in decisions and ">proposed<" in decisions
+    assert "Explained by a guide page" in section(page, "coverage")
+
+
+def test_every_item_carries_its_kind_and_the_chips_start_hidden(paths: Paths) -> None:
+    run_update(paths, "shop", facts_only=True)
+    page = client_for(paths).get("/documentation").text
+    commits, coverage = section(page, "commits"), section(page, "coverage")
+    assert 'data-kind="body-only"' in commits and 'data-kind="subject-only"' in commits
+    assert "data-filter hidden" in commits
+    assert 'data-show="body-only" aria-pressed="false"' in commits
+    assert 'data-kind="package"' in coverage
+    assert "data-filter hidden" not in coverage  # only packages go unmentioned: one kind needs no chips
+
+
+def test_a_long_list_counts_its_folded_rest_per_kind(paths: Paths) -> None:
+    run_update(paths, "shop", facts_only=True)
+    commits = section(client_listing(paths, 1).get("/documentation").text, "commits")
+    # Newest first: "fix: c" (a body, no why) shows; "Commit 0" (a subject only) folds away.
+    assert '<span data-more="all" data-count="1">1 more</span>' in commits
+    assert '<span data-more="body-only" data-count="0" hidden>' in commits
+    assert '<span data-more="subject-only" data-count="1" hidden>' in commits
+
+
+def test_markup_in_a_commit_subject_stays_text(paths: Paths, tmp_path: Path) -> None:
+    add_commit(tmp_path / "target", {"app/db.py": "x = 5\n"}, "fix: close </details><b>bold</b>")
+    run_update(paths, "shop", facts_only=True)
+    commits = section(client_for(paths).get("/documentation").text, "commits")
+    assert "&lt;/details&gt;&lt;b&gt;bold&lt;/b&gt;" in commits
+    assert "<b>bold</b>" not in commits
+
+
+def test_without_the_history_the_commits_draw_nothing(paths: Paths, monkeypatch: pytest.MonkeyPatch) -> None:
+    run_update(paths, "shop", facts_only=True)
+
+    def broken(self: SecretScanner, text: str) -> object:
+        raise CodetrailError("gitleaks isn't installed")
+
+    monkeypatch.setattr(SecretScanner, "scan_text", broken)
+    commits = section(client_for(paths).get("/documentation").text, "commits")
+    assert "stack-bar" not in commits and "data-filterable" not in commits
