@@ -14,7 +14,16 @@ from codetrail.metrics.repository import RepositoryReport
 from codetrail.metrics.size import CodeSize, LanguageSize
 from codetrail.repo.history import Tag
 from codetrail.web.i18n import Language, installed_languages
-from codetrail.web.repository_view import chart_document, plural_templates, script_json
+from codetrail.web.repository_view import (
+    bar_heights,
+    busiest_weekday,
+    chart_document,
+    language_segments,
+    months_table,
+    plural_templates,
+    ramp_step,
+    script_json,
+)
 
 ENGLISH = Language("en", "English", "ltr", gettext.NullTranslations())
 HOSTILE = "</script><script>alert(1)</script><!-- & " + chr(0x2028)
@@ -91,3 +100,39 @@ def test_a_report_without_history_has_no_days_or_heat() -> None:
     empty = RepositoryReport(None, None, None, report().size, Inventory(None, [], [], []), None)
     document = chart_document(empty, ENGLISH, date(2026, 10, 10))
     assert (document["days"], document["releases"], document["heat"], document["grid"]) == (None, None, None, None)
+
+
+def test_months_are_summed_from_the_days() -> None:
+    activity = report().activity
+    assert months_table(activity) == [("2026-09", 5)]
+    later = Activity(
+        1, 0, date(2026, 9, 30), date(2026, 9, 30), [], [], 1, 1, None, False, [1, 0, 2], date(2026, 9, 30)
+    )
+    assert months_table(later) == [("2026-09", 1), ("2026-10", 2)]
+    assert months_table(None) == []
+
+
+def test_bars_scale_to_the_highest_value() -> None:
+    assert bar_heights([0, 5, 10]) == [0, 50, 100]
+    assert bar_heights([0, 0]) == [0, 0]
+    assert bar_heights([]) == []
+
+
+def test_ramp_steps_split_the_range_into_five() -> None:
+    assert [ramp_step(count, 100) for count in (0, 1, 25, 26, 50, 75, 76, 100)] == [0, 1, 1, 2, 2, 3, 4, 4]
+    assert ramp_step(0, 0) == 0
+
+
+def test_languages_keep_four_then_other() -> None:
+    from codetrail.metrics.size import LanguageSize
+
+    sizes = [
+        LanguageSize(name, 1, lines) for name, lines in (("A", 50), ("B", 40), ("C", 30), ("D", 20), ("E", 5), ("F", 5))
+    ]
+    assert language_segments(sizes) == [("A", 50, 1), ("B", 40, 2), ("C", 30, 3), ("D", 20, 4), ("Other", 10, 5)]
+    assert language_segments(sizes[:2]) == [("A", 50, 1), ("B", 40, 2)]
+
+
+def test_the_busiest_weekday_counts_commits_by_weekday() -> None:
+    assert busiest_weekday(report().activity) == 0  # 2026-09-21 is a Monday, with 3 of the 5
+    assert busiest_weekday(None) is None

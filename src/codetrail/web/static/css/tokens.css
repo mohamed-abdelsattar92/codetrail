@@ -62,6 +62,25 @@
   --danger: #c0392b;
   --mark: #fff1b8;
 
+  /* Charts (design section 20.3): four categorical colors checked for color-blind separation, gray for Other, and
+     one indigo ramp with the ink that reads on each step. Amber stays the inferred color only. */
+  --series-1: #5b5bd6;
+  --series-2: #e87ba4;
+  --series-3: #2a78d6;
+  --series-4: #008300;
+  --series-other: #8b92a8;
+  --heat-0: #ebecfa;
+  --heat-1: #d0d2f6;
+  --heat-2: #aeb0ee;
+  --heat-3: #7f81e1;
+  --heat-4: #4b4bc4;
+  --heat-ink-0: #1a1f36;
+  --heat-ink-1: #1a1f36;
+  --heat-ink-2: #1a1f36;
+  --heat-ink-3: #1a1f36;
+  --heat-ink-4: #ffffff;
+  --chart-band: rgb(91 91 214 / 0.07);
+
   --shadow-float: 0 12px 32px rgb(16 24 64 / 0.14), 0 2px 6px rgb(16 24 64 / 0.08);
   --focus: 0 0 0 3px rgb(91 91 214 / 0.35);
 
@@ -118,6 +137,23 @@
     --mark: #4a3f12;
     --shadow-float: 0 16px 40px rgb(0 0 0 / 0.5), 0 2px 8px rgb(0 0 0 / 0.4);
     --focus: 0 0 0 3px rgb(155 155 245 / 0.45);
+
+    --series-1: #7c7cee;
+    --series-2: #d55181;
+    --series-3: #3987e5;
+    --series-4: #2b8a2b;
+    --series-other: #646b7f;
+    --heat-0: #222842;
+    --heat-1: #2f3567;
+    --heat-2: #43479a;
+    --heat-3: #7b7de0;
+    --heat-4: #9b9bf5;
+    --heat-ink-0: #e6e8f0;
+    --heat-ink-1: #e6e8f0;
+    --heat-ink-2: #e6e8f0;
+    --heat-ink-3: #0f1220;
+    --heat-ink-4: #0f1220;
+    --chart-band: rgb(155 155 245 / 0.08);
   }
 }
 
@@ -149,6 +185,23 @@
   --mark: #4a3f12;
   --shadow-float: 0 16px 40px rgb(0 0 0 / 0.5), 0 2px 8px rgb(0 0 0 / 0.4);
   --focus: 0 0 0 3px rgb(155 155 245 / 0.45);
+
+  --series-1: #7c7cee;
+  --series-2: #d55181;
+  --series-3: #3987e5;
+  --series-4: #2b8a2b;
+  --series-other: #646b7f;
+  --heat-0: #222842;
+  --heat-1: #2f3567;
+  --heat-2: #43479a;
+  --heat-3: #7b7de0;
+  --heat-4: #9b9bf5;
+  --heat-ink-0: #e6e8f0;
+  --heat-ink-1: #e6e8f0;
+  --heat-ink-2: #e6e8f0;
+  --heat-ink-3: #0f1220;
+  --heat-ink-4: #0f1220;
+  --chart-band: rgb(155 155 245 / 0.08);
 }
 
 @media (prefers-reduced-motion: reduce) {

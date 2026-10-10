@@ -9,16 +9,18 @@ from __future__ import annotations
 
 import json
 import re
-from collections.abc import Callable, Mapping
-from datetime import UTC, date, datetime
+from collections.abc import Callable, Mapping, Sequence
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 from urllib.parse import quote
 
 from babel import Locale
 from babel.dates import get_month_names
 
+from codetrail.metrics.activity import Activity
 from codetrail.metrics.churn import Churn, HotSpot
 from codetrail.metrics.repository import RepositoryReport
+from codetrail.metrics.size import LanguageSize
 from codetrail.web.i18n import Language
 
 PLACEHOLDER = re.compile(r"%\((\w+)\)s")
@@ -143,3 +145,44 @@ def chart_document(report: RepositoryReport, language: Language, today: date) ->
         "grid": grid,
         "labels": _labels(language),
     }
+
+
+def months_table(activity: Activity | None) -> list[tuple[str, int]]:
+    """Commits per month ("YYYY-MM"), oldest first, from the commits per day."""
+    if activity is None or activity.days_start is None:
+        return []
+    months: dict[str, int] = {}
+    for offset, count in enumerate(activity.days):
+        key = (activity.days_start + timedelta(days=offset)).strftime("%Y-%m")
+        months[key] = months.get(key, 0) + count
+    return list(months.items())
+
+
+def bar_heights(values: Sequence[float]) -> list[int]:
+    """Each value as a percent of the highest, for the bars the page draws on the server."""
+    highest = max(values, default=0)
+    return [round(value / highest * 100) if highest else 0 for value in values]
+
+
+def ramp_step(count: int, highest: int) -> int:
+    """The step of the five-step ramp a count falls in: 0 for nothing, then quarters of the highest."""
+    if count <= 0 or highest <= 0:
+        return 0
+    return min(4, 1 + (count * 4 - 1) // highest)
+
+
+def language_segments(languages: Sequence[LanguageSize], keep: int = 4) -> list[tuple[str, int, int]]:
+    """The largest languages by lines, each with its color slot, then the rest as Other in the last slot."""
+    segments = [(size.language, size.lines, slot) for slot, size in enumerate(languages[:keep], start=1)]
+    rest = sum(size.lines for size in languages[keep:])
+    return [*segments, ("Other", rest, keep + 1)] if rest else segments
+
+
+def busiest_weekday(activity: Activity | None) -> int | None:
+    """The weekday (0 for Monday) with the most commits, or None without any."""
+    if activity is None or activity.days_start is None or not any(activity.days):
+        return None
+    totals = [0] * 7
+    for offset, count in enumerate(activity.days):
+        totals[(activity.days_start + timedelta(days=offset)).weekday()] += count
+    return totals.index(max(totals))
