@@ -83,12 +83,6 @@ msgstr[0] ""
 msgstr[1] ""
 
 #, python-format
-msgid "%(count)s explains why"
-msgid_plural "%(count)s explain why"
-msgstr[0] ""
-msgstr[1] ""
-
-#, python-format
 msgid "%(count)s file"
 msgid_plural "%(count)s files"
 msgstr[0] ""
@@ -111,32 +105,8 @@ msgstr[0] ""
 msgstr[1] ""
 
 #, python-format
-msgid "%(count)s from a code comment"
-msgid_plural "%(count)s from code comments"
-msgstr[0] ""
-msgstr[1] ""
-
-#, python-format
-msgid "%(count)s from a commit message"
-msgid_plural "%(count)s from commit messages"
-msgstr[0] ""
-msgstr[1] ""
-
-#, python-format
-msgid "%(count)s from a document"
-msgid_plural "%(count)s from documents"
-msgstr[0] ""
-msgstr[1] ""
-
-#, python-format
-msgid "%(count)s from an ADR"
-msgid_plural "%(count)s from ADRs"
-msgstr[0] ""
-msgstr[1] ""
-
-#, python-format
-msgid "%(count)s inferred"
-msgid_plural "%(count)s inferred"
+msgid "%(count)s inferred, worth documenting"
+msgid_plural "%(count)s inferred, worth documenting"
 msgstr[0] ""
 msgstr[1] ""
 
@@ -175,6 +145,18 @@ msgid "%(count)s more"
 msgstr ""
 
 #, python-format
+msgid "%(count)s needs attention"
+msgid_plural "%(count)s need attention"
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
+msgid "%(count)s never mentioned"
+msgid_plural "%(count)s never mentioned"
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
 msgid "%(count)s other file"
 msgid_plural "%(count)s other files"
 msgstr[0] ""
@@ -199,6 +181,18 @@ msgstr[0] ""
 msgstr[1] ""
 
 #, python-format
+msgid "%(count)s to check"
+msgid_plural "%(count)s to check"
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
+msgid "%(count)s unexplained"
+msgid_plural "%(count)s unexplained"
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
 msgid "%(count)s unread digest"
 msgid_plural "%(count)s unread digests"
 msgstr[0] ""
@@ -211,14 +205,8 @@ msgstr[0] ""
 msgstr[1] ""
 
 #, python-format
-msgid "%(count)s with a body but no why"
-msgid_plural "%(count)s with a body but no why"
-msgstr[0] ""
-msgstr[1] ""
-
-#, python-format
-msgid "%(count)s with a subject only"
-msgid_plural "%(count)s with a subject only"
+msgid "%(count)s without a why, of the latest %(measured)s"
+msgid_plural "%(count)s without a why, of the latest %(measured)s"
 msgstr[0] ""
 msgstr[1] ""
 
@@ -229,11 +217,11 @@ msgstr[0] ""
 msgstr[1] ""
 
 #, python-format
-msgid "%(expected)s to %(maximum)s"
+msgid "%(documented)s documented, %(inferred)s inferred"
 msgstr ""
 
 #, python-format
-msgid "%(explained)s of %(total)s facts explained by a guide page"
+msgid "%(expected)s to %(maximum)s"
 msgstr ""
 
 #, python-format
@@ -275,10 +263,6 @@ msgid ""
 msgstr ""
 
 #, python-format
-msgid "%(mentioned)s of %(total)s mentioned in a document"
-msgstr ""
-
-#, python-format
 msgid "%(numerator)s of %(denominator)s"
 msgstr ""
 
@@ -311,8 +295,25 @@ msgid "90 days"
 msgstr ""
 
 msgid ""
+"A package counts when a document names it as a whole word, a project when"
+" its folder holds a README or a document names its folder, and a resource"
+" when a document names its address. A fact is explained when it falls in "
+"the scope of a written area or concept page."
+msgstr ""
+
+msgid ""
 "A page is learned when you pass its checks. When an update changes a page"
 " you learned, it shows here until you learn it again."
+msgstr ""
+
+msgid ""
+"A proposed ADR needs attention once it waits longer than the target's "
+"settings allow, and a superseded or deprecated one while a guide page "
+"still cites it. Worth a look: proposed ADRs with no date, and accepted "
+"ones no page cites."
+msgstr ""
+
+msgid "ADRs"
 msgstr ""
 
 msgid "ADRs needing attention"
@@ -328,6 +329,9 @@ msgid "Activity, day by day"
 msgstr ""
 
 msgid "Age"
+msgstr ""
+
+msgid "All"
 msgstr ""
 
 msgid "All saved answers"
@@ -452,6 +456,9 @@ msgstr ""
 msgid "Before the update"
 msgstr ""
 
+msgid "Body without a why"
+msgstr ""
+
 msgid "Breadcrumbs"
 msgstr ""
 
@@ -459,6 +466,12 @@ msgid "Browse the code"
 msgstr ""
 
 msgid "Busiest weekday"
+msgstr ""
+
+msgid "By page, most inferred first"
+msgstr ""
+
+msgid "By status"
 msgstr ""
 
 msgid "Call"
@@ -494,6 +507,9 @@ msgstr ""
 msgid "Code"
 msgstr ""
 
+msgid "Code comments"
+msgstr ""
+
 msgid "Code size"
 msgstr ""
 
@@ -509,6 +525,9 @@ msgid ""
 "Codetrail reads the code for free, then your assistant writes the guide: "
 "concept pages, guided paths and checks. You'll see the estimate before "
 "anything is spent."
+msgstr ""
+
+msgid "Commit messages"
 msgstr ""
 
 msgid "Commit size"
@@ -613,6 +632,9 @@ msgstr ""
 msgid "Documented rationale"
 msgstr ""
 
+msgid "Documents"
+msgstr ""
+
 msgid "Drag to resize; double-click to reset"
 msgstr ""
 
@@ -643,6 +665,12 @@ msgstr ""
 
 #, python-format
 msgid "Expected: ~%(expected)s tokens; at most ~%(maximum)s."
+msgstr ""
+
+msgid "Explain why"
+msgstr ""
+
+msgid "Explained by a guide page"
 msgstr ""
 
 msgid ""
@@ -915,6 +943,9 @@ msgstr ""
 msgid "Mostly inferred rationale: where an ADR or a README would help most"
 msgstr ""
 
+msgid "Needs attention"
+msgstr ""
+
 msgid "Next"
 msgstr ""
 
@@ -953,6 +984,9 @@ msgstr ""
 msgid "No file in it changed in the commits read."
 msgstr ""
 
+msgid "No pages yet"
+msgstr ""
+
 msgid ""
 "No pages yet: the guide's rationale is measured once your assistant "
 "writes it."
@@ -976,6 +1010,9 @@ msgid ""
 msgstr ""
 
 msgid "No tags on the branch."
+msgstr ""
+
+msgid "None found"
 msgstr ""
 
 msgid "Not available just now."
@@ -1005,6 +1042,9 @@ msgstr ""
 
 #, python-brace-format
 msgid "Nothing in the guide matches “{query}”."
+msgstr ""
+
+msgid "Nothing inferred"
 msgstr ""
 
 msgid "Nothing to learn yet"
@@ -1068,7 +1108,10 @@ msgid_plural ""
 msgstr[0] ""
 msgstr[1] ""
 
-msgid "Page"
+msgid "Overview"
+msgstr ""
+
+msgid "Packages"
 msgstr ""
 
 msgid "Pages"
@@ -1129,6 +1172,9 @@ msgstr ""
 msgid "Progress"
 msgstr ""
 
+msgid "Projects"
+msgstr ""
+
 msgid "Proposed for too long"
 msgstr ""
 
@@ -1173,6 +1219,9 @@ msgid "Resize the Ask panel"
 msgstr ""
 
 msgid "Resize the sidebar"
+msgstr ""
+
+msgid "Resources"
 msgstr ""
 
 msgid "Results"
@@ -1302,6 +1351,9 @@ msgstr ""
 msgid "Services"
 msgstr ""
 
+msgid "Show"
+msgstr ""
+
 msgid "Show these shortcuts"
 msgstr ""
 
@@ -1325,6 +1377,9 @@ msgid "Steps"
 msgstr ""
 
 msgid "Steps learned"
+msgstr ""
+
+msgid "Subject only"
 msgstr ""
 
 msgctxt "weekday"
@@ -1647,6 +1702,9 @@ msgid ""
 "assistant."
 msgstr ""
 
+msgid "What this counts"
+msgstr ""
+
 msgid "Where change happens"
 msgstr ""
 
@@ -1668,6 +1726,9 @@ msgid "Why each arrow is there"
 msgstr ""
 
 msgid "Without a why"
+msgstr ""
+
+msgid "Worth a look"
 msgstr ""
 
 msgid "Writing the digest…"
@@ -1737,6 +1798,9 @@ msgid "a starting guess"
 msgstr ""
 
 msgid "billed to that account."
+msgstr ""
+
+msgid "body without a why"
 msgstr ""
 
 msgid "calls through"
@@ -1818,6 +1882,12 @@ msgstr[1] ""
 msgid "pages, by passing their checks"
 msgstr ""
 
+#, python-format
+msgid "proposed %(count)s day ago"
+msgid_plural "proposed %(count)s days ago"
+msgstr[0] ""
+msgstr[1] ""
+
 msgid "proposed too long, or retired and still cited"
 msgstr ""
 
@@ -1828,6 +1898,9 @@ msgid "source"
 msgstr ""
 
 msgid "sources changed"
+msgstr ""
+
+msgid "subject only"
 msgstr ""
 
 msgid "to close"
