@@ -1,11 +1,12 @@
 """The Repository page, its home card and its sidebar link (design section 19.5)."""
 
+from datetime import date
 from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
 
-from codetrail.config import GlobalConfig, Paths, write_target
+from codetrail.config import GlobalConfig, MetricsSettings, Paths, write_target
 from codetrail.errors import CodetrailError
 from codetrail.repo.secrets import SecretScanner
 from codetrail.update import run_update
@@ -36,9 +37,16 @@ def paths(tmp_path: Path) -> Paths:
     return paths
 
 
-def client_for(paths: Paths) -> TestClient:
+class FixedDate(date):
+    @classmethod
+    def today(cls) -> FixedDate:
+        return cls(2026, 10, 10)
+
+
+def client_for(paths: Paths, settings: GlobalConfig | None = None) -> TestClient:
     session = SessionState(60)
-    client = TestClient(create_app(paths, "shop", session, GlobalConfig()), base_url=ORIGIN, follow_redirects=False)
+    app = create_app(paths, "shop", session, settings or GlobalConfig())
+    client = TestClient(app, base_url=ORIGIN, follow_redirects=False)
     assert client.get(f"/login?code={session.issue_login_code()}").status_code == 303
     return client
 
@@ -133,3 +141,22 @@ def test_the_page_carries_the_same_security_headers(paths: Paths) -> None:
     page, decisions = client.get("/repository"), client.get("/decisions")
     for header in ("content-security-policy", "x-frame-options", "referrer-policy", "cache-control"):
         assert page.headers.get(header) == decisions.headers.get(header), header
+
+
+def test_a_young_repository_shows_its_age_in_days(paths: Paths, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("codetrail.web.app.date", FixedDate)
+    run_update(paths, "shop", facts_only=True)
+    tile = client_for(paths).get("/repository").text.split('id="tile-age"', 1)[1].split("</section>", 1)[0]
+    assert "19 days" in tile and "month" not in tile  # first commit on 2026-09-21
+
+
+def test_scopes_are_pills(paths: Paths) -> None:
+    run_update(paths, "shop", facts_only=True)
+    assert '<li class="pill">app · 1</li>' in section(client_for(paths).get("/repository").text, "types")
+
+
+def test_only_the_largest_files_are_listed(paths: Paths) -> None:
+    run_update(paths, "shop", facts_only=True)
+    page = client_for(paths, GlobalConfig(metrics=MetricsSettings(largest_files=1))).get("/repository").text
+    largest = section(page, "size").split("Largest files", 1)[1]
+    assert largest.count('href="/source/') == 1 and "more" not in largest

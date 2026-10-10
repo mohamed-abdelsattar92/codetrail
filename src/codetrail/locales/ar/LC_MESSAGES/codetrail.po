@@ -95,6 +95,16 @@ msgstr[4] "%(count)s ارتباط"
 msgstr[5] "%(count)s ارتباطًا"
 
 #, python-format
+msgid "%(count)s day"
+msgid_plural "%(count)s days"
+msgstr[0] "%(count)s يوم"
+msgstr[1] "يوم واحد"
+msgstr[2] "يومان"
+msgstr[3] "%(count)s أيام"
+msgstr[4] "%(count)s يوم"
+msgstr[5] "%(count)s يومًا"
+
+#, python-format
 msgid "%(count)s day ago"
 msgid_plural "%(count)s days ago"
 msgstr[0] "منذ %(count)s يوم"
@@ -725,8 +735,8 @@ msgid "First commit"
 msgstr "أول commit"
 
 #, python-format
-msgid "First commit on %(date)s"
-msgstr "أول commit في %(date)s"
+msgid "First commit on <span class=\"nowrap\">%(date)s</span>"
+msgstr "أول commit في <span class=\"nowrap\">%(date)s</span>"
 
 msgid "Folder"
 msgstr "المجلد"
@@ -826,8 +836,8 @@ msgid "Latest commit"
 msgstr "أحدث commit"
 
 #, python-format
-msgid "Latest: %(name)s, on %(date)s"
-msgstr "الأحدث: %(name)s، في %(date)s"
+msgid "Latest: %(name)s, on <span class=\"nowrap\">%(date)s</span>"
+msgstr "الأحدث: %(name)s، في <span class=\"nowrap\">%(date)s</span>"
 
 msgid "Learned"
 msgstr "مُتعلَّمة"

@@ -44,8 +44,8 @@
     <span class="stat-value">—</span><span class="stat-note">{{ _("The history couldn't be read just now.") }}</span>
     {% else %}
     {% set years, months = age %}
-    <span class="stat-value">{% if years %}{% trans count=years %}{{ count }} year{% pluralize %}{{ count }} years{% endtrans %}{% endif %}{% if years and months %}, {% endif %}{% if months or not years %}{% trans count=months %}{{ count }} month{% pluralize %}{{ count }} months{% endtrans %}{% endif %}</span>
-    <span class="stat-note">{% trans date=activity.first.isoformat() %}First commit on {{ date }}{% endtrans %}</span>
+    <span class="stat-value">{% if not years and not months %}{% trans count=(today - activity.first).days %}{{ count }} day{% pluralize %}{{ count }} days{% endtrans %}{% else %}{% if years %}{% trans count=years %}{{ count }} year{% pluralize %}{{ count }} years{% endtrans %}{% endif %}{% if years and months %}, {% endif %}{% if months %}{% trans count=months %}{{ count }} month{% pluralize %}{{ count }} months{% endtrans %}{% endif %}{% endif %}</span>
+    <span class="stat-note">{% trans date=activity.first.isoformat() %}First commit on <span class="nowrap">{{ date }}</span>{% endtrans %}</span>
     {% endif %}
   </section>
   {% set tile = tiles["commits"] %}
@@ -69,7 +69,7 @@
     {% else %}
     {% set latest = releases.tags[0] %}
     <span class="stat-value">{{ releases.tags|length|number }}</span>
-    <span class="stat-note">{% trans name=latest.name, date=latest.date|day %}Latest: {{ name }}, on {{ date }}{% endtrans %}</span>
+    <span class="stat-note">{% trans name=latest.name, date=latest.date|day %}Latest: {{ name }}, on <span class="nowrap">{{ date }}</span>{% endtrans %}</span>
     {% endif %}
   </section>
   {% set tile = tiles["code_lines"] %}
@@ -136,7 +136,7 @@
   <ul class="pills" lang="en" dir="ltr">{% for name, count in types.types %}<li class="pill">{{ name }} · {{ count }}</li>{% endfor %}</ul>
   {% if types.scopes %}
   <h3>{{ _("Scopes") }}</h3>
-  {% call(item) capped(types.scopes) %}<span class="grow">{{ item[0] }}</span><span class="faint">{{ item[1] }}</span>{% endcall %}
+  <ul class="pills" lang="en" dir="ltr">{% for name, count in types.scopes[:listed] %}<li class="pill">{{ name }} · {{ count }}</li>{% endfor %}</ul>
   {% endif %}
   {% endif %}
   {% endif %}
@@ -181,7 +181,7 @@
   </ul>
   {% if size.largest %}
   <h3>{{ _("Largest files") }}</h3>
-  {% call(file) capped(size.largest) %}<a class="grow" href="/source/{{ file.path }}">{{ file.path }}</a><span class="faint">{{ file.language }} · {{ file.lines|number }}</span>{% endcall %}
+  <ul class="list" lang="en" dir="ltr">{% for file in size.largest[:largest_files] %}<li><a class="grow" href="/source/{{ file.path }}">{{ file.path }}</a><span class="faint">{{ file.language }} · {{ file.lines|number }}</span></li>{% endfor %}</ul>
   {% endif %}
 </section>
 

@@ -343,7 +343,11 @@ def print_stats(report: RepositoryReport, today: date, listed: int) -> None:
         print("History: not available, the commit history couldn't be read")
     else:
         years, months = age(activity.first, today)
-        print(f"First commit: {activity.first.isoformat()} ({_plural(years, 'year')}, {_plural(months, 'month')} ago)")
+        if years or months:
+            ago = f"{_plural(years, 'year')}, {_plural(months, 'month')}"
+        else:
+            ago = _plural((today - activity.first).days, "day")
+        print(f"First commit: {activity.first.isoformat()} ({ago} ago)")
         print(f"Latest commit: {activity.latest.isoformat()}")
         print(f"Commits: {activity.commits} ({_plural(activity.merges, 'merge')})")
     if releases is None:

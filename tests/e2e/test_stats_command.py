@@ -1,5 +1,6 @@
 """`codetrail stats` prints the repository statistics, and writes nothing (design 19.5)."""
 
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -55,3 +56,19 @@ def test_it_prints_the_summary_and_writes_nothing(checkout: Path, capsys: pytest
     assert "Tests: 33% (2 of 6 lines)" in out
     assert "Facts: " in out and "package" in out
     assert recorded_rows() == rows
+
+
+class FixedDate(date):
+    @classmethod
+    def today(cls) -> FixedDate:
+        return cls(2026, 10, 10)
+
+
+def test_a_young_repository_shows_its_age_in_days(
+    checkout: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("codetrail.cli.date", FixedDate)
+    assert main(["update", "shop", "--facts-only"]) == 0
+    capsys.readouterr()
+    assert main(["stats", "shop"]) == 0
+    assert "First commit: 2026-09-21 (19 days ago)" in capsys.readouterr().out

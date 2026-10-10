@@ -183,6 +183,7 @@ class MetricsSettings(Settings):
     max_message_chars: int = Field(default=20_000, gt=0, le=1_000_000)  # of a commit body, matched for a why
     activity_months: int = Field(default=24, gt=0, le=600)  # months the activity bars show
     history_limit: int = Field(default=1_000_000, gt=0, le=100_000_000)  # commits whose dates are read
+    largest_files: int = Field(default=10, gt=0, le=1000)  # files the Repository page lists by size
     languages: dict[str, str] = DEFAULT_LANGUAGES
 
     @field_validator("languages")

@@ -47,6 +47,12 @@ msgstr[0] ""
 msgstr[1] ""
 
 #, python-format
+msgid "%(count)s day"
+msgid_plural "%(count)s days"
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
 msgid "%(count)s day ago"
 msgid_plural "%(count)s days ago"
 msgstr[0] ""
@@ -551,7 +557,7 @@ msgid "First commit"
 msgstr ""
 
 #, python-format
-msgid "First commit on %(date)s"
+msgid "First commit on <span class=\"nowrap\">%(date)s</span>"
 msgstr ""
 
 msgid "Folder"
@@ -650,7 +656,7 @@ msgid "Latest commit"
 msgstr ""
 
 #, python-format
-msgid "Latest: %(name)s, on %(date)s"
+msgid "Latest: %(name)s, on <span class=\"nowrap\">%(date)s</span>"
 msgstr ""
 
 msgid "Learned"

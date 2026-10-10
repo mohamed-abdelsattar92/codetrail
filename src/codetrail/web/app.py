@@ -574,7 +574,7 @@ def create_app(
             "repository.html", active="repository", report=report, tiles=build_tiles(report.values(), before, history),
             age=age(activity.first, today) if activity and activity.first else None, today=today,
             bars=bars([count for _, count in activity.months]) if activity else [], listed=settings.metrics.max_listed,
-            history_limit=settings.metrics.history_limit,
+            history_limit=settings.metrics.history_limit, largest_files=settings.metrics.largest_files,
         )  # fmt: skip
 
     @app.post("/settings/language")
