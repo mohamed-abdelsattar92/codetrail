@@ -16,7 +16,7 @@ AXE = (Path(__file__).parent / "vendor" / "axe.min.js").read_text()
 PAGES = [
     "/", "/progress", "/answers", "/digests", "/decisions", "/search?q=retry", "/pages/areas/app",
     "/pages/concepts/retries?path=paths/start", "/pages/paths/start", "/facts/module:app/main.py",
-    "/source/app/main.py", "/areas/app", "/system", "/areas/infra", "/documentation", "/nowhere",
+    "/source/app/main.py", "/areas/app", "/system", "/areas/infra", "/documentation", "/repository", "/nowhere",
 ]  # fmt: skip
 
 
@@ -37,3 +37,11 @@ def test_pages_have_no_errors_and_no_serious_accessibility_issue(
     assert result == []
     expected = ["status of 404"] if path == "/nowhere" else []  # the page itself is a 404
     assert [error for error in errors if not any(text in error for text in expected)] == []
+
+
+def test_the_activity_bars_name_every_month(page: Page, site: Site) -> None:
+    site.sign_in(page, "/repository")
+    label = page.locator("svg.bars").get_attribute("aria-label") or ""
+    assert label.startswith("Commits per month: ")
+    assert label.count(":") == 25  # the heading's and one per month of the default 24
+    assert page.locator("svg.bars rect").count() == 24

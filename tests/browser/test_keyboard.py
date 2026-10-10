@@ -60,7 +60,7 @@ def test_a_opens_the_ask_panel(page: Page, site: Site) -> None:
 
 PLACES = [
     ("h", "/"), ("p", "/progress"), ("y", "/system"), ("s", "/answers"), ("d", "/digests"), ("r", "/decisions"),
-    ("o", "/documentation"),
+    ("o", "/documentation"), ("t", "/repository"),
 ]  # fmt: skip
 
 
