@@ -5,7 +5,15 @@ from pathlib import Path
 import pytest
 
 from codetrail.config import ToolsSettings
-from codetrail.repo.history import commits_between, diff_between, latest_commits, merges_between, recent_commits
+from codetrail.repo.history import (
+    WITHHELD_TAG,
+    commits_between,
+    diff_between,
+    latest_commits,
+    merges_between,
+    read_tags,
+    recent_commits,
+)
 from codetrail.repo.mirror import refresh_mirror
 from codetrail.repo.rules import ExclusionRules
 from codetrail.repo.secrets import SecretScanner
@@ -150,3 +158,32 @@ def test_latest_commits_skip_merges_and_withhold_secrets(tmp_path: Path, scanner
     assert commits[2].body == "Why: because\nit helps."
     assert token not in repr(commits)
     assert len(latest_commits(mirror, end, 2, scanner)) == 2
+
+
+def test_tags_are_read_with_their_messages_and_dates(tmp_path: Path, scanner: SecretScanner) -> None:
+    checkout = make_repository(tmp_path / "t", [{"a.txt": "a\n"}])
+    first = git(checkout, "rev-parse", "HEAD")
+    git(checkout, "tag", "light")
+    second = add_commit(checkout, {"a.txt": "b\n"})
+    git(checkout, "tag", "-a", "v1", "-m", "Release one\n\nThe notes.", date=9)
+    git(checkout, "tag", "-a", "secret", "-m", f"token {fake_github_token()}")
+    git(checkout, "tag", "on-a-blob", git(checkout, "rev-parse", "HEAD:a.txt"))
+    git(checkout, "tag", "-a", "on-a-tree", "-m", "A tree", git(checkout, "rev-parse", "HEAD^{tree}"))
+    mirror, end = mirror_of(checkout, tmp_path)
+    tags = {tag.name: tag for tag in read_tags(mirror, end, scanner)}
+    assert set(tags) == {"light", "v1", WITHHELD_TAG}
+    assert (tags["light"].commit, tags["light"].message) == (first, "")
+    assert (tags["v1"].commit, tags["v1"].message) == (second, "Release one\n\nThe notes.")
+    assert tags["v1"].date == 1_790_000_000 + 9 * 60
+    assert (tags[WITHHELD_TAG].commit, tags[WITHHELD_TAG].message) == (second, "")
+
+
+def test_only_tags_in_the_commits_history_are_read(tmp_path: Path, scanner: SecretScanner) -> None:
+    checkout = make_repository(tmp_path / "t", [{"a.txt": "a\n"}])
+    first = git(checkout, "rev-parse", "HEAD")
+    git(checkout, "tag", "v1")
+    add_commit(checkout, {"a.txt": "b\n"})
+    git(checkout, "tag", "v2")
+    mirror, end = mirror_of(checkout, tmp_path)
+    assert sorted(tag.name for tag in read_tags(mirror, end, scanner)) == ["v1", "v2"]
+    assert [tag.name for tag in read_tags(mirror, first, scanner)] == ["v1"]

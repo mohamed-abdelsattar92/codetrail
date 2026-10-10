@@ -77,6 +77,42 @@ def latest_commits(mirror: Path, end: str, limit: int, scanner: SecretScanner) -
     return _withhold_flagged_messages(commits, scanner)
 
 
+WITHHELD_TAG = "[withheld: gitleaks flagged this tag]"
+TAG_FIELDS = 8  # name, type, object, peeled type, peeled object, date, subject, body
+
+
+@dataclass(frozen=True)
+class Tag:
+    name: str
+    commit: str
+    date: int  # seconds since the epoch: the tagger's date, or the commit's for a lightweight tag
+    message: str  # an annotated tag's subject and body; empty for a lightweight or withheld tag
+
+
+def read_tags(mirror: Path, end: str, scanner: SecretScanner) -> list[Tag]:
+    """The tags on commits in `end`'s history, with flagged names and messages withheld (design section 19.2).
+
+    One git call, fields separated by NUL, which no name or message can hold. Tags on anything but a commit are
+    skipped, so a tag on a blob of an excluded file is never read; the tagger is never read either. The subject and
+    body are read apart because a signed tag's whole contents would end with its signature.
+    """
+    output = run_git(["for-each-ref", "--merged", end, "--format=%(refname:strip=2)%00%(objecttype)%00%(objectname)"
+                      "%00%(*objecttype)%00%(*objectname)%00%(creatordate:unix)%00%(contents:subject)%00"
+                      "%(contents:body)%00", "refs/tags"], git_dir=mirror).decode("utf-8", "replace")  # fmt: skip
+    fields = output.split("\0")
+    tags = []
+    for start in range(0, len(fields) - TAG_FIELDS + 1, TAG_FIELDS):
+        name, kind, sha, peeled_kind, peeled, date, subject, body = fields[start : start + TAG_FIELDS]
+        name = name.lstrip("\n")  # each record ends with a newline after its last NUL; a name can't hold one
+        if kind == "commit":
+            tags.append(Tag(name, sha, int(date), ""))
+        elif kind == "tag" and peeled_kind == "commit":
+            message = f"{subject}\n\n{body.strip()}" if body.strip() else subject
+            tags.append(Tag(name, peeled, int(date), message.strip()))
+    flagged = _flagged_indexes([f"{tag.name}\n{tag.message}" for tag in tags], scanner)
+    return [Tag(WITHHELD_TAG, tag.commit, tag.date, "") if index in flagged else tag for index, tag in enumerate(tags)]
+
+
 def merges_between(mirror: Path, start: str, end: str) -> int:
     count = run_git(["rev-list", "--count", "--merges", "--first-parent", f"{start}..{end}"], git_dir=mirror)
     return int(count)

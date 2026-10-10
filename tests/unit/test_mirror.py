@@ -5,8 +5,9 @@ from pathlib import Path
 import pytest
 
 from codetrail.errors import CodetrailError
+from codetrail.repo.git import run_git
 from codetrail.repo.mirror import check_branch, list_tree, read_file_at, refresh_mirror, repository_url
-from tests.fixtures.repos import Symlink, add_commit, make_repository, snapshot_tree
+from tests.fixtures.repos import Symlink, add_commit, git, make_repository, snapshot_tree
 
 
 @pytest.fixture
@@ -67,3 +68,49 @@ def test_the_tree_lists_modes_blobs_and_paths(checkout: Path, tmp_path: Path) ->
     assert entries["README.md"].mode == "100644"
     assert read_file_at(mirror, commit, "README.md") == b"# Hello\n"
     assert read_file_at(mirror, commit, "missing.txt") is None
+
+
+def tags_in(mirror: Path) -> list[str]:
+    names = run_git(["for-each-ref", "--format=%(refname:strip=2)", "refs/tags"], git_dir=mirror)
+    return sorted(names.decode().split())
+
+
+def test_the_mirror_keeps_only_the_branchs_tags(checkout: Path, tmp_path: Path) -> None:
+    git(checkout, "tag", "-a", "v1", "-m", "First release")
+    git(checkout, "tag", "light")
+    git(checkout, "checkout", "-q", "-b", "side")
+    side = add_commit(checkout, {"side.txt": "b\n"}, "Side work")
+    git(checkout, "tag", "-a", "vside", "-m", "Side release")
+    git(checkout, "tag", "light-side")
+    git(checkout, "checkout", "-q", "develop")
+    mirror = tmp_path / "mirror.git"
+    refresh_mirror(mirror, checkout, "develop")
+    assert tags_in(mirror) == ["light", "v1"]
+    with pytest.raises(CodetrailError):
+        run_git(["cat-file", "-e", side], git_dir=mirror)
+
+
+def test_the_mirror_follows_deleted_and_moved_tags(checkout: Path, tmp_path: Path) -> None:
+    git(checkout, "tag", "-a", "v1", "-m", "First")
+    git(checkout, "tag", "old")
+    mirror = tmp_path / "mirror.git"
+    refresh_mirror(mirror, checkout, "develop")
+    assert tags_in(mirror) == ["old", "v1"]
+    head = add_commit(checkout, {"README.md": "# Changed\n"})
+    git(checkout, "tag", "-d", "old")
+    git(checkout, "tag", "-f", "-a", "v1", "-m", "Moved")
+    git(checkout, "tag", "v2")
+    refresh_mirror(mirror, checkout, "develop")
+    assert tags_in(mirror) == ["v1", "v2"]
+    assert run_git(["rev-parse", "v1^{commit}"], git_dir=mirror).decode().strip() == head
+
+
+def test_fetching_tags_leaves_the_target_untouched(checkout: Path, tmp_path: Path) -> None:
+    git(checkout, "tag", "-a", "v1", "-m", "First")
+    git(checkout, "tag", "old")
+    mirror = tmp_path / "mirror.git"
+    refresh_mirror(mirror, checkout, "develop")
+    git(checkout, "tag", "-d", "old")
+    before = snapshot_tree(checkout)
+    refresh_mirror(mirror, checkout, "develop")  # deletes the mirror's stale tag
+    assert snapshot_tree(checkout) == before

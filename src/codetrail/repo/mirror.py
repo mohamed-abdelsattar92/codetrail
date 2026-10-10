@@ -36,7 +36,12 @@ def check_branch(repository: Path, branch: str) -> None:
 
 
 def refresh_mirror(mirror: Path, repository: Path, branch: str) -> str:
-    """Clones or fetches the branch into the mirror and returns its head commit."""
+    """Clones or fetches the branch into the mirror, with the tags that point into it, and returns its head commit.
+
+    The mirror's tags that the target no longer has, or that point elsewhere now, are deleted first; the branch's
+    fetch then brings the rest by git's tag auto-follow, which takes only tags on objects the mirror holds, so no
+    other branch's commits come in (design section 19.2).
+    """
     check_branch(repository, branch)
     url = repository_url(repository)
     if not (mirror / "HEAD").exists():
@@ -56,12 +61,28 @@ def refresh_mirror(mirror: Path, repository: Path, branch: str) -> str:
                 str(mirror),
             ]
         )
-    else:
-        run_git(
-            ["fetch", "--quiet", "--no-tags", "--prune", "--", url, f"+refs/heads/{branch}:refs/heads/{branch}"],
-            git_dir=mirror,
-        )
+    _drop_stale_tags(mirror, url)
+    run_git(["fetch", "--quiet", "--prune", "--", url, f"+refs/heads/{branch}:refs/heads/{branch}"], git_dir=mirror)
     return head_commit(mirror, branch)
+
+
+def _drop_stale_tags(mirror: Path, url: str) -> None:
+    """Deletes the mirror's tags that the target no longer has or that point elsewhere now; touches only refs/tags/."""
+    listed = run_git(["ls-remote", "--tags", "--", url]).decode("utf-8", "surrogateescape")
+    remote = {}
+    for line in listed.splitlines():
+        sha, _, ref = line.partition("\t")
+        if ref.startswith("refs/tags/") and not ref.endswith("^{}"):
+            remote[ref] = sha
+    local = run_git(["for-each-ref", "--format=%(refname)%00%(objectname)", "refs/tags"], git_dir=mirror)
+    stale = []
+    for line in local.decode("utf-8", "surrogateescape").splitlines():
+        ref, _, sha = line.partition("\0")
+        if ref.startswith("refs/tags/") and remote.get(ref) != sha:
+            stale.append(f"delete {ref}\0{sha}\0")
+    if stale:
+        run_git(["update-ref", "-z", "--stdin"], git_dir=mirror,
+                input="".join(stale).encode("utf-8", "surrogateescape"))  # fmt: skip
 
 
 def head_commit(mirror: Path, branch: str) -> str:
