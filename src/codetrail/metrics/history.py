@@ -21,7 +21,8 @@ def record_values(connection: sqlite3.Connection, snapshot_id: int, values: Mapp
         )
         connection.execute("COMMIT")
     except BaseException:
-        connection.execute("ROLLBACK")
+        if connection.in_transaction:  # SQLite ends it itself after some errors
+            connection.execute("ROLLBACK")
         raise
 
 

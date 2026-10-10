@@ -1,6 +1,9 @@
 """Each metric's value per update, for the trend (design section 18.3)."""
 
+import sqlite3
 from pathlib import Path
+
+import pytest
 
 from codetrail.database import connect
 from codetrail.facts.store import FactStore
@@ -36,3 +39,15 @@ def test_a_share_needs_a_denominator() -> None:
     assert Value(1, 4).share == 0.25
     assert Value(0, 0).share is None
     assert Value(3, None).share is None
+
+
+def test_a_failure_that_ends_the_transaction_itself_is_raised_as_it_is(tmp_path: Path) -> None:
+    connection = connect(tmp_path / "codetrail.db")
+    first, _ = FactStore(connection).record("a" * 40, [], [])
+    # SQLite rolls the whole transaction back itself after some errors (a full disk); this trigger does the same.
+    connection.execute(
+        "CREATE TRIGGER refuse BEFORE INSERT ON metric_values BEGIN SELECT RAISE(ROLLBACK, 'refused by test'); END"
+    )
+    with pytest.raises(sqlite3.IntegrityError, match="refused by test"):
+        record_values(connection, first.id, {Metric.DOCUMENTED_SHARE: Value(1, 4)})
+    assert not connection.in_transaction
