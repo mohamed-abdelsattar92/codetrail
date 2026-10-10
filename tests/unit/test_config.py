@@ -296,3 +296,33 @@ def test_an_invalid_why_pattern_is_refused_by_name(paths: Paths, tmp_path: Path)
     file.write_text(file.read_text() + "[metrics]\ncommit_why_pattern = '(unclosed'\n")
     with pytest.raises(CodetrailError, match="commit_why_pattern"):
         load_target(paths, "shop")
+
+
+def test_repository_statistics_settings_have_their_defaults(paths: Paths, tmp_path: Path) -> None:
+    settings = load_global(paths)
+    assert (settings.metrics.activity_months, settings.metrics.history_limit) == (24, 1_000_000)
+    assert settings.metrics.languages[".py"] == "Python"
+    assert settings.metrics.languages["dockerfile"] == "Dockerfile"
+    write_target(paths, "shop", tmp_path / "repo", "develop")
+    metrics = load_target(paths, "shop").metrics
+    assert "tests/**" in metrics.test_globs
+    found = metrics.types.match("feat(web): add the page")
+    assert found and (found["type"], found["scope"]) == ("feat", "web")
+    assert metrics.types.match("fix!: drop it")
+    assert not metrics.types.match("Add the page")
+    assert "\\s" not in metrics.commit_type_pattern
+
+
+@pytest.mark.parametrize("pattern", ["^(feat|fix):", "(unclosed"])
+def test_a_type_pattern_without_a_type_group_is_refused_by_name(paths: Paths, tmp_path: Path, pattern: str) -> None:
+    write_target(paths, "shop", tmp_path / "repo", "develop")
+    file = paths.target_file("shop")
+    file.write_text(file.read_text() + f"[metrics]\ncommit_type_pattern = '{pattern}'\n")
+    with pytest.raises(CodetrailError, match="commit_type_pattern"):
+        load_target(paths, "shop")
+
+
+def test_language_names_are_lower_cased(paths: Paths) -> None:
+    paths.config_dir.mkdir(parents=True, exist_ok=True)
+    (paths.config_dir / "config.toml").write_text('[metrics.languages]\n".PY" = "Python"\n')
+    assert load_global(paths).metrics.languages == {".py": "Python"}
