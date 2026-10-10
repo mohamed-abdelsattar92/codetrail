@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from collections import Counter
 from collections.abc import Iterable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from itertools import pairwise
 
@@ -24,6 +24,8 @@ class Activity:
     weeks: int  # weeks from the first commit's to the latest's, both counted
     longest_gap: tuple[date, date] | None  # the two commit days furthest apart with none between
     cut: bool  # the history holds more commits than were read
+    days: list[int] = field(default_factory=list)  # commits per UTC day, from days_start to today
+    days_start: date | None = None
 
 
 def _monday(day: date) -> date:
@@ -49,7 +51,10 @@ def measure_activity(times: Sequence[int], commits: int, merges: int, today: dat
     weeks = (_monday(latest) - _monday(first)).days // 7 + 1
     widest = max(pairwise(days), key=lambda pair: pair[1] - pair[0], default=None)
     gap = widest if widest and widest[1] > widest[0] else None
-    return Activity(commits, merges, first, latest, month_counts, years, active_weeks, weeks, gap, cut)
+    by_day = Counter(days)
+    last = max(today, latest)
+    per_day = [by_day.get(first + timedelta(days=offset), 0) for offset in range((last - first).days + 1)]
+    return Activity(commits, merges, first, latest, month_counts, years, active_weeks, weeks, gap, cut, per_day, first)
 
 
 @dataclass(frozen=True)

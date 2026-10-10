@@ -144,7 +144,11 @@ def test_the_report_finds_where_change_happens(paths: Paths) -> None:
     assert churn.files[0].name == "app/db.py" and churn.files[0].count == 3
     assert churn.folders[0].name == "app"
     assert all(".env" not in spot.name for spot in churn.files + churn.folders)
-    assert [(spot.page.id, spot.commits, spot.documented, spot.inferred) for spot in churn.areas] == [
-        ("areas/app", 3, 0, 1)
+    assert [(spot.page.id, spot.commits, spot.documented, spot.inferred, spot.lines) for spot in churn.areas] == [
+        ("areas/app", 3, 0, 1, 3)
     ]
+    assert [tile.path for tile in churn.file_tiles][:1] == ["pyproject.toml"]
+    assert churn.area_months[0][0] == "areas/app" and sum(c or 0 for c in churn.area_months[0][1]) == 3
+    assert sum(churn.size_histogram) == 3
+    assert report.activity is not None and sum(report.activity.days) == 3
     assert churn.quiet_files == 0  # every file changed within the last year of the fixture's dates

@@ -64,3 +64,15 @@ def test_commit_types_need_half_the_subjects() -> None:
 def test_only_the_start_of_a_subject_is_matched() -> None:
     assert measure_types([commit("feat: a")], TargetMetricsSettings().types, 3).matched == 0
     assert measure_types([commit("feat: a")], TargetMetricsSettings().types, 6).matched == 1
+
+
+def test_activity_counts_every_day_to_today() -> None:
+    times = [START, START + 60, START + 2 * DAY]
+    activity = measure_activity(sorted(times, reverse=True), 3, 0, date(2025, 1, 10), months=1)
+    assert activity.days_start == date(2025, 1, 6)
+    assert activity.days == [2, 0, 1, 0, 0]
+
+
+def test_no_commits_have_no_days() -> None:
+    activity = measure_activity([], 0, 0, date(2025, 1, 6), months=1)
+    assert (activity.days_start, activity.days) == (None, [])

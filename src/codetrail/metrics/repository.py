@@ -100,9 +100,11 @@ def build_repository_report(
         try:
             changes = changed_files(mirror, end, settings.metrics.churn_window)
             recent = files_changed_since(mirror, end, today - timedelta(days=settings.metrics.quiet_days))
-            code = {file.path for file in size.largest}
+            code_lines = {file.path: file.lines for file in size.largest}
             areas = _areas(data / "guide", target.adr.paths, target.metrics.document_globs)
-            churn = measure_churn(changes, files, code, recent, areas)
+            metrics = settings.metrics
+            churn = measure_churn(changes, files, code_lines, recent, areas, today, metrics.folder_depth,
+                                  metrics.heatmap_tiles, metrics.churn_window)  # fmt: skip
         except (CodetrailError, OSError) as error:
             logger.warning("Where change happens isn't available: %s", error)
     inventory = measure_inventory(store, settings.metrics.trend_updates)
