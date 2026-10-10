@@ -135,6 +135,32 @@ class FactStore:
             f"SELECT {keys} FROM {table} WHERE last_seen = ?", (closed_at,))}  # fmt: skip
         return opened, closed
 
+    def snapshots(self) -> list[Snapshot]:
+        """Every snapshot, oldest first."""
+        rows = self.connection.execute("SELECT * FROM snapshots ORDER BY id")
+        return [Snapshot(row["id"], row["commit_sha"], row["taken_at"]) for row in rows]
+
+    def entity_counts(self, snapshot_ids: Sequence[int]) -> dict[int, dict[str, int]]:
+        """Each snapshot's entities by kind, from the validity ranges (design section 19.1)."""
+        counts: dict[int, dict[str, int]] = {snapshot_id: {} for snapshot_id in snapshot_ids}
+        marks = ", ".join("?" for _ in snapshot_ids)
+        rows = self.connection.execute(
+            "SELECT s.id AS snapshot, e.kind AS kind, COUNT(*) AS count FROM snapshots s JOIN entities e"
+            " ON e.first_seen <= s.id AND (e.last_seen IS NULL OR e.last_seen >= s.id)"
+            f" WHERE s.id IN ({marks}) GROUP BY s.id, e.kind", tuple(snapshot_ids))  # fmt: skip
+        for row in rows:
+            counts[row["snapshot"]][row["kind"]] = row["count"]
+        return counts
+
+    def entity_spans(self, kind: EntityKind) -> list[tuple[str, int, int | None]]:
+        """Each entity of the kind ever seen: its first snapshot, and its last unless it is still current."""
+        rows = self.connection.execute(
+            "SELECT id, MIN(first_seen) AS first, CASE WHEN SUM(last_seen IS NULL) > 0 THEN NULL"
+            " ELSE MAX(last_seen) END AS last FROM entities WHERE kind = ? GROUP BY id ORDER BY id",
+            (str(kind),),
+        )
+        return [(row["id"], row["first"], row["last"]) for row in rows]
+
     def entities(self, kind: EntityKind | None = None) -> list[Entity]:
         query = "SELECT * FROM entities WHERE last_seen IS NULL" + (" AND kind = ?" if kind else "") + " ORDER BY id"
         return [_entity(row) for row in self.connection.execute(query, (str(kind),) if kind else ())]

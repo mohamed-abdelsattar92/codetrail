@@ -36,6 +36,11 @@ class Metric(StrEnum):
     ADR_ATTENTION = "adr_attention"
     MENTIONED_SHARE = "mentioned_share"
     EXPLAINED_SHARE = "explained_share"
+    # The repository statistics recorded for their trend (design section 19.4)
+    COMMITS = "commits"
+    CODE_LINES = "code_lines"
+    SOURCE_FILES = "source_files"
+    TEST_SHARE = "test_share"
 
 
 @dataclass(frozen=True)

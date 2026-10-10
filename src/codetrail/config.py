@@ -158,14 +158,38 @@ class DiagramSettings(Settings):
     max_nodes: int = Field(default=25, gt=0)
 
 
+# A file name or suffix, lower-cased, and its language (design section 19.6); `[metrics.languages]` replaces it.
+DEFAULT_LANGUAGES = {
+    ".py": "Python", ".pyi": "Python",
+    ".ts": "TypeScript", ".tsx": "TypeScript", ".mts": "TypeScript", ".cts": "TypeScript",
+    ".js": "JavaScript", ".jsx": "JavaScript", ".mjs": "JavaScript", ".cjs": "JavaScript",
+    ".astro": "Astro", ".swift": "Swift", ".kt": "Kotlin", ".kts": "Kotlin", ".java": "Java", ".go": "Go",
+    ".rs": "Rust", ".rb": "Ruby", ".php": "PHP", ".c": "C", ".h": "C", ".cc": "C++", ".cpp": "C++", ".hpp": "C++",
+    ".cs": "C#", ".m": "Objective-C", ".mm": "Objective-C", ".scala": "Scala",
+    ".sh": "Shell", ".bash": "Shell", ".zsh": "Shell", ".sql": "SQL", ".html": "HTML", ".css": "CSS", ".scss": "CSS",
+    ".vue": "Vue", ".svelte": "Svelte", ".tf": "Terraform", ".yaml": "YAML", ".yml": "YAML", ".json": "JSON",
+    ".toml": "TOML", ".xml": "XML", ".proto": "Protocol Buffers", ".graphql": "GraphQL",
+    "dockerfile": "Dockerfile", "makefile": "Makefile", "justfile": "just",
+}  # fmt: skip
+
+
 class MetricsSettings(Settings):
-    """The documentation metrics' limits (design section 18.5)."""
+    """The documentation metrics' and repository statistics' limits (design sections 18.5 and 19.6)."""
 
     commit_window: int = Field(default=200, gt=0, le=10_000)  # the latest non-merge commits the commit metric reads
     proposed_adr_days: int = Field(default=30, ge=0)  # a proposed ADR older than this needs attention
     trend_updates: int = Field(default=12, ge=2, le=200)  # updates a trend line shows
     max_listed: int = Field(default=50, gt=0, le=5000)  # items a list shows before the rest fold away
     max_message_chars: int = Field(default=20_000, gt=0, le=1_000_000)  # of a commit body, matched for a why
+    activity_months: int = Field(default=24, gt=0, le=600)  # months the activity bars show
+    history_limit: int = Field(default=1_000_000, gt=0, le=100_000_000)  # commits whose dates are read
+    largest_files: int = Field(default=10, gt=0, le=1000)  # files the Repository page lists by size
+    languages: dict[str, str] = DEFAULT_LANGUAGES
+
+    @field_validator("languages")
+    @classmethod
+    def lower_case_names(cls, languages: dict[str, str]) -> dict[str, str]:
+        return {name.lower(): language for name, language in languages.items()}
 
 
 class ProvidersSettings(Settings):
@@ -252,7 +276,7 @@ class GenerationSettings(Settings):
 
 
 class TargetMetricsSettings(Settings):
-    """What counts as a document and as a commit that explains why, in this repository (design section 18.5)."""
+    """What counts as a document, a commit that explains why, a test and a commit type here (sections 18.5, 19.6)."""
 
     document_globs: list[str] = ["README*", "*.md", "*.rst", "*.adoc", "*.txt", "docs/**"]  # gitignore syntax
     # Spaces and tabs only, never \s: whitespace that could cross lines would take quadratic time on a long run of
@@ -271,6 +295,25 @@ class TargetMetricsSettings(Settings):
     @property
     def why(self) -> re.Pattern[str]:
         return re.compile(self.commit_why_pattern)
+
+    test_globs: list[str] = ["test/**", "tests/**", "**/test_*.py", "**/*_test.*", "**/*.test.*", "**/*.spec.*",
+                             "**/__tests__/**", "**/Tests/**"]  # fmt: skip
+    commit_type_pattern: str = r"^(?P<type>[A-Za-z]+)(?:\((?P<scope>[^()\r\n]*)\))?!?:[ \t]"  # a Conventional Commit
+
+    @field_validator("commit_type_pattern")
+    @classmethod
+    def has_a_type(cls, pattern: str) -> str:
+        try:
+            compiled = re.compile(pattern)
+        except re.error as error:
+            raise ValueError(f"isn't a valid regular expression: {error}") from error
+        if "type" not in compiled.groupindex:
+            raise ValueError("needs a (?P<type>...) group")
+        return pattern
+
+    @property
+    def types(self) -> re.Pattern[str]:
+        return re.compile(self.commit_type_pattern)
 
 
 PROVIDERS = ("claude_code", "codex", "local")

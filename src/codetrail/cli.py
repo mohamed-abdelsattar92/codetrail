@@ -7,7 +7,7 @@ import signal
 import sys
 import unicodedata
 from collections import Counter
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 from types import FrameType
 
@@ -22,13 +22,14 @@ from codetrail.facts.store import FactStore
 from codetrail.lock import target_in_use
 from codetrail.metrics.history import values_before
 from codetrail.metrics.report import Metric, build_report
+from codetrail.metrics.repository import RepositoryReport, build_repository_report
 from codetrail.remove import remove_target
 from codetrail.repo.mirror import check_branch
 from codetrail.repo.refresh import refresh_source
 from codetrail.repo.rules import Reason
 from codetrail.server import serve
 from codetrail.update import run_update
-from codetrail.web.documentation import COUNTS, build_tiles
+from codetrail.web.documentation import COUNTS, age, build_tiles, percent_of
 
 stopping = False  # set once a hangup or terminate signal has started Codetrail's exit
 
@@ -64,6 +65,9 @@ def build_parser() -> argparse.ArgumentParser:
     metrics = commands.add_parser("metrics", help="show how well a target's repository explains itself")
     metrics.add_argument("name")
 
+    stats = commands.add_parser("stats", help="show a target repository's history, releases, code size and facts")
+    stats.add_argument("name")
+
     commands.add_parser("providers", help="show each assistant provider: installed, signed in, and how")
 
     serve_command = commands.add_parser("serve", help="serve the guide's page on 127.0.0.1")
@@ -91,6 +95,8 @@ def main(argv: list[str] | None = None) -> int:
             return show_providers(paths)
         if arguments.command == "metrics":
             return show_metrics(paths, arguments.name)
+        if arguments.command == "stats":
+            return show_stats(paths, arguments.name)
         if arguments.command == "update":
             return update_target(paths, arguments.name, facts_only=arguments.facts_only, yes=arguments.yes,
                                  retry_failed=arguments.retry_failed)  # fmt: skip
@@ -303,6 +309,65 @@ def show_metrics(paths: Paths, name: str) -> int:
             change = "no earlier update" if tile.change is None else f"{tile.change:+d}{unit} since the last update"
             print(f"{label}: {shown}, {change}")
     return 0
+
+
+def show_stats(paths: Paths, name: str) -> int:
+    """Prints the repository statistics (design 19.5); reads the history but never writes it."""
+    load_target(paths, name)
+    database = paths.target_data(name) / "codetrail.db"
+    settings = load_global(paths)
+    with target_in_use(paths, name):
+        if not database.exists():
+            print(f"No facts yet. Run: codetrail update {name} --facts-only")
+            return 1
+        connection = connect(database)
+        try:
+            store = FactStore(connection)
+            if store.latest_snapshot() is None:
+                print(f"No facts yet. Run: codetrail update {name} --facts-only")
+                return 1
+            report = build_repository_report(paths, name, settings, store, date.today())
+        finally:
+            connection.close()
+    print_stats(report, date.today(), settings.metrics.max_listed)
+    return 0
+
+
+def _plural(count: int, word: str) -> str:
+    return f"{count} {word}" if count == 1 else f"{count} {word}s"
+
+
+def print_stats(report: RepositoryReport, today: date, listed: int) -> None:
+    activity, releases, size = report.activity, report.releases, report.size
+    if activity is None or activity.first is None or activity.latest is None:
+        print("History: not available, the commit history couldn't be read")
+    else:
+        years, months = age(activity.first, today)
+        if years or months:
+            ago = f"{_plural(years, 'year')}, {_plural(months, 'month')}"
+        else:
+            ago = _plural(max((today - activity.first).days, 0), "day")
+        print(f"First commit: {activity.first.isoformat()} ({ago} ago)")
+        print(f"Latest commit: {activity.latest.isoformat()}")
+        print(f"Commits: {activity.commits} ({_plural(activity.merges, 'merge')})")
+    if releases is None:
+        print("Releases: not available, the tags couldn't be read")
+    elif not releases.tags:
+        print("Releases: none")
+    else:
+        latest = releases.tags[0]
+        day = datetime.fromtimestamp(latest.date, UTC).date().isoformat()
+        print(f"Releases: {len(releases.tags)}, the latest {printable(latest.name)} on {day}, "
+              f"{_plural(releases.since_latest or 0, 'commit')} since")  # fmt: skip
+    print(f"Code: {size.code_lines} lines in {_plural(len(size.languages), 'language')}")
+    for language in size.languages[:listed]:
+        print(f"  {language.language}: {_plural(language.files, 'file')}, {_plural(language.lines, 'line')}")
+    print(f"Documents: {_plural(size.documents.files, 'file')}, {_plural(size.documents.lines, 'line')}")
+    share = percent_of(report.values()[Metric.TEST_SHARE])
+    shown = "nothing to measure" if share is None else f"{share}%"
+    print(f"Tests: {shown} ({size.test_lines} of {size.code_lines} lines)")
+    kinds = ", ".join(f"{kind.count} {kind.kind}" for kind in report.inventory.kinds)
+    print(f"Facts: {kinds or 'none'}")
 
 
 def _change_counts(diff: FactDiff) -> dict[str, list[int]]:

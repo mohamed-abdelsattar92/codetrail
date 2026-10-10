@@ -46,6 +46,7 @@ Check the current version of each before citing it; when a newer one exists, use
 ### Target repositories stay read-only
 - Nothing writes to a target repository: no `git` command that changes its index, refs, config or hooks (`status`, `fetch` run inside it, `worktree`, `gc`), no file written under its path, no hardlink to its objects (the mirror clones with `--no-local`).
 - The mirror and `source/` live only in Codetrail's data folder; a configured path inside the target is refused.
+- The mirror fetches only the branch and the tags that point into it (tag auto-follow); deleting stale tags touches only the mirror's `refs/tags/`. Tag names and messages pass gitleaks before they are shown, and the tagger is never read.
 
 ### Secrets and exclusions (design section 3)
 - No secret, key, token or password in the change, including tests, fixtures, docs and examples. Test secrets are assembled at runtime.

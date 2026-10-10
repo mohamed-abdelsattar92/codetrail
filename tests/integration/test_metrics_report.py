@@ -111,5 +111,5 @@ def test_metrics_that_cant_be_computed_only_warn(
     with caplog.at_level(logging.WARNING):
         result = run_update(paths, "shop", facts_only=True)
     assert result.snapshot.id == 1
-    assert rows(paths) == {}
+    assert str(Metric.DOCUMENTED_SHARE) not in rows(paths)[1]  # the repository statistics are still recorded
     assert "The documentation metrics weren't recorded" in caplog.text
