@@ -187,3 +187,21 @@ def test_a_revision_starting_with_a_dash_is_never_read_as_an_option(tmp_path: Pa
     with pytest.raises(CodetrailError):
         reader(mirror, f"--output={written / 'out'}", end)
     assert list(written.iterdir()) == []
+
+
+DIFF_READERS: dict[str, Callable[[Path, str, str], object]] = {
+    "diff_between": lambda mirror, start, end: diff_between(mirror, start, end, visible, SCANNER),
+    "changed_paths": changed_paths,
+}
+
+
+@pytest.mark.parametrize("reader", DIFF_READERS.values(), ids=DIFF_READERS.keys())
+def test_files_outside_the_repository_are_never_compared_as_revisions(
+    tmp_path: Path, reader: Callable[[Path, str, str], object]
+) -> None:
+    checkout = make_repository(tmp_path / "t", [{"a.md": "a\n"}])
+    mirror, _end = mirror_of(checkout, tmp_path)
+    (tmp_path / "before").write_text("one\n")
+    (tmp_path / "after").write_text("one\n")  # alike, so a file comparison would succeed
+    with pytest.raises(CodetrailError):
+        reader(mirror, str(tmp_path / "before"), str(tmp_path / "after"))

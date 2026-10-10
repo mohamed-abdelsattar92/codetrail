@@ -88,12 +88,14 @@ def merges_between(mirror: Path, start: str, end: str) -> int:
 def diff_between(
     mirror: Path, start: str, end: str, visible: Callable[[str], bool], scanner: SecretScanner
 ) -> list[FileDiff]:
-    output = run_git(["diff", "--name-status", "--no-renames", "-z", "--end-of-options", start, end], git_dir=mirror)
+    arguments = ["diff-tree", "-r", "--name-status", "--no-renames", "-z", "--end-of-options", start, end]
+    output = run_git(arguments, git_dir=mirror)
     fields = output.decode("utf-8", "surrogateescape").split("\0")
     changes = [(fields[i], fields[i + 1]) for i in range(0, len(fields) - 1, 2) if visible(fields[i + 1])]
     patches = [
         run_git(
-            ["diff", "--no-renames", "--end-of-options", start, end, "--", f":(literal){path}"], git_dir=mirror
+            ["diff-tree", "-r", "-p", "--no-renames", "--end-of-options", start, end, "--", f":(literal){path}"],
+            git_dir=mirror,
         ).decode("utf-8", "replace")
         for _status, path in changes
     ]
@@ -134,7 +136,8 @@ def commit_count(mirror: Path, start: str, end: str) -> int:
 
 def changed_paths(mirror: Path, start: str, end: str) -> list[str]:
     """Paths changed between two commits; only names, which callers filter before showing."""
-    output = run_git(["diff", "--name-only", "--no-renames", "-z", "--end-of-options", start, end], git_dir=mirror)
+    arguments = ["diff-tree", "-r", "--name-only", "--no-renames", "-z", "--end-of-options", start, end]
+    output = run_git(arguments, git_dir=mirror)
     return [name for name in output.decode("utf-8", "surrogateescape").split("\0") if name]
 
 
