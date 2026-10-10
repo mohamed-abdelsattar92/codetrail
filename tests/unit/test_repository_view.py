@@ -94,6 +94,9 @@ def test_the_document_holds_what_the_charts_draw() -> None:
     assert labels["months"][0] == "Jan" and len(labels["months"]) == 12
     assert labels["commits"] == {"one": "{count} commit", "other": "{count} commits"}
     assert labels["weekOf"] == "Week of {date}"
+    assert labels["weekdays"][:2] == ["Mon", "Tue"] and len(labels["weekdays"]) == 7
+    for key in ("releases", "dependencies", "wholeHistory", "plotHelp", "calendarHelp", "noAreas"):
+        assert labels[key], key
 
 
 def test_a_report_without_history_has_no_days_or_heat() -> None:

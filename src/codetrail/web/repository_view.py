@@ -15,7 +15,7 @@ from typing import Any
 from urllib.parse import quote
 
 from babel import Locale
-from babel.dates import get_month_names
+from babel.dates import get_day_names, get_month_names
 
 from codetrail.metrics.activity import Activity
 from codetrail.metrics.churn import Churn, HotSpot
@@ -85,6 +85,15 @@ def _labels(language: Language) -> dict[str, object]:
         "openArea": t.gettext("Open the area page"),
         "openFile": t.gettext("Open the file"),
         "noFiles": t.gettext("No file in it changed in the commits read."),
+        "releases": t.gettext("Releases"),
+        "dependencies": t.gettext("Dependencies"),
+        "wholeHistory": t.gettext("Whole history"),
+        "plotHelp": t.gettext("Use the left and right arrow keys to read each bar."),
+        "calendarHelp": t.gettext(
+            "Commits per day over the last 53 weeks; the numbers by month are in the timeline's table."
+        ),
+        "noAreas": t.gettext("Areas are counted once your assistant has written the guide's area pages."),
+        "weekdays": [str(name) for _, name in sorted(get_day_names("abbreviated", locale=_locale(language)).items())],
     }  # fmt: skip
 
 

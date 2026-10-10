@@ -1025,7 +1025,7 @@ Approved by the founder on 10 October 2026, from the design made in Claude Desig
 - **A range picker** above everything: All time, 2 years, 1 year, 90 days. It drives the timeline.
 - **Headline tiles:** age, commits, releases, code and tests, each with a small trend: commits per month over the last year, and the recorded values of code lines and the test share over the last updates (section 19.4).
 - **The timeline,** one horizontal time axis with lanes:
-  - **Commits** as bars: per month for All time and 2 years, per week for 1 year, per day for 90 days. Hovering or focusing a bar shows its period and count; buttons pan the window earlier and later.
+  - **Commits** as bars, per day when the window spans up to 120 days, per week up to 400 days and per month beyond, so a young repository's history isn't one bar. Hovering or focusing a bar shows its period and count; buttons pan the window earlier and later. Release names show where there is room for them; every release keeps its name on hover and for assistive technology.
   - **Releases,** a diamond per release; choosing one shows its name, date, notes (section 19.2), the commits since the release before it and the days between them.
   - **Dependencies** that arrived (+) and left (−), on a band shaded from the first snapshot, labelled "Watched by Codetrail since …": before it there is no history to show (section 19.1).
   - **The whole history** as a strip of small bars, with the shown window outlined.
