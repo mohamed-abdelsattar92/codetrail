@@ -21,13 +21,11 @@ class FailedPages:
 
     def record(self, page_id: str, scope_hash: str) -> None:
         now = datetime.now(UTC).isoformat(timespec="seconds")
-        with self.connection:
-            self.connection.execute(
-                "INSERT INTO page_failures (page_id, scope_hash, failed_at) VALUES (?, ?, ?) ON CONFLICT (page_id)"
-                " DO UPDATE SET scope_hash = excluded.scope_hash, failed_at = excluded.failed_at",
-                (page_id, scope_hash, now),
-            )
+        self.connection.execute(
+            "INSERT INTO page_failures (page_id, scope_hash, failed_at) VALUES (?, ?, ?) ON CONFLICT (page_id)"
+            " DO UPDATE SET scope_hash = excluded.scope_hash, failed_at = excluded.failed_at",
+            (page_id, scope_hash, now),
+        )
 
     def forget(self, page_id: str) -> None:
-        with self.connection:
-            self.connection.execute("DELETE FROM page_failures WHERE page_id = ?", (page_id,))
+        self.connection.execute("DELETE FROM page_failures WHERE page_id = ?", (page_id,))
