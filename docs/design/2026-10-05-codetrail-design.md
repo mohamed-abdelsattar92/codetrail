@@ -489,6 +489,7 @@ max_listed = 50
 max_message_chars = 20000
 activity_months = 24           # section 19.6
 history_limit = 1000000
+largest_files = 10
 churn_window = 500
 quiet_days = 365
 # [metrics.languages] maps a file name or suffix to its language (section 19.6)
@@ -921,7 +922,7 @@ The statistics are about the repository, not about people: no author, contributo
 **Code size**, from the allowed files in `source.json`, read through the allowed-files reader (section 17.3):
 - **Files and lines by language.** A file's language comes from its name or suffix in the `metrics.languages` map. Files matching the target's `document_globs` are **documents** whatever their suffix; files in no language are **other**. Lines are the newline bytes, plus one for a last line without one. A file with a NUL byte is **binary**, and a file over `extract.max_file_bytes` is **too large**: both are counted as files, without lines.
 - **Tests:** files with a language that match the target's `[metrics] test_globs`. The **test share** is their lines among all lines with a language.
-- **Largest files:** the files with a language, by lines.
+- **Largest files:** the first `metrics.largest_files` files with a language, by lines.
 
 **From the facts:**
 - **Facts by kind,** with each kind's change since the previous snapshot and its count over the last `metrics.trend_updates` snapshots, read from the validity ranges (ADR 0003).
@@ -975,6 +976,7 @@ Globally:
 [metrics]
 activity_months = 24        # months the activity bars show
 history_limit = 1000000     # commits whose dates are read
+largest_files = 10          # files the Repository page lists by size
 churn_window = 500          # Phase 15: the latest non-merge commits the hot spots read
 quiet_days = 365            # Phase 15: code unchanged this long is quiet
 
