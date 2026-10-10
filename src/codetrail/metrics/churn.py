@@ -32,6 +32,7 @@ class AreaSpot:
     documented: int
     inferred: int
     lines: int = 0  # lines of code in the area's scope
+    scope: tuple[str, ...] = field(default=(), compare=False)  # the area's scope paths
 
 
 @dataclass(frozen=True)
@@ -119,7 +120,7 @@ def measure_churn(
                 by_area_month[page.id, _month(time)] += 1
     spots = [
         AreaSpot(page, by_area[page.id], documented, inferred,
-                 sum(lines for path, lines in code_lines.items() if in_scope(path, scope_paths)))
+                 sum(lines for path, lines in code_lines.items() if in_scope(path, scope_paths)), tuple(scope_paths))
         for page, scope_paths, documented, inferred in areas
     ]  # fmt: skip
     spots.sort(key=lambda spot: (-spot.commits, spot.page.title))
