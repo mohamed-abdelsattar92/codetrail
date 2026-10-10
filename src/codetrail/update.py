@@ -57,7 +57,8 @@ from codetrail.guide import GuideRepository
 from codetrail.learn import LearningState
 from codetrail.lock import target_in_use, target_lock
 from codetrail.metrics.history import record_values
-from codetrail.metrics.report import build_report
+from codetrail.metrics.report import Metric, Value, build_report
+from codetrail.metrics.repository import build_repository_report
 from codetrail.repo.mirror import read_file_at
 from codetrail.repo.refresh import TARGET_IGNORE_FILE, ignore_lines, refresh_while_locked
 from codetrail.repo.rules import ExclusionRules
@@ -122,17 +123,29 @@ def build_extractors(target: TargetConfig, extract: ExtractSettings | None = Non
 
 
 def record_metrics(paths: Paths, name: str, settings: GlobalConfig, store: FactStore) -> None:
-    """Writes each documentation metric's value at the latest snapshot (design section 18.3).
+    """Writes each documentation metric's and repository statistic's value at the latest snapshot (sections 18.3, 19.4).
 
-    The trend is secondary to the guide, so a failure here is logged and never fails the update.
+    The trend is secondary to the guide, so a failure here is logged and never fails the update; each report is built
+    on its own, so one failing still writes the other's values.
     """
+    snapshot = store.latest_snapshot()
+    if snapshot is None:
+        return
+    today = date.today()
+    values: dict[Metric, Value] = {}
     try:
-        snapshot = store.latest_snapshot()
-        if snapshot is not None:
-            report = build_report(paths, name, settings, store, date.today())
-            record_values(store.connection, snapshot.id, report.values())
+        values |= build_report(paths, name, settings, store, today).values()
     except Exception as error:
         logger.warning("The documentation metrics weren't recorded: %s", error)
+    try:
+        values |= build_repository_report(paths, name, settings, store, today).values()
+    except Exception as error:
+        logger.warning("The repository statistics weren't recorded: %s", error)
+    if values:
+        try:
+            record_values(store.connection, snapshot.id, values)
+        except Exception as error:
+            logger.warning("The metrics' values weren't recorded: %s", error)
 
 
 async def generate_until_stopped(

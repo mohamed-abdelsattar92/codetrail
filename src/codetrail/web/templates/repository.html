@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Repository") }}{% endblock %}
+{% block content %}
+{% macro capped(items) -%}
+<ul class="list" lang="en" dir="ltr">{% for item in items[:listed] %}<li>{{ caller(item) }}</li>{% endfor %}</ul>
+{% if items|length > listed %}
+<details class="more">
+  <summary>{% trans count=items|length - listed %}{{ count }} more{% endtrans %}</summary>
+  <ul class="list" lang="en" dir="ltr">{% for item in items[listed:] %}<li>{{ caller(item) }}</li>{% endfor %}</ul>
+</details>
+{% endif %}
+{%- endmacro %}
+{% macro change(tile, points=false) -%}
+{% if tile.change is none %}{{ _("No earlier update to compare with.") }}{% elif points %}{% trans change="%+d"|format(tile.change) %}{{ change }} points since the last update{% endtrans %}{% else %}{% trans change="%+d"|format(tile.change) %}{{ change }} since the last update{% endtrans %}{% endif %}
+{%- endmacro %}
+{% macro trend(tile) %}
+{% if tile.points %}
+{% set count = tile.trend_text.split(", ")|length %}
+<svg class="trend" viewBox="0 0 120 32" role="img" aria-label="{% trans count=count, values=tile.trend_text %}Trend over {{ count }} update: {{ values }}{% pluralize %}Trend over {{ count }} updates: {{ values }}{% endtrans %}"><polyline points="{{ tile.points }}"/></svg>
+{% endif %}
+{% endmacro %}
+<div class="wide">
+<header class="page-head">
+  <h1>{{ _("Repository") }}</h1>
+  <p class="muted">{{ _("What the repository is: its history, its releases, its code and its facts. Read from the code and its history, without calling your assistant.") }}</p>
+</header>
+{% if report is none %}
+<section class="empty">
+  {% if unavailable %}
+  <h2>{{ _("The statistics aren't available just now") }}</h2>
+  <p>{{ _("Codetrail couldn't read the target's data; the log says why.") }}</p>
+  {% else %}
+  <h2>{{ _("No facts yet") }}</h2>
+  <p>{{ _("Update the guide once: reading the code is free, and the statistics come from it.") }}</p>
+  <button type="button" class="button primary" data-update-button>{{ _("Update the guide") }}</button>
+  {% endif %}
+</section>
+{% else %}
+{% set activity, releases, size = report.activity, report.releases, report.size %}
+<div class="stats">
+  <section class="stat metric" aria-labelledby="tile-age">
+    <span class="card-label" id="tile-age">{{ _("Age") }}</span>
+    {% if age is none %}
+    <span class="stat-value">—</span><span class="stat-note">{{ _("The history couldn't be read just now.") }}</span>
+    {% else %}
+    {% set years, months = age %}
+    <span class="stat-value">{% if not years and not months %}{% trans count=[(today - activity.first).days, 0]|max %}{{ count }} day{% pluralize %}{{ count }} days{% endtrans %}{% else %}{% if years %}{% trans count=years %}{{ count }} year{% pluralize %}{{ count }} years{% endtrans %}{% endif %}{% if years and months %}, {% endif %}{% if months %}{% trans count=months %}{{ count }} month{% pluralize %}{{ count }} months{% endtrans %}{% endif %}{% endif %}</span>
+    <span class="stat-note">{% trans date=activity.first.isoformat() %}First commit on <span class="nowrap">{{ date }}</span>{% endtrans %}</span>
+    {% endif %}
+  </section>
+  {% set tile = tiles["commits"] %}
+  <section class="stat metric" aria-labelledby="tile-commits">
+    <span class="card-label" id="tile-commits">{{ _("Commits") }}</span>
+    {% if tile.value is none %}
+    <span class="stat-value">—</span><span class="stat-note">{{ _("The history couldn't be read just now.") }}</span>
+    {% else %}
+    <span class="stat-value">{{ tile.value.numerator|number }}</span>
+    <span class="stat-note">{% trans count=activity.merges %}{{ count }} merge{% pluralize %}{{ count }} merges{% endtrans %}</span>
+    <span class="stat-note">{{ change(tile) }}</span>
+    {{ trend(tile) }}
+    {% endif %}
+  </section>
+  <section class="stat metric" aria-labelledby="tile-releases">
+    <span class="card-label" id="tile-releases">{{ _("Releases") }}</span>
+    {% if releases is none %}
+    <span class="stat-value">—</span><span class="stat-note">{{ _("Not available just now.") }}</span>
+    {% elif not releases.tags %}
+    <span class="stat-value">0</span><span class="stat-note">{{ _("No tags on the branch.") }}</span>
+    {% else %}
+    {% set latest = releases.tags[0] %}
+    <span class="stat-value">{{ releases.tags|length|number }}</span>
+    <span class="stat-note">{% trans name=latest.name, date=latest.date|day %}Latest: {{ name }}, on <span class="nowrap">{{ date }}</span>{% endtrans %}</span>
+    {% endif %}
+  </section>
+  {% set tile = tiles["code_lines"] %}
+  <section class="stat metric" aria-labelledby="tile-code">
+    <span class="card-label" id="tile-code">{{ _("Code") }}</span>
+    <span class="stat-value">{% trans count=tile.value.numerator, lines=tile.value.numerator|number %}{{ lines }} line{% pluralize %}{{ lines }} lines{% endtrans %}</span>
+    <span class="stat-note">{% trans count=size.languages|length %}in {{ count }} language{% pluralize %}in {{ count }} languages{% endtrans %}</span>
+    <span class="stat-note">{{ change(tile) }}</span>
+    {{ trend(tile) }}
+  </section>
+  {% set tile = tiles["test_share"] %}
+  <section class="stat metric" aria-labelledby="tile-tests">
+    <span class="card-label" id="tile-tests">{{ _("Tests") }}</span>
+    <span class="stat-value">{% if tile.percent is not none %}{{ tile.percent }}%{% else %}—{% endif %}</span>
+    <span class="stat-note">{% trans numerator=tile.value.numerator|number, denominator=tile.value.denominator|number %}{{ numerator }} of {{ denominator }} lines{% endtrans %}</span>
+    {% if tile.value.denominator %}<span class="stat-note">{{ change(tile, points=true) }}</span>{% endif %}
+    {{ trend(tile) }}
+  </section>
+</div>
+
+<section id="timeline" aria-labelledby="timeline-title">
+  <h2 id="timeline-title">{{ _("Timeline") }}</h2>
+  {% if activity is none or activity.first is none %}
+  <p class="muted">{{ _("The history couldn't be read just now; the log says why.") }}</p>
+  {% else %}
+  <p class="muted">{{ _("The branch's whole history, by author date in UTC. Only dates and counts are read: no author or message.") }}</p>
+  <table class="metric-table">
+    <tbody>
+    <tr><th scope="row">{{ _("First commit") }}</th><td>{{ activity.first.isoformat() }}</td></tr>
+    <tr><th scope="row">{{ _("Latest commit") }}</th><td>{{ activity.latest.isoformat() }} · {% trans count=[(today - activity.latest).days, 0]|max %}{{ count }} day ago{% pluralize %}{{ count }} days ago{% endtrans %}</td></tr>
+    <tr><th scope="row">{{ _("Weeks with a commit") }}</th><td>{% trans active=activity.active_weeks|number, weeks=activity.weeks|number %}{{ active }} of {{ weeks }}{% endtrans %}</td></tr>
+    <tr><th scope="row">{{ _("Longest quiet stretch") }}</th><td>{% if activity.longest_gap %}{% set start, end = activity.longest_gap %}{% trans count=(end - start).days, start=start.isoformat(), end=end.isoformat() %}{{ count }} day, from {{ start }} to {{ end }}{% pluralize %}{{ count }} days, from {{ start }} to {{ end }}{% endtrans %}{% else %}—{% endif %}</td></tr>
+    </tbody>
+  </table>
+  {% if activity.cut %}<p class="muted">{% trans count=history_limit|number %}The timeline shows the latest {{ count }} commits; the counts cover them all.{% endtrans %}</p>{% endif %}
+  <h3>{{ _("Commits per month") }}</h3>
+  {% set month_text %}{% for month, count in activity.months %}{{ month }}: {{ count }}{% if not loop.last %}, {% endif %}{% endfor %}{% endset %}
+  <svg class="bars" viewBox="0 0 480 96" preserveAspectRatio="none" role="img" aria-label="{% trans months=month_text %}Commits per month: {{ months }}{% endtrans %}">{% for x, y, width, height in bars %}<rect x="{{ '%.1f'|format(x) }}" y="{{ '%.1f'|format(y) }}" width="{{ '%.1f'|format(width) }}" height="{{ '%.1f'|format(height) }}"/>{% endfor %}</svg>
+  <div class="bars-axis" lang="en" dir="ltr"><span>{{ activity.months[0][0] }}</span><span>{{ activity.months[-1][0] }}</span></div>
+  <details class="more">
+    <summary>{{ _("Commits per month and per year, as numbers") }}</summary>
+    <table class="metric-table">
+      <thead><tr><th>{{ _("Month") }}</th><th>{{ _("Commits") }}</th></tr></thead>
+      <tbody>{% for month, count in activity.months %}<tr><td>{{ month }}</td><td>{{ count|number }}</td></tr>{% endfor %}</tbody>
+    </table>
+    <table class="metric-table">
+      <thead><tr><th>{{ _("Year") }}</th><th>{{ _("Commits") }}</th></tr></thead>
+      <tbody>{% for year, count in activity.years %}<tr><td>{{ year }}</td><td>{{ count|number }}</td></tr>{% endfor %}</tbody>
+    </table>
+  </details>
+  {% endif %}
+</section>
+
+<section id="types" aria-labelledby="types-title">
+  <h2 id="types-title">{{ _("Commit types") }}</h2>
+  {% set types = report.types %}
+  {% if types is none %}
+  <p class="muted">{{ _("The commit messages couldn't be read just now; the log says why.") }}</p>
+  {% else %}
+  <p class="muted">{% trans matched=types.matched, measured=types.measured %}{{ matched }} of the latest {{ measured }} commit subjects match the target's commit_type_pattern, such as feat(web): add a page.{% endtrans %}</p>
+  {% if not types.used %}
+  <p>{{ _("The repository doesn't appear to use typed commit subjects.") }}</p>
+  {% else %}
+  <ul class="pills" lang="en" dir="ltr">{% for name, count in types.types %}<li class="pill">{{ name }} · {{ count }}</li>{% endfor %}</ul>
+  {% if types.scopes %}
+  <h3>{{ _("Scopes") }}</h3>
+  <ul class="pills" lang="en" dir="ltr">{% for name, count in types.scopes[:listed] %}<li class="pill">{{ name }} · {{ count }}</li>{% endfor %}</ul>
+  {% endif %}
+  {% endif %}
+  {% endif %}
+</section>
+
+<section id="releases" aria-labelledby="releases-title">
+  <h2 id="releases-title">{{ _("Releases") }}</h2>
+  {% if releases is none %}
+  <p class="muted">{{ _("The releases couldn't be read just now; the log says why.") }}</p>
+  {% elif not releases.tags %}
+  <p class="muted">{{ _("No releases: the branch has no tags.") }}</p>
+  {% else %}
+  <p class="muted">{{ _("The tags that point into the branch's history. A tag gitleaks flags is withheld.") }}</p>
+  <ul class="pills">
+    <li class="pill">{% trans count=releases.tags|length %}{{ count }} release{% pluralize %}{{ count }} releases{% endtrans %}</li>
+    <li class="pill">{% trans count=releases.since_latest %}{{ count }} commit since the latest{% pluralize %}{{ count }} commits since the latest{% endtrans %}</li>
+    {% if releases.median_days is not none %}<li class="pill">{% trans count=releases.median_days %}One every {{ count }} day at the median{% pluralize %}One every {{ count }} days at the median{% endtrans %}</li>{% endif %}
+  </ul>
+  {% call(tag) capped(releases.tags) %}<code>{{ tag.commit[:7] }}</code><span class="grow">{{ tag.name }}{% if tag.message %}<details class="more"><summary>{{ tag.message.split("\n", 1)[0] }}</summary><pre class="release-notes">{{ tag.message }}</pre></details>{% endif %}</span><span class="faint">{{ tag.date|day }}</span>{% endcall %}
+  {% endif %}
+</section>
+
+<section id="size" aria-labelledby="size-title">
+  <h2 id="size-title">{{ _("Code size") }}</h2>
+  <p class="muted">{{ _("The files Codetrail may read, without the excluded ones. A file's language comes from its name; documents are the files matching the target's document_globs, and tests those matching its test_globs.") }}</p>
+  {% if size.languages %}
+  <table class="metric-table">
+    <thead><tr><th>{{ _("Language") }}</th><th>{{ _("Files") }}</th><th>{{ _("Lines") }}</th></tr></thead>
+    <tbody>
+    {% for row in size.languages[:listed] %}
+    <tr><td lang="en" dir="ltr">{{ row.language }}</td><td>{{ row.files|number }}</td><td>{{ row.lines|number }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+  <ul class="pills">
+    <li class="pill pill-documented">{% trans count=size.documents.files, files=size.documents.files|number, lines=size.documents.lines|number %}{{ files }} document, {{ lines }} lines{% pluralize %}{{ files }} documents, {{ lines }} lines{% endtrans %}</li>
+    <li class="pill">{% trans count=size.test_lines, lines=size.test_lines|number %}{{ lines }} line of tests{% pluralize %}{{ lines }} lines of tests{% endtrans %}</li>
+    <li class="pill">{% trans count=size.other_files %}{{ count }} other file{% pluralize %}{{ count }} other files{% endtrans %}</li>
+    {% if size.binary_files %}<li class="pill">{% trans count=size.binary_files %}{{ count }} binary file{% pluralize %}{{ count }} binary files{% endtrans %}</li>{% endif %}
+    {% if size.too_large_files %}<li class="pill pill-stale">{% trans count=size.too_large_files %}{{ count }} file too large to count{% pluralize %}{{ count }} files too large to count{% endtrans %}</li>{% endif %}
+  </ul>
+  {% if size.largest %}
+  <h3>{{ _("Largest files") }}</h3>
+  <ul class="list" lang="en" dir="ltr">{% for file in size.largest[:largest_files] %}<li><a class="grow" href="/source/{{ file.path }}">{{ file.path }}</a><span class="faint">{{ file.language }} · {{ file.lines|number }}</span></li>{% endfor %}</ul>
+  {% endif %}
+</section>
+
+<section id="facts" aria-labelledby="facts-title">
+  <h2 id="facts-title">{{ _("Facts") }}</h2>
+  {% set inventory = report.inventory %}
+  {% if inventory.since %}<p class="muted">{% trans date=inventory.since.taken_at[:10] %}What Codetrail's extractors found, by kind. Codetrail's history of this repository starts on {{ date }}: packages present then are counted as there from the start.{% endtrans %}</p>{% endif %}
+  {% if inventory.kinds %}
+  <table class="metric-table">
+    <thead><tr><th>{{ _("Kind") }}</th><th>{{ _("Now") }}</th><th>{{ _("Since the last update") }}</th><th>{{ _("Over the last updates") }}</th></tr></thead>
+    <tbody>
+    {% for row in inventory.kinds %}
+    <tr><td lang="en" dir="ltr">{{ row.kind }}</td><td>{{ row.count|number }}</td><td>{% if row.change is none %}—{% else %}{{ "%+d"|format(row.change) }}{% endif %}</td><td>{{ row.trend|join(", ") }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+  {% if inventory.arrived %}
+  <h3>{{ _("Dependencies that arrived") }}</h3>
+  {% call(item) capped(inventory.arrived) %}<a class="grow" href="/facts/{{ item.package }}">{{ item.package }}</a><span class="faint">{{ item.snapshot.taken_at[:10] }} · {{ item.snapshot.commit[:7] }}</span>{% endcall %}
+  {% endif %}
+  {% if inventory.left %}
+  <h3>{{ _("Dependencies that left") }}</h3>
+  {% call(item) capped(inventory.left) %}<span class="grow">{{ item.package }}</span><span class="faint">{{ item.snapshot.taken_at[:10] }} · {{ item.snapshot.commit[:7] }}</span>{% endcall %}
+  {% endif %}
+</section>
+{% endif %}
+</div>
+{% endblock %}

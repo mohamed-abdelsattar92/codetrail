@@ -6,6 +6,10 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 
 ### Added
 - A Documentation page (in the sidebar, or G then O) and a home card show how well the repository explains itself: how much of the guide's rationale is documented and from where (ADRs, documents, code comments, commits), which commits explain why, which ADRs need attention, and which dependencies, projects and resources no document mentions. Each number lists what's behind it, and each update keeps a trend. `codetrail metrics <target>` prints the same numbers. None of it calls your assistant.
+- A Repository page (in the sidebar, or G then T) and a home card show what the repository is: when it started, its commits and activity month by month, its releases from the tags on the branch, its lines of code by language with the share in tests, and its facts by kind with the dependencies that arrived and left. Commits, lines, files and the test share keep a trend across updates. `codetrail stats <target>` prints the summary. None of it calls your assistant, and no author is read or shown.
+
+### Changed
+- Codetrail's mirror of a repository now keeps the tags that point into its branch, for the releases; tags elsewhere, and their commits, still never come in.
 
 ### Fixed
 - The first update of a new target, started from the page, no longer fails now and then with an error in the update panel ("table … already exists"), or leaves the database locked, when the page reads the database while the update creates it.

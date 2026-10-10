@@ -1,4 +1,4 @@
-"""The documentation metrics' trend lines (design section 18.4): SVG points drawn on the server from numbers only."""
+"""Trend lines and activity bars (design sections 18.4 and 19.5): SVG drawn on the server from numbers only."""
 
 from __future__ import annotations
 
@@ -20,3 +20,19 @@ def trend_points(values: Sequence[float], width: int = 120, height: int = 32) ->
     drawn = list(values) if len(values) > 1 else [values[0], values[0]]
     step = (width - 2 * PADDING) / (len(drawn) - 1)
     return " ".join(f"{PADDING + index * step:.1f},{y(value):.1f}" for index, value in enumerate(drawn))
+
+
+BAR_GAP = 2
+
+
+def bars(values: Sequence[int], width: int = 480, height: int = 96) -> list[tuple[float, float, float, float]]:
+    """Each value's bar as x, y, width and height, scaled to the highest value; a zero has no height."""
+    if not values:
+        return []
+    slot = width / len(values)
+    highest = max(values) or 1
+    drawn = []
+    for index, value in enumerate(values):
+        bar_height = height * value / highest
+        drawn.append((index * slot + BAR_GAP / 2, height - bar_height, slot - BAR_GAP, bar_height))
+    return drawn

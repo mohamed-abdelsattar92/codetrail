@@ -81,8 +81,8 @@ class Scripts(HTMLParser):
 
 
 PAGES = [
-    "/", "/progress", "/answers", "/digests", "/decisions", "/documentation", "/search?q=app", "/pages/areas/app",
-    "/pages/paths/start",
+    "/", "/progress", "/answers", "/digests", "/decisions", "/documentation", "/repository", "/search?q=app",
+    "/pages/areas/app", "/pages/paths/start",
     "/facts/module:app/main.py", "/source/app/main.py", "/areas/app", "/nowhere",
 ]  # fmt: skip
 

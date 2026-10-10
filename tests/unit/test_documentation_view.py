@@ -1,7 +1,9 @@
 """The Documentation page's tiles and its report cache (design section 18.4)."""
 
+from datetime import date
+
 from codetrail.metrics.report import Metric, Value
-from codetrail.web.documentation import ReportCache, build_tiles
+from codetrail.web.documentation import ReportCache, age, build_tiles
 
 
 def test_a_share_shows_its_percent_change_and_trend() -> None:
@@ -44,3 +46,15 @@ def test_the_cache_builds_once_per_key() -> None:
     assert cache.get(("snapshot 1", "head a"), lambda: build("again")) == "first"
     assert cache.get(("snapshot 2", "head a"), lambda: build("second")) == "second"
     assert built == ["first", "second"]
+
+
+def test_age_counts_whole_months_in_years_and_months() -> None:
+    assert age(date(2024, 1, 31), date(2026, 10, 10)) == (2, 8)
+    assert age(date(2024, 1, 10), date(2026, 10, 10)) == (2, 9)
+    assert age(date(2026, 10, 10), date(2026, 10, 10)) == (0, 0)
+    assert age(date(2026, 10, 11), date(2026, 10, 10)) == (0, 0)  # a clock behind the commit's date
+
+
+def test_the_new_counts_show_their_difference_not_points() -> None:
+    tiles = build_tiles({Metric.CODE_LINES: Value(120, None)}, {Metric.CODE_LINES: Value(100, None)}, {})
+    assert (tiles[Metric.CODE_LINES].percent, tiles[Metric.CODE_LINES].change) == (None, 20)

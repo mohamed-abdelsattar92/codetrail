@@ -23,6 +23,15 @@
 </section>
 {% endif %}
 {% endmacro %}
+{% macro repository_card() %}
+{% if snapshot and repository %}
+<section class="card" aria-labelledby="repository-title">
+  <p class="card-label" id="repository-title">{{ _("Repository") }}</p>
+  <p class="card-title">{% if repository.first %}{% trans date=repository.first.isoformat() %}Started on {{ date }}{% endtrans %}{% if repository.commits is not none %} · {% endif %}{% endif %}{% if repository.commits is not none %}{% trans count=repository.commits, commits=repository.commits|number %}{{ commits }} commit{% pluralize %}{{ commits }} commits{% endtrans %}{% endif %}{% if repository.code_lines is not none %} · {% trans count=repository.code_lines, lines=repository.code_lines|number %}{{ lines }} line of code{% pluralize %}{{ lines }} lines of code{% endtrans %}{% endif %}</p>
+  <div class="card-row"><a class="button" href="/repository">{{ _("See the repository's statistics") }} {{ icon("arrow") }}</a></div>
+</section>
+{% endif %}
+{% endmacro %}
 {% macro since_last_update() %}
   <div class="stat">
     <span class="card-label">{{ _("Since the last update") }}</span>
@@ -57,6 +66,7 @@
 {% if snapshot %}<div class="stats">{{ since_last_update() }}</div>{% endif %}
 {{ system_card() }}
 {{ documentation_card() }}
+{{ repository_card() }}
 {% else %}
 
 {% if continue_reading %}
@@ -121,6 +131,7 @@
 
 {{ system_card() }}
 {{ documentation_card() }}
+{{ repository_card() }}
 
 <section>
   <h2>{{ _("Areas") }}</h2>

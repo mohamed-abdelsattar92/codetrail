@@ -918,6 +918,35 @@ dialog[open] {
   stroke-linecap: round;
 }
 
+/* The Repository page (design section 19.5). */
+.bars {
+  display: block;
+  inline-size: 100%;
+  block-size: 96px;
+  margin-block-start: var(--space-2);
+}
+
+.bars rect {
+  fill: var(--documented);
+}
+
+.bars-axis {
+  display: flex;
+  justify-content: space-between;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+.release-notes {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .pills {
   display: flex;
   flex-wrap: wrap;
