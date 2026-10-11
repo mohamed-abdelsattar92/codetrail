@@ -141,8 +141,7 @@
 }
 
 .nav-heading {
-  margin-block: var(--space-6) var(--space-2);
-  padding-inline: var(--space-3);
+  margin-block: var(--space-4) var(--space-1);
   color: var(--text-faint);
   font-size: 0.72rem;
   font-weight: 600;
@@ -150,27 +149,196 @@
   text-transform: uppercase;
 }
 
+/* A section's heading folds it (design section 22.3); the chevron points down while it's open. */
+.nav-fold {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  inline-size: 100%;
+  padding: 2px var(--space-2);
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
+  cursor: pointer;
+}
+
+.nav-fold:hover {
+  color: var(--text-muted);
+}
+
+.nav-fold .icon {
+  inline-size: 12px;
+  block-size: 12px;
+  transition: transform var(--duration) var(--ease);
+}
+
+.nav-fold[aria-expanded="true"] .icon {
+  transform: rotate(90deg);
+}
+
+.nav-fold[aria-expanded="false"] .icon:dir(rtl) {
+  transform: scaleX(-1);
+}
+
+.nav-fold .count {
+  margin-inline-start: auto;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+/* A folded section keeps only the current page's row, so the reader never loses their place. */
+:root[data-folded~="paths"] #nav-paths > li:not(:has([aria-current="page"])),
+:root[data-folded~="areas"] #nav-areas > li:not(:has([aria-current="page"])),
+:root[data-folded~="concepts"] #nav-concepts > li:not(:has([aria-current="page"])),
+:root[data-folded~="answers"] #nav-answers > li:not(:has([aria-current="page"])),
+:root[data-folded~="more"] #nav-more > li:not(:has([aria-current="page"])) {
+  display: none;
+}
+
 .nav-link {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: 6px var(--space-3);
-  border-radius: var(--radius);
+  min-block-size: 30px;
+  padding: 4px var(--space-3);
+  border-radius: 8px;
   color: var(--text-muted);
   font-size: 0.9rem;
   line-height: 1.35;
 }
 
 .nav-link:hover {
-  background: var(--hover);
+  background: color-mix(in srgb, var(--raised) 70%, transparent);
   color: var(--text);
   text-decoration: none;
 }
 
 .nav-link[aria-current="page"] {
-  background: var(--accent-tint);
+  background: var(--raised);
   color: var(--accent-text);
   font-weight: 500;
+  box-shadow: 0 1px 2px rgb(16 24 64 / 0.08), 0 0 0 1px var(--line);
+}
+
+/* A pinnable row's pin button sits at its end, shown on hover or focus (design section 22.3). */
+.nav-row {
+  position: relative;
+}
+
+.nav-pin {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-end: var(--space-1);
+  display: grid;
+  place-items: center;
+  inline-size: 24px;
+  block-size: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: var(--raised);
+  color: var(--text-faint);
+  opacity: 0;
+  transform: translateY(-50%);
+  cursor: pointer;
+}
+
+.nav-pin .icon {
+  inline-size: 14px;
+  block-size: 14px;
+}
+
+.nav-row:hover .nav-pin,
+.nav-pin:focus-visible {
+  opacity: 1;
+}
+
+.nav-pin[aria-pressed="true"] {
+  color: var(--accent-text);
+}
+
+.nav-pin:disabled {
+  cursor: not-allowed;
+  opacity: 0;
+}
+
+.nav-row:hover .nav-pin:disabled {
+  opacity: 0.5;
+}
+
+.nav-row:has(.nav-pin:not([hidden])):is(:hover, :focus-within) .nav-link > :is(.count, .check, .dot) {
+  visibility: hidden;
+}
+
+/* Pinned pages as tiles of initials, three across (design section 22.2). */
+.pins {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-1);
+  margin: 0 0 var(--space-3);
+  padding: 0;
+  list-style: none;
+}
+
+.pin-item {
+  position: relative;
+}
+
+.pin {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  block-size: 36px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--raised) 60%, transparent);
+  box-shadow: 0 0 0 1px var(--line);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.pin:hover {
+  background: var(--raised);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.pin[aria-current="page"] {
+  background: var(--raised);
+  color: var(--accent-text);
+  box-shadow: 0 1px 2px rgb(16 24 64 / 0.1), 0 0 0 1px var(--line);
+}
+
+.pin-remove {
+  position: absolute;
+  inset-block-start: -5px;
+  inset-inline-end: -5px;
+  display: grid;
+  place-items: center;
+  inline-size: 18px;
+  block-size: 18px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--raised);
+  color: var(--text-muted);
+  opacity: 0;
+  cursor: pointer;
+}
+
+.pin-remove .icon {
+  inline-size: 10px;
+  block-size: 10px;
+}
+
+.pin-item:hover .pin-remove,
+.pin-item:focus-within .pin-remove {
+  opacity: 1;
 }
 
 .nav-link .label {
