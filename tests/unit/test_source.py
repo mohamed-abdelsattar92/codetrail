@@ -71,6 +71,22 @@ def test_the_manifest_is_saved_and_loads_back(hostile: Path, tmp_path: Path) -> 
     assert SourceManifest.load(tmp_path / "nothing.json") is None
 
 
+@pytest.mark.parametrize("commit", ["a" * 40, "0123456789abcdef" * 4])
+def test_a_manifest_names_a_sha1_or_sha256_commit(tmp_path: Path, commit: str) -> None:
+    SourceManifest(commit=commit, files={}).save(tmp_path / "source.json")
+    assert SourceManifest.load(tmp_path / "source.json") == SourceManifest(commit=commit, files={})
+
+
+NOT_FULL_COMMITS = ["--output=/tmp/x", "-n1", "HEAD", "develop", "A" * 40, "a" * 39, "a" * 41, "a" * 40 + "\n", ""]
+
+
+@pytest.mark.parametrize("commit", NOT_FULL_COMMITS)
+def test_a_manifest_whose_commit_is_not_a_full_sha_is_refused(tmp_path: Path, commit: str) -> None:
+    SourceManifest(commit=commit, files={}).save(tmp_path / "source.json")
+    with pytest.raises(CodetrailError, match=r"source\.json"):
+        SourceManifest.load(tmp_path / "source.json")
+
+
 def test_a_rebuild_replaces_the_previous_source(hostile: Path, tmp_path: Path) -> None:
     build(hostile, tmp_path)
     stray = tmp_path / "data" / "source" / "stray.txt"

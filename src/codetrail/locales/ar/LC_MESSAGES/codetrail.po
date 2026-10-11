@@ -23,6 +23,38 @@ msgstr ""
 "Generated-By: Babel 2.18.0\n"
 
 #, python-format
+msgid "%(active)s of %(weeks)s"
+msgstr "%(active)s من %(weeks)s"
+
+#, python-format
+msgid "%(change)s points since the last update"
+msgstr "%(change)s نقطة مئوية منذ التحديث السابق"
+
+#, python-format
+msgid "%(change)s since the last update"
+msgstr "%(change)s منذ التحديث السابق"
+
+#, python-format
+msgid "%(commits)s commit"
+msgid_plural "%(commits)s commits"
+msgstr[0] "%(commits)s commits"
+msgstr[1] "commit واحد"
+msgstr[2] "%(commits)s commits"
+msgstr[3] "%(commits)s commits"
+msgstr[4] "%(commits)s commits"
+msgstr[5] "%(commits)s commits"
+
+#, python-format
+msgid "%(count)s binary file"
+msgid_plural "%(count)s binary files"
+msgstr[0] "%(count)s ملف ثنائي"
+msgstr[1] "ملف ثنائي واحد"
+msgstr[2] "ملفان ثنائيان"
+msgstr[3] "%(count)s ملفات ثنائية"
+msgstr[4] "%(count)s ملف ثنائي"
+msgstr[5] "%(count)s ملفًا ثنائيًا"
+
+#, python-format
 msgid "%(count)s changed since you learned it"
 msgid_plural "%(count)s changed since you learned them"
 msgstr[0] "لم تتغيّر أي صفحة منذ أن تعلّمتها"
@@ -31,6 +63,16 @@ msgstr[2] "تغيّرت صفحتان منذ أن تعلّمتهما"
 msgstr[3] "تغيّرت %(count)s صفحات منذ أن تعلّمتها"
 msgstr[4] "تغيّرت %(count)s صفحة منذ أن تعلّمتها"
 msgstr[5] "تغيّرت %(count)s صفحة منذ أن تعلّمتها"
+
+#, python-format
+msgid "%(count)s commit"
+msgid_plural "%(count)s commits"
+msgstr[0] "%(count)s commits"
+msgstr[1] "commit واحد"
+msgstr[2] "%(count)s commits"
+msgstr[3] "%(count)s commits"
+msgstr[4] "%(count)s commits"
+msgstr[5] "%(count)s commits"
 
 #, python-format
 msgid "%(count)s commit behind"
@@ -43,6 +85,26 @@ msgstr[4] "متأخر بـ %(count)s commits"
 msgstr[5] "متأخر بـ %(count)s commits"
 
 #, python-format
+msgid "%(count)s commit since %(name)s"
+msgid_plural "%(count)s commits since %(name)s"
+msgstr[0] "%(count)s commits منذ %(name)s"
+msgstr[1] "commit واحد منذ %(name)s"
+msgstr[2] "%(count)s commits منذ %(name)s"
+msgstr[3] "%(count)s commits منذ %(name)s"
+msgstr[4] "%(count)s commits منذ %(name)s"
+msgstr[5] "%(count)s commits منذ %(name)s"
+
+#, python-format
+msgid "%(count)s commit since the latest"
+msgid_plural "%(count)s commits since the latest"
+msgstr[0] "%(count)s commits منذ الأحدث"
+msgstr[1] "commit واحد منذ الأحدث"
+msgstr[2] "%(count)s commits منذ الأحدث"
+msgstr[3] "%(count)s commits منذ الأحدث"
+msgstr[4] "%(count)s commits منذ الأحدث"
+msgstr[5] "%(count)s commits منذ الأحدث"
+
+#, python-format
 msgid "%(count)s connection"
 msgid_plural "%(count)s connections"
 msgstr[0] "لا ارتباطات"
@@ -51,6 +113,46 @@ msgstr[2] "ارتباطان"
 msgstr[3] "%(count)s ارتباطات"
 msgstr[4] "%(count)s ارتباط"
 msgstr[5] "%(count)s ارتباطًا"
+
+#, python-format
+msgid "%(count)s day"
+msgid_plural "%(count)s days"
+msgstr[0] "%(count)s يوم"
+msgstr[1] "يوم واحد"
+msgstr[2] "يومان"
+msgstr[3] "%(count)s أيام"
+msgstr[4] "%(count)s يوم"
+msgstr[5] "%(count)s يومًا"
+
+#, python-format
+msgid "%(count)s day after it"
+msgid_plural "%(count)s days after it"
+msgstr[0] "بعده بـ %(count)s يوم"
+msgstr[1] "بعده بيوم واحد"
+msgstr[2] "بعده بيومين"
+msgstr[3] "بعده بـ %(count)s أيام"
+msgstr[4] "بعده بـ %(count)s يوم"
+msgstr[5] "بعده بـ %(count)s يومًا"
+
+#, python-format
+msgid "%(count)s day ago"
+msgid_plural "%(count)s days ago"
+msgstr[0] "منذ %(count)s يوم"
+msgstr[1] "منذ يوم واحد"
+msgstr[2] "منذ يومين"
+msgstr[3] "منذ %(count)s أيام"
+msgstr[4] "منذ %(count)s يوم"
+msgstr[5] "منذ %(count)s يومًا"
+
+#, python-format
+msgid "%(count)s day, from %(start)s to %(end)s"
+msgid_plural "%(count)s days, from %(start)s to %(end)s"
+msgstr[0] "%(count)s يوم، من %(start)s إلى %(end)s"
+msgstr[1] "يوم واحد، من %(start)s إلى %(end)s"
+msgstr[2] "يومان، من %(start)s إلى %(end)s"
+msgstr[3] "%(count)s أيام، من %(start)s إلى %(end)s"
+msgstr[4] "%(count)s يوم، من %(start)s إلى %(end)s"
+msgstr[5] "%(count)s يومًا، من %(start)s إلى %(end)s"
 
 #, python-format
 msgid "%(count)s file"
@@ -63,6 +165,64 @@ msgstr[4] "%(count)s ملف"
 msgstr[5] "%(count)s ملفًا"
 
 #, python-format
+msgid ""
+"%(count)s file of code no commit has changed in the last %(days)s days, "
+"by folder."
+msgid_plural ""
+"%(count)s files of code no commit has changed in the last %(days)s days, "
+"by folder."
+msgstr[0] "%(count)s ملف كود لم يغيّره أي commit في آخر %(days)s يومًا، حسب المجلد."
+msgstr[1] "ملف كود واحد لم يغيّره أي commit في آخر %(days)s يومًا، حسب المجلد."
+msgstr[2] "ملفا كود لم يغيّرهما أي commit في آخر %(days)s يومًا، حسب المجلد."
+msgstr[3] ""
+"%(count)s ملفات كود لم يغيّرها أي commit في آخر %(days)s يومًا، حسب "
+"المجلد."
+msgstr[4] "%(count)s ملف كود لم يغيّره أي commit في آخر %(days)s يومًا، حسب المجلد."
+msgstr[5] ""
+"%(count)s ملفًا من الكود لم يغيّرها أي commit في آخر %(days)s يومًا، حسب "
+"المجلد."
+
+#, python-format
+msgid "%(count)s file too large to count"
+msgid_plural "%(count)s files too large to count"
+msgstr[0] "%(count)s ملف أكبر من أن يُعدّ"
+msgstr[1] "ملف واحد أكبر من أن يُعدّ"
+msgstr[2] "ملفان أكبر من أن يُعدّا"
+msgstr[3] "%(count)s ملفات أكبر من أن تُعدّ"
+msgstr[4] "%(count)s ملف أكبر من أن يُعدّ"
+msgstr[5] "%(count)s ملفًا أكبر من أن يُعدّ"
+
+#, python-format
+msgid "%(count)s inferred, worth documenting"
+msgid_plural "%(count)s inferred, worth documenting"
+msgstr[0] "لا شيء مُستنتَج"
+msgstr[1] "واحدة مُستنتَجة تستحق التوثيق"
+msgstr[2] "اثنتان مُستنتَجتان تستحقان التوثيق"
+msgstr[3] "%(count)s مُستنتَجة تستحق التوثيق"
+msgstr[4] "%(count)s مُستنتَجة تستحق التوثيق"
+msgstr[5] "%(count)s مُستنتَجة تستحق التوثيق"
+
+#, python-format
+msgid "%(count)s line"
+msgid_plural "%(count)s lines"
+msgstr[0] "%(count)s سطر"
+msgstr[1] "سطر واحد"
+msgstr[2] "سطران"
+msgstr[3] "%(count)s أسطر"
+msgstr[4] "%(count)s سطر"
+msgstr[5] "%(count)s سطرًا"
+
+#, python-format
+msgid "%(count)s merge"
+msgid_plural "%(count)s merges"
+msgstr[0] "%(count)s merges"
+msgstr[1] "merge واحد"
+msgstr[2] "%(count)s merges"
+msgstr[3] "%(count)s merges"
+msgstr[4] "%(count)s merges"
+msgstr[5] "%(count)s merges"
+
+#, python-format
 msgid "%(count)s merge landed"
 msgid_plural "%(count)s merges landed"
 msgstr[0] "لم يدخل أي merge"
@@ -73,6 +233,60 @@ msgstr[4] "دخل %(count)s merges"
 msgstr[5] "دخل %(count)s merges"
 
 #, python-format
+msgid "%(count)s message withheld: gitleaks flagged it"
+msgid_plural "%(count)s messages withheld: gitleaks flagged them"
+msgstr[0] "لم تُحجب أي رسالة"
+msgstr[1] "رسالة واحدة محجوبة: نبّه إليها gitleaks"
+msgstr[2] "رسالتان محجوبتان: نبّه إليهما gitleaks"
+msgstr[3] "%(count)s رسائل محجوبة: نبّه إليها gitleaks"
+msgstr[4] "%(count)s رسالة محجوبة: نبّه إليها gitleaks"
+msgstr[5] "%(count)s رسالةً محجوبة: نبّه إليها gitleaks"
+
+#, python-format
+msgid "%(count)s month"
+msgid_plural "%(count)s months"
+msgstr[0] "%(count)s شهر"
+msgstr[1] "شهر واحد"
+msgstr[2] "شهران"
+msgstr[3] "%(count)s أشهر"
+msgstr[4] "%(count)s شهر"
+msgstr[5] "%(count)s شهرًا"
+
+#, python-format
+msgid "%(count)s more"
+msgstr "%(count)s أخرى"
+
+#, python-format
+msgid "%(count)s needs attention"
+msgid_plural "%(count)s need attention"
+msgstr[0] "لا شيء يحتاج إلى انتباه"
+msgstr[1] "واحد يحتاج إلى انتباه"
+msgstr[2] "اثنان يحتاجان إلى انتباه"
+msgstr[3] "%(count)s تحتاج إلى انتباه"
+msgstr[4] "%(count)s تحتاج إلى انتباه"
+msgstr[5] "%(count)s تحتاج إلى انتباه"
+
+#, python-format
+msgid "%(count)s never mentioned"
+msgid_plural "%(count)s never mentioned"
+msgstr[0] "لا شيء غير مذكور"
+msgstr[1] "واحد غير مذكور"
+msgstr[2] "اثنان غير مذكورين"
+msgstr[3] "%(count)s غير مذكورة"
+msgstr[4] "%(count)s غير مذكورة"
+msgstr[5] "%(count)s غير مذكورة"
+
+#, python-format
+msgid "%(count)s other file"
+msgid_plural "%(count)s other files"
+msgstr[0] "%(count)s ملف آخر"
+msgstr[1] "ملف آخر واحد"
+msgstr[2] "ملفان آخران"
+msgstr[3] "%(count)s ملفات أخرى"
+msgstr[4] "%(count)s ملف آخر"
+msgstr[5] "%(count)s ملفًا آخر"
+
+#, python-format
 msgid "%(count)s part"
 msgid_plural "%(count)s parts"
 msgstr[0] "لا أجزاء"
@@ -81,6 +295,46 @@ msgstr[2] "جزآن"
 msgstr[3] "%(count)s أجزاء"
 msgstr[4] "%(count)s جزء"
 msgstr[5] "%(count)s جزءًا"
+
+#, python-format
+msgid "%(count)s release"
+msgid_plural "%(count)s releases"
+msgstr[0] "%(count)s إصدار"
+msgstr[1] "إصدار واحد"
+msgstr[2] "إصداران"
+msgstr[3] "%(count)s إصدارات"
+msgstr[4] "%(count)s إصدار"
+msgstr[5] "%(count)s إصدارًا"
+
+#, python-format
+msgid "%(count)s smaller one isn't drawn."
+msgid_plural "%(count)s smaller ones aren't drawn."
+msgstr[0] "لم يُرسم %(count)s أصغر."
+msgstr[1] "لم يُرسم واحد أصغر."
+msgstr[2] "لم يُرسم اثنان أصغر."
+msgstr[3] "لم تُرسم %(count)s أصغر."
+msgstr[4] "لم يُرسم %(count)s أصغر."
+msgstr[5] "لم يُرسم %(count)s أصغر."
+
+#, python-format
+msgid "%(count)s to check"
+msgid_plural "%(count)s to check"
+msgstr[0] "لا شيء للتحقق"
+msgstr[1] "واحد للتحقق"
+msgstr[2] "اثنان للتحقق"
+msgstr[3] "%(count)s للتحقق"
+msgstr[4] "%(count)s للتحقق"
+msgstr[5] "%(count)s للتحقق"
+
+#, python-format
+msgid "%(count)s unexplained"
+msgid_plural "%(count)s unexplained"
+msgstr[0] "لا شيء بلا شرح"
+msgstr[1] "واحد بلا شرح"
+msgstr[2] "اثنان بلا شرح"
+msgstr[3] "%(count)s بلا شرح"
+msgstr[4] "%(count)s بلا شرح"
+msgstr[5] "%(count)s بلا شرح"
 
 #, python-format
 msgid "%(count)s unread digest"
@@ -103,8 +357,42 @@ msgstr[4] "%(count)s ملف ظاهر"
 msgstr[5] "%(count)s ملفًا ظاهرًا"
 
 #, python-format
+msgid "%(count)s without a why, of the latest %(measured)s"
+msgid_plural "%(count)s without a why, of the latest %(measured)s"
+msgstr[0] "لا commit دون سبب، من آخر %(measured)s"
+msgstr[1] "commit واحد دون سبب، من آخر %(measured)s"
+msgstr[2] "اثنان دون سبب، من آخر %(measured)s"
+msgstr[3] "%(count)s commits دون سبب، من آخر %(measured)s"
+msgstr[4] "%(count)s commit دون سبب، من آخر %(measured)s"
+msgstr[5] "%(count)s commit دون سبب، من آخر %(measured)s"
+
+#, python-format
+msgid "%(count)s year"
+msgid_plural "%(count)s years"
+msgstr[0] "%(count)s سنة"
+msgstr[1] "سنة واحدة"
+msgstr[2] "سنتان"
+msgstr[3] "%(count)s سنوات"
+msgstr[4] "%(count)s سنة"
+msgstr[5] "%(count)s سنة"
+
+#, python-format
+msgid "%(documented)s documented, %(inferred)s inferred"
+msgstr "%(documented)s موثّقة، %(inferred)s مُستنتَجة"
+
+#, python-format
 msgid "%(expected)s to %(maximum)s"
 msgstr "من %(expected)s إلى %(maximum)s"
+
+#, python-format
+msgid "%(files)s document, %(lines)s lines"
+msgid_plural "%(files)s documents, %(lines)s lines"
+msgstr[0] "%(files)s مستند، الأسطر: %(lines)s"
+msgstr[1] "مستند واحد، الأسطر: %(lines)s"
+msgstr[2] "مستندان، الأسطر: %(lines)s"
+msgstr[3] "%(files)s مستندات، الأسطر: %(lines)s"
+msgstr[4] "%(files)s مستند، الأسطر: %(lines)s"
+msgstr[5] "%(files)s مستندًا، الأسطر: %(lines)s"
 
 #, python-format
 msgid "%(learned)s of %(total)s"
@@ -115,11 +403,84 @@ msgid "%(learned)s of %(total)s learned"
 msgstr "تعلّمت %(learned)s من %(total)s"
 
 #, python-format
+msgid "%(lines)s line"
+msgid_plural "%(lines)s lines"
+msgstr[0] "%(lines)s سطر"
+msgstr[1] "سطر واحد"
+msgstr[2] "سطران"
+msgstr[3] "%(lines)s أسطر"
+msgstr[4] "%(lines)s سطر"
+msgstr[5] "%(lines)s سطرًا"
+
+#, python-format
+msgid "%(lines)s line of code"
+msgid_plural "%(lines)s lines of code"
+msgstr[0] "%(lines)s سطر من الكود"
+msgstr[1] "سطر واحد من الكود"
+msgstr[2] "سطران من الكود"
+msgstr[3] "%(lines)s أسطر من الكود"
+msgstr[4] "%(lines)s سطر من الكود"
+msgstr[5] "%(lines)s سطرًا من الكود"
+
+#, python-format
+msgid "%(lines)s line of tests"
+msgid_plural "%(lines)s lines of tests"
+msgstr[0] "%(lines)s سطر من الاختبارات"
+msgstr[1] "سطر واحد من الاختبارات"
+msgstr[2] "سطران من الاختبارات"
+msgstr[3] "%(lines)s أسطر من الاختبارات"
+msgstr[4] "%(lines)s سطر من الاختبارات"
+msgstr[5] "%(lines)s سطرًا من الاختبارات"
+
+#, python-format
+msgid ""
+"%(matched)s of the latest %(measured)s commit subjects match the target's"
+" commit_type_pattern, such as feat(web): add a page."
+msgstr ""
+"%(matched)s من عناوين آخر %(measured)s commits تطابق commit_type_pattern "
+"الخاص بالهدف، مثل feat(web): add a page."
+
+#, python-format
+msgid "%(numerator)s of %(denominator)s"
+msgstr "%(numerator)s من %(denominator)s"
+
+#, python-format
+msgid "%(numerator)s of %(denominator)s lines"
+msgstr "%(numerator)s من %(denominator)s من الأسطر"
+
+#, python-format
+msgid "%(percent)s%% of the guide's rationale is documented"
+msgstr "%(percent)s%% من مبرّرات الدليل موثّقة"
+
+#, python-format
+msgid "%(percent)s%% of the lines of code are tests"
+msgstr "%(percent)s%% من أسطر الكود اختبارات"
+
+#, python-format
 msgid "%(reason)s The facts were refreshed; the guide wasn't updated."
 msgstr "%(reason)s حُدّثت الحقائق، ولم يُحدَّث الدليل."
 
 msgid ", drawn from the code"
 msgstr "، مرسومة من الكود"
+
+msgid "1 year"
+msgstr "سنة"
+
+msgid "2 years"
+msgstr "سنتان"
+
+msgid "90 days"
+msgstr "90 يومًا"
+
+msgid ""
+"A package counts when a document names it as a whole word, a project when"
+" its folder holds a README or a document names its folder, and a resource"
+" when a document names its address. A fact is explained when it falls in "
+"the scope of a written area or concept page."
+msgstr ""
+"تُحسب الحزمة إذا ذكرها مستند بكلمة كاملة، والمشروع إذا احتوى مجلده على "
+"ملف README أو ذكر مستندٌ مجلده، والمورد إذا ذكر مستندٌ عنوانه. وتُعدّ "
+"الحقيقة مشروحة إذا وقعت في نطاق صفحة منطقة أو مفهوم مكتوبة."
 
 msgid ""
 "A page is learned when you pass its checks. When an update changes a page"
@@ -128,11 +489,50 @@ msgstr ""
 "تُعدّ الصفحة مُتعلَّمة حين تجتاز اختباراتها. وإذا غيّر تحديثٌ صفحةً "
 "تعلّمتها، تظهر هنا حتى تتعلّمها من جديد."
 
+msgid ""
+"A proposed ADR needs attention once it waits longer than the target's "
+"settings allow, and a superseded or deprecated one while a guide page "
+"still cites it. Worth a look: proposed ADRs with no date, and accepted "
+"ones no page cites."
+msgstr ""
+"يحتاج سجل ADR المقترح إلى انتباه إذا انتظر أطول مما تسمح به إعدادات "
+"المستودع، وكذلك السجل المُستبدَل أو المُهمَل ما دامت صفحة من الدليل "
+"تستشهد به. تستحق نظرة: سجلات ADR المقترحة بلا تاريخ، والمقبولة التي لا "
+"تستشهد بها أي صفحة."
+
+msgid "ADRs"
+msgstr "سجلات ADR"
+
+msgid "ADRs needing attention"
+msgstr "سجلات ADR تحتاج إلى انتباه"
+
+msgid "Accepted, but no page cites them"
+msgstr "مقبولة، لكن لا تستشهد بها أي صفحة"
+
 msgid "Actions"
 msgstr "الإجراءات"
 
+msgid "Activity, day by day"
+msgstr "النشاط يومًا بيوم"
+
+msgid "Age"
+msgstr "العمر"
+
+msgid "All"
+msgstr "الكل"
+
 msgid "All saved answers"
 msgstr "كل الإجابات المحفوظة"
+
+msgid "All time"
+msgstr "كل الوقت"
+
+msgid ""
+"An area with much change and mostly inferred rationale is where an ADR or"
+" a README would help most."
+msgstr ""
+"المنطقة الكثيرة التغيّر التي معظم مبرراتها مُستنتَجة هي حيث يفيد ADR أو "
+"README أكثر من غيره."
 
 msgid ""
 "An estimate. On a subscription this counts against your plan’s usage "
@@ -177,11 +577,25 @@ msgstr ""
 msgid "Apps"
 msgstr "التطبيقات"
 
+msgctxt "month"
+msgid "Apr"
+msgstr "أبريل"
+
+msgid "Architecture decisions"
+msgstr "القرارات المعمارية"
+
 msgid "Area"
 msgstr "منطقة"
 
 msgid "Areas"
 msgstr "المناطق"
+
+msgid "Areas are counted once your assistant has written the guide's area pages."
+msgstr "تُحتسب المناطق بعد أن يكتب مساعدك صفحات المناطق في الدليل."
+
+#, python-format
+msgid "Arrived: %(name)s"
+msgstr "أُضيفت: %(name)s"
 
 msgid "Ask"
 msgstr "اسأل"
@@ -231,17 +645,33 @@ msgstr "بأسعار API: نحو %(expected)s، وبحد أقصى %(maximum)s."
 msgid "At commit %(commit)s."
 msgstr "عند الـ commit %(commit)s."
 
+msgctxt "month"
+msgid "Aug"
+msgstr "أغسطس"
+
 msgid "Back to the start"
 msgstr "العودة إلى البداية"
 
 msgid "Before the update"
 msgstr "قبل التحديث"
 
+msgid "Body without a why"
+msgstr "متن دون سبب"
+
 msgid "Breadcrumbs"
 msgstr "مسار التنقل"
 
 msgid "Browse the code"
 msgstr "تصفّح الكود"
+
+msgid "Busiest weekday"
+msgstr "أكثر أيام الأسبوع نشاطًا"
+
+msgid "By page, most inferred first"
+msgstr "حسب الصفحة، الأكثر استنتاجًا أولًا"
+
+msgid "By status"
+msgstr "حسب الحالة"
 
 msgid "Call"
 msgstr "الاستدعاء"
@@ -251,6 +681,9 @@ msgstr "يستدعيه"
 
 msgid "Cancel"
 msgstr "إلغاء"
+
+msgid "Change over time, by area"
+msgstr "التغيير عبر الزمن، حسب المنطقة"
 
 msgid "Changed since you learned it"
 msgstr "تغيّرت منذ أن تعلّمتها"
@@ -267,8 +700,22 @@ msgstr "اختبر فهمك"
 msgid "Close"
 msgstr "إغلاق"
 
-msgid "Close the palette, the panel or a dialog"
-msgstr "أغلق لوحة الأوامر أو اللوحة الجانبية أو نافذة الحوار"
+msgid "Close the palette, the panel, the sidebar's peek or a dialog"
+msgstr ""
+"أغلق لوحة الأوامر أو اللوحة الجانبية أو لمحة الشريط الجانبي أو نافذة "
+"الحوار"
+
+msgid "Code"
+msgstr "الكود"
+
+msgid "Code comments"
+msgstr "تعليقات الكود"
+
+msgid "Code size"
+msgstr "حجم الكود"
+
+msgid "Codetrail couldn't read the target's data; the log says why."
+msgstr "تعذّر على Codetrail قراءة بيانات الهدف؛ السجل يذكر السبب."
 
 msgid ""
 "Codetrail looks for architecture decision records where the target's "
@@ -284,6 +731,46 @@ msgid ""
 msgstr ""
 "يقرأ Codetrail الكود مجانًا، ثم يكتب مساعدك الدليل: صفحات المفاهيم "
 "والمسارات الموجَّهة والاختبارات. سترى التقدير قبل أن يُنفَق أي شيء."
+
+msgid "Commit messages"
+msgstr "رسائل commits"
+
+msgid "Commit size"
+msgstr "حجم الـ commit"
+
+msgid "Commit types"
+msgstr "أنواع commits"
+
+msgid "Commits"
+msgstr "commits"
+
+msgid "Commits by the files they change"
+msgstr "الـ commits حسب عدد الملفات التي تغيّرها"
+
+msgid "Commits per day"
+msgstr "commits في اليوم"
+
+msgid ""
+"Commits per day over the last 53 weeks; the numbers by month are in the "
+"timeline's table."
+msgstr ""
+"commits في اليوم عبر آخر 53 أسبوعًا؛ والأرقام حسب الشهر في جدول الخط "
+"الزمني."
+
+msgid "Commits per month"
+msgstr "commits في كل شهر"
+
+msgid "Commits per month and per year, as numbers"
+msgstr "commits في كل شهر وكل سنة، بالأرقام"
+
+msgid "Commits per month in each guide area over the last year."
+msgstr "commits في الشهر في كل منطقة من الدليل عبر السنة الأخيرة."
+
+msgid "Commits per week"
+msgstr "commits في الأسبوع"
+
+msgid "Commits that explain why"
+msgstr "commits تشرح السبب"
 
 msgid "Concept"
 msgstr "مفهوم"
@@ -312,14 +799,27 @@ msgstr "تعذّر التحقق من commits جديدة الآن."
 msgid "Couldn’t save the answer."
 msgstr "تعذّر حفظ الإجابة."
 
+msgctxt "month"
+msgid "Dec"
+msgstr "ديسمبر"
+
 msgid "Decision"
 msgstr "قرار"
 
 msgid "Decisions"
 msgstr "القرارات"
 
+msgid "Dependencies"
+msgstr "الاعتماديات"
+
 msgid "Dependencies of"
 msgstr "تبعيات"
+
+msgid "Dependencies that arrived"
+msgstr "الاعتماديات التي أُضيفت"
+
+msgid "Dependencies that left"
+msgstr "الاعتماديات التي أُزيلت"
 
 msgid "Depends on"
 msgstr "يعتمد على"
@@ -330,11 +830,31 @@ msgstr "ملخص"
 msgid "Digests"
 msgstr "الملخصات"
 
+msgid "Documentation"
+msgstr "التوثيق"
+
+msgid "Documented"
+msgstr "موثّقة"
+
+msgid "Documented rationale"
+msgstr "المبرّرات الموثّقة"
+
+msgid "Documents"
+msgstr "المستندات"
+
 msgid "Drag to resize; double-click to reset"
 msgstr "اسحب لتغيير الحجم، وانقر مرتين للاستعادة"
 
+msgid ""
+"Each tile's size is its lines of code; its shade, the commits that "
+"changed it."
+msgstr "حجم كل مربع هو أسطر الكود فيه، ودرجة لونه هي الـ commits التي غيّرته."
+
 msgid "Each update writes a digest of what changed since the last one."
 msgstr "يكتب كل تحديث ملخصًا لما تغيّر منذ التحديث السابق."
+
+msgid "Earlier"
+msgstr "أقدم"
 
 msgctxt "language name"
 msgid "English"
@@ -343,12 +863,30 @@ msgstr "العربية"
 msgid "Enlarge the diagram"
 msgstr "كبّر المخطط"
 
+#, python-format
+msgid "Every file of code changed in the last %(days)s days."
+msgstr "تغيّر كل ملف كود في آخر %(days)s يومًا."
+
 msgid "Every path learned"
 msgstr "تعلّمت كل المسارات"
 
 #, python-format
 msgid "Expected: ~%(expected)s tokens; at most ~%(maximum)s."
 msgstr "المتوقع: نحو %(expected)s tokens، وبحد أقصى نحو %(maximum)s."
+
+msgid "Explain why"
+msgstr "تشرح السبب"
+
+msgid "Explained by a guide page"
+msgstr "تشرحها صفحة من الدليل"
+
+msgid ""
+"External packages, projects and infrastructure resources that some "
+"document names. A mention isn't a reason: this only shows what no "
+"document talks about at all."
+msgstr ""
+"الحزم الخارجية والمشاريع وموارد البنية التحتية التي يذكرها مستند ما. "
+"الذكر ليس سببًا: هذا يُظهر فقط ما لا يتحدث عنه أي مستند على الإطلاق."
 
 msgid "Fact"
 msgstr "حقيقة"
@@ -359,8 +897,29 @@ msgstr "الحقائق"
 msgid "Facts:"
 msgstr "الحقائق:"
 
+msgctxt "month"
+msgid "Feb"
+msgstr "فبراير"
+
+msgid "Fewer"
+msgstr "أقل"
+
+msgid "Fewer commits"
+msgstr "commits أقل"
+
+msgid "File"
+msgstr "ملف"
+
 msgid "Files"
 msgstr "الملفات"
+
+#, python-format
+msgid ""
+"Files a commit changes: %(median)s at the median, %(p90)s at the 90th "
+"percentile."
+msgstr ""
+"الملفات التي يغيّرها الـ commit: %(median)s في الوسيط، و%(p90)s عند "
+"المئين التسعين."
 
 msgid ""
 "Files this answer was written from have changed since. Saved answers "
@@ -374,8 +933,18 @@ msgid ""
 "again at the next update."
 msgstr "تغيّرت منذئذٍ ملفات كُتبت منها هذه الصفحة. ستُراجَع في التحديث القادم."
 
+msgid "First commit"
+msgstr "أول commit"
+
+#, python-format
+msgid "First commit on <span class=\"nowrap\">%(date)s</span>"
+msgstr "أول commit في <span class=\"nowrap\">%(date)s</span>"
+
 msgid "Folder"
 msgstr "المجلد"
+
+msgid "Folders"
+msgstr "المجلدات"
 
 msgid "For example: how does a request reach the database?"
 msgstr "مثلًا: كيف يصل الطلب إلى قاعدة البيانات؟"
@@ -385,6 +954,17 @@ msgstr "موجودة في"
 
 msgid "Found in a file you can open"
 msgstr "موجودة في ملف يمكنك فتحه"
+
+msgctxt "weekday"
+msgid "Fri"
+msgstr "الجمعة"
+
+msgid "Friday"
+msgstr "الجمعة"
+
+#, python-format
+msgid "From %(start)s to %(end)s"
+msgstr "من %(start)s إلى %(end)s"
 
 msgid "Go ahead"
 msgstr "ابدأ"
@@ -398,11 +978,17 @@ msgstr "اذهب إلى القرارات"
 msgid "Go to digests"
 msgstr "اذهب إلى الملخصات"
 
+msgid "Go to documentation"
+msgstr "اذهب إلى التوثيق"
+
 msgid "Go to progress"
 msgstr "اذهب إلى التقدّم"
 
 msgid "Go to saved answers"
 msgstr "اذهب إلى الإجابات المحفوظة"
+
+msgid "Go to the repository"
+msgstr "اذهب إلى المستودع"
 
 msgid "Go to your progress"
 msgstr "اذهب إلى تقدّمك"
@@ -410,8 +996,23 @@ msgstr "اذهب إلى تقدّمك"
 msgid "Go to your system"
 msgstr "اذهب إلى نظامك"
 
+msgid "Group by"
+msgstr "التجميع حسب"
+
 msgid "Guide"
 msgstr "الدليل"
+
+msgid "Guide area"
+msgstr "منطقة في الدليل"
+
+msgid "Guide areas"
+msgstr "مناطق الدليل"
+
+msgid "Hide or show the sidebar"
+msgstr "إخفاء الشريط الجانبي أو إظهاره"
+
+msgid "Hide the sidebar"
+msgstr "إخفاء الشريط الجانبي"
 
 msgid "Home"
 msgstr "الرئيسية"
@@ -419,14 +1020,45 @@ msgstr "الرئيسية"
 msgid "How many"
 msgstr "العدد"
 
+msgid ""
+"How well the repository explains itself: its guide's rationale, its "
+"commits, its decisions and its documents. Measured from the code and the "
+"guide, without calling your assistant."
+msgstr ""
+"إلى أي حد يشرح المستودع نفسه: مبرّرات دليله، وcommits، وقراراته، "
+"ومستنداته. يُقاس من الكود والدليل، دون استدعاء مساعدك."
+
+msgid ""
+"How well the repository explains itself: rationale, commits, decisions "
+"and documents."
+msgstr "إلى أي حد يشرح المستودع نفسه: المبرّرات، وcommits، والقرارات، والمستندات."
+
 msgid "Imports"
 msgstr "يستورد"
 
 msgid "In this path"
 msgstr "في هذا المسار"
 
+msgid "Inferred"
+msgstr "مُستنتَجة"
+
+msgid "Inferred: worth documenting"
+msgstr "مُستنتَجة: تستحق التوثيق"
+
 msgid "Infrastructure"
 msgstr "البنية التحتية"
+
+msgctxt "month"
+msgid "Jan"
+msgstr "يناير"
+
+msgctxt "month"
+msgid "Jul"
+msgstr "يوليو"
+
+msgctxt "month"
+msgid "Jun"
+msgstr "يونيو"
 
 msgid "Keep the answers worth keeping"
 msgstr "احتفظ بالإجابات التي تستحق"
@@ -437,11 +1069,31 @@ msgstr "اختصارات لوحة المفاتيح"
 msgid "Language"
 msgstr "اللغة"
 
+msgid "Languages, as a table"
+msgstr "اللغات، في جدول"
+
+msgid "Largest files"
+msgstr "أكبر الملفات"
+
+msgid "Later"
+msgstr "أحدث"
+
+msgid "Latest commit"
+msgstr "أحدث commit"
+
+#, python-format
+msgid "Latest: %(name)s, on <span class=\"nowrap\">%(date)s</span>"
+msgstr "الأحدث: %(name)s، في <span class=\"nowrap\">%(date)s</span>"
+
 msgid "Learned"
 msgstr "مُتعلَّمة"
 
 msgid "Learned, but changed since"
 msgstr "مُتعلَّمة، لكنها تغيّرت منذئذٍ"
+
+#, python-format
+msgid "Left: %(name)s"
+msgstr "أُزيلت: %(name)s"
 
 msgid "Legend"
 msgstr "مفتاح المخطط"
@@ -451,6 +1103,16 @@ msgstr "المكتبات"
 
 msgid "Library"
 msgstr "مكتبة"
+
+msgid "Lines"
+msgstr "الأسطر"
+
+msgid "Longest quiet stretch"
+msgstr "أطول فترة هدوء"
+
+msgctxt "month"
+msgid "Mar"
+msgstr "مارس"
 
 msgid "Mark read"
 msgstr "علّمها مقروءة"
@@ -464,14 +1126,60 @@ msgstr "علّمها غير مقروءة"
 msgid "Matched by name: likely, not certain"
 msgstr "مطابقة بالاسم: مرجّحة لا مؤكدة"
 
+msgctxt "month"
+msgid "May"
+msgstr "مايو"
+
+msgid "Mentioned and explained"
+msgstr "مذكورة ومشروحة"
+
+msgid "Mentioned in a document"
+msgstr "مذكورة في مستند"
+
 msgid "Menu"
 msgstr "القائمة"
+
+msgctxt "weekday"
+msgid "Mon"
+msgstr "الاثنين"
+
+msgid "Monday"
+msgstr "الاثنين"
+
+msgid "Month"
+msgstr "الشهر"
 
 msgid "More"
 msgstr "المزيد"
 
+msgid "Most changed files"
+msgstr "أكثر الملفات تغيّرًا"
+
+msgid "Most changed files in it"
+msgstr "أكثر ملفاته تغيّرًا"
+
+msgid "Most changed folders"
+msgstr "أكثر المجلدات تغيّرًا"
+
+msgid "Mostly inferred rationale: where an ADR or a README would help most"
+msgstr "مبررات معظمها مُستنتَجة: حيث يفيد ADR أو README أكثر من غيره"
+
+msgid "Needs attention"
+msgstr "تحتاج إلى انتباه"
+
 msgid "Next"
 msgstr "التالي"
+
+msgid ""
+"No architecture decision records were found where the target's settings "
+"say they live."
+msgstr "لم يُعثر على سجلات قرارات معمارية حيث تقول إعدادات الهدف إنها موجودة."
+
+msgid "No code to draw yet."
+msgstr "لا كود لرسمه بعد."
+
+msgid "No commits to measure yet."
+msgstr "لا commits لقياسها بعد."
 
 msgid "No connections between the parts were found."
 msgstr "لم يُعثر على ارتباطات بين الأجزاء."
@@ -479,11 +1187,37 @@ msgstr "لم يُعثر على ارتباطات بين الأجزاء."
 msgid "No decisions found"
 msgstr "لم يُعثر على قرارات"
 
+msgid "No dependency changes in this window."
+msgstr "لا تغييرات في الاعتماديات في هذه الفترة."
+
 msgid "No digest yet."
 msgstr "لا يوجد ملخص بعد."
 
 msgid "No digests yet"
 msgstr "لا ملخصات بعد"
+
+msgid "No earlier update to compare with."
+msgstr "لا تحديث سابق للمقارنة به."
+
+msgid "No facts yet"
+msgstr "لا حقائق بعد"
+
+msgid "No file in it changed in the commits read."
+msgstr "لم يتغيّر أي ملف فيه في الـ commits المقروءة."
+
+msgid "No pages yet"
+msgstr "لا صفحات بعد"
+
+msgid ""
+"No pages yet: the guide's rationale is measured once your assistant "
+"writes it."
+msgstr "لا صفحات بعد: تُقاس مبرّرات الدليل حين يكتبها مساعدك."
+
+msgid "No releases in this window."
+msgstr "لا إصدارات في هذه الفترة."
+
+msgid "No releases: the branch has no tags."
+msgstr "لا إصدارات: لا tags على الـ branch."
 
 msgid ""
 "No shortcut spends anything: questions are sent by their Send button, and"
@@ -498,14 +1232,32 @@ msgid ""
 "repository."
 msgstr "لا مصادر بعد. شغّل <code>codetrail update %(name)s</code> لقراءة المستودع."
 
+msgid "No tags on the branch."
+msgstr "لا tags على الـ branch."
+
+msgid "None found"
+msgstr "لم يُعثر على شيء"
+
+msgid "Not available just now."
+msgstr "غير متاح الآن."
+
+msgid "Not explained by any page"
+msgstr "لا تشرحها أي صفحة"
+
 msgid "Not found"
 msgstr "غير موجود"
+
+msgid "Not mentioned in any document"
+msgstr "غير مذكورة في أي مستند"
 
 msgid "Not read yet"
 msgstr "لم تُقرأ بعد"
 
 msgid "Not yet"
 msgstr "لم تنجح بعد"
+
+msgid "Notes, from the tag"
+msgstr "الملاحظات، من الـ tag"
 
 #, python-format
 msgid "Nothing in the guide matches “%(query)s”."
@@ -515,11 +1267,32 @@ msgstr "لا شيء في الدليل يطابق «%(query)s»."
 msgid "Nothing in the guide matches “{query}”."
 msgstr "لا شيء في الدليل يطابق «{query}»."
 
+msgid "Nothing inferred"
+msgstr "لا شيء مُستنتَج"
+
 msgid "Nothing to learn yet"
 msgstr "لا شيء لتتعلّمه بعد"
 
+msgctxt "month"
+msgid "Nov"
+msgstr "نوفمبر"
+
+msgctxt "month"
+msgid "Oct"
+msgstr "أكتوبر"
+
 msgid "On this page"
 msgstr "في هذه الصفحة"
+
+#, python-format
+msgid "One every %(count)s day at the median"
+msgid_plural "One every %(count)s days at the median"
+msgstr[0] "إصدار كل %(count)s يوم في الوسيط"
+msgstr[1] "إصدار كل يوم في الوسيط"
+msgstr[2] "إصدار كل يومين في الوسيط"
+msgstr[3] "إصدار كل %(count)s أيام في الوسيط"
+msgstr[4] "إصدار كل %(count)s يوم في الوسيط"
+msgstr[5] "إصدار كل %(count)s يومًا في الوسيط"
 
 #, python-format
 msgid "One page wasn’t written."
@@ -541,12 +1314,56 @@ msgstr[3] "%(count)s صفحات تنتظر التحديث القادم."
 msgstr[4] "%(count)s صفحة تنتظر التحديث القادم."
 msgstr[5] "%(count)s صفحة تنتظر التحديث القادم."
 
+msgid "Open the area page"
+msgstr "افتح صفحة المنطقة"
+
+msgid "Open the file"
+msgstr "افتح الملف"
+
 #, python-format
 msgid "Or from a terminal: <code>codetrail update %(name)s</code>"
 msgstr "أو من الطرفية: <code>codetrail update %(name)s</code>"
 
+msgid "Other"
+msgstr "أخرى"
+
 msgid "Outside the paths"
 msgstr "خارج المسارات"
+
+msgid "Over the last updates"
+msgstr "عبر التحديثات الأخيرة"
+
+#, python-format
+msgid ""
+"Over the latest %(count)s commit, merges left out. Only files Codetrail "
+"may read are named."
+msgid_plural ""
+"Over the latest %(count)s commits, merges left out. Only files Codetrail "
+"may read are named."
+msgstr[0] ""
+"عبر آخر %(count)s commits، دون الـ merges. لا تُسمّى إلا الملفات التي "
+"يجوز لـ Codetrail قراءتها."
+msgstr[1] ""
+"عبر آخر commit، دون الـ merges. لا تُسمّى إلا الملفات التي يجوز لـ "
+"Codetrail قراءتها."
+msgstr[2] ""
+"عبر آخر %(count)s commits، دون الـ merges. لا تُسمّى إلا الملفات التي "
+"يجوز لـ Codetrail قراءتها."
+msgstr[3] ""
+"عبر آخر %(count)s commits، دون الـ merges. لا تُسمّى إلا الملفات التي "
+"يجوز لـ Codetrail قراءتها."
+msgstr[4] ""
+"عبر آخر %(count)s commits، دون الـ merges. لا تُسمّى إلا الملفات التي "
+"يجوز لـ Codetrail قراءتها."
+msgstr[5] ""
+"عبر آخر %(count)s commits، دون الـ merges. لا تُسمّى إلا الملفات التي "
+"يجوز لـ Codetrail قراءتها."
+
+msgid "Overview"
+msgstr "نظرة عامة"
+
+msgid "Packages"
+msgstr "الحزم"
 
 msgid "Pages"
 msgstr "الصفحات"
@@ -571,6 +1388,13 @@ msgstr "مسار"
 
 msgid "Paths"
 msgstr "المسارات"
+
+#, python-format
+msgid "Pin %(title)s"
+msgstr "تثبيت %(title)s"
+
+msgid "Pinned pages"
+msgstr "الصفحات المثبّتة"
 
 #, python-format
 msgid "Plan usage (%(provider)s, %(window)s): %(used)s%%, as of %(when)s."
@@ -610,6 +1434,15 @@ msgstr "الصفحة السابقة أو التالية في المسار"
 msgid "Progress"
 msgstr "التقدّم"
 
+msgid "Projects"
+msgstr "المشاريع"
+
+msgid "Proposed for too long"
+msgstr "مقترحة منذ وقت طويل جدًا"
+
+msgid "Proposed, with no date"
+msgstr "مقترحة، دون تاريخ"
+
 msgid "Provider and model"
 msgstr "المزوّد والنموذج"
 
@@ -617,17 +1450,44 @@ msgstr "المزوّد والنموذج"
 msgid "Questions are limited to %(count)s characters."
 msgstr "الحد الأقصى لطول السؤال: %(count)s حرف."
 
+msgid "Quiet code"
+msgstr "الكود الهادئ"
+
+msgid ""
+"Rationale blocks in the guide's area and concept pages: documented ones "
+"quote a source Codetrail checked, inferred ones are the assistant's "
+"reading. It counts only what the guide wrote about."
+msgstr ""
+"كتل المبرّرات في صفحات المجالات والمفاهيم في الدليل: الموثّقة منها تقتبس "
+"مصدرًا تحقّق منه Codetrail، والمُستنتَجة قراءة المساعد. لا يُحصى إلا ما "
+"كتب عنه الدليل."
+
+msgid "Rationale in its guide page"
+msgstr "المبررات في صفحته من الدليل"
+
 msgid "Read"
 msgstr "مقروءة"
 
 msgid "Refreshing the facts (free)…"
 msgstr "تُحدَّث الحقائق (مجانًا)…"
 
+msgid "Release"
+msgstr "الإصدار"
+
+msgid "Releases"
+msgstr "الإصدارات"
+
+msgid "Repository"
+msgstr "المستودع"
+
 msgid "Resize the Ask panel"
 msgstr "غيّر حجم لوحة الأسئلة"
 
 msgid "Resize the sidebar"
 msgstr "غيّر حجم الشريط الجانبي"
+
+msgid "Resources"
+msgstr "الموارد"
 
 msgid "Results"
 msgstr "النتائج"
@@ -666,6 +1526,13 @@ msgstr "شغّل تحديثك الأول"
 msgid "Runs on"
 msgstr "يعمل على"
 
+msgctxt "weekday"
+msgid "Sat"
+msgstr "السبت"
+
+msgid "Saturday"
+msgstr "السبت"
+
 msgid "Save to guide"
 msgstr "احفظ في الدليل"
 
@@ -691,6 +1558,9 @@ msgstr[5] "حُفظت %(count)s صفحة في الدليل."
 
 msgid "Saved · open it"
 msgstr "حُفظت · افتحها"
+
+msgid "Scopes"
+msgstr "النطاقات"
 
 msgid "Search"
 msgstr "بحث"
@@ -729,8 +1599,14 @@ msgstr "اعرض كل نتائج «{query}»"
 msgid "See how it fits together"
 msgstr "انظر كيف تترابط الأجزاء"
 
+msgid "See the repository's statistics"
+msgstr "اطّلع على إحصاءات المستودع"
+
 msgid "See the whole system"
 msgstr "اعرض النظام كاملًا"
+
+msgid "See what's documented"
+msgstr "انظر ما هو موثّق"
 
 msgid "See your progress"
 msgstr "اعرض تقدّمك"
@@ -738,11 +1614,24 @@ msgstr "اعرض تقدّمك"
 msgid "Send"
 msgstr "أرسل"
 
+msgctxt "month"
+msgid "Sep"
+msgstr "سبتمبر"
+
 msgid "Service or app"
 msgstr "خدمة أو تطبيق"
 
 msgid "Services"
 msgstr "الخدمات"
+
+msgid "Show"
+msgstr "عرض"
+
+msgid "Show the sidebar"
+msgstr "إظهار الشريط الجانبي"
+
+msgid "Show the sidebar for a moment"
+msgstr "إظهار الشريط الجانبي لحظة"
 
 msgid "Show these shortcuts"
 msgstr "اعرض هذه الاختصارات"
@@ -759,17 +1648,37 @@ msgstr "تُخطّيت، لأنها فشلت في المرة السابقة ول
 msgid "Source"
 msgstr "المصدر"
 
+#, python-format
+msgid "Started on %(date)s"
+msgstr "بدأ في %(date)s"
+
 msgid "Steps"
 msgstr "الخطوات"
 
 msgid "Steps learned"
 msgstr "الخطوات المُتعلَّمة"
 
+msgid "Subject only"
+msgstr "عنوان فقط"
+
+msgctxt "weekday"
+msgid "Sun"
+msgstr "الأحد"
+
+msgid "Sunday"
+msgstr "الأحد"
+
+msgid "Superseded or deprecated, still cited by the guide"
+msgstr "مُستبدَلة أو مُهمَلة، وما زال الدليل يستشهد بها"
+
 msgid "Switch theme"
 msgstr "بدّل المظهر"
 
 msgid "System"
 msgstr "النظام"
+
+msgid "Tests"
+msgstr "الاختبارات"
 
 msgid "That answer is gone; ask again."
 msgstr "لم تعد هذه الإجابة موجودة؛ اسأل من جديد."
@@ -802,6 +1711,22 @@ msgstr "حُجبت الإجابة: فيها ما يبدو سرًّا (%(rule)s).
 msgid "The assistant is reading the code…"
 msgstr "يقرأ المساعد الكود…"
 
+msgid ""
+"The branch's whole history, by author date in UTC. Only dates and counts "
+"are read: no author or message."
+msgstr ""
+"تاريخ الـ branch كله، بتاريخ المؤلف بتوقيت UTC. تُقرأ التواريخ والأعداد "
+"فقط: لا مؤلف ولا رسالة."
+
+msgid "The charts need the page's script; their numbers are in the tables below."
+msgstr "تحتاج الرسوم إلى سكربت الصفحة؛ وأرقامها في الجداول أدناه."
+
+msgid "The commit history couldn't be read just now; the log says why."
+msgstr "تعذّرت قراءة سجل commits الآن؛ السجل يذكر السبب."
+
+msgid "The commit messages couldn't be read just now; the log says why."
+msgstr "تعذّرت قراءة رسائل commits الآن؛ السجل يذكر السبب."
+
 msgid "The estimate expired before it was confirmed, so nothing was spent."
 msgstr "انتهت صلاحية التقدير قبل تأكيده، فلم يُنفَق شيء."
 
@@ -827,18 +1752,55 @@ msgid ""
 " (%(rule)s)."
 msgstr "حُجبت الملاحظات: فيها ما يبدو سرًّا (%(rule)s)."
 
+msgid ""
+"The files Codetrail may read, without the excluded ones. A file's "
+"language comes from its name; documents are the files matching the "
+"target's document_globs, and tests those matching its test_globs."
+msgstr ""
+"الملفات التي يجوز لـ Codetrail قراءتها، دون المستبعدة. تأتي لغة الملف من "
+"اسمه؛ والمستندات هي الملفات المطابقة لـ document_globs الخاص بالهدف، "
+"والاختبارات هي المطابقة لـ test_globs."
+
+msgid "The first release"
+msgstr "الإصدار الأول"
+
 msgid "The grade couldn't be read, so nothing was recorded; try again."
 msgstr "تعذّرت قراءة التقييم، فلم يُسجَّل شيء؛ حاول مرة أخرى."
 
 msgid "The guide matches the branch."
 msgstr "الدليل مطابق للـ branch."
 
+msgid "The history couldn't be read just now."
+msgstr "تعذّرت قراءة التاريخ الآن."
+
+msgid "The history couldn't be read just now; the log says why."
+msgstr "تعذّرت قراءة التاريخ الآن؛ السجل يذكر السبب."
+
+msgid "The last 53 weeks, a square per day, shaded by its commits."
+msgstr "آخر 53 أسبوعًا، مربع لكل يوم، بلون يتدرّج بعدد commits."
+
 #, python-format
 msgid "The last update used ~%(tokens)s tokens (%(cost)s at API prices)."
 msgstr "استخدم التحديث السابق نحو %(tokens)s tokens (%(cost)s بأسعار API)."
 
+msgid ""
+"The latest commits on the branch, merges left out. A commit explains why "
+"when its body matches the target's commit_why_pattern."
+msgstr ""
+"أحدث commits على الفرع، دون merges. يشرح commit السبب حين يطابق نصه "
+"commit_why_pattern في إعدادات الهدف."
+
+msgid "The metrics aren't available just now"
+msgstr "المقاييس غير متاحة الآن"
+
 msgid "The parts in this folder and the parts they connect to."
 msgstr "الأجزاء في هذا المجلد والأجزاء المرتبطة بها."
+
+msgid "The releases couldn't be read just now; the log says why."
+msgstr "تعذّرت قراءة الإصدارات الآن؛ السجل يذكر السبب."
+
+msgid "The repository doesn't appear to use typed commit subjects."
+msgstr "لا يبدو أن المستودع يستخدم عناوين commits مصنّفة بأنواع."
 
 msgid "The repository's architecture decision records, as Codetrail found them."
 msgstr "سجلات القرارات المعمارية (ADR) في المستودع، كما وجدها Codetrail."
@@ -850,6 +1812,20 @@ msgstr "أجزاء المستودع وكيف ترتبط، مرسومة من ال
 
 msgid "The server is stopping."
 msgstr "الخادم يتوقف."
+
+msgid "The statistics aren't available just now"
+msgstr "الإحصاءات غير متاحة الآن"
+
+msgid ""
+"The tags that point into the branch's history. A tag gitleaks flags is "
+"withheld."
+msgstr "الـ tags التي تشير إلى تاريخ الـ branch. يُحجب كل tag يرصده gitleaks."
+
+#, python-format
+msgid ""
+"The timeline shows the latest %(count)s commits; the counts cover them "
+"all."
+msgstr "يعرض الخط الزمني أحدث %(count)s commits؛ والأعداد تشملها كلها."
 
 #, python-format
 msgid "The update failed (%(error)s)."
@@ -884,6 +1860,19 @@ msgstr "لا شيء هنا. ربما استُثني، أو لم يدخل الد�
 msgid "This file isn't text, or is too large to show."
 msgstr "هذا الملف ليس نصيًا، أو أكبر من أن يُعرض."
 
+msgctxt "weekday"
+msgid "Thu"
+msgstr "الخميس"
+
+msgid "Thursday"
+msgstr "الخميس"
+
+msgid "Time range"
+msgstr "الفترة الزمنية"
+
+msgid "Timeline"
+msgstr "الخط الزمني"
+
 #, python-format
 msgid "To write it anyway: <code>codetrail update %(name)s --retry-failed</code>"
 msgstr "لكتابتها رغم ذلك: <code>codetrail update %(name)s --retry-failed</code>"
@@ -905,6 +1894,30 @@ msgstr ""
 "الأجزاء أكثر من أن تُعرض واحدًا واحدًا: جُمعت المكتبات ثم المجلدات، مع "
 "عدد الارتباطات على كل سهم. كل الأجزاء مدرجة أدناه."
 
+#, python-format
+msgid "Trend over %(count)s update: %(values)s"
+msgid_plural "Trend over %(count)s updates: %(values)s"
+msgstr[0] "الاتجاه عبر %(count)s تحديث: %(values)s"
+msgstr[1] "الاتجاه عبر تحديث واحد: %(values)s"
+msgstr[2] "الاتجاه عبر تحديثين: %(values)s"
+msgstr[3] "الاتجاه عبر %(count)s تحديثات: %(values)s"
+msgstr[4] "الاتجاه عبر %(count)s تحديثًا: %(values)s"
+msgstr[5] "الاتجاه عبر %(count)s تحديث: %(values)s"
+
+msgctxt "weekday"
+msgid "Tue"
+msgstr "الثلاثاء"
+
+msgid "Tuesday"
+msgstr "الثلاثاء"
+
+#, python-format
+msgid "Unpin %(title)s"
+msgstr "إلغاء تثبيت %(title)s"
+
+msgid "Unpin a page first"
+msgstr "ألغِ تثبيت صفحة أولًا"
+
 msgid "Unread"
 msgstr "غير مقروء"
 
@@ -922,6 +1935,16 @@ msgid ""
 "learned on each."
 msgstr "حدّث الدليل لتظهر هنا مساراته الموجَّهة، مع ما تعلّمته في كل منها."
 
+msgid ""
+"Update the guide once: reading the code is free, and the metrics come "
+"from it."
+msgstr "حدّث الدليل مرة واحدة: قراءة الكود مجانية، والمقاييس تأتي منها."
+
+msgid ""
+"Update the guide once: reading the code is free, and the statistics come "
+"from it."
+msgstr "حدّث الدليل مرة واحدة: قراءة الكود مجانية، ومنها تأتي الإحصاءات."
+
 msgid "Update the guide…"
 msgstr "حدّث الدليل…"
 
@@ -934,11 +1957,41 @@ msgstr "يُحدَّث الدليل"
 msgid "Updating…"
 msgstr "جارٍ التحديث…"
 
+msgid "Use the left and right arrow keys to read each bar."
+msgstr "استخدم مفتاحي السهم الأيمن والأيسر لقراءة كل عمود."
+
 msgid "Used"
 msgstr "استُخدم"
 
 msgid "Wait a few seconds before the next answer."
 msgstr "انتظر بضع ثوانٍ قبل الإجابة التالية."
+
+#, python-format
+msgid "Watched by Codetrail since %(date)s"
+msgstr "يتابعه Codetrail منذ %(date)s"
+
+msgctxt "weekday"
+msgid "Wed"
+msgstr "الأربعاء"
+
+msgid "Wednesday"
+msgstr "الأربعاء"
+
+#, python-format
+msgid "Week of %(date)s"
+msgstr "أسبوع %(date)s"
+
+msgid "Weeks with a commit"
+msgstr "أسابيع فيها commit"
+
+#, python-format
+msgid ""
+"What Codetrail's extractors found, by kind. Codetrail's history of this "
+"repository starts on %(date)s: packages present then are counted as there"
+" from the start."
+msgstr ""
+"ما وجدته مستخرجات Codetrail، حسب النوع. يبدأ تاريخ Codetrail لهذا "
+"المستودع في %(date)s: الحزم الموجودة حينها تُعدّ موجودة منذ البداية."
 
 msgid "What changed"
 msgstr "ما الذي تغيّر"
@@ -952,11 +2005,44 @@ msgstr "ما تغيّر منذ أن تعلّمت هذه الصفحة"
 msgid "What each box links to"
 msgstr "بماذا يرتبط كل مربع"
 
+msgid ""
+"What the repository is: its history, its releases, its code and its "
+"facts. Read from the code and its history, without calling your "
+"assistant."
+msgstr ""
+"ما هو المستودع: تاريخه وإصداراته وكوده وحقائقه. يُقرأ من الكود وتاريخه، "
+"دون استدعاء مساعدك."
+
+msgid "What this counts"
+msgstr "ما الذي يُحسب"
+
+msgid "Where change happens"
+msgstr "أين يحدث التغيير"
+
+msgid "Where change happens, as tables"
+msgstr "أين يحدث التغيير، في جداول"
+
 msgid "Where it fits"
 msgstr "موقعها من النظام"
 
+msgid ""
+"Which facts the guide explains, and which ADRs it cites, are measured "
+"once your assistant has written its pages."
+msgstr ""
+"أي الحقائق يشرحها الدليل، وأي سجلات ADR يستشهد بها، يُقاس حين يكتب مساعدك"
+" صفحاته."
+
+msgid "Whole history"
+msgstr "التاريخ كله"
+
 msgid "Why each arrow is there"
 msgstr "سبب وجود كل سهم"
+
+msgid "Without a why"
+msgstr "دون سبب"
+
+msgid "Worth a look"
+msgstr "تستحق نظرة"
 
 msgid "Writing the digest…"
 msgstr "يُكتب الملخص…"
@@ -995,6 +2081,9 @@ msgstr "تُكتب «%(title)s»…"
 msgid "Wrote “%(title)s”."
 msgstr "كُتبت «%(title)s»."
 
+msgid "Year"
+msgstr "السنة"
+
 msgid "You're caught up."
 msgstr "أنت على اطلاع بكل جديد."
 
@@ -1028,6 +2117,9 @@ msgstr "تقدير أولي"
 msgid "billed to that account."
 msgstr "يُحاسَب عليه ذلك الحساب."
 
+msgid "body without a why"
+msgstr "متن دون سبب"
+
 msgid "calls through"
 msgstr "يستدعي عبر"
 
@@ -1037,11 +2129,17 @@ msgstr "للمواكبة، لأن حقائقها تغيّرت بعد كتابت�
 msgid "changed"
 msgstr "تغيّرت"
 
+msgid "commits"
+msgstr "commits"
+
 msgid "default model"
 msgstr "النموذج الافتراضي"
 
 msgid "depends on"
 msgstr "يعتمد على"
+
+msgid "documented"
+msgstr "موثّقة"
 
 msgid "free"
 msgstr "مجاني"
@@ -1049,11 +2147,27 @@ msgstr "مجاني"
 msgid "implements"
 msgstr "ينفّذ"
 
+#, python-format
+msgid "in %(count)s language"
+msgid_plural "in %(count)s languages"
+msgstr[0] "بـ %(count)s لغة"
+msgstr[1] "بلغة واحدة"
+msgstr[2] "بلغتين"
+msgstr[3] "بـ %(count)s لغات"
+msgstr[4] "بـ %(count)s لغة"
+msgstr[5] "بـ %(count)s لغةً"
+
+msgid "inferred"
+msgstr "مُستنتَجة"
+
 msgid "is deployed on"
 msgstr "منشور على"
 
 msgid "its outline entry changed"
 msgstr "تغيّر مدخلها في الهيكل"
+
+msgid "lines of code"
+msgstr "أسطر من الكود"
 
 msgctxt "text direction"
 msgid "ltr"
@@ -1062,11 +2176,23 @@ msgstr "rtl"
 msgid "matched by name:"
 msgstr "مطابقة بالاسم:"
 
+msgid "more"
+msgstr "أكثر"
+
+msgid "mostly inferred rationale"
+msgstr "مبررات معظمها مُستنتَجة"
+
 msgid "no charge; the work counts against your plan's usage limits."
 msgstr "بلا رسوم؛ يُحتسب العمل من حدود استخدام خطتك."
 
 msgid "no price configured"
 msgstr "لا سعر مضبوط"
+
+msgid "not read"
+msgstr "لم يُقرأ"
+
+msgid "nothing to measure yet"
+msgstr "لا شيء للقياس بعد"
 
 #, python-format
 msgid "one of its facts changed in this update"
@@ -1081,6 +2207,19 @@ msgstr[5] "تغيّرت %(count)s من حقائقها في هذا التحديث
 msgid "pages, by passing their checks"
 msgstr "صفحات، باجتياز اختباراتها"
 
+#, python-format
+msgid "proposed %(count)s day ago"
+msgid_plural "proposed %(count)s days ago"
+msgstr[0] "مقترح اليوم"
+msgstr[1] "مقترح منذ يوم واحد"
+msgstr[2] "مقترح منذ يومين"
+msgstr[3] "مقترح منذ %(count)s أيام"
+msgstr[4] "مقترح منذ %(count)s يومًا"
+msgstr[5] "مقترح منذ %(count)s يوم"
+
+msgid "proposed too long, or retired and still cited"
+msgstr "مقترحة منذ وقت طويل، أو متقاعدة وما زالت مُستشهَدًا بها"
+
 msgid "revised"
 msgstr "مُراجَعة"
 
@@ -1089,6 +2228,9 @@ msgstr "المصدر"
 
 msgid "sources changed"
 msgstr "تغيّرت المصادر"
+
+msgid "subject only"
+msgstr "عنوان فقط"
 
 msgid "to close"
 msgstr "للإغلاق"

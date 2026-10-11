@@ -38,3 +38,4 @@ Everything smaller is explained in the commit body, not in an ADR.
 | [0012](0012-apache-2-license.md) | License Codetrail under the Apache License 2.0, take contributions under the same licence, and keep the name and logo reserved | accepted | 2026-10-08 |
 | [0013](0013-commit-the-compiled-catalogs.md) | Use Babel at development time for the interface's catalogs, and commit the compiled catalogs | proposed | 2026-10-09 |
 | [0014](0014-bundle-noto-sans-arabic.md) | Bundle Noto Sans Arabic for Arabic text in the page | proposed | 2026-10-09 |
+| [0015](0015-run-the-whole-suite-in-parallel.md) | Run the whole test suite in parallel with pytest-xdist, and give CI 30 minutes | proposed | 2026-10-11 |

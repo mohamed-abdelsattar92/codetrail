@@ -1,15 +1,35 @@
 """Filtered history: logs and diffs never show excluded paths or secrets (design section 3.3)."""
 
+import os
+import subprocess
+from collections.abc import Callable
+from datetime import date
 from pathlib import Path
 
 import pytest
 
 from codetrail.config import ToolsSettings
-from codetrail.repo.history import commits_between, diff_between, merges_between, recent_commits
+from codetrail.errors import CodetrailError
+from codetrail.repo.history import (
+    WITHHELD_TAG,
+    changed_files,
+    changed_paths,
+    commit_count,
+    commit_times,
+    commit_totals,
+    commits_between,
+    diff_between,
+    files_changed_since,
+    first_commit_time,
+    latest_commits,
+    merges_between,
+    read_tags,
+    recent_commits,
+)
 from codetrail.repo.mirror import refresh_mirror
 from codetrail.repo.rules import ExclusionRules
 from codetrail.repo.secrets import SecretScanner
-from tests.fixtures.repos import add_commit, fake_github_token, git, make_repository
+from tests.fixtures.repos import GIT_ENVIRONMENT, add_commit, fake_github_token, git, make_repository, write_commit
 
 RULES = ExclusionRules(["docs/private/"])
 
@@ -128,3 +148,179 @@ def test_recent_commits_for_a_scope(tmp_path: Path, scanner: SecretScanner) -> N
     mirror, end = mirror_of(checkout, tmp_path)
     commits = recent_commits(mirror, end, ["app"], 2, visible, scanner)
     assert [commit.subject for commit in commits] == ["fix(app): two", "fix(app): three"]
+
+
+def test_latest_commits_skip_merges_and_withhold_secrets(tmp_path: Path, scanner: SecretScanner) -> None:
+    token = fake_github_token()
+    checkout = make_repository(tmp_path / "t", [{"a.md": "a\n"}])
+    add_commit(checkout, {"b.md": "b\n"}, "feat: b\n\nWhy: because\nit helps.")
+    add_commit(checkout, {"c.md": "c\n"}, f"fix: c\n\nThe old one was {token}")
+    git(checkout, "switch", "-q", "-c", "side")
+    add_commit(checkout, {"d.md": "d\n"}, "feat: d")
+    git(checkout, "switch", "-q", "develop")
+    git(checkout, "merge", "-q", "--no-ff", "-m", "Merge side", "side")
+    mirror, end = mirror_of(checkout, tmp_path)
+    commits = latest_commits(mirror, end, 10, scanner)
+    assert [commit.subject for commit in commits] == [
+        "feat: d",
+        "[withheld: gitleaks flagged this message]",
+        "feat: b",
+        "Commit 0",
+    ]
+    assert commits[2].body == "Why: because\nit helps."
+    assert token not in repr(commits)
+    assert len(latest_commits(mirror, end, 2, scanner)) == 2
+
+
+def test_tags_are_read_with_their_messages_and_dates(tmp_path: Path, scanner: SecretScanner) -> None:
+    checkout = make_repository(tmp_path / "t", [{"a.txt": "a\n"}])
+    first = git(checkout, "rev-parse", "HEAD")
+    git(checkout, "tag", "light")
+    second = add_commit(checkout, {"a.txt": "b\n"})
+    git(checkout, "tag", "-a", "v1", "-m", "Release one\n\nThe notes.", date=9)
+    git(checkout, "tag", "-a", "secret", "-m", f"token {fake_github_token()}")
+    git(checkout, "tag", "on-a-blob", git(checkout, "rev-parse", "HEAD:a.txt"))
+    git(checkout, "tag", "-a", "on-a-tree", "-m", "A tree", git(checkout, "rev-parse", "HEAD^{tree}"))
+    mirror, end = mirror_of(checkout, tmp_path)
+    tags = {tag.name: tag for tag in read_tags(mirror, end, scanner)}
+    assert set(tags) == {"light", "v1", WITHHELD_TAG}
+    assert (tags["light"].commit, tags["light"].message) == (first, "")
+    assert (tags["v1"].commit, tags["v1"].message) == (second, "Release one\n\nThe notes.")
+    assert tags["v1"].date == 1_790_000_000 + 9 * 60
+    assert (tags[WITHHELD_TAG].commit, tags[WITHHELD_TAG].message) == (second, "")
+
+
+def test_only_tags_in_the_commits_history_are_read(tmp_path: Path, scanner: SecretScanner) -> None:
+    checkout = make_repository(tmp_path / "t", [{"a.txt": "a\n"}])
+    first = git(checkout, "rev-parse", "HEAD")
+    git(checkout, "tag", "v1")
+    add_commit(checkout, {"a.txt": "b\n"})
+    git(checkout, "tag", "v2")
+    mirror, end = mirror_of(checkout, tmp_path)
+    assert sorted(tag.name for tag in read_tags(mirror, end, scanner)) == ["v1", "v2"]
+    assert [tag.name for tag in read_tags(mirror, first, scanner)] == ["v1"]
+
+
+def test_commit_totals_and_times_count_the_whole_history(tmp_path: Path) -> None:
+    checkout = make_repository(tmp_path / "t", [{"a": "1"}, {"a": "2"}])
+    git(checkout, "checkout", "-q", "-b", "side")
+    add_commit(checkout, {"b": "1"})
+    git(checkout, "checkout", "-q", "develop")
+    git(checkout, "merge", "-q", "--no-ff", "side", "-m", "Merge side", date=5)
+    mirror, end = mirror_of(checkout, tmp_path)
+    assert commit_totals(mirror, end) == (4, 1)
+    times = commit_times(mirror, end, 10)
+    assert sorted(times, reverse=True) == times
+    assert times[0] == 1_790_000_000 + 5 * 60 and len(times) == 4
+    assert commit_times(mirror, end, 2) == times[:2]
+
+
+def test_the_first_commit_time_is_the_earliest_root_commit(tmp_path: Path) -> None:
+    checkout = make_repository(tmp_path / "t", [{"a": "1"}, {"a": "2"}])
+    git(checkout, "checkout", "-q", "--orphan", "imported")
+    git(checkout, "commit", "-q", "--allow-empty", "-m", "Imported", date=9)
+    git(checkout, "checkout", "-q", "develop")
+    git(checkout, "merge", "-q", "--allow-unrelated-histories", "imported", "-m", "Merge", date=10)
+    mirror, end = mirror_of(checkout, tmp_path)
+    assert first_commit_time(mirror, end) == 1_790_000_000
+
+
+def test_a_tag_without_a_tagger_takes_its_commits_date(tmp_path: Path, scanner: SecretScanner) -> None:
+    checkout = make_repository(tmp_path / "t", [{"a.txt": "a\n"}])
+    commit = git(checkout, "rev-parse", "HEAD")
+    content = f"object {commit}\ntype commit\ntag ancient\n\nAn early release\n"  # tags made before git had taggers
+    tag = subprocess.run(["git", "-C", str(checkout), "hash-object", "-t", "tag", "--literally", "-w", "--stdin"],
+                         input=content, env={**os.environ, **GIT_ENVIRONMENT}, capture_output=True, text=True,
+                         check=True).stdout.strip()  # fmt: skip
+    git(checkout, "update-ref", "refs/tags/ancient", tag)
+    mirror, end = mirror_of(checkout, tmp_path)
+    [found] = read_tags(mirror, end, scanner)
+    assert (found.name, found.commit, found.message) == ("ancient", commit, "An early release")
+    assert found.date == 1_790_000_000  # the commit's date
+
+
+SCANNER = SecretScanner(ToolsSettings())
+HistoryReader = Callable[[Path, str, str], object]
+READERS: dict[str, HistoryReader] = {
+    "commits_between from": lambda mirror, option, end: commits_between(mirror, option, end, visible, SCANNER),
+    "commits_between to": lambda mirror, option, end: commits_between(mirror, None, option, visible, SCANNER),
+    "recent_commits": lambda mirror, option, end: recent_commits(mirror, option, ["a.md"], 5, visible, SCANNER),
+    "latest_commits": lambda mirror, option, end: latest_commits(mirror, option, 5, SCANNER),
+    "commit_count": lambda mirror, option, end: commit_count(mirror, option, end),
+    "merges_between": lambda mirror, option, end: merges_between(mirror, option, end),
+    "diff_between from": lambda mirror, option, end: diff_between(mirror, option, end, visible, SCANNER),
+    "diff_between to": lambda mirror, option, end: diff_between(mirror, end, option, visible, SCANNER),
+    "changed_paths from": lambda mirror, option, end: changed_paths(mirror, option, end),
+    "changed_paths to": lambda mirror, option, end: changed_paths(mirror, end, option),
+    "commit_totals": lambda mirror, option, end: commit_totals(mirror, option),
+    "commit_times": lambda mirror, option, end: commit_times(mirror, option, 5),
+    "first_commit_time": lambda mirror, option, end: first_commit_time(mirror, option),
+    "read_tags": lambda mirror, option, end: read_tags(mirror, option, SCANNER),
+    "changed_files": lambda mirror, option, end: changed_files(mirror, option, 5),
+    "files_changed_since": lambda mirror, option, end: files_changed_since(mirror, option, date(2026, 1, 1)),
+}
+
+
+@pytest.mark.parametrize("reader", READERS.values(), ids=READERS.keys())
+def test_a_revision_starting_with_a_dash_is_never_read_as_an_option(tmp_path: Path, reader: HistoryReader) -> None:
+    checkout = make_repository(tmp_path / "t", [{"a.md": "a\n"}, {"a.md": "b\n"}])
+    mirror, end = mirror_of(checkout, tmp_path)
+    written = tmp_path / "written"
+    written.mkdir()
+    with pytest.raises(CodetrailError):
+        reader(mirror, f"--output={written / 'out'}", end)
+    assert list(written.iterdir()) == []
+
+
+DIFF_READERS: dict[str, Callable[[Path, str, str], object]] = {
+    "diff_between": lambda mirror, start, end: diff_between(mirror, start, end, visible, SCANNER),
+    "changed_paths": changed_paths,
+}
+
+
+@pytest.mark.parametrize("reader", DIFF_READERS.values(), ids=DIFF_READERS.keys())
+def test_files_outside_the_repository_are_never_compared_as_revisions(
+    tmp_path: Path, reader: Callable[[Path, str, str], object]
+) -> None:
+    checkout = make_repository(tmp_path / "t", [{"a.md": "a\n"}])
+    mirror, _end = mirror_of(checkout, tmp_path)
+    (tmp_path / "before").write_text("one\n")
+    (tmp_path / "after").write_text("one\n")  # alike, so a file comparison would succeed
+    with pytest.raises(CodetrailError):
+        reader(mirror, str(tmp_path / "before"), str(tmp_path / "after"))
+
+
+def test_changed_files_lists_each_latest_commits_paths(tmp_path: Path) -> None:
+    checkout = make_repository(tmp_path / "t", [{"a b/x.txt": "1\n", "y": "1\n"}, {"y": "2\n"}])
+    git(checkout, "commit", "-q", "--allow-empty", "-m", "Nothing", date=2)
+    git(checkout, "checkout", "-q", "-b", "side")
+    add_commit(checkout, {"z": "1\n"})
+    git(checkout, "checkout", "-q", "develop")
+    git(checkout, "merge", "-q", "--no-ff", "side", "-m", "Merge side", date=9)
+    mirror, end = mirror_of(checkout, tmp_path)
+    found = changed_files(mirror, end, 10)
+    assert [paths for _, paths in found] == [["z"], [], ["y"], ["a b/x.txt", "y"]]
+    assert [time for time, _ in found] == [1_790_000_000 + minutes * 60 for minutes in (3, 2, 1, 0)]
+    assert [paths for _, paths in changed_files(mirror, end, 2)] == [["z"], []]
+
+
+def test_a_file_named_like_the_commit_mark_is_a_file(tmp_path: Path) -> None:
+    names = ["\x01", "\x01\u00b2", "\x01999999999999", "y"]
+    checkout = make_repository(tmp_path / "t", [dict.fromkeys(names, "1\n")])
+    mirror, end = mirror_of(checkout, tmp_path)
+    assert changed_files(mirror, end, 10) == [(1_790_000_000, sorted(names, key=str.encode))]  # none poses as a commit
+
+
+def test_files_changed_since_a_date(tmp_path: Path) -> None:
+    checkout = make_repository(tmp_path / "t", [{"old": "1\n"}])
+    write_commit(checkout, {"new": "1\n"}, "Later", date=60 * 24 * 40)  # 40 days after 2026-09-21
+    mirror, end = mirror_of(checkout, tmp_path)
+    assert files_changed_since(mirror, end, date(2026, 10, 1)) == {"new"}
+    assert files_changed_since(mirror, end, date(2026, 9, 1)) == {"old", "new"}  # before the first commit: all
+
+
+def test_files_changed_since_keep_a_leading_newline(tmp_path: Path) -> None:
+    checkout = make_repository(tmp_path / "t", [{"old": "1\n"}])
+    write_commit(checkout, {"\nlead": "1\n"}, "Later", date=60 * 24 * 40)
+    mirror, end = mirror_of(checkout, tmp_path)
+    assert files_changed_since(mirror, end, date(2026, 10, 1)) == {"\nlead"}

@@ -72,3 +72,50 @@ def test_the_palette_names_kinds_in_the_reader_s_language_and_keeps_results_engl
     assert result.locator(".title").get_attribute("dir") == "ltr"
     assert result.locator(".kind").get_attribute("dir") == "rtl"
     assert result.locator(".snippet").get_attribute("dir") == "ltr"
+
+
+def test_the_repository_charts_follow_the_language(page: Page, site: Site, errors: list[str]) -> None:
+    in_arabic(page, site, "/repository")
+    timeline = page.locator('[data-chart="timeline"]')
+    expect(timeline).to_have_attribute("dir", "ltr")  # charts run left to right, like their numbers
+    expect(timeline.locator(".timeline-axis")).to_contain_text("يوليو")  # July, from Babel's Arabic month names
+    plot = timeline.locator(".timeline-plot")
+    plot.focus()
+    page.keyboard.press("End")
+    tip = page.locator(".timeline-tip")
+    expect(tip).to_be_visible()
+    text = tip.text_content() or ""
+    assert any(character.isascii() and character.isdigit() for character in text)
+    assert not any(0x0660 <= ord(character) <= 0x0669 for character in text)  # no Arabic-Indic digits
+    assert errors == []
+
+
+def test_the_documentation_page_follows_the_language(page: Page, site: Site, errors: list[str]) -> None:
+    in_arabic(page, site, "/documentation")
+    expect(page.locator("#rationale .doc-about > summary")).to_have_text("ما الذي يُحسب")
+    bar = page.locator("#rationale .stack-bar")
+    expect(bar).to_have_attribute("dir", "ltr")  # charts run left to right, like their numbers
+    legend = page.locator("#rationale .stack-legend").text_content() or ""
+    assert any(character.isascii() and character.isdigit() for character in legend)
+    assert not any(0x0660 <= ord(character) <= 0x0669 for character in legend)  # no Arabic-Indic digits
+    assert errors == []
+
+
+def test_the_sidebar_sits_on_the_right_in_arabic(page: Page, site: Site) -> None:
+    page.set_viewport_size({"width": 1280, "height": 800})
+    in_arabic(page, site, "/pages/areas/app")
+    box = page.locator("#sidebar").bounding_box()
+    assert box is not None and box["x"] > 640
+    expect(page.locator("[data-sidebar-toggle]")).to_have_attribute("aria-label", "إخفاء الشريط الجانبي")
+
+
+def test_the_sidebar_peeks_from_the_right_edge_in_arabic(page: Page, site: Site) -> None:
+    page.set_viewport_size({"width": 1280, "height": 800})
+    in_arabic(page, site, "/pages/areas/app")
+    page.keyboard.press("\\")
+    sidebar = page.locator("#sidebar")
+    expect(sidebar).to_be_hidden()
+    page.mouse.move(1277, 400)
+    expect(sidebar).to_be_visible()
+    box = sidebar.bounding_box()
+    assert box is not None and box["x"] > 640

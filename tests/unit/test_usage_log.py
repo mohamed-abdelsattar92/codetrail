@@ -1,6 +1,9 @@
 """Each call's usage is recorded, priced when the provider gives no cost, and plan windows kept (design 15.3)."""
 
+import sqlite3
 from pathlib import Path
+
+import pytest
 
 from codetrail.assistant import PlanWindow, Usage
 from codetrail.assistant.usage import UsageLog, priced
@@ -34,6 +37,29 @@ def test_calls_are_recorded_with_their_cost(tmp_path: Path) -> None:
     log.record("plan", Usage("claude_code", "claude-opus-5-5", 1, 0, 1, 0.01, (PlanWindow("five_hour", 0.09, 1),)))
     readings = {row["window"]: row["utilization"] for row in connection.execute("SELECT * FROM plan_usage")}
     assert readings == {"five_hour": 0.09, "seven_day": 0.63}
+
+
+def test_a_call_whose_plan_window_fails_to_save_leaves_nothing_recorded(tmp_path: Path) -> None:
+    connection = connect(tmp_path / "codetrail.db")
+    log = UsageLog(connection, PRICES)
+    windows = (PlanWindow("five_hour", 0.07, 1791192000), PlanWindow("seven_day", None, 1791216000))  # type: ignore[arg-type]
+    with pytest.raises(sqlite3.IntegrityError):
+        log.record("write", Usage("claude_code", "claude-sonnet-5-5", 100, 0, 10, 0.25, windows))
+    assert not connection.in_transaction
+    assert connection.execute("SELECT COUNT(*) FROM assistant_calls").fetchone()[0] == 0
+    assert connection.execute("SELECT COUNT(*) FROM plan_usage").fetchone()[0] == 0
+
+
+def test_a_failure_that_ends_the_transaction_itself_is_raised_as_it_is(tmp_path: Path) -> None:
+    connection = connect(tmp_path / "codetrail.db")
+    # SQLite rolls the whole transaction back itself after some errors (a full disk); this trigger does the same.
+    connection.execute(
+        "CREATE TRIGGER refuse BEFORE INSERT ON plan_usage BEGIN SELECT RAISE(ROLLBACK, 'refused by test'); END"
+    )
+    usage = Usage("claude_code", "claude-sonnet-5-5", 100, 0, 10, 0.25, (PlanWindow("five_hour", 0.07, 1),))
+    with pytest.raises(sqlite3.IntegrityError, match="refused by test"):
+        UsageLog(connection, PRICES).record("write", usage)
+    assert connection.execute("SELECT COUNT(*) FROM assistant_calls").fetchone()[0] == 0
 
 
 def test_the_last_update_sums_its_plan_write_and_digest_calls(tmp_path: Path) -> None:

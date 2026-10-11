@@ -1,5 +1,6 @@
 """The fact store: one row per fact version, valid over a range of snapshots (design section 4.2; ADR 0003)."""
 
+import sqlite3
 from pathlib import Path
 
 import pytest
@@ -118,3 +119,14 @@ def test_facts_read_as_they_were_at_an_older_snapshot(store: FactStore) -> None:
     ]
     latest = store.latest_snapshot()
     assert latest is not None and store.entities_at(latest.id) == [renamed] and store.relations_at(latest.id) == []
+
+
+def test_a_failure_that_ends_the_transaction_itself_is_raised_as_it_is(store: FactStore) -> None:
+    # SQLite rolls the whole transaction back itself after some errors (a full disk); this trigger does the same.
+    store.connection.execute(
+        "CREATE TRIGGER refuse BEFORE INSERT ON entities BEGIN SELECT RAISE(ROLLBACK, 'refused by test'); END"
+    )
+    with pytest.raises(sqlite3.IntegrityError, match="refused by test"):
+        store.record("a" * 40, [module("app/a.py", "a")], [])
+    assert not store.connection.in_transaction
+    assert store.latest_snapshot() is None

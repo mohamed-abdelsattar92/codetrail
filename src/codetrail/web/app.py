@@ -8,13 +8,16 @@ from __future__ import annotations
 
 import difflib
 import hmac
+import json
 import logging
 import secrets
+import sqlite3
 import threading
 import time
 from collections import deque
 from collections.abc import AsyncIterator, Callable, Iterator
 from contextlib import ExitStack, asynccontextmanager, contextmanager
+from datetime import UTC, date, datetime
 from importlib.resources import files
 from pathlib import Path
 from typing import Annotated, Any
@@ -23,7 +26,8 @@ from fastapi import FastAPI, Query, Request
 from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-from pydantic import BaseModel, ConfigDict, Field
+from markupsafe import Markup
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from codetrail.assistant import Assistant
@@ -42,20 +46,48 @@ from codetrail.guide import PAGE_ID, GuideRepository, Page, parse_page
 from codetrail.learn import LearningState, page_checks
 from codetrail.learn.routes import learning_router
 from codetrail.lock import TargetBusy, target_in_use
+from codetrail.metrics.history import recent_values, values_before
+from codetrail.metrics.report import Metric, MetricsReport, build_report
+from codetrail.metrics.repository import RepositoryReport, build_repository_report
+from codetrail.repo.history import first_commit_time
 from codetrail.repo.signal import Signal, behind
 from codetrail.search import Result, SearchIndex, guide_documents
 from codetrail.update import run_update
 from codetrail.web.diagrams import dependencies_diagram, imports_diagram, system_diagram, system_parts
+from codetrail.web.documentation import (
+    ReportCache,
+    age,
+    build_tiles,
+    commit_kind,
+    days_proposed,
+    filtered,
+    section_to_open,
+    segments,
+)
 from codetrail.web.i18n import Language, installed_languages
 from codetrail.web.navigation import (
+    PINNABLE,
     Navigation,
     answers_newest_first,
     build_navigation,
     continue_reading,
+    initials,
     path_neighbours,
+    read_pins,
     steps_of,
 )
 from codetrail.web.render import render_body
+from codetrail.web.repository_view import (
+    bar_heights,
+    busiest_weekday,
+    chart_document,
+    language_segments,
+    month_names,
+    months_table,
+    ramp_step,
+    script_json,
+    weekday_full_names,
+)
 from codetrail.web.security import OPEN_PATHS, SESSION_COOKIE, SecurityMiddleware, SessionState, login_response
 from codetrail.web.target_view import TargetView
 
@@ -66,6 +98,14 @@ logger = logging.getLogger(__name__)
 class LanguageChoice(BaseModel):
     model_config = ConfigDict(extra="forbid")
     language: str = Field(max_length=16)
+
+
+PINS_SETTING = "pinned_pages"
+
+
+class PinChoice(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    pages: list[Annotated[str, StringConstraints(max_length=200)]] = Field(max_length=50)
 
 
 class TargetInUseMiddleware:
@@ -149,6 +189,9 @@ def create_app(
     signal_cache: dict[str, tuple[float, Signal | None]] = {}
     index_lock = threading.Lock()
     index_built: dict[str, object] = {"key": None, "index": None}
+    reports: ReportCache[MetricsReport] = ReportCache()
+    repository_reports: ReportCache[RepositoryReport] = ReportCache()
+    first_commits: ReportCache[date | None] = ReportCache()
 
     def search_index() -> SearchIndex | None:
         """The index, rebuilt whenever the guide or the facts moved on (an update, a saved answer); None if broken.
@@ -183,17 +226,32 @@ def create_app(
             return [], False
         return found.search(query, settings.search.max_query_chars, settings.search.max_results), True
 
-    def language() -> Language:
+    def setting(key: str) -> str | None:
+        """One of the target's stored settings, or None before the database exists."""
         database = view.data / "codetrail.db"
-        chosen = None
-        if database.exists():
-            connection = connect(database)
-            try:
-                row = connection.execute("SELECT value FROM settings WHERE key = ?", (LANGUAGE_SETTING,)).fetchone()
-            finally:
-                connection.close()
-            chosen = row["value"] if row else None
-        return languages.get(chosen or settings.ui.default_language) or languages["en"]
+        if not database.exists():
+            return None
+        connection = connect(database)
+        try:
+            row = connection.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+        finally:
+            connection.close()
+        return row["value"] if row else None
+
+    def store_setting(key: str, value: str) -> None:
+        """Keeps one of the target's settings, replacing what it held."""
+        connection = connect(view.data / "codetrail.db")
+        try:
+            connection.execute(
+                "INSERT INTO settings (key, value) VALUES (?, ?)"
+                " ON CONFLICT (key) DO UPDATE SET value = excluded.value",
+                (key, value),
+            )
+        finally:
+            connection.close()
+
+    def language() -> Language:
+        return languages.get(setting(LANGUAGE_SETTING) or settings.ui.default_language) or languages["en"]
 
     def call_estimates() -> dict[str, CallEstimate]:
         """What a question and a graded check are expected to use, for their buttons (design section 15.4)."""
@@ -228,7 +286,8 @@ def create_app(
             branch = load_target(paths, name).branch
         except CodetrailError:
             branch = ""
-        return build_navigation(pages, statuses, unread, branch, manifest.commit if manifest else "")
+        return build_navigation(pages, statuses, unread, branch, manifest.commit if manifest else "",
+                                pinned=read_pins(setting(PINS_SETTING))[: settings.ui.max_pins])  # fmt: skip
 
     def render(template: str, status_code: int = 200, **context: Any) -> HTMLResponse:
         current = language()
@@ -240,7 +299,7 @@ def create_app(
             environments[current.code]
             .get_template(template)
             .render(language=current, languages=list(languages.values()), token=session.token, target=name,
-                    estimates=call_estimates(), **context)
+                    estimates=call_estimates(), max_pins=settings.ui.max_pins, **context)
         )  # fmt: skip
         return HTMLResponse(html, status_code=status_code)
 
@@ -275,6 +334,8 @@ def create_app(
         snapshot = None
         last_update = None
         system = None
+        documentation = None
+        repository = None
         if (view.data / "codetrail.db").exists():
             with view.store() as store:
                 snapshot = store.latest_snapshot()
@@ -287,6 +348,14 @@ def create_app(
                     kinds[str(entity.kind)] = kinds.get(str(entity.kind), 0) + 1
                 counts = sorted(kinds.items())
                 last_update = last_update_usage(store.connection)
+                recorded = [value for _, value in recent_values(store.connection, Metric.DOCUMENTED_SHARE, 2)]
+                documentation = build_tiles(
+                    {Metric.DOCUMENTED_SHARE: recorded[-1]} if recorded else {},
+                    {Metric.DOCUMENTED_SHARE: recorded[0]} if len(recorded) > 1 else {},
+                    {},
+                )[Metric.DOCUMENTED_SHARE]
+                if snapshot is not None:
+                    repository = repository_summary(store.connection, snapshot.id, snapshot.commit)
         pages = guide.pages() if guide.root.exists() else []
         nav = navigation(pages)
         guide_pages = [page for page in pages if page.kind in ("area", "concept")]
@@ -301,6 +370,7 @@ def create_app(
             snapshot=snapshot, guide_pages=guide_pages, latest_digest=digests[0] if digests else None,
             unread_digests=unread_digests, stale_pages=stale, learned=learned, last_update=last_update,
             continue_reading=continue_reading(pages, nav.statuses), system=system, has_system=system is not None,
+            documentation=documentation, repository=repository,
         )  # fmt: skip
 
     @app.get("/system", response_class=HTMLResponse)
@@ -486,20 +556,117 @@ def create_app(
         found.sort(key=lambda decision: str(decision.attributes.get("number", "")))
         return render("decisions.html", active="decisions", decisions=found)
 
+    @app.get("/documentation", response_class=HTMLResponse)
+    def documentation() -> HTMLResponse:
+        """The documentation metrics (design section 18.4): the live report, kept until the guide or facts move on."""
+        if not (view.data / "codetrail.db").exists():
+            return render("documentation.html", active="documentation", report=None)
+        with view.store() as store:
+            snapshot = store.latest_snapshot()
+            if snapshot is None:
+                return render("documentation.html", active="documentation", report=None)
+            tracked = guide.git_dir.exists()
+            today = date.today()
+            key = (snapshot.id, guide.head() if tracked else None, tracked and guide.has_uncommitted_changes(), today)
+            try:
+                report = reports.get(key, lambda: build_report(paths, name, settings, store, today))
+            except (CodetrailError, OSError) as error:
+                logger.warning("The documentation metrics aren't available: %s", error)
+                return render("documentation.html", active="documentation", report=None, unavailable=True)
+            before = values_before(store.connection, snapshot.id)
+            history = {
+                metric: [value for _, value in recent_values(store.connection, metric, settings.metrics.trend_updates)]
+                for metric in Metric
+            }
+        values, listed = report.values(), settings.metrics.max_listed
+        without_why = report.commits.without_why if report.commits else []
+        return render(
+            "documentation.html", active="documentation", report=report, tiles=build_tiles(values, before, history),
+            listed=listed, today=today, open_section=section_to_open(values),
+            commit_filter=filtered([commit_kind(commit) for commit in without_why], listed),
+            fact_filter=filtered([str(entity.kind) for entity in report.mentions.unmentioned], listed),
+            segments=segments, days_proposed=days_proposed,
+        )  # fmt: skip
+
+    def repository_summary(connection: sqlite3.Connection, snapshot_id: int, commit: str) -> dict[str, object]:
+        """The home card's numbers (design section 19.5): the latest recorded values and one git call, never the report.
+
+        The values are read each time, since an update records them a while after its snapshot. The first commit's
+        date is kept per snapshot, because the git call walks the whole history; a failed call isn't kept.
+        """
+        summary: dict[str, object] = {}
+        for metric in (Metric.COMMITS, Metric.CODE_LINES):
+            recorded = recent_values(connection, metric, 1)
+            summary[str(metric)] = recorded[-1][1].numerator if recorded else None
+
+        def first_commit_date() -> date | None:
+            first = first_commit_time(view.data / "mirror.git", commit)
+            return datetime.fromtimestamp(first, UTC).date() if first is not None else None
+
+        try:
+            summary["first"] = first_commits.get(snapshot_id, first_commit_date)
+        except (CodetrailError, OSError) as error:
+            logger.warning("The first commit isn't available: %s", error)
+            summary["first"] = None
+        return summary
+
+    @app.get("/repository", response_class=HTMLResponse)
+    def repository() -> HTMLResponse:
+        """The repository statistics (design section 19.5): the live report, kept until the facts move on."""
+        if not (view.data / "codetrail.db").exists():
+            return render("repository.html", active="repository", report=None)
+        with view.store() as store:
+            snapshot = store.latest_snapshot()
+            if snapshot is None:
+                return render("repository.html", active="repository", report=None)
+            today = date.today()
+            tracked = guide.git_dir.exists()
+            key = (snapshot.id, guide.head() if tracked else None, tracked and guide.has_uncommitted_changes(), today)
+            try:
+                report = repository_reports.get(key, lambda: build_repository_report(
+                    paths, name, settings, store, today))  # fmt: skip
+            except (CodetrailError, OSError) as error:
+                logger.warning("The repository statistics aren't available: %s", error)
+                return render("repository.html", active="repository", report=None, unavailable=True)
+            before = values_before(store.connection, snapshot.id)
+            history = {
+                metric: [value for _, value in recent_values(store.connection, metric, settings.metrics.trend_updates)]
+                for metric in Metric
+            }
+        activity, churn, current = report.activity, report.churn, language()
+        weekday = busiest_weekday(activity)
+        return render(
+            "repository.html", active="repository", report=report, tiles=build_tiles(report.values(), before, history),
+            age=age(activity.first, today) if activity and activity.first else None, today=today,
+            listed=settings.metrics.max_listed, history_limit=settings.metrics.history_limit,
+            largest_files=settings.metrics.largest_files, quiet_days=settings.metrics.quiet_days,
+            all_months=months_table(activity),
+            # script_json escapes <, > and &, so nothing in the document can end its <script> block.
+            chart_json=Markup(script_json(chart_document(report, current, today))),  # noqa: S704
+            weekday_name=weekday_full_names(current)[weekday] if weekday is not None else None,
+            month_names=month_names(current),
+            area_titles={spot.page.id: spot.page.title for spot in churn.areas} if churn else {},
+            grid_highest=max((count or 0 for _, cells in churn.area_months for count in cells), default=0)
+            if churn else 0,
+            ramp_step=ramp_step, bar_heights=bar_heights, language_segments=language_segments,
+        )  # fmt: skip
+
+    @app.post("/settings/pins")
+    def set_pins(choice: PinChoice) -> Response:
+        """The pinned pages (design section 22.3): the whole list, replaced; only pages the guide holds."""
+        pages = list(dict.fromkeys(choice.pages))
+        pinnable = {page.id for page in guide.pages() if page.kind in PINNABLE} if guide.root.exists() else set()
+        if len(pages) > settings.ui.max_pins or any(page not in pinnable for page in pages):
+            return Response(status_code=400)
+        store_setting(PINS_SETTING, json.dumps(pages))
+        return Response(status_code=204)
+
     @app.post("/settings/language")
     def set_language(choice: LanguageChoice) -> Response:
         language = choice.language
         if language not in languages:
             return Response(status_code=400)
-        connection = connect(view.data / "codetrail.db")
-        try:
-            connection.execute(
-                "INSERT INTO settings (key, value) VALUES (?, ?)"
-                " ON CONFLICT (key) DO UPDATE SET value = excluded.value",
-                (LANGUAGE_SETTING, language),
-            )
-        finally:
-            connection.close()
+        store_setting(LANGUAGE_SETTING, language)
         return Response(status_code=204)
 
     @app.exception_handler(404)
@@ -543,6 +710,14 @@ def create_app(
     return SecurityMiddleware(TargetInUseMiddleware(app, paths, name), session=session, port=settings.server.port)
 
 
+def day_text(seconds: int) -> str:
+    """The UTC day of a time a repository gave, or a dash for one Python's dates can't hold (past the year 9999)."""
+    try:
+        return datetime.fromtimestamp(seconds, UTC).date().isoformat()
+    except ValueError, OverflowError, OSError:
+        return "—"
+
+
 def _environment(templates: str, language: Language) -> Environment:
     environment = Environment(
         loader=FileSystemLoader(templates),
@@ -553,6 +728,9 @@ def _environment(templates: str, language: Language) -> Environment:
     environment.filters["tokens"] = tokens_text
     environment.filters["utc"] = when_text
     environment.filters["dollars"] = lambda value: "" if value is None else f"${value:.2f}"
+    environment.filters["number"] = lambda value: f"{value:,}"
+    environment.filters["day"] = day_text
+    environment.filters["initials"] = initials
     return environment
 
 

@@ -26,17 +26,35 @@ def migrations() -> list[tuple[int, str]]:
 
 def connect(path: Path) -> sqlite3.Connection:
     path.parent.mkdir(parents=True, exist_ok=True)
-    connection = sqlite3.connect(path, isolation_level=None)
+    connection = sqlite3.connect(path, autocommit=True)  # transactions are explicit, and executescript keeps them
     connection.row_factory = sqlite3.Row
-    connection.execute("PRAGMA foreign_keys = ON")
-    connection.execute("PRAGMA journal_mode = WAL")
-    current = connection.execute("PRAGMA user_version").fetchone()[0]
-    available = migrations()
-    latest = available[-1][0] if available else 0
-    if current > latest:
+    try:
+        connection.execute("PRAGMA foreign_keys = ON")
+        connection.execute("PRAGMA journal_mode = WAL")
+        available = migrations()
+        latest = available[-1][0] if available else 0
+        if _version(connection, path, latest) < latest:
+            # Another connection may be migrating too (the page's requests and its update thread): the write lock
+            # makes this one wait for it, and the version read again under the lock says what's left to apply.
+            connection.execute("BEGIN IMMEDIATE")
+            try:
+                current = _version(connection, path, latest)
+                for number, script in available:
+                    if number > current:
+                        connection.executescript(f"{script}\nPRAGMA user_version = {number};")
+                connection.execute("COMMIT")
+            except BaseException:
+                if connection.in_transaction:  # SQLite ends it itself after some errors
+                    connection.execute("ROLLBACK")
+                raise
+    except BaseException:
         connection.close()
-        raise CodetrailError(f"{path} was written by a newer Codetrail (schema {current}, this one knows {latest}).")
-    for number, script in available:
-        if number > current:
-            connection.executescript(f"BEGIN;\n{script}\nPRAGMA user_version = {number};\nCOMMIT;")
+        raise
     return connection
+
+
+def _version(connection: sqlite3.Connection, path: Path, latest: int) -> int:
+    current = int(connection.execute("PRAGMA user_version").fetchone()[0])
+    if current > latest:
+        raise CodetrailError(f"{path} was written by a newer Codetrail (schema {current}, this one knows {latest}).")
+    return current

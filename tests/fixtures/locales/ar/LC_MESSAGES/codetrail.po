@@ -30,3 +30,13 @@ msgstr "منطقة"
 
 msgid "Concept"
 msgstr "مفهوم"
+
+msgctxt "month"
+msgid "Jul"
+msgstr "يوليو"
+
+msgid "What this counts"
+msgstr "ما الذي يُحسب"
+
+msgid "Hide the sidebar"
+msgstr "إخفاء الشريط الجانبي"

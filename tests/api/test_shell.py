@@ -64,11 +64,14 @@ class Scripts(HTMLParser):
         self.scripts: list[dict[str, str | None]] = []
         self.handlers: list[str] = []
         self.inline: list[str] = []
+        self.data_blocks: list[dict[str, str | None]] = []
         self._in_script = False
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         self.handlers += [name for name, _ in attrs if name.startswith("on") or name == "style"]
-        if tag == "script":
+        if tag == "script" and dict(attrs).get("type") == "application/json":
+            self.data_blocks.append(dict(attrs))  # data the browser never runs (design section 20.3)
+        elif tag == "script":
             self.scripts.append(dict(attrs))
             self._in_script = True
 
@@ -81,7 +84,8 @@ class Scripts(HTMLParser):
 
 
 PAGES = [
-    "/", "/progress", "/answers", "/digests", "/decisions", "/search?q=app", "/pages/areas/app", "/pages/paths/start",
+    "/", "/progress", "/answers", "/digests", "/decisions", "/documentation", "/repository", "/search?q=app",
+    "/pages/areas/app", "/pages/paths/start",
     "/facts/module:app/main.py", "/source/app/main.py", "/areas/app", "/nowhere",
 ]  # fmt: skip
 
@@ -106,6 +110,8 @@ def test_pages_run_no_inline_script_or_handler(paths: Paths, url: str) -> None:
         "/static/js/theme-init.js", "/static/vendor/mermaid.js", "/static/js/main.js",
     ]  # fmt: skip
     assert parser.scripts[2].get("type") == "module"
+    assert all(set(block) == {"type", "data-repository-data"} for block in parser.data_blocks)
+    assert len(parser.data_blocks) == (1 if url == "/repository" else 0)
 
 
 def test_the_sidebar_lists_paths_areas_concepts_and_answers(paths: Paths) -> None:
@@ -228,6 +234,13 @@ PHYSICAL = re.compile(
 def test_stylesheets_use_logical_properties_only(sheet: str) -> None:
     text = re.sub(r"/\*.*?\*/", "", (STATIC / "css" / sheet).read_text(), flags=re.S)
     assert PHYSICAL.findall(text) == []
+
+
+@pytest.mark.parametrize("sheet", ["layout.css", "components.css"])
+def test_shadows_come_from_tokens(sheet: str) -> None:
+    """A shadow's color differs between the themes, so it is a token with its dark value (design section 22.2)."""
+    shadows = re.findall(r"box-shadow:[^;]*;", (STATIC / "css" / sheet).read_text())
+    assert [shadow for shadow in shadows if "rgb(" in shadow or "#" in shadow] == []
 
 
 def test_a_path_links_only_steps_that_exist(paths: Paths) -> None:

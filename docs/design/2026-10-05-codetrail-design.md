@@ -55,6 +55,7 @@ One module per part of the system. Every other module reads the target only thro
 | `system` | The system pass: a repository's parts and the connections between them, from facts (section 17.3) | `facts`, `repo` |
 | `bridge` | FastAPI router for questions, streamed answers, grading and "save to guide" | `assistant`, `guide`, `learn` |
 | `learn` | Progress, check attempts, staleness and settings in SQLite | `facts`, `guide` |
+| `metrics` | Documentation metrics, repository statistics and their trend, from the guide, the facts, the history and the tags (sections 18 and 19) | `guide`, `facts`, `repo`, `generate` (its rationale and scope rules) |
 
 ### 2.3 Where things live
 Codetrail follows the XDG base directories, on macOS too; configuration can move any of them.
@@ -67,7 +68,7 @@ Codetrail follows the XDG base directories, on macOS too; configuration can move
 | `~/.local/share/codetrail/<name>/mirror.git` | A bare clone of the target |
 | `~/.local/share/codetrail/<name>/source/` | The allowed files at the current snapshot, with no `.git` |
 | `~/.local/share/codetrail/<name>/guide/` | The knowledge base, its own git repository |
-| `~/.local/share/codetrail/<name>/codetrail.db` | Facts and learning state (SQLite) |
+| `~/.local/share/codetrail/<name>/codetrail.db` | Facts, learning state and the metrics' trend (SQLite) |
 | `~/.local/state/codetrail/<name>/codetrail.log` | The log |
 
 The guide's location can be configured, but never inside the target.
@@ -109,14 +110,21 @@ plan = "claude-opus-5-5"
 write = "claude-sonnet-5-5"
 answer = "claude-sonnet-5-5"
 grade = "claude-sonnet-5-5"
+
+[metrics]                        # section 18.5
+document_globs = ["README*", "*.md", "*.rst", "*.adoc", "*.txt", "docs/**"]
+commit_why_pattern = '(?im)^[ \t]*(?:#+[ \t]*)?why\b'
+test_globs = ["test/**", "tests/**", "**/test_*.py", "**/*_test.*", "**/*.test.*", "**/*.spec.*", "**/__tests__/**", "**/Tests/**"]   # section 19.6
+commit_type_pattern = '^(?P<type>[A-Za-z]+)(?:\((?P<scope>[^()\r\n]*)\))?!?:[ \t]'
 ```
 
 Unknown keys are refused. Model names and every limit live here or in the global file, never in code.
 
 ### 3.2 Mirror and materialized sources
 - `mirror.git` is a bare clone of the founder's checkout, made with `--no-local` over the `file://` transport and refreshed by fetching the configured branch the same way. Only git's `upload-pack` reads the checkout: no command runs inside it, and no file of it is hardlinked (a plain local clone would hardlink its objects). A `git worktree` is not used, because it writes metadata into the target's `.git`. A test snapshots every file under a checkout, `.git` included (size, times, inode, link count, hash), and proves it unchanged.
-- `source/` holds only the allowed files (section 3.3) at the snapshot commit, written from git objects. It has no `.git` directory. Each refresh rebuilds it in full into `source.next/`, scans it (section 3.4) and renames it into place, so a failed refresh leaves the previous `source/` intact. `source.json`, beside it, records the commit, every file with its blob, and every exclusion with its reason. At large scale, reusing unchanged files and scanning only changed ones would make this incremental.
+- `source/` holds only the allowed files (section 3.3) at the snapshot commit, written from git objects. It has no `.git` directory. Each refresh rebuilds it in full into `source.next/`, scans it (section 3.4) and renames it into place, so a failed refresh leaves the previous `source/` intact. `source.json`, beside it, records the commit, every file with its blob, and every exclusion with its reason. Its commit must be a full SHA-1 or SHA-256 object name, or loading it fails with a message to run the update again. Every revision Codetrail reads from its data (`source.json`, the snapshots, the guide) and passes to git is either checked as a commit id or follows `--end-of-options`, so none can be read as an option. Diffs between commits use `git diff-tree`, since `git diff` compares two files on disk instead when its arguments name files outside the repository or include `--no-index`, even after `--end-of-options`. At large scale, reusing unchanged files and scanning only changed ones would make this incremental.
 - Symlinks and submodules are never materialized.
+- The mirror also keeps the target's tags that point into the branch's history, for the repository statistics (section 19.2); nothing else reads them.
 - Extractors, Claude's tools and the page's source views read only `source/`. Only `repo` reads `mirror.git`.
 
 ### 3.3 Exclusion rules
@@ -169,7 +177,7 @@ SQLite through the standard library's `sqlite3` ([ADR 0003](../adr/0003-facts-wi
 - `entities(id, kind, attributes, hash, sources, first_seen, last_seen)` and `relations(source_id, kind, target_id, attributes, hash, sources, first_seen, last_seen)`. `first_seen` is the snapshot a version appeared in; `last_seen` is the last snapshot it was valid in, `NULL` while current. `sources` is JSON, updated in place while the version is current.
 - An update compares new facts with current ones: unchanged facts get their sources refreshed; changed facts get their current row closed and a new row opened; missing facts are closed.
 - The diff for snapshot N is: added (opened at N with no row closed at N−1), changed (opened at N with a row closed at N−1), removed (closed at N−1 with nothing opened at N).
-- Schema changes are ordered SQL files applied at startup and tracked with `PRAGMA user_version`.
+- Schema changes are ordered SQL files applied at startup and tracked with `PRAGMA user_version`. A connection that finds the database behind applies them under the write lock and reads the version again first, so connections opening a new database together (the page's requests and its update) apply them once.
 
 Storage grows with churn, not with repository size.
 
@@ -401,7 +409,7 @@ Every rubric point is grounded in a fact or a quoted source. The rubric is never
 - Digests have the same *read* mark. "New since you last caught up" means unread digests and unread new pages.
 
 ### 8.4 Tables
-`page_marks(page_id, read_version, learned_version, learned_at)`, `check_passes(page_id, check_id, check_hash, passed_at)`, `check_attempts(page_id, check_id, check_hash, answer, verdict, feedback, language, attempted_at)`, `digest_reads(digest_id, read_at)`, `settings(key, value)` (interface language).
+`page_marks(page_id, read_version, learned_version, learned_at)`, `check_passes(page_id, check_id, check_hash, passed_at)`, `check_attempts(page_id, check_id, check_hash, answer, verdict, feedback, language, attempted_at)`, `digest_reads(digest_id, read_at)`, `settings(key, value)` (interface language, pinned pages).
 
 ### 8.5 The "you're behind" signal
 On the home page, `repo` fetches into `mirror.git` without rebuilding `source/`, counts the merges on the configured branch since the last update's commit, and maps the touched paths (filtered by the exclusion rules) to areas through the outline's scopes. It never calls Claude, and the result is cached for `signal.cache_seconds`.
@@ -419,6 +427,7 @@ update_log_lines = 200
 
 [ui]
 default_language = "en"
+max_pins = 9                 # pinned pages the sidebar keeps (section 22.3)
 
 [bridge]
 max_question_chars = 4000
@@ -472,6 +481,19 @@ cache_seconds = 60
 
 [diagrams]
 max_nodes = 25
+
+[metrics]                      # section 18.5
+commit_window = 200
+proposed_adr_days = 30
+trend_updates = 12
+max_listed = 50
+max_message_chars = 20000
+activity_months = 24           # section 19.6
+history_limit = 1000000
+largest_files = 10
+churn_window = 500
+quiet_days = 365
+# [metrics.languages] maps a file name or suffix to its language (section 19.6)
 
 [extract]
 max_file_bytes = 1_000_000   # larger files are skipped with a warning
@@ -529,7 +551,7 @@ Test first, always (decision 12). Suites in `tests/unit`, `tests/integration`, `
 - **End to end:** a fixture repository, `update` with the fake Claude, then the page through the test client: the behind signal, a page with its diagram, a graded check, and a source view refusing an excluded file.
 - **Browser tests** came with the page's redesign, when its JavaScript grew: Playwright for Python against `serve` with the fake assistant, and an axe-core scan of each page type (section 16.7, ADR 0008).
 
-Recipes: `just test-quick` (unit, API and the hooks' tests, in parallel, run by the pre-push hook; ADR 0011), `just test` (everything but live and browser), `just test-browser`, `just test-live`. `just ci` adds the browser tests, ruff, mypy strict and the repository checks.
+Recipes: `just test-quick` (unit, API and the hooks' tests, in parallel, run by the pre-push hook; ADR 0011), `just test` (everything but live and browser, in parallel; ADR 0015), `just test-browser` (in parallel too), `just test-live`. `just ci` adds the browser tests, ruff, mypy strict and the repository checks.
 
 ## 12. Dependencies
 
@@ -570,6 +592,13 @@ Each phase is usable on its own, has its own implementation plan, and ends with 
 | 10. Getting started | A generic README with screenshots of Codetrail's guide to itself, and the install guide | Anyone can install and run Codetrail on their own repository | Phase 9 |
 | 11. The page's design | Search, the new shell and visual system, the progress and saved-answers pages, the palette, shortcuts and the Ask panel, browser tests (section 16) | A page people enjoy using, where anything in the guide is a keystroke away | ADRs 0007, 0008 |
 | 12. The whole system | The `typescript` and `github_actions` extractors, the system pass, the system diagram, page and home card (section 17) | One diagram of how a repository's parts fit together, and facts for TypeScript, JavaScript and Astro code | ADR 0009 |
+| 13. Documentation metrics | The `metrics` module, the `metric_values` table, the Documentation page, the home card and `codetrail metrics` (section 18) | How well a repository explains itself, what to document next, and the trend across updates, at no cost | — |
+| 14. Repository statistics | Tags in the mirror; history, releases, code size and facts; the Repository page, the home card and `codetrail stats` (section 19) | How old and big a repository is, how fast it moves, when it released and what it depends on, at no cost | Phase 13 |
+| 15. Where change happens | Hot spots by file, folder and guide area with their rationale, quiet code and commit size (section 19.1) | Where a repository changes most, and where documenting would help most | Phase 14 |
+| 17. The Repository page's charts | The interactive timeline, the activity calendar, the change heat map and grid, and the charts for size, types and facts (section 20) | A repository's history and change at a glance, explorable | Phase 15 |
+| 18. The Documentation page's charts | The overview column, folding sections with a chart each, and filter chips (section 21) | How well a repository explains itself at a glance, and what to fix first | Phase 17 |
+| 19. The sidebar | Hiding and peeking, the frame and card, folding sections and pinned tiles (section 22) | A sidebar that gets out of the way, with the pages you use most at the top | Phase 11 |
+| 16. Decision inventory (planned) | An opt-in paid pass listing the decisions in the code and their documented "why" (section 18.8) | The share of the repository's decisions that are documented, beyond what the guide wrote about | Phase 13 |
 
 ## 14. Answers to the brainstorm's open questions
 
@@ -650,6 +679,7 @@ The feel is a documentation site in the manner of Stripe's: calm, precise, with 
 - **Outline:** "On this page", built from the page's headings, highlighting the section in view; hidden below about 1200 px. The article and its outline are one group, centered in the space beside the sidebar, so on a wide screen the text never hugs the sidebar and the outline stays next to the text; a page without an outline centers one wider column.
 - **Ask panel:** slides in from the inline end, over the outline column, without covering the reading column on wide screens (section 16.4).
 - **Update panel:** takes the same place, above the Ask panel, while an update runs; opening Ask hides it, and closing it shows Ask again (section 15.4).
+- **The sidebar hides, peeks, folds and pins pages** (section 22).
 - **Resizing:** the sidebar and the Ask panel have a handle on their inner edge. Drag it, or focus it and use the arrow keys (16 px a step), Home and End; double-click resets. The sidebar stays between 200 and 420 px and at most 30% of the window; the panel between 320 and 720 px and at most 45%. Neither may squeeze the reading column below 480 px: a narrower window shrinks the panels first. Widths are remembered per browser in `localStorage`; below 900 px nothing resizes. The handles are ARIA separators that report their value.
 
 The **home page** leads with progress: the target's name, branch, commit and last update; a "Continue where you left off" card (the current path, its next unlearned page and a progress bar); three figures (how far the guide is behind the branch, with the Update button and the last update's actual cost, labelled as such, since a new estimate needs the facts refreshed first; pages learned, and how many changed since; the unread digest); your newest saved answers; then the areas.
@@ -707,7 +737,7 @@ Empty states invite rather than apologize ("Ask a question from any page and sav
 |---|---|
 | ⌘K, Ctrl+K, **/** | Open the palette |
 | **A** | Open the Ask panel about the current page |
-| **G** then **H**, **P**, **S**, **D**, **R**, **Y** | Go to home, progress, saved answers, digests, decisions, the system |
+| **G** then **H**, **P**, **S**, **D**, **R**, **Y**, **O** | Go to home, progress, saved answers, digests, decisions, the system, documentation |
 | **[** and **]** | Previous and next page in the current path |
 | **M** | Mark the page read, or unread |
 | **U** | Update the guide: refresh the facts and open the estimate dialog |
@@ -806,3 +836,316 @@ The extractor names `typescript` and `github_actions` join the target's `extract
 
 ### 17.7 Delivery
 Phase 12, in four feature branches, each reviewed, merged with the latest `develop` and finished: the `typescript` extractor with ADR 0009; the `github_actions` extractor and the Terraform paths; the system pass; the system diagram, page, home card, area pages, answers, prompts, docs and screenshots.
+
+## 18. Documentation metrics
+
+Approved by the founder in the design session of 10 October 2026. The guide already knows which rationale is documented and which is inferred; this section turns that, the facts and the history into numbers about how well a repository explains itself, with the items behind each number, and keeps them per update so the trend shows. Everything here is free: no assistant is called, and only what Codetrail can already see is read (committed, allowed files in `source/`, the fact store, the guide and the filtered history).
+
+### 18.1 What is measured
+- **Documented share of rationale** (`documented_share`): the `[!documented]` blocks among all rationale blocks in the guide's area and concept pages. Digests are left out (they accumulate and are mostly about commits), and so are saved answers (they follow the reader's questions, not the repository). Each documented block is classified from its citation: `commit:<sha>` is a **commit**; a path matching the target's `[adr] paths` is an **ADR**; a path matching the target's `[metrics] document_globs` is **docs**; anything else is **code** (a comment or docstring). Shown by source type and by page, with every inferred block listed with its page.
+- **Commits that explain why** (`commit_why_share`): of the last `metrics.commit_window` non-merge commits on the target's branch, those whose body matches the target's `[metrics] commit_why_pattern` (by default a line starting with `Why`, as a heading or as `Why:`). The others are **body without a why** or **subject only**. A message gitleaks flags is withheld, as everywhere, and left out of the share. The commits that don't explain why are listed.
+- **ADRs needing attention** (`adr_attention`, a count): proposed ADRs whose `Date:` is more than `metrics.proposed_adr_days` days old, plus superseded or deprecated ADRs a page still cites. The section also lists every ADR by status, the undated proposed ones, and the accepted ADRs no page cites. A page cites an ADR with a documented block quoting its file, a `[[decision:ADR-…]]` link, or the ADR in its front matter's `facts`.
+- **Mentioned in a document** (`mentioned_share`): external packages, projects and infrastructure resources a document mentions. A package counts when its name appears as a whole word in a document file; a project when its folder holds a README or a document names its folder; a resource when a document names its address (`aws_s3_bucket.assets`). Words and names are compared lower-cased, with runs of `-`, `_` and `.` made one `-`. The section says plainly that a mention isn't a reason, and lists what no document mentions.
+- **Explained by the guide** (`explained_share`): the current facts that fall in the scope of a written area or concept page (its `facts`, or its scope paths and kinds, as section 4.3 counts them). The facts no page covers are listed.
+
+The metric names are a fixed list in code, like fact kinds, each with its label and whether it is a share or a count.
+
+### 18.2 How it is computed
+A `metrics` module (section 2.2), one file per metric (`rationale.py`, `commits.py`, `decisions.py`, `coverage.py`) and `report.py`, which builds a `MetricsReport`: each metric's numerator and denominator, and its detail lists. It reuses `parse_rationale` (section 6.5), the scope rules of section 4.3, and `repo`'s filtered history; it reads the target only through `repo` and the guide only through `guide`.
+
+- **Document files** are the allowed files matching `document_globs`, read from `source/` through the same reader as the system pass (section 17.3): an allowed path, inside `source/`, a plain file within `extract.max_file_bytes`. Their words are collected into a set once per report, and each name is looked up in it; no regular expression is ever built from a name a repository controls.
+- **Commits** are read with one `git log` call (`--no-merges`, at most `commit_window`, fields separated by NUL, which no message can hold) and scanned with one gitleaks run, withholding flagged messages as `commits_between` does.
+- **When:** the page computes the report the first time it is shown after the guide or the facts move on, and keeps it in memory, keyed by the latest snapshot, the guide's head and the date (the only input that changes on its own is an ADR's age).
+
+### 18.3 The trend
+Migration `0006_metric_values.sql` adds `metric_values(snapshot, metric, numerator, denominator)`, with `(snapshot, metric)` as its key and `denominator` empty for a count. Keeping both numbers lets the page say "3 of 4" when counts are small. Each update, once its snapshot is recorded and its guide written (or declined, or skipped with `--facts-only`), computes the report and writes one row per metric. An update that fails writes no rows; a failure computing or writing the rows is logged as a warning and never fails the update. The commit metric's trend is its value over the window at each update. History starts with the first update after this ships.
+
+### 18.4 Where it appears
+- **The Documentation page**, `/documentation`, listed in the sidebar under Decisions; the shortcut is **G** then **O**. A row of four tiles (documented share, commits that explain why, ADRs needing attention, mentioned in a document), each with "n of m", its change since the previous update, and a trend line over the last `metrics.trend_updates` updates: an inline SVG drawn on the server, with a text alternative. Below them, a section per metric with what it counts and what it doesn't, and its items: inferred blocks linking to their pages, documented blocks by source type and a table by page, commits without a why (short sha and subject), ADRs linking to their facts, unmentioned and unexplained facts linking to theirs. Long lists show their first `metrics.max_listed` items and the rest inside a `<details>` element. Documented is indigo and inferred amber, as everywhere.
+- **Before the first paid update** only the documented share is missing; its tile says there are no pages yet and links to **Update the guide**, which opens the estimate dialog as usual.
+- **The home card** "Documentation" shows the documented share with its change since the last update, and links to the page; it is shown once facts exist.
+- **Redrawn in Phase 18** as an overview beside folding sections, with a chart for every number (section 21).
+- **`codetrail metrics <target>`** prints each metric with "n of m" and its change since the last update. It reads the history but never writes it.
+
+### 18.5 Configuration
+Per target, since conventions differ between repositories:
+
+```toml
+[metrics]
+document_globs = ["README*", "*.md", "*.rst", "*.adoc", "*.txt", "docs/**"]   # gitignore syntax
+commit_why_pattern = '(?im)^[ \t]*(?:#+[ \t]*)?why\b'                              # a Python regular expression
+```
+
+Globally:
+
+```toml
+[metrics]
+commit_window = 200        # the latest non-merge commits the commit metric reads
+proposed_adr_days = 30     # a proposed ADR older than this needs attention
+trend_updates = 12         # updates the trend lines show
+max_listed = 50            # items a list shows before the rest fold away
+max_message_chars = 20000  # of a commit body, matched for a why
+```
+
+`commit_why_pattern` is compiled when the configuration is loaded; an invalid one is refused there, by name. It is matched against at most `max_message_chars` of each body, and the default uses spaces and tabs rather than `\s`, so a long run of blank lines in a hostile message can't make matching quadratic.
+
+### 18.6 Security
+Nothing new leaves the machine and nothing calls an assistant. The page is one `GET` route behind the session, and it changes nothing. Document files come from `source/` through the allowed-files reader, so excluded and secret files are never read; commit messages pass gitleaks before they are shown; rationale comes from pages that passed validation. Everything is rendered by autoescaping templates, and the trend line's SVG is built from numbers only. Names are matched by set lookup, so a hostile package or resource name can't make matching slow. Commit authors are never shown: the metrics are about the repository, not about people.
+
+### 18.7 Testing
+- **Unit:** citation classification (an ADR path that also matches the document globs is an ADR); malformed pages skipped; the three commit levels, merges left out, withheld messages left out of the share; ADR ages around the threshold, undated proposed ADRs, superseded ADRs cited by a block, a link or front matter; mention matching with scoped npm names, case, separators and names inside longer words (which don't count); facts in and out of scope; the report cache going stale on a new snapshot, guide commit or date; the configuration refusing an invalid pattern.
+- **Update:** a finished, declined or facts-only update writes one row per metric; a failed one writes none; a failure computing the metrics only warns.
+- **API:** `/documentation` needs the session; it renders before the first paid update; it never shows text from an excluded file or a withheld message; its security headers are unchanged; the home card appears with facts.
+- **Command:** `codetrail metrics` prints every metric and its change, and writes nothing.
+- **Browser:** the page passes the accessibility scan in both themes; **G O** opens it; the trend line has its text alternative.
+
+### 18.8 Delivery and later work
+Phase 13, in one feature branch, reviewed and finished into `develop`.
+
+Built since: **undocumented hot spots**, areas with the most change and the most inferred rationale, where an ADR or a README would help most, in Phase 15 (section 19.1).
+
+Planned, not built yet:
+- **Phase 16, the decision inventory** (numbered 14 until section 19 took 14 and 15). An opt-in paid pass in which the assistant lists the decisions it can see in the code (patterns, conventions, trade-offs, not only what facts capture) and looks for a documented "why" for each, quoted and verified like any documented block. The inventory is kept and only added to, like the outline, so two runs on one commit don't move the trend. Every run shows its estimate first. Its share would join the page as a fifth tile.
+- **Freshness and learning on the same page:** affected pages, sources changed, merges behind, pages learned and gone stale.
+- **Word documents:** `.docx` files are binary, so neither the metrics nor the assistant can read them; a reader for them needs a proposed ADR for its dependency.
+
+## 19. Repository statistics
+
+Approved by the founder in the design session of 10 October 2026. Section 18 measures how well a repository explains itself; this section says what the repository is: how old, how big, how fast it moves, when it released, what it depends on and where its change happens. It helps a reader get their bearings before reading the guide. Like section 18, everything here is free: no assistant is called, and only what Codetrail can already see is read (the mirror's history of the target's branch, its tags, the allowed files in `source/` and the fact store).
+
+The statistics are about the repository, not about people: no author, contributor count or number per person is read or shown, as in section 18.6.
+
+### 19.1 What is shown
+**History**, from the branch's whole history:
+- **Commits:** how many the branch holds, and how many of them are merges.
+- **First and latest commit,** by author date in UTC, and the repository's **age** from its first commit to today.
+- **Activity:** commits per month over the last `metrics.activity_months` months, drawn as bars, and commits per year over the whole history; the share of weeks between the first and the latest commit that have a commit (**active weeks**); the **longest gap** between two consecutive commits, with its dates; and the days since the latest commit. At most `metrics.history_limit` commits are read; a longer history says it shows the latest ones.
+- **Commit types:** of the commits the commit metric reads (section 18.1: the last `metrics.commit_window` non-merge commits, scanned, withheld messages left out), the subjects that match the target's `[metrics] commit_type_pattern` (by default a Conventional Commit: `type(scope)!: subject`), counted by type and by scope. They are shown when at least half of the subjects match; otherwise the page says the repository doesn't appear to use such subjects.
+
+**Releases**, from the target's tags that point into the branch's history (section 19.2):
+- How many there are, the latest with its date, the commits since it, and the median days between consecutive releases.
+- Each release, newest first: its name, its date (the tagger's date for an annotated tag, the commit's otherwise), its commit's short sha, and an annotated tag's message, folded away. A tag whose name or message gitleaks flags is shown with both withheld. The tagger is never read.
+
+**Code size**, from the allowed files in `source.json`, read through the allowed-files reader (section 17.3):
+- **Files and lines by language.** A file's language comes from its name or suffix in the `metrics.languages` map. Files matching the target's `document_globs` are **documents** whatever their suffix; files in no language are **other**. Lines are the newline bytes, plus one for a last line without one. A file with a NUL byte is **binary**, and a file over `extract.max_file_bytes` is **too large**: both are counted as files, without lines.
+- **Tests:** files with a language that match the target's `[metrics] test_globs`. The **test share** is their lines among all lines with a language.
+- **Largest files:** the first `metrics.largest_files` files with a language, by lines.
+
+**From the facts:**
+- **Facts by kind,** with each kind's change since the previous snapshot and its count over the last `metrics.trend_updates` snapshots, read from the validity ranges (ADR 0003).
+- **Dependencies that arrived and left:** package facts first seen after the first snapshot, with the date and commit of the snapshot that saw them, and package facts no longer current, with the snapshot that no longer saw them. The page says when Codetrail's history starts (the first snapshot's date); packages present then are listed as present from the start, not as arrivals.
+
+**Where change happens** (Phase 15), from the last `metrics.churn_window` non-merge commits:
+- **Hot spots:** the allowed files changed by the most commits, and the same counted by top-level folder and by guide area (a commit counts once for an area when it changes any file in the area's scope paths). Each area shows its documented and inferred rationale blocks beside its count, so the **undocumented hot spots** of section 18.8 stand out: much change, mostly inferred.
+- **Quiet code:** files with a language that no commit has changed in the last `metrics.quiet_days` days, counted and listed by folder.
+- **Commit size:** the median and the 90th percentile of the files each commit changes.
+
+Statistics are a fixed list in code, like the metrics.
+
+### 19.2 Tags in the mirror
+The mirror keeps the target's tags that point into the branch's history, and nothing else from outside the branch. Every refresh reconciles them in `refresh_mirror`, in this order:
+1. The branch is fetched as before, with `--no-tags`; a first clone keeps `--no-tags` too.
+2. `git ls-remote --tags` over `file://` lists the target's tags; as for the branch, only `upload-pack` reads the target.
+3. Every mirror tag the target no longer has, or that now points at a different object, is deleted from the mirror, in one `git update-ref -z --stdin` with each tag's old value. Only refs under `refs/tags/` are touched.
+4. The branch is fetched again without `--no-tags`: it is up to date, so git's tag auto-follow brings only the tags that point at objects the mirror holds. It brings no commit from another branch. Checked on 10 October 2026: a tag on another branch isn't fetched, auto-follow never moves or removes a tag (hence step 3), and a `fetch.pruneTags` setting has no effect on a fetch from a URL.
+
+git's messages from steps 3 and 4 name tags, which no scan has passed yet, so their errors are replaced by fixed messages that name none; a failure still fails the refresh.
+
+Tags are read only by `repo`, with one `git for-each-ref --merged <head>`: fields separated by NUL, only tags that peel to a commit, an annotated tag's subject and body but never its tagger. Names and messages are scanned with gitleaks in one run, as commit messages are. Nothing else in Codetrail reads a tag; extractors, the guide and the history keep reading the branch.
+
+### 19.3 How it is computed
+New files in the `metrics` module: `activity.py` (history, commit types), `releases.py`, `size.py`, `inventory.py` (facts) and, in Phase 15, `churn.py`; `repository.py` builds a `RepositoryReport` from them, as `report.py` builds a `MetricsReport`. They read the target only through `repo` (new: the commit dates and counts, the tags, and in Phase 15 the files each commit changed) and the guide only through `guide`.
+- **History** is read with `git rev-list --count` (all commits, then merges) and one `git log` of at most `history_limit` commits printing only each commit's author timestamp: no message, name or email. When the history is longer, the first commit's date comes from the root commits, so the age stays right.
+- **Commit types** reuse `latest_commits` (section 18.2), so the messages are scanned before they're matched; a subject is matched up to `metrics.max_message_chars`.
+- **Code size** reads each allowed file once; languages are looked up in a dictionary, never by a pattern.
+- **Where change happens** reads the latest `churn_window` commits' file names with one `git log` printing a mark and names only, and quiet code with one tree diff between the last commit before `quiet_days` ago and the head, however many commits came since.
+- **Facts** come from one query over the validity ranges for the counts per snapshot and kind, and one for the packages' first and last snapshots.
+- **When:** the page computes the report the first time it is shown after the facts or the guide move on, and keeps it in memory keyed like the documentation report (section 18.2).
+
+### 19.4 The trend
+The update records four more values in `metric_values` (section 18.3), in the same row set as the documentation metrics: `commits` (a count), `code_lines` (a count, lines with a language), `source_files` (a count, allowed files) and `test_share` (test lines of lines with a language). Each report's values are computed on their own, so one failing still writes the other's; the failure is logged as a warning and never fails the update. Fact counts need no rows: their history is in the validity ranges.
+
+### 19.5 Where it appears
+- **The Repository page,** `/repository`, listed in the sidebar under Documentation; the shortcut is **G** then **T**. A row of five tiles: **Age** (the first commit's date), **Commits** (with its change since the last update), **Releases** (the latest and its date), **Code** (lines, with its change and trend line) and **Tests** (the test share, with its change and trend line). Below them, sections for the timeline (with the monthly bars as an inline SVG drawn on the server from numbers, and the same numbers as a table for screen readers), commit types, releases, code size, facts and, in Phase 15, where change happens. Lists show their first `metrics.max_listed` items and fold the rest away, as in section 18.4.
+- **The home card** "Repository" says when the repository started (the earliest root commit's date, one cheap git call), its commits and its lines of code (the values the last update recorded), and links to the page; it is shown once facts exist. It never builds the report, which reads every file.
+- **`codetrail stats <target>`** prints the same summary: first and latest commit, age, commits, releases, lines by language, the test share and facts by kind. It reads the history but never writes it.
+
+### 19.6 Configuration
+Per target:
+
+```toml
+[metrics]
+test_globs = ["test/**", "tests/**", "**/test_*.py", "**/*_test.*", "**/*.test.*", "**/*.spec.*", "**/__tests__/**", "**/Tests/**"]   # gitignore syntax
+commit_type_pattern = '^(?P<type>[A-Za-z]+)(?:\((?P<scope>[^()\r\n]*)\))?!?:[ \t]'                                                       # a Python regular expression
+```
+
+`commit_type_pattern` is compiled when the configuration is loaded, and refused unless it compiles and has a `type` group; a `scope` group is optional.
+
+Globally:
+
+```toml
+[metrics]
+activity_months = 24        # months the activity bars show
+history_limit = 1000000     # commits whose dates are read
+largest_files = 10          # files the Repository page lists by size
+churn_window = 500          # Phase 15: the latest non-merge commits the hot spots read
+quiet_days = 365            # Phase 15: code unchanged this long is quiet
+
+[metrics.languages]         # a file name or suffix, lower-cased, and its language; replaces the default map
+".py" = "Python"
+".ts" = "TypeScript"
+"dockerfile" = "Dockerfile"
+# … the default map covers the common languages
+```
+
+### 19.7 Security
+- **Tags come in only from the branch.** The reconcile reads the target with `upload-pack` only and writes only the mirror's own `refs/tags/`. Auto-follow fetches tag objects for objects the mirror already has; it brings no other branch's commits. Tags that don't peel to a commit, such as a tag on a blob of an excluded file, are never read.
+- **Tag text passes gitleaks** before it is shown, and a flagged tag's name and message are withheld. The tagger is never read.
+- **Files come from `source/` through the allowed-files reader,** so excluded and secret files are never read; Phase 15 counts only paths in the current allowed files, so excluded paths never appear.
+- **The history read prints no text,** only timestamps and parent ids; commit subjects reach the commit types only after gitleaks.
+- **Nothing a repository controls becomes a pattern:** languages are a dictionary lookup, and the patterns come from the reader's own configuration and are matched against capped text.
+- The page is one `GET` route behind the session and changes nothing; everything is autoescaped, and the bars and trend lines are SVG built from numbers.
+
+### 19.8 Testing
+- **Unit:** activity from fixed dates (months with no commit, the longest gap, active weeks, the history limit); commit types above and below the half threshold, scopes, withheld subjects; release order, median days, commits since the latest; language by name and suffix, documents winning over languages, binary and too-large files, tests and the test share; facts by kind per snapshot, arrivals after the first snapshot only, removals; the configuration refusing a pattern without a `type` group.
+- **Integration, with real git repositories:** tags are fetched for the branch only; a tag on another branch never arrives, with its commit; a deleted tag leaves the mirror and a moved tag follows; a tag on a blob is never read; a flagged tag is withheld; the target's checkout is unchanged, as in section 3.2's test.
+- **Update:** a finished, declined or facts-only update writes the new values beside the documentation metrics; a failure in either report still writes the other's.
+- **API:** `/repository` needs the session; it renders before the first paid update and before any tag; it never shows an excluded path, a withheld tag or an author; its security headers are unchanged; the home card appears with facts.
+- **Command:** `codetrail stats` prints the summary and writes nothing.
+- **Browser:** the page passes the accessibility scan in both themes; **G T** opens it; the bars and trend lines have their text alternatives.
+
+### 19.9 Delivery
+- **Phase 14:** tags in the mirror, history, releases, code size and facts, the Repository page, the home card and `codetrail stats`, in one feature branch.
+- **Phase 15:** where change happens, in its own feature branch.
+
+The decision inventory planned in section 18.8 becomes Phase 16.
+
+## 20. The Repository page's charts
+
+Approved by the founder on 10 October 2026, from the design made in Claude Design ([the canvas](https://claude.ai/artifact/RTb1VGd8Gd3o9jw4uW1ZS8): the page in light, in dark and at phone width). Section 19 measures the repository; this section draws it. The page keeps every number and list of section 19.5 and shows them as charts a reader can explore, at no cost, in Codetrail's own visual system (section 16.2).
+
+### 20.1 What the page shows
+- **A range picker** above everything: All time, 2 years, 1 year, 90 days. It drives the timeline.
+- **Headline tiles:** age, commits, releases, code and tests, each with a small trend: commits per month over the last year, and the recorded values of code lines and the test share over the last updates (section 19.4).
+- **The timeline,** one horizontal time axis with lanes:
+  - **Commits** as bars, per day when the window spans up to 120 days, per week up to 400 days and per month beyond, so a young repository's history isn't one bar. Hovering or focusing a bar shows its period and count; buttons pan the window earlier and later. Release names show where there is room for them; every release keeps its name on hover and for assistive technology.
+  - **Releases,** a diamond per release; choosing one shows its name, date, notes (section 19.2), the commits since the release before it and the days between them.
+  - **Dependencies** that arrived (+) and left (−), on a band shaded from the first snapshot, labelled "Watched by Codetrail since …": before it there is no history to show (section 19.1).
+  - **The whole history** as a strip of small bars, with the shown window outlined.
+  - **The numbers as a table,** folded away.
+- **Activity, day by day:** a calendar of the last 53 weeks, a square per day shaded by its commits, with active weeks, the longest quiet stretch, the busiest weekday and the latest commit beside it.
+- **Where change happens,** as a heat map:
+  - A treemap at one of three levels, **areas, folders or files**: a tile's size is its lines of code, its shade the commits that changed it among the latest `metrics.churn_window`. Folders are taken `metrics.folder_depth` levels deep (2 by default, so `services/api` and `apps/web` stand apart). Each level draws at most `metrics.heatmap_tiles` tiles, the largest by lines, and says how many it left out.
+  - An amber corner marks an area whose rationale is mostly inferred (more than twice as many inferred blocks as documented ones): where an ADR or a README would help most. Amber is never a chart color otherwise, so it keeps its meaning.
+  - Choosing a tile shows its counts beside the map: commits, lines, an area's documented and inferred blocks as a bar, and the files that changed most in it.
+  - **Change over time, by area:** a grid of the guide's areas against the last 12 months, each cell shaded by the commits that changed the area that month. Months older than the oldest commit read are marked as not read.
+  - **Commit size** as a histogram of the files each commit changes (1, 2, 3, 4–5, 6–10, 11–20, 21 or more), with the median and the 90th percentile; and **quiet code** by folder (section 19.1).
+- **What it is made of:** one bar of lines by language (the four largest languages, then Other), the test share as a bar, and the largest files.
+- **Commit types** as horizontal bars, with the busiest scopes.
+- **Facts by kind,** each with its change and its count over the last updates.
+
+### 20.2 New data
+- **Commits per day.** The history read (section 19.3) already returns each commit's author time; the activity keeps the count per UTC day from the first commit read to today, which the months, weeks, calendar and tiles are all drawn from.
+- **Each commit's time with its files.** `changed_files` returns each latest commit's author time beside its paths, for the area-by-month grid.
+- **Lines per area, folder and file** come from the code size (section 19.1): a folder's or area's lines are its code files' lines.
+- **Configuration:** `metrics.folder_depth` (2) and `metrics.heatmap_tiles` (60), globally.
+
+### 20.3 How it is drawn
+- The server renders the page as before, with every chart's numbers as a table, so it reads without the script and to a screen reader.
+- The charts are drawn by Codetrail's own script, `static/js/repository.js`, as SVG and HTML: no chart library. Its data is one JSON block in the page, `<script type="application/json">`, which the browser never runs, so the security policy (no inline script) is unchanged. The JSON is escaped for HTML (`<`, `>`, `&` and the line separators as `\u` escapes).
+- Text from the repository (paths, tag names and notes, package names) reaches the page only through `textContent` and attribute values, never `innerHTML`.
+- **Language:** the server puts every label the script needs into the JSON, translated: plain strings, the abbreviated month names from Babel, and each counted phrase once per plural category of the language (Babel's plural rule), which the script picks with `Intl.PluralRules`. Numbers are written with Western digits, as everywhere (section 7.2). The charts run left to right in every language, like the numbers and code they show.
+- **Color:** commits and every single-series chart in the accent; the heat map and the calendar in one indigo ramp of five steps, light to dark in the light theme and dark to light in the dark one; languages in four categorical colors checked for color-blind separation in both themes (light `#5b5bd6 #e87ba4 #2a78d6 #008300`, dark `#7c7cee #d55181 #3987e5 #2b8a2b`), then gray for Other. Every color is a token on `:root`, redefined for dark mode.
+- **Interaction:** the range picker, the pan buttons, the releases, the heat map's levels and tiles are buttons; bars, days and cells show their numbers on hover and on keyboard focus (arrow keys move along the timeline); reduced motion turns off transitions.
+
+### 20.4 Security
+Nothing new leaves the machine and nothing calls an assistant. The page stays one `GET` route behind the session. Every name in the JSON comes from the report, so excluded paths never appear (section 19.7), and the script never turns data into markup.
+
+### 20.5 Testing
+- **Unit:** commits per day around gaps and today; each commit's time with its files; lines per area and folder; folder depth; the tile cap and its note; the area-by-month grid with unread months; the size histogram's buckets; the plural templates for English and Arabic; the JSON escaping of `</script>` and `<!--`.
+- **API:** the page carries the JSON with the right numbers; a tag note holding `</script><script>` stays inert text; no excluded path or author appears; the tables read without the script.
+- **Browser:** the charts draw in both themes and in Arabic; switching the range redraws the bars; hovering or focusing a bar shows its count; choosing a release shows its notes; switching the heat map's level and choosing a tile updates the side panel; the page passes the accessibility scan in both themes; no console errors.
+
+### 20.6 Delivery
+Phase 17, in one feature branch.
+
+## 21. The Documentation page's charts
+
+Approved by the founder on 10 October 2026, from mockups reviewed in the design session. Section 18 measures how well a repository explains itself; the page that shows it (section 18.4) reads as walls of paragraphs, pills, tables and lists. This section redraws it as an overview beside folding sections, with a chart for every number, drawn as the Repository page draws its own (section 20), so the two pages work alike. The metrics, their history and their lists don't change.
+
+### 21.1 What the page shows
+- **The header:** the title and one sentence. Each metric's longer explanation moves into its section, behind **What this counts**.
+- **The overview,** a narrow column beside the sections that stays in view while the page scrolls, with a tile per metric: documented rationale, commits that explain why, ADRs needing attention, mentioned in a document. Each tile shows its value, its change since the previous update, a bar (documented rationale's splits documented and inferred) and its trend over the last `metrics.trend_updates` updates. At phone width the column becomes a row of tiles above the sections.
+- **A folding section per metric.** Its header names the metric and what is left to fix ("54 inferred, worth documenting", "3 need attention · 2 to check"), so the page can be read closed. Inside, a **What this counts** panel (folded) with the explanation section 18.4 shows today, a chart, then the items, the most useful first:
+  - **Documented rationale:** one bar of the blocks by source, the four documented sources (ADRs, documents, code comments, commits) in shades of indigo and inferred in amber, with a legend that gives each count; a bar per page, documented against inferred, the most inferred first; then the inferred blocks, linking to their pages.
+  - **Commits that explain why:** one bar of the measured commits (explains why, body without a why, subject only), with the withheld messages counted beside it, since they are left out of the share; then the commits without a why, newest first, each with its short sha, subject and a tag for its kind, with **filter chips**: All, Body without a why, Subject only.
+  - **Architecture decisions:** a bar per status; **Needs attention**, the ADRs the tile counts (proposed too long, tagged with their days; superseded or deprecated and still cited); **Worth a look**, the proposed ADRs with no date and the accepted ones no page cites (once the guide has pages).
+  - **Mentioned and explained:** two bars, mentioned in a document ("64 of 81") and explained by a guide page; then, side by side, the facts no document mentions, with **filter chips** by kind (All, Packages, Projects, Resources), and the facts no page explains. "A mention isn't a reason" stays visible beside the bars, outside **What this counts**, so no reader misses it.
+- **Long lists** show their first `metrics.max_listed` items and fold the rest away, as now. A filter applies to both parts and updates the count of the folded rest.
+- **One section opens on load:** Architecture decisions when an ADR needs attention (they are few and the most urgent); otherwise the section whose tile's share is lowest (documented rationale, commits that explain why, or mentioned in a document), leaving out a share with nothing to measure; none when every share is complete or unmeasured. Comparing raw counts would always open the longest list.
+- **The empty states stay:** no facts yet, the metrics unavailable, no pages yet (the documented share's tile offers **Update the guide**, which opens the estimate dialog), and the history unreadable (the commits section says so and draws nothing).
+
+### 21.2 How it is drawn
+As Phase 17 built the Repository page (section 20.3): the charts a reader explores (its timeline, calendar and heat map) are drawn by a script from a JSON block, and the charts that only show numbers (its type bars, histogram, language bar, test share and fact sparklines) are drawn on the server. Every chart on this page only shows numbers, so the server draws them all, with the Repository page's classes and helpers, and the page needs no JSON block.
+- **Charts:** inline SVG built from numbers only, like section 18.4's trend lines: the stacked bar (`.stack-bar` with its `.stack-legend`), the share bar (`.share-bar`), horizontal bars (`.hbars`), the split bar for documented against inferred, and the trend line. Each chart's numbers are printed beside it, in its legend or at the end of its bar, and each bar of more than one part carries a text alternative, so the page reads without the script, to a screen reader and in print.
+- **The folding sections** are `<details>` elements inside each metric's `<section>`, which open with the keyboard and need no script. The server marks the one to open on load with `open`. **What this counts** is a `<details>` too.
+- **The item lists** are rendered by the server as now, each item carrying its kind as `data-kind` (`body-only`, `subject-only`, `package`, `project`, `resource`). The folded rest's summary is written once per kind, each hidden but the one for all, so a filter shows the right count, translated by the server.
+- **The filter chips** are buttons with `aria-pressed` and their count, rendered `hidden` and shown by a small module, `static/js/documentation.js`. Choosing one shows the items of its kind, in the list and in its folded rest, shows that kind's summary, and copies the chip's words into a polite live region. The module reads nothing from the repository and writes no markup; without it every item shows.
+- **Color:** documented and inferred keep their meaning (indigo and amber). The four documented sources take the four darker steps of the heat ramp (`.heat-4` to `.heat-1`); body without a why takes the gray of Other (`--series-other`) and subject only `--line-strong`; ADR statuses take the accent, and the retired ones the gray. Amber stays inferred's alone, as section 20.3 keeps it. Every color is a token on `:root`, redefined for dark mode. Reduced motion turns off transitions.
+
+### 21.3 Data and language
+- **No new metric, stored value, route or setting.** Everything comes from the `MetricsReport` and the trend history (section 18). The view derives four things: a commit's kind (a body or not), an unmentioned fact's kind (its entity kind), an overdue ADR's age in days (its `Date:` and today), and the section to open (on a tie, the one higher on the page).
+- **Language:** every new label goes through the catalogs, and Arabic gets them all, with the server's plural forms; digits stay Western, and the charts run left to right, like the numbers they show.
+
+### 21.4 Security
+Nothing new leaves the machine and nothing calls an assistant; the page stays one `GET` route behind the session, and the security policy is unchanged (one more module of Codetrail's own script, no inline code). Everything from the repository and the guide is rendered by autoescaping templates; the charts' SVG is built from numbers only, and the script moves no text but the chips' own. Withheld messages and excluded files never appear, since the report already leaves them out, and authors are never shown.
+
+### 21.5 Testing
+- **Unit:** the section to open (an ADR needing attention wins, then the lowest share, a tie going to the one higher on the page, then none, leaving out what wasn't measured); a commit's kind; the unmentioned facts' counts by kind; an ADR's age; the rationale's segments by source.
+- **API:** the chosen section is `open` and no other; each chart prints its numbers; every item has its `data-kind`, and each kind's folded count is right; the chips are rendered hidden; the empty states; no excluded path, withheld message or author appears; the security headers are unchanged.
+- **Browser:** sections open and close by click and keyboard; a chip filters the list and its folded rest, and the summary and live region follow; the overview stays in view on a wide screen and becomes a row at phone width; the accessibility scan passes in both themes; the Arabic page shows its labels with Western digits and left-to-right charts; no console errors; **G O** opens the page.
+
+### 21.6 Delivery
+Phase 18, in one feature branch started from `develop` once Phase 17 was finished into it. It reuses the Repository page's chart classes and helpers; nothing moves.
+
+## 22. The sidebar
+
+Approved by the founder on 11 October 2026, from mockups reviewed in the design session. The sidebar of section 16.1 becomes a sidebar in the manner of Arc's: it can be hidden so the page takes the whole width, it slides out over the page when the pointer rests on the window's edge, its sections fold, and pages can be pinned to the top as tiles. The header and the sidebar become one tinted frame around a page drawn as a card. What the sidebar lists, and in which order, is unchanged.
+
+### 22.1 Behaviour
+- **Docked or hidden.** Docked is the default. The choice is remembered per browser in `localStorage` (`codetrail.sidebar`) and applied before the page is drawn, by `theme-init.js` setting `data-sidebar="hidden"` on `<html>`, so nothing flashes.
+- **Switching:** a button at the start of the header ("Hide the sidebar" or "Show the sidebar", with `aria-expanded` and `aria-controls`), or the **\\** key, listed among the shortcuts and ignored while typing like every single-key shortcut.
+- **Peek.** While hidden, resting the pointer on the window's start edge for 150 ms slides the sidebar out over the page as a floating card; it slides away 300 ms after the pointer leaves it, on **Esc**, or when a link in it is followed. Peeking doesn't change the remembered state; the button or **\\** while peeking docks it.
+- **From the keyboard:** the edge is a focusable button, "Show the sidebar for a moment". **Enter** or **Space** opens the peek and moves the focus to the sidebar's first link; **Esc** closes it and returns the focus to the edge button when the focus was in the sidebar (elsewhere the focus stays where it is), and the focus moving on out of the sidebar or the edge button closes it without moving the focus. Clicking the edge of an open peek moves into it. A pointer resting on the edge keeps the peek open while the card slides in under it, and only a pointer arriving from the page opens it again after it closes.
+- **Resizing** (section 16.1) works only while docked; the peek card takes the remembered width.
+- **Below 900 px** the sidebar stays a drawer behind the menu button, as now, with the new look; the hidden state and the peek don't apply.
+- **Reduced motion** makes the slide an instant show and hide. The Ask and update panels at the inline end are unchanged.
+
+### 22.2 The look
+- **A frame and a card.** The header and the sidebar share the sidebar's tint (`--sidebar`), with no line between them or under the header. The page sits in a card (`--page`, a 12 px radius and a faint shadow) inset 8 px from the sidebar and from the window's end. The window scrolls as before, so the outline, links to sections and scroll restoration are unchanged; the card is the page's backdrop.
+- **Rows** are about 26 px high with rounded corners; hovering shows a soft wash, and the current page is a white pill (`--raised`) with a faint shadow and accent text. Icons, the learned check, the "changed since" dot and counts keep their places.
+- **Section headings** are small, quiet capitals with a chevron that turns as the section folds, and the section's count at their end. A path keeps a thin progress bar under its name.
+- **Pinned tiles:** a grid three across above Home. A tile shows up to two initials of its page's title ("PR" for Payment retries; a one-word title gives its first two letters); the full title is its tooltip and its accessible name. The current page's tile is a white pill. Hovering or focusing a tile shows a small ✕ that unpins it.
+- **The peek card** is the same sidebar, floating 8 px from the window's edges, rounded, with the floating shadow (`--shadow-float`).
+- Every color is a token, redefined for dark mode. In a right-to-left language everything mirrors: the sidebar sits on the right and peeks from the right edge.
+
+### 22.3 Structure
+- **Folding sections.** Paths, Areas, Concepts, Saved answers and More each have a heading button with `aria-expanded` and `aria-controls`; Home, Progress and System stay above them. The folded sections are remembered per browser (`codetrail.sidebar-folded`, a list of section names) and applied before the page is drawn as `data-folded` on `<html>`, which the styles read. A folded section still shows the current page's row. Without the script every section is open.
+- **Pinning.** A guide page listed in the sidebar (a path, an area, a concept or a saved answer) can be pinned with the small pin button its row shows on hover or focus ("Pin Payment retries"), and unpinned with its tile's ✕. Pins keep the order they were added in. At most `ui.max_pins` (9) are kept; at the limit the pin buttons say "Unpin a page first". Without the script the tiles still show and link; only pinning and unpinning need it.
+- **Storage.** The pinned page ids are kept in the target's `settings` table under `pinned_pages`, as a JSON list, beside the interface language. The sidebar reads them when it is drawn and leaves out any page that no longer exists, so the tiles are drawn with the page and follow the reader to any browser.
+- **`POST /settings/pins`** takes `{"pages": [...]}` and replaces the whole list, so repeating a request is harmless. It sits behind the session and the same origin and token checks as `/settings/language`; a body with another field or an id over 200 characters is refused with 422, as every endpoint refuses a malformed body; duplicates are dropped, and more than `ui.max_pins` ids, or an id that isn't a pinnable page of the guide, is refused with 400. It writes only that setting.
+- **`static/js/sidebar.js`** runs the button, the key, the peek, the folding and the pins. A new tile is built from its row's title with `textContent` only; the list is sent, and a failed request leaves the sidebar as it was.
+
+### 22.4 Configuration
+`ui.max_pins = 9` (1 to 50), globally.
+
+### 22.5 Security
+One new endpoint, `POST /settings/pins`, reachable only from the page: behind the session, with the origin and token checks every state-changing request has (section 7.4). It accepts only ids of pages the guide holds, writes one row of the target's own database, and returns no content. Titles reach the page through autoescaping templates, and the script moves them only with `textContent`. Nothing is sent anywhere else, and nothing calls an assistant.
+
+### 22.6 Testing
+- **Unit:** the pins as read back (stored order, missing pages left out, a malformed value read as none); the initials ("Payment retries" gives "PR", one word gives its first two letters, other scripts work); the configuration refusing `ui.max_pins` outside 1 to 50.
+- **API:** `POST /settings/pins` needs the session and the token and refuses another origin; a good list is stored and the next page draws its tiles in order; an unknown id, an id that isn't a pinnable page (a fact id) and too many ids are refused with 400, an extra field and a 201-character id with 422; a title holding markup stays text in its tile; the sidebar carries its heading buttons and the pin buttons rendered hidden.
+- **Browser:** **\\** and the button hide the sidebar, and a reload keeps it hidden with `data-sidebar` set before the page is drawn; resting on the edge peeks, and leaving, **Esc** or following a link closes the peek; the edge button peeks from the keyboard and returns the focus; a section folds and stays folded after a reload, still showing the current page; pinning adds a tile that survives a reload, unpinning removes it, and at the limit the pin buttons say so; below 900 px the drawer works; in Arabic the sidebar sits on the right; the accessibility scan passes in both themes, docked, hidden and peeking; no console errors.
+
+### 22.7 Delivery
+Phase 19, in one feature branch.

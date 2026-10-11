@@ -1,5 +1,10 @@
-/* The shell (design section 16.1): a header, then the sidebar, the reading column and the outline.
-   Below 1200px the outline goes; below 900px the sidebar moves behind the menu button. */
+/* The shell (design sections 16.1 and 22): a header, then the sidebar, the reading column and the outline. The header
+   and the sidebar are one tinted frame; the page is a card inside it. Below 1200px the outline goes; below 900px the
+   sidebar moves behind the menu button. */
+
+body {
+  background: var(--sidebar);
+}
 
 .topbar {
   position: sticky;
@@ -10,9 +15,7 @@
   gap: var(--space-4);
   block-size: var(--header-height);
   padding-inline: var(--space-5);
-  border-block-end: 1px solid var(--line);
-  background: color-mix(in srgb, var(--page) 88%, transparent);
-  backdrop-filter: saturate(1.4) blur(10px);
+  background: var(--sidebar);
 }
 
 .brand {
@@ -86,7 +89,12 @@
   grid-template-columns: minmax(0, var(--article-width)) var(--outline-width);
   justify-content: center;
   column-gap: var(--space-12);
+  margin-inline-end: var(--space-2);
+  margin-block-end: var(--space-2);
   padding-inline: var(--space-12);
+  border-radius: var(--radius-card);
+  background: var(--page);
+  box-shadow: var(--shadow-card);
 }
 
 .page-area:not(:has(> .outline:not([hidden]))) {
@@ -98,10 +106,82 @@
   inset-block-start: var(--header-height);
   block-size: calc(100vh - var(--header-height));
   overflow-y: auto;
-  padding: var(--space-5) var(--space-3) var(--space-10);
-  border-inline-end: 1px solid var(--line);
-  background: var(--sidebar);
+  padding: var(--space-2) var(--space-2) var(--space-10);
   overscroll-behavior: contain;
+}
+
+/* Hidden (design section 22.1): the page takes the whole width, and the sidebar waits off screen as a floating card
+   that peeks in from the window's start edge. Only above 900px: below, it's the drawer. */
+.sidebar-edge {
+  display: none;
+  position: fixed;
+  z-index: 27;
+  inset-block: var(--header-height) 0;
+  inset-inline-start: 0;
+  inline-size: 10px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.sidebar-edge::after {
+  content: "";
+  position: absolute;
+  inset-block-start: 45%;
+  inset-inline-start: 3px;
+  inline-size: 3px;
+  block-size: 44px;
+  border-radius: 2px;
+  background: var(--line-strong);
+}
+
+.sidebar-edge:focus-visible {
+  box-shadow: var(--focus);
+  outline: none;
+}
+
+@media (min-width: 901px) {
+  :root[data-sidebar="hidden"] .shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  :root[data-sidebar="hidden"] .page-area {
+    margin-inline-start: var(--space-2);
+  }
+
+  :root[data-sidebar="hidden"] .sidebar {
+    position: fixed;
+    z-index: 28;
+    inset-block: calc(var(--header-height) + var(--space-2)) var(--space-2);
+    inset-inline-start: var(--space-2);
+    inline-size: var(--sidebar-width);
+    block-size: auto;
+    border-radius: var(--radius-card);
+    background: var(--sidebar);
+    box-shadow: var(--shadow-float);
+    transform: translateX(calc(-100% - var(--space-4)));
+    visibility: hidden;
+    transition: transform var(--duration) var(--ease), visibility 0s linear var(--duration);
+  }
+
+  :root[dir="rtl"][data-sidebar="hidden"] .sidebar {
+    transform: translateX(calc(100% + var(--space-4)));
+  }
+
+  :root[data-sidebar="hidden"] body.sidebar-peek .sidebar {
+    transform: none;
+    visibility: visible;
+    transition: transform var(--duration) var(--ease), visibility 0s;
+  }
+
+  :root[data-sidebar="hidden"] .resize-sidebar {
+    display: none;
+  }
+
+  :root[data-sidebar="hidden"] .sidebar-edge {
+    display: block;
+  }
 }
 
 .content {
@@ -189,6 +269,10 @@
     grid-template-columns: var(--sidebar-width) minmax(0, 1fr) var(--panel-width);
   }
 
+  :root[data-sidebar="hidden"] body.ask-open .shell {
+    grid-template-columns: minmax(0, 1fr) var(--panel-width);
+  }
+
   body.ask-open .page-area {
     grid-template-columns: minmax(0, var(--article-width));
   }
@@ -216,7 +300,8 @@
 
   .target,
   .topbar-actions .language,
-  .search-hint {
+  .search-hint,
+  .topbar .sidebar-toggle {
     display: none;
   }
 
@@ -231,6 +316,7 @@
     z-index: 25;
     inline-size: min(var(--sidebar-width), 86vw);
     block-size: auto;
+    background: var(--sidebar);
     transform: translateX(-100%);
     transition: transform var(--duration) var(--ease);
     box-shadow: var(--shadow-float);
@@ -245,7 +331,10 @@
   }
 
   .page-area {
+    margin: 0;
     padding-inline: var(--space-4);
+    border-radius: 0;
+    box-shadow: none;
   }
 
   .content {

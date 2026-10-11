@@ -25,7 +25,7 @@ from codetrail.update import run_update
 from codetrail.web.app import create_app
 from codetrail.web.security import SessionState
 from tests.fixtures.catalogs import compiled_locales
-from tests.fixtures.repos import Commit, make_repository
+from tests.fixtures.repos import Commit, git, make_repository, write_commit
 
 PLAN = PlanDraft(
     [
@@ -90,16 +90,22 @@ def free_port() -> int:
 
 
 @pytest.fixture
-def site(tmp_path: Path) -> Iterator[Site]:
+def site(tmp_path: Path, request: pytest.FixtureRequest) -> Iterator[Site]:
     paths = Paths(config_dir=tmp_path / "config", data_dir=tmp_path / "data", state_dir=tmp_path / "state")
-    write_target(paths, "shop", make_repository(tmp_path / "target", [FILES]), "develop")
+    target = make_repository(tmp_path / "target", [FILES])
+    git(target, "tag", "-a", "v1.0", "-m", "First release\n\nCharges retry three times.", date=1)
+    # An older commit, so the history spans months and the timeline draws by month and by week.
+    write_commit(target, {"app/charges.py": "RETRIES = 4\n"}, "fix(app): retry once more", date=-60 * 24 * 420)
+    write_target(paths, "shop", target, "develop")
     # Playwright keeps an event loop running on this thread; the update runs its own, so it gets a thread.
     updating = threading.Thread(target=run_update, args=(paths, "shop"),
                                 kwargs={"claude": FakeAssistant(plans=[PLAN], page_writer=writer)})  # fmt: skip
     updating.start()
     updating.join()
     port = free_port()
-    settings = GlobalConfig.model_validate({"server": {"port": port, "update_cooldown_seconds": 0}})
+    marker = request.node.get_closest_marker("settings")  # a test's own settings, merged in
+    extra = marker.args[0] if marker else {}
+    settings = GlobalConfig.model_validate({"server": {"port": port, "update_cooldown_seconds": 0}, **extra})
     answers = [
         [AnswerChunk(f"Charges retry **three** times ({number})."), AnswerChunk(done=True)] for number in range(5)
     ]

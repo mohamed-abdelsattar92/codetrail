@@ -3,11 +3,14 @@
 import { post } from "./api.js";
 import { setUpAsk } from "./ask.js";
 import { setUpDiagrams } from "./diagram.js";
+import { setUpDocumentation } from "./documentation.js";
 import { setUpLearning } from "./learning.js";
 import { setUpOutline } from "./outline.js";
 import { setUpPalette } from "./palette.js";
+import { setUpRepository } from "./repository.js";
 import { setUpResize } from "./resize.js";
 import { setUpShortcuts } from "./shortcuts.js";
+import { setUpSidebar } from "./sidebar.js";
 import { setUpTheme } from "./theme.js";
 import { setUpUpdate } from "./update.js";
 
@@ -29,4 +32,7 @@ setUpShortcuts();
 setUpOutline();
 setUpResize();
 setUpDiagrams();
+setUpRepository();
+setUpDocumentation();
+setUpSidebar();
 document.documentElement.dataset.ready = "true"; // every handler is in place

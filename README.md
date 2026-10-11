@@ -13,7 +13,7 @@ It works with the assistant you already pay for: **Claude Code** on a Claude sub
 
 **[Get started in ten minutes →](docs/getting-started.md)**
 
-![Codetrail's home page for its own repository: where to continue, how far behind the guide is, what you've learned and what changed](docs/images/home.png)
+![Codetrail's home page for its own repository: pinned pages and folding sections in the sidebar, where to continue, how far behind the guide is, what you've learned and what changed](docs/images/home.png)
 
 ## Contents
 - [Why Codetrail](#why-codetrail)
@@ -58,10 +58,13 @@ Codetrail uses the assistant for meaning and code for structure: deterministic e
 | 💬 | **Ask from any page** | Questions go to your assistant with read-only tools; answers come into the page in your language. |
 | 📌 | **Save to guide** | Answers worth keeping become part of the guide instead of disappearing like chat history: they're in the sidebar, on the Saved answers page, and in search. |
 | 🔎 | **Search** | Press ⌘K or / on any page to search the guide's pages, saved answers, decisions and facts. It runs on your machine and costs nothing. |
-| ⌨️ | **Shortcuts** | Ask (A), go places (G then H, P, Y, S, D or R), step through a path ([ and ]), mark read (M), update (U). None of them spends anything. |
+| ⌨️ | **Shortcuts** | Ask (A), go places (G then H, P, Y, S, D, R, O or T), step through a path ([ and ]), mark read (M), update (U), hide or show the sidebar (\\). None of them spends anything. |
+| 📌 | **A sidebar that gets out of the way** | Pin the pages you use most as tiles at the top, fold the sections you don't need, or hide the sidebar so the page takes the whole width and peek at it from the window's edge. Pins are kept by Codetrail, so they follow you to any browser. |
 | 🧭 | **Guided paths** | Ordered routes through the pages toward a goal, such as "how a request travels through the API". The home page picks up where you left off. |
 | ✅ | **Checks** | Open questions on each page, graded against a rubric grounded in the code. |
 | ♻️ | **Staleness** | When the code behind a page you learned changes, the page says so and shows what changed. |
+| 📊 | **Documentation metrics** | How well the repository explains itself: how much of the guide's rationale is documented (and from where: ADRs, documents, code comments, commits), commits that explain why, ADRs to revisit, and dependencies no document mentions. An overview shows each number with its bar and trend across updates; each section opens to a chart and the items behind it, the one most in need first. Free: no assistant call. |
+| 📈 | **Repository statistics** | What the repository is, in charts you can explore: an interactive timeline of commits with its releases and dependency changes, a day-by-day activity calendar, a heat map of where change happens (by guide area, folder or file) with each area's commits month by month, and its age, commits and activity month by month, its releases from tags, lines of code by language with the share in tests, its facts by kind with the dependencies that arrived and left, and where change happens: the most changed files, folders and guide areas beside how much of each area's rationale is documented, quiet code and commit size. `codetrail stats <target>` prints the summary. Free: no assistant call. |
 | 💲 | **Estimates first** | Every paid action shows what it will use before it runs: tokens, dollars at API prices, and your plan's usage. |
 
 ## A tour
@@ -71,6 +74,10 @@ These screenshots are Codetrail's guide to its own repository, written by Claude
 **A concept page** explains one part of the code, with quotes checked against their source lines, links to every fact and file, and an outline that follows you down the page. **Previous** and **Next** follow the path you came from.
 
 ![A concept page in a guided path, with its outline and its documented and inferred blocks](docs/images/area.png)
+
+**Hide the sidebar** with the button at the start of the header, or **\\**, and the page takes the whole width. Rest the pointer on the window's edge and it slides out over the page, with your pinned pages on top.
+
+![The sidebar hidden, peeking out over a page from the window's edge, with pinned pages as tiles at its top](docs/images/sidebar.png)
 
 **Search** the whole guide from the keyboard: press ⌘K or /, type, and press Enter.
 
@@ -87,6 +94,14 @@ These screenshots are Codetrail's guide to its own repository, written by Claude
 **Your system** shows how the repository's parts fit together, drawn from facts: services and apps, the contracts between them, libraries, infrastructure and where each part runs. Under the diagram, every arrow says why it's there: the file and line that shows it, or, for a dashed arrow, the two names that matched. (This one is a small example repository.)
 
 ![The system page: parts, contracts and platforms with solid and dashed arrows, and a legend](docs/images/system.png)
+
+**The repository** at a glance (G then T): a timeline of commits you can range over and pan, with its releases and the dependencies that came and went, a calendar of the last year, and a heat map of where change happens. All of it is read from the code and its history, for free.
+
+![The Repository page's timeline: commits per day, the releases on their own lane with the chosen one's notes, and the whole history below](docs/images/repository.png)
+
+**Documentation** (G then O) shows how well the repository explains itself: an overview of each number with its trend, and a section per metric that opens to a chart and the items behind it, starting with the one most in need.
+
+![The Documentation page: the overview of documented rationale, commits that explain why and ADRs needing attention, beside the open Architecture decisions section](docs/images/documentation.png)
 
 **Update the guide** refreshes the facts for free, then shows the estimate. Nothing is spent until you choose **Go ahead**.
 
@@ -241,7 +256,7 @@ The interface is English first and switches language from the page; it ships in 
 
 ## Status
 
-The latest release is Codetrail 1.1.1 ([release notes](docs/releases/v1.1.1.md), [changelog](CHANGELOG.md)); 1.0.0 was the first public release. Every phase in the [design](docs/design/2026-10-05-codetrail-design.md) is built and tested.
+The latest release is Codetrail 1.2.0 ([release notes](docs/releases/v1.2.0.md), [changelog](CHANGELOG.md)); 1.0.0 was the first public release. Phases 0 to 15 and 17 to 19 of the [design](docs/design/2026-10-05-codetrail-design.md) are built, tested and released; Phase 16 is planned.
 
 ```mermaid
 flowchart LR
@@ -257,6 +272,13 @@ flowchart LR
     P9 --> P10["10 · Getting started ✓"]
     P10 --> P11["11 · The page's design ✓"]
     P11 --> P12["12 · The whole system ✓"]
+    P12 --> P13["13 · Documentation metrics ✓"]
+    P13 --> P14["14 · Repository statistics ✓"]
+    P14 --> P15["15 · Where change happens ✓"]
+    P15 --> P17["17 · The Repository page's charts ✓"]
+    P17 --> P18["18 · The Documentation page's charts ✓"]
+    P18 --> P19["19 · The sidebar ✓"]
+    P15 -.-> P16["16 · Decision inventory (planned)"]
 ```
 
 | Phase | What you can do | Status |
@@ -274,6 +296,13 @@ flowchart LR
 | 10. Getting started | This README, and the [getting-started guide](docs/getting-started.md) | Done |
 | 11. The page's design | A new look with progress first, search, a command palette, shortcuts, an Ask panel, an update panel that shows each step of an update, and pages for progress, saved answers and digests; tested in a real browser | Done |
 | 12. The whole system | Facts for TypeScript, JavaScript and Astro code, deploy evidence from GitHub Actions, and the system pass: a repository's services, apps, libraries, contracts and infrastructure, and how they connect (`codetrail update` prints the count per rule); the system diagram on its own page, on the home page and on area pages, which pages and answers can also place | Done |
+| 13. Documentation metrics | The Documentation page, its home card and `codetrail metrics`: documented rationale by source, commits that explain why, ADR health, and facts a document mentions or the guide explains, with a trend per update | Done |
+| 14. Repository statistics | The Repository page, its home card and `codetrail stats`: the branch's history and activity, releases from its tags, code size by language with the test share, and facts by kind with the dependencies that arrived and left, with a trend per update | Done |
+| 15. Where change happens | On the Repository page: the most changed files, folders and guide areas beside each area's documented and inferred rationale, quiet code and commit size | Done |
+| 17. The Repository page's charts | An interactive timeline with releases and dependency changes, a day-by-day activity calendar, a heat map of where change happens by area, folder or file, a grid of each area's commits by month, and charts for commit size, languages, commit types and facts | Done |
+| 18. The Documentation page's charts | The Documentation page as an overview beside folding sections: each metric's bar and trend, a chart in each section, the section most in need open first, and the long lists filtered by kind | Done |
+| 19. The sidebar | Hide the sidebar and peek at it from the window's edge, fold its sections, and pin pages as tiles at the top; the page sits in a card inside a tinted frame | Done |
+| 16. Decision inventory | An opt-in paid pass that lists the decisions in the code and looks for a documented "why" for each ([design section 18.8](docs/design/2026-10-05-codetrail-design.md#188-delivery-and-later-work)) | Planned |
 
 Codex and local models are tested against stand-ins and Codetrail's own tests; Claude Code is also tested live. Codex's provider decision is [ADR 0006](docs/adr/0006-assistant-providers-and-subscriptions.md).
 
@@ -296,14 +325,14 @@ just setup
 
 `mise install` puts gitleaks behind a mise shim pinned to this repository, so a Codetrail started from another folder finds no version there and says so: set one globally with `mise use -g gitleaks`, or set `[tools] gitleaks` in `~/.config/codetrail/config.toml` to the path `mise which gitleaks` prints.
 
-Then `just ci` runs every check CI runs; `just lint`, `just format`, `just typecheck`, `just test`, `just test-quick` (the unit, API and hook tests in parallel, run by the pre-push hook), `just test-browser` (the page in headless Chromium, which `just setup` installs) and `just test-live` (the real providers installed here, local only) run one kind each. The maintainer releases with `just release <version>` ([Releasing](CONTRIBUTING.md#releasing)). Each phase's implementation plan is in [docs/design/plans/](docs/design/plans/).
+Then `just ci` runs every check CI runs; `just lint`, `just format`, `just typecheck`, `just test` (every test but the live and browser ones, in parallel), `just test-quick` (the unit, API and hook tests in parallel, run by the pre-push hook), `just test-browser` (the page in headless Chromium, which `just setup` installs, in parallel) and `just test-live` (the real providers installed here, local only) run one kind each. The maintainer releases with `just release <version>` ([Releasing](CONTRIBUTING.md#releasing)). Each phase's implementation plan is in [docs/design/plans/](docs/design/plans/).
 
 ## Documentation
 
 | Document | What's in it |
 |---|---|
 | [Getting started](docs/getting-started.md) | Install, connect an assistant, add a repository, build and read the guide |
-| [Changelog](CHANGELOG.md) | What changed in each release; release notes for [1.1.1](docs/releases/v1.1.1.md), [1.1.0](docs/releases/v1.1.0.md), [1.0.1](docs/releases/v1.0.1.md) and [1.0.0](docs/releases/v1.0.0.md) |
+| [Changelog](CHANGELOG.md) | What changed in each release; release notes for [1.2.0](docs/releases/v1.2.0.md), [1.1.1](docs/releases/v1.1.1.md), [1.1.0](docs/releases/v1.1.0.md), [1.0.1](docs/releases/v1.0.1.md) and [1.0.0](docs/releases/v1.0.0.md) |
 | [Design](docs/design/2026-10-05-codetrail-design.md) | The whole system: architecture, exclusions, facts, generation, page and bridge, learning, providers and estimates, errors, testing, phases |
 | [Brainstorm decisions](docs/design/brainstorm-decisions.md) | The problem, every early decision and why |
 | [Architecture decision records](docs/adr/README.md) | Decisions that are hard to reverse |

@@ -36,7 +36,13 @@ def check_branch(repository: Path, branch: str) -> None:
 
 
 def refresh_mirror(mirror: Path, repository: Path, branch: str) -> str:
-    """Clones or fetches the branch into the mirror and returns its head commit."""
+    """Clones or fetches the branch into the mirror, with the tags that point into it, and returns its head commit.
+
+    The branch is fetched without tags; then the mirror's tags that the target no longer has, or that point elsewhere
+    now, are deleted, and a second fetch of the branch brings the rest by git's tag auto-follow, which takes only tags
+    on objects the mirror holds, so no other branch's commits come in (design section 19.2). Its errors are replaced,
+    since they name tags.
+    """
     check_branch(repository, branch)
     url = repository_url(repository)
     if not (mirror / "HEAD").exists():
@@ -56,12 +62,39 @@ def refresh_mirror(mirror: Path, repository: Path, branch: str) -> str:
                 str(mirror),
             ]
         )
-    else:
-        run_git(
-            ["fetch", "--quiet", "--no-tags", "--prune", "--", url, f"+refs/heads/{branch}:refs/heads/{branch}"],
-            git_dir=mirror,
-        )
+    refspec = f"+refs/heads/{branch}:refs/heads/{branch}"
+    run_git(["fetch", "--quiet", "--no-tags", "--prune", "--", url, refspec], git_dir=mirror)
+    _drop_stale_tags(mirror, url)
+    try:
+        # Fetching the branch again, now up to date, brings only the tags git's auto-follow takes.
+        run_git(["fetch", "--quiet", "--", url, refspec], git_dir=mirror)
+    except CodetrailError:
+        # git's message names the tag it couldn't write, which no scan has passed yet; the update's error shows it.
+        raise CodetrailError("git couldn't fetch the branch's tags into the mirror.") from None
     return head_commit(mirror, branch)
+
+
+def _drop_stale_tags(mirror: Path, url: str) -> None:
+    """Deletes the mirror's tags that the target no longer has or that point elsewhere now; touches only refs/tags/."""
+    listed = run_git(["ls-remote", "--tags", "--", url]).decode("utf-8", "surrogateescape")
+    remote = {}
+    for line in listed.splitlines():
+        sha, _, ref = line.partition("\t")
+        if ref.startswith("refs/tags/") and not ref.endswith("^{}"):
+            remote[ref] = sha
+    local = run_git(["for-each-ref", "--format=%(refname)%00%(objectname)", "refs/tags"], git_dir=mirror)
+    stale = []
+    for line in local.decode("utf-8", "surrogateescape").splitlines():
+        ref, _, sha = line.partition("\0")
+        if ref.startswith("refs/tags/") and remote.get(ref) != sha:
+            stale.append(f"delete {ref}\0{sha}\0")
+    if stale:
+        try:
+            run_git(["update-ref", "-z", "--stdin"], git_dir=mirror,
+                    input="".join(stale).encode("utf-8", "surrogateescape"))  # fmt: skip
+        except CodetrailError:
+            # git's message names the tag, which no scan has passed yet; the update's error would show it.
+            raise CodetrailError(f"git couldn't remove {len(stale)} stale tag(s) from the mirror.") from None
 
 
 def head_commit(mirror: Path, branch: str) -> str:
