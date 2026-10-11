@@ -88,7 +88,9 @@ def build_report(paths: Paths, name: str, settings: GlobalConfig, store: FactSto
     for path in files:
         if document_globs.match_file(path):
             content = read(path)
-            if content is not None:
+            # An image under docs/ matches the globs but isn't text: its bytes would cost time and fake mentions.
+            # A NUL byte marks it binary, as the code size counts it (metrics/size.py).
+            if content is not None and b"\0" not in content:
                 documents[path] = content.decode("utf-8", "replace")
     commits = None
     if manifest is not None:
