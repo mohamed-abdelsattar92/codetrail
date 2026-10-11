@@ -7,6 +7,9 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 ### Fixed
 - The Documentation page no longer takes a minute or more to open the first time after an update on a repository with images under `docs/`: images and other binary files that match the document globs are skipped instead of being read as text, which also stops their bytes from counting as a document mentioning a package.
 
+### Security
+- A repository whose `Package.swift` files list many targets and many dependencies or imports, or whose deeply nested Swift files hold many imports, can no longer stall an update: Swift targets are found by name and by folder in one lookup each, instead of a scan of every target, and each file's target is found once.
+
 ## [1.2.0] - 2026-10-11
 
 Release notes: [docs/releases/v1.2.0.md](docs/releases/v1.2.0.md).

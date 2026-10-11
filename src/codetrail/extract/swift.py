@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterator, Mapping, Sequence
+from functools import cache
 from pathlib import PurePosixPath
 
 import tree_sitter_swift
@@ -151,17 +152,32 @@ class SwiftExtractor:
             if "product" in reference.attributes
         }
 
-        def by_name(name: str, near: str) -> str | None:
-            matches = [target for target in targets if target.attributes.get("name") == name]
-            same = [target for target in matches if target.id.rsplit("/", 1)[0] == near.rsplit("/", 1)[0]]
-            chosen = same or matches
-            return chosen[0].id if chosen else None
+        # Indexed once, so each name is a lookup rather than a scan of every target; the first target wins.
+        first_named: dict[str, str] = {}
+        first_named_in_folder: dict[tuple[str, str], str] = {}
+        for swift_target in targets:
+            target_name = swift_target.attributes.get("name")
+            if not isinstance(target_name, str):
+                continue
+            first_named.setdefault(target_name, swift_target.id)
+            first_named_in_folder.setdefault((swift_target.id.rsplit("/", 1)[0], target_name), swift_target.id)
 
+        def by_name(name: str, near: str) -> str | None:
+            """The target with that name, preferring one beside `near`."""
+            return first_named_in_folder.get((near.rsplit("/", 1)[0], name)) or first_named.get(name)
+
+        # Each target's folder; when two targets share one, the last wins.
+        folders = {str(target.attributes.get("path", "")): target.id for target in targets}
+
+        @cache  # once per file: a deep path's walk would otherwise be repeated for each of its imports
         def owner(path: str) -> str | None:
             """The target whose folder holds the file; the deepest one when folders nest."""
-            holders = [target for target in targets if path.startswith(str(target.attributes.get("path", "")) + "/")]
-            holders.sort(key=lambda target: len(str(target.attributes.get("path", ""))))
-            return holders[-1].id if holders else None
+            end = path.rfind("/")
+            while end != -1:  # each folder above the file, deepest first
+                if path[:end] in folders:
+                    return folders[path[:end]]
+                end = path.rfind("/", 0, end)
+            return None
 
         relations: dict[tuple[str, str, str], Relation] = {}
         unresolved_names: set[str] = set()
@@ -173,6 +189,8 @@ class SwiftExtractor:
                     if holder is None:
                         continue
                     source_id = holder
+                if source_id not in known:  # e.g. a target dropped for its overlong id: no relation can start there
+                    continue
                 target = reference.target
                 if target.startswith("target-name:") or reference.kind is RelationKind.IMPORTS:
                     name = target.removeprefix("target-name:")
@@ -180,7 +198,7 @@ class SwiftExtractor:
                     if not target:
                         unresolved_names.add(name)
                         continue
-                if target in known and source_id in known and target != source_id:
+                if target in known and target != source_id:
                     relation = Relation(source_id, reference.kind, target, reference.attributes, reference.sources)
                     relations.setdefault(relation.key, relation)
         return Resolution(list(relations.values()), len(unresolved_names))
