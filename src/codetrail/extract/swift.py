@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Iterator, Mapping, Sequence
+from functools import cache
 from pathlib import PurePosixPath
 
 import tree_sitter_swift
@@ -168,6 +169,7 @@ class SwiftExtractor:
         # Each target's folder; when two targets share one, the last wins.
         folders = {str(target.attributes.get("path", "")): target.id for target in targets}
 
+        @cache  # once per file: a deep path's walk would otherwise be repeated for each of its imports
         def owner(path: str) -> str | None:
             """The target whose folder holds the file; the deepest one when folders nest."""
             end = path.rfind("/")
