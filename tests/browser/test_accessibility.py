@@ -64,3 +64,22 @@ def test_the_documentation_page_with_every_section_open(page: Page, site: Site, 
     )
     assert result == []
     assert errors == []
+
+
+@pytest.mark.parametrize("scheme", ["light", "dark"])
+@pytest.mark.parametrize("state", ["hidden", "peek"])
+def test_the_sidebar_hidden_or_peeking(page: Page, site: Site, errors: list[str], scheme: str, state: str) -> None:
+    page.emulate_media(color_scheme=scheme)  # type: ignore[arg-type]
+    page.set_viewport_size({"width": 1280, "height": 800})
+    site.sign_in(page, "/pages/areas/app")
+    page.keyboard.press("\\")
+    if state == "peek":
+        page.mouse.move(3, 400)
+        page.locator("#sidebar").wait_for(state="visible")
+    page.evaluate(AXE)
+    result = page.evaluate(
+        "async () => (await axe.run(document, {resultTypes: ['violations']})).violations"
+        ".filter(v => ['serious', 'critical'].includes(v.impact)).map(v => v.id)"
+    )
+    assert result == []
+    assert errors == []
