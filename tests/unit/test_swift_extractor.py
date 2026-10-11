@@ -97,19 +97,28 @@ def test_hostile_manifests_stay_linear(tmp_path: Path) -> None:
     """A committed Package.swift can't stall the update (Phase 7 review, finding 1)."""
     import time
 
+    products = '.target(name: "A", dependencies: [' + '.product(name: "P", package: "Q"' * 29_000 + "]" + ")" * 29_001
     hostile = {
         "a/Package.swift": ".target(" * 120_000,
         "b/Package.swift": '.package(url: "a"' * 55_000,
         "c/Package.swift": '.target(name: "A", ' * 50_000 + ")" * 50_000,
         "d/Package.swift": '.target(name: "A", dependencies: [.product(name: "P", package: "Q"' * 15_000,
+        # Every bracket closes, so the target's ~1 MB dependencies list is read, with no ")" in it for PRODUCT
+        # (e, f) or NAMED_TARGET (g) to stop at. Each stays under the extractor's 1,000,000-byte cap; PRODUCT's
+        # cost without its bound is quadratic in one list, so a second file is what lifts it well past 10 s.
+        "e/Package.swift": products,
+        "f/Package.swift": products,
+        "g/Package.swift": '.target(name: "A", dependencies: [' + '.byName(name: "A"' * 55_000 + "]" + ")" * 55_001,
     }
     started = time.process_time()
     extraction = run(tmp_path, hostile)
-    # About 0.7 s on a laptop and 2.2 s on CI's runner beside other workers. Measured on the laptop with each
-    # safeguard undone, the slowest input took 108 s without REMOTE_PACKAGE's bound and over 120 s without the
-    # nested-call skip or with per-call bracket matching, so 10 s catches each with room for a slow machine.
+    # Inputs a-d took about 0.7 s on a laptop and 2.2 s on CI's runner beside other workers; with e-g the whole
+    # test takes about 2 s on the laptop. Measured on the laptop with each safeguard undone, the slowest input
+    # took 108 s without REMOTE_PACKAGE's bound and over 120 s without the nested-call skip or with per-call
+    # bracket matching, and the whole test took 36-40 s without PRODUCT's bound (e and f) and 35-41 s without
+    # NAMED_TARGET's (g), so 10 s catches each with room for a slow machine.
     assert time.process_time() - started < 10
-    assert {"project:a", "project:b", "project:c", "project:d"} <= {entity.id for entity in extraction.entities}
+    assert {f"project:{folder}" for folder in "abcdefg"} <= {entity.id for entity in extraction.entities}
 
 
 def test_package_urls_lose_their_credentials(tmp_path: Path) -> None:
