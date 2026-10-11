@@ -143,6 +143,9 @@ function setUpPins() {
     link.title = title;
     link.setAttribute("aria-label", title);
     link.textContent = button.dataset.initials;
+    // The guide's pages are English; a saved answer is in whatever language it was asked in.
+    if (button.dataset.kind === "answer") link.dir = "auto";
+    else Object.assign(link, { lang: "en", dir: "ltr" });
     // Compared as written: the template's link has no base to resolve against until it joins the page.
     if (window.location.pathname === href) link.setAttribute("aria-current", "page");
     const remove = item.querySelector("button");

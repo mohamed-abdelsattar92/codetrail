@@ -127,7 +127,7 @@ def test_the_sidebar_carries_its_folds_pins_and_toggle(paths: Paths) -> None:
     sidebar = sidebar_of(page)
     for name in ("paths", "areas", "concepts", "answers", "more"):
         assert f'data-fold="{name}" aria-expanded="true" aria-controls="nav-{name}"' in sidebar
-    assert 'data-pin="areas/app" data-initials="TA" aria-pressed="false"' in sidebar
+    assert 'data-pin="areas/app" data-kind="area" data-initials="TA" aria-pressed="false"' in sidebar
     assert "data-pin-template" in sidebar and 'data-max-pins="9"' in sidebar
     assert "data-sidebar-toggle" in page and "data-sidebar-edge" in page
     assert 'href="/pages/areas/app" aria-current="page"' in sidebar
@@ -139,3 +139,19 @@ def test_a_lowered_limit_draws_only_that_many_pins(paths: Paths) -> None:
     lowered, _ = signed_in(paths, GlobalConfig.model_validate({"ui": {"max_pins": 1}}))
     tiles = tiles_of(lowered.get("/").text)
     assert tiles.count('class="pin"') == 1 and 'href="/pages/concepts/db"' in tiles  # unpinning it stays possible
+
+
+def test_an_answer_s_tile_keeps_the_reader_s_language(paths: Paths) -> None:
+    guide = GuideRepository(paths.target_data("t") / "guide")
+    meta = {"kind": "answer", "title": "لماذا تُعاد المحاولة؟", "asked_at": "2026-10-05T10:00:00+00:00"}
+    guide.write_page(Page("answers/2026-10-05-retry-111111", meta, "Because charges fail."))
+    guide.commit("An answer")
+    client, headers = signed_in(paths)
+    pages = ["answers/2026-10-05-retry-111111", "areas/app"]
+    assert client.post("/settings/pins", json={"pages": pages}, headers=headers).status_code == 204
+    sidebar = sidebar_of(client.get("/").text)
+    answer = sidebar.split('href="/pages/answers/2026-10-05-retry-111111"', 1)[1].split(">", 1)[0]
+    area = sidebar.split('<a class="pin" href="/pages/areas/app"', 1)[1].split(">", 1)[0]
+    assert 'dir="auto"' in answer and 'lang="en"' not in answer
+    assert 'lang="en" dir="ltr"' in area
+    assert 'data-pin="answers/2026-10-05-retry-111111" data-kind="answer"' in sidebar
