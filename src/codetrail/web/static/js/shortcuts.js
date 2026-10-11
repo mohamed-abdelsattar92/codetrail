@@ -3,7 +3,7 @@
 import { closeAsk, isAskOpen, openAsk } from "./ask.js";
 import { toggleRead } from "./learning.js";
 import { openPalette } from "./palette.js";
-import { closePeek, isPeeking, toggleSidebar } from "./sidebar.js";
+import { dismissPeek, isPeeking, toggleSidebar } from "./sidebar.js";
 import { hideUpdatePanel, isUpdatePanelOpen, startUpdate } from "./update.js";
 
 const PLACES = { h: "/", p: "/progress", y: "/system", s: "/answers", d: "/digests", r: "/decisions", o: "/documentation", t: "/repository" };
@@ -46,7 +46,7 @@ export function setUpShortcuts() {
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     if (document.querySelector("dialog[open]")) return; // an open dialog handles its own keys
     if (key === "Escape") {
-      if (isPeeking()) closePeek(true);
+      if (isPeeking()) dismissPeek();
       else if (document.body.classList.contains("menu-open")) closeMenu();
       else if (isUpdatePanelOpen()) hideUpdatePanel(); // it sits over the Ask panel
       else if (isAskOpen()) closeAsk();

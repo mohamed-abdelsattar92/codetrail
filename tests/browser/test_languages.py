@@ -107,3 +107,15 @@ def test_the_sidebar_sits_on_the_right_in_arabic(page: Page, site: Site) -> None
     box = page.locator("#sidebar").bounding_box()
     assert box is not None and box["x"] > 640
     expect(page.locator("[data-sidebar-toggle]")).to_have_attribute("aria-label", "إخفاء الشريط الجانبي")
+
+
+def test_the_sidebar_peeks_from_the_right_edge_in_arabic(page: Page, site: Site) -> None:
+    page.set_viewport_size({"width": 1280, "height": 800})
+    in_arabic(page, site, "/pages/areas/app")
+    page.keyboard.press("\\")
+    sidebar = page.locator("#sidebar")
+    expect(sidebar).to_be_hidden()
+    page.mouse.move(1277, 400)
+    expect(sidebar).to_be_visible()
+    box = sidebar.bounding_box()
+    assert box is not None and box["x"] > 640

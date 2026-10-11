@@ -2,6 +2,8 @@
 
 .topbar,
 .sidebar,
+.sidebar-edge,
+.resize-handle,
 .outline,
 .ask-panel,
 .update-panel,
@@ -19,6 +21,14 @@
 
 .content {
   padding: 0;
+}
+
+/* The page's card is the screen's frame: on paper there is only the page. */
+.page-area {
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  box-shadow: none;
 }
 
 body {
