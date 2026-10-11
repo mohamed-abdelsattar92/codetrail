@@ -795,6 +795,12 @@ msgstr ""
 msgid "Guide areas"
 msgstr ""
 
+msgid "Hide or show the sidebar"
+msgstr ""
+
+msgid "Hide the sidebar"
+msgstr ""
+
 msgid "Home"
 msgstr ""
 
@@ -1139,6 +1145,13 @@ msgid "Paths"
 msgstr ""
 
 #, python-format
+msgid "Pin %(title)s"
+msgstr ""
+
+msgid "Pinned pages"
+msgstr ""
+
+#, python-format
 msgid "Plan usage (%(provider)s, %(window)s): %(used)s%%, as of %(when)s."
 msgstr ""
 
@@ -1352,6 +1365,12 @@ msgid "Services"
 msgstr ""
 
 msgid "Show"
+msgstr ""
+
+msgid "Show the sidebar"
+msgstr ""
+
+msgid "Show the sidebar for a moment"
 msgstr ""
 
 msgid "Show these shortcuts"
@@ -1609,6 +1628,13 @@ msgid "Tue"
 msgstr ""
 
 msgid "Tuesday"
+msgstr ""
+
+#, python-format
+msgid "Unpin %(title)s"
+msgstr ""
+
+msgid "Unpin a page first"
 msgstr ""
 
 msgid "Unread"

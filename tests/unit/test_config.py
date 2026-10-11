@@ -3,8 +3,10 @@
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from codetrail.config import (
+    GlobalConfig,
     Paths,
     check_containment,
     load_global,
@@ -336,3 +338,9 @@ def test_quiet_days_are_bounded(paths: Paths) -> None:
     (paths.config_dir / "config.toml").write_text("[metrics]\nquiet_days = 10000000\n")
     with pytest.raises(CodetrailError, match="quiet_days"):
         load_global(paths)
+
+
+@pytest.mark.parametrize("value", [0, 51])
+def test_refuses_a_pin_limit_out_of_range(value: int) -> None:
+    with pytest.raises(ValidationError):
+        GlobalConfig.model_validate({"ui": {"max_pins": value}})

@@ -1,7 +1,14 @@
 """What the page's shell shows around every page: the sidebar, path neighbours and where to continue (16.1)."""
 
 from codetrail.guide import Page
-from codetrail.web.navigation import answers_newest_first, build_navigation, continue_reading, path_neighbours
+from codetrail.web.navigation import (
+    answers_newest_first,
+    build_navigation,
+    continue_reading,
+    initials,
+    path_neighbours,
+    read_pins,
+)
 
 
 def page(page_id: str, kind: str, title: object = "", **meta: object) -> Page:
@@ -86,3 +93,24 @@ def test_continue_reading_picks_the_first_unlearned_step() -> None:
 def test_continue_reading_is_none_when_every_path_is_learned() -> None:
     learned = {step: "learned" for step in ("areas/api", "concepts/retry", "areas/web", "concepts/auth")}
     assert continue_reading(PAGES, learned) is None
+
+
+def test_initials_take_two_words_or_a_words_first_two_letters() -> None:
+    assert initials("Payment retries") == "PR"
+    assert initials("billing") == "Bi"
+    assert initials("The ledger, again") == "TL"
+    assert initials("الدفع الآمن") == "اا"  # noqa: RUF001 - Arabic letters, on purpose
+    assert initials("  ") == "·"
+
+
+def test_stored_pins_read_back_or_read_as_none() -> None:
+    assert read_pins('["concepts/retries", "areas/app"]') == ["concepts/retries", "areas/app"]
+    assert read_pins(None) == [] and read_pins("not json") == [] and read_pins('{"a": 1}') == []
+    assert read_pins('["areas/app", 3]') == ["areas/app"]
+
+
+def test_pins_keep_their_order_and_leave_out_missing_or_unpinnable_pages() -> None:
+    pages = [page("areas/app", "area", "The app"), page("concepts/db", "concept", "The database"),
+             page("digests/1", "digest", "A digest")]  # fmt: skip
+    nav = build_navigation(pages, {}, [], pinned=["concepts/db", "areas/gone", "digests/1", "areas/app"])
+    assert [pinned.id for pinned in nav.pins] == ["concepts/db", "areas/app"]

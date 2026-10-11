@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import difflib
 import hmac
+import json
 import logging
 import secrets
 import sqlite3
@@ -26,7 +27,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Res
 from fastapi.staticfiles import StaticFiles
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 from markupsafe import Markup
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from codetrail.assistant import Assistant
@@ -65,11 +66,14 @@ from codetrail.web.documentation import (
 )
 from codetrail.web.i18n import Language, installed_languages
 from codetrail.web.navigation import (
+    PINNABLE,
     Navigation,
     answers_newest_first,
     build_navigation,
     continue_reading,
+    initials,
     path_neighbours,
+    read_pins,
     steps_of,
 )
 from codetrail.web.render import render_body
@@ -94,6 +98,14 @@ logger = logging.getLogger(__name__)
 class LanguageChoice(BaseModel):
     model_config = ConfigDict(extra="forbid")
     language: str = Field(max_length=16)
+
+
+PINS_SETTING = "pinned_pages"
+
+
+class PinChoice(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    pages: list[Annotated[str, StringConstraints(max_length=200)]] = Field(max_length=50)
 
 
 class TargetInUseMiddleware:
@@ -214,17 +226,20 @@ def create_app(
             return [], False
         return found.search(query, settings.search.max_query_chars, settings.search.max_results), True
 
-    def language() -> Language:
+    def setting(key: str) -> str | None:
+        """One of the target's stored settings, or None before the database exists."""
         database = view.data / "codetrail.db"
-        chosen = None
-        if database.exists():
-            connection = connect(database)
-            try:
-                row = connection.execute("SELECT value FROM settings WHERE key = ?", (LANGUAGE_SETTING,)).fetchone()
-            finally:
-                connection.close()
-            chosen = row["value"] if row else None
-        return languages.get(chosen or settings.ui.default_language) or languages["en"]
+        if not database.exists():
+            return None
+        connection = connect(database)
+        try:
+            row = connection.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+        finally:
+            connection.close()
+        return row["value"] if row else None
+
+    def language() -> Language:
+        return languages.get(setting(LANGUAGE_SETTING) or settings.ui.default_language) or languages["en"]
 
     def call_estimates() -> dict[str, CallEstimate]:
         """What a question and a graded check are expected to use, for their buttons (design section 15.4)."""
@@ -259,7 +274,8 @@ def create_app(
             branch = load_target(paths, name).branch
         except CodetrailError:
             branch = ""
-        return build_navigation(pages, statuses, unread, branch, manifest.commit if manifest else "")
+        return build_navigation(pages, statuses, unread, branch, manifest.commit if manifest else "",
+                                pinned=read_pins(setting(PINS_SETTING))[: settings.ui.max_pins])  # fmt: skip
 
     def render(template: str, status_code: int = 200, **context: Any) -> HTMLResponse:
         current = language()
@@ -271,7 +287,7 @@ def create_app(
             environments[current.code]
             .get_template(template)
             .render(language=current, languages=list(languages.values()), token=session.token, target=name,
-                    estimates=call_estimates(), **context)
+                    estimates=call_estimates(), max_pins=settings.ui.max_pins, **context)
         )  # fmt: skip
         return HTMLResponse(html, status_code=status_code)
 
@@ -623,6 +639,24 @@ def create_app(
             ramp_step=ramp_step, bar_heights=bar_heights, language_segments=language_segments,
         )  # fmt: skip
 
+    @app.post("/settings/pins")
+    def set_pins(choice: PinChoice) -> Response:
+        """The pinned pages (design section 22.3): the whole list, replaced; only pages the guide holds."""
+        pages = list(dict.fromkeys(choice.pages))
+        pinnable = {page.id for page in guide.pages() if page.kind in PINNABLE} if guide.root.exists() else set()
+        if len(pages) > settings.ui.max_pins or any(page not in pinnable for page in pages):
+            return Response(status_code=400)
+        connection = connect(view.data / "codetrail.db")
+        try:
+            connection.execute(
+                "INSERT INTO settings (key, value) VALUES (?, ?)"
+                " ON CONFLICT (key) DO UPDATE SET value = excluded.value",
+                (PINS_SETTING, json.dumps(pages)),
+            )
+        finally:
+            connection.close()
+        return Response(status_code=204)
+
     @app.post("/settings/language")
     def set_language(choice: LanguageChoice) -> Response:
         language = choice.language
@@ -700,6 +734,7 @@ def _environment(templates: str, language: Language) -> Environment:
     environment.filters["dollars"] = lambda value: "" if value is None else f"${value:.2f}"
     environment.filters["number"] = lambda value: f"{value:,}"
     environment.filters["day"] = day_text
+    environment.filters["initials"] = initials
     return environment
 
 

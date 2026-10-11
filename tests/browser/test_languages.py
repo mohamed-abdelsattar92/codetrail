@@ -99,3 +99,11 @@ def test_the_documentation_page_follows_the_language(page: Page, site: Site, err
     assert any(character.isascii() and character.isdigit() for character in legend)
     assert not any(0x0660 <= ord(character) <= 0x0669 for character in legend)  # no Arabic-Indic digits
     assert errors == []
+
+
+def test_the_sidebar_sits_on_the_right_in_arabic(page: Page, site: Site) -> None:
+    page.set_viewport_size({"width": 1280, "height": 800})
+    in_arabic(page, site, "/pages/areas/app")
+    box = page.locator("#sidebar").bounding_box()
+    assert box is not None and box["x"] > 640
+    expect(page.locator("[data-sidebar-toggle]")).to_have_attribute("aria-label", "إخفاء الشريط الجانبي")

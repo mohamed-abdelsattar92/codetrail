@@ -1006,6 +1006,12 @@ msgstr "منطقة في الدليل"
 msgid "Guide areas"
 msgstr "مناطق الدليل"
 
+msgid "Hide or show the sidebar"
+msgstr "إخفاء الشريط الجانبي أو إظهاره"
+
+msgid "Hide the sidebar"
+msgstr "إخفاء الشريط الجانبي"
+
 msgid "Home"
 msgstr "الرئيسية"
 
@@ -1382,6 +1388,13 @@ msgid "Paths"
 msgstr "المسارات"
 
 #, python-format
+msgid "Pin %(title)s"
+msgstr "تثبيت %(title)s"
+
+msgid "Pinned pages"
+msgstr "الصفحات المثبّتة"
+
+#, python-format
 msgid "Plan usage (%(provider)s, %(window)s): %(used)s%%, as of %(when)s."
 msgstr "استخدام الخطة (%(provider)s، %(window)s): %(used)s%%، حتى %(when)s."
 
@@ -1611,6 +1624,12 @@ msgstr "الخدمات"
 
 msgid "Show"
 msgstr "عرض"
+
+msgid "Show the sidebar"
+msgstr "إظهار الشريط الجانبي"
+
+msgid "Show the sidebar for a moment"
+msgstr "إظهار الشريط الجانبي لحظة"
 
 msgid "Show these shortcuts"
 msgstr "اعرض هذه الاختصارات"
@@ -1889,6 +1908,13 @@ msgstr "الثلاثاء"
 
 msgid "Tuesday"
 msgstr "الثلاثاء"
+
+#, python-format
+msgid "Unpin %(title)s"
+msgstr "إلغاء تثبيت %(title)s"
+
+msgid "Unpin a page first"
+msgstr "ألغِ تثبيت صفحة أولًا"
 
 msgid "Unread"
 msgstr "غير مقروء"

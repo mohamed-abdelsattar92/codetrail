@@ -1,5 +1,8 @@
 {% from "layout/icons.html" import icon %}
 <header class="topbar">
+  <button type="button" class="icon-button sidebar-toggle" data-sidebar-toggle aria-controls="sidebar" aria-expanded="true"
+          aria-label="{{ _('Hide the sidebar') }}" data-label-hide="{{ _('Hide the sidebar') }}"
+          data-label-show="{{ _('Show the sidebar') }}">{{ icon("sidebar") }}</button>
   <button type="button" class="icon-button menu-button" data-menu aria-controls="sidebar" aria-expanded="false" aria-label="{{ _('Menu') }}">{{ icon("menu") }}</button>
   <a class="brand" href="/"><img src="/static/brand/mark.svg" alt="" width="24" height="24"><span>codetrail</span></a>
   <span class="target" lang="en" dir="ltr">{{ target }}{% if nav.branch or nav.commit %}<span class="target-meta">{{ nav.branch }}{% if nav.commit %} · {{ nav.commit[:7] }}{% endif %}</span>{% endif %}</span>
