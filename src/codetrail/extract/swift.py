@@ -165,11 +165,17 @@ class SwiftExtractor:
             """The target with that name, preferring one beside `near`."""
             return first_named_in_folder.get((near.rsplit("/", 1)[0], name)) or first_named.get(name)
 
+        # Each target's folder; when two targets share one, the last wins.
+        folders = {str(target.attributes.get("path", "")): target.id for target in targets}
+
         def owner(path: str) -> str | None:
             """The target whose folder holds the file; the deepest one when folders nest."""
-            holders = [target for target in targets if path.startswith(str(target.attributes.get("path", "")) + "/")]
-            holders.sort(key=lambda target: len(str(target.attributes.get("path", ""))))
-            return holders[-1].id if holders else None
+            end = path.rfind("/")
+            while end != -1:  # each folder above the file, deepest first
+                if path[:end] in folders:
+                    return folders[path[:end]]
+                end = path.rfind("/", 0, end)
+            return None
 
         relations: dict[tuple[str, str, str], Relation] = {}
         unresolved_names: set[str] = set()

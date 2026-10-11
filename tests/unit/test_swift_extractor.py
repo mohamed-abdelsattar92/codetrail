@@ -175,6 +175,23 @@ def test_hostile_target_names_resolve_linearly(tmp_path: Path) -> None:
     assert extraction.unresolved == {"swift": 50_000}
 
 
+def test_hostile_imports_find_their_target_linearly(tmp_path: Path) -> None:
+    """Many imports beside many targets can't stall the update: a file's target is found from its folders."""
+    import time
+
+    # One file of 65,000 imports (about 910 KB) in the first of 40,000 targets; the first 40,000 name a target.
+    imports = "".join(f"import T{number:05d}\n" for number in range(65_000))
+    hostile = {"i/Package.swift": MANY_TARGETS, "i/Sources/T00000/Hostile.swift": imports}
+    started = time.process_time()
+    extraction = run(tmp_path, hostile)
+    # About 1.2 s on a laptop (3 s while it was heavily loaded). Measured there when each import's file scanned
+    # every target's folder, it took 163 s (2.6 billion comparisons), so 10 s catches a scan with room to spare.
+    assert time.process_time() - started < 10
+    edges = {(r.source_id, r.kind, r.target_id) for r in extraction.relations}
+    assert ("swift_target:i/T00000", RelationKind.IMPORTS, "swift_target:i/T39999") in edges
+    assert extraction.unresolved == {"swift": 25_000}
+
+
 def test_package_urls_lose_their_credentials(tmp_path: Path) -> None:
     url = "https://me:hunter2@git.example/Lib.git"
     manifest = f'let package = Package(name: "X", dependencies: [.package(url: "{url}", from: "1.0.0")])'
