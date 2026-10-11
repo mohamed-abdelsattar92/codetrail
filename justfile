@@ -64,17 +64,17 @@ catalogs:
     if ls src/codetrail/locales/*/LC_MESSAGES/codetrail.po >/dev/null 2>&1; then uv run pybabel update --ignore-pot-creation-date -i src/codetrail/locales/codetrail.pot -d src/codetrail/locales -D codetrail; fi
     if ls src/codetrail/locales/*/LC_MESSAGES/codetrail.po >/dev/null 2>&1; then uv run pybabel compile -d src/codetrail/locales -D codetrail; fi
 
-# Run every test except the live ones (the real providers) and the browser ones (just test-browser)
+# Run every test except the live ones (the real providers) and the browser ones (just test-browser), in parallel (ADR 0015)
 test:
-    uv run pytest -q
+    uv run pytest -q -n auto
 
 # Run the unit, API and tool tests in parallel, as the pre-push hook does (ADR 0011)
 test-quick:
     uv run pytest -q -n auto tests/unit tests/api tools/tests
 
-# Run the page in headless Chromium: the palette, shortcuts, the Ask panel and accessibility (ADR 0008)
+# Run the page in headless Chromium: the palette, shortcuts, the Ask panel and accessibility, in parallel (ADRs 0008, 0015)
 test-browser:
-    uv run pytest -q -m browser tests/browser
+    uv run pytest -q -m browser -n auto tests/browser
 
 # Run the live tests against the real Claude (local only; CI has no Claude sign-in)
 test-live:

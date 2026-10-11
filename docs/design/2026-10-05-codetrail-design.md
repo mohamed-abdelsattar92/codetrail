@@ -551,7 +551,7 @@ Test first, always (decision 12). Suites in `tests/unit`, `tests/integration`, `
 - **End to end:** a fixture repository, `update` with the fake Claude, then the page through the test client: the behind signal, a page with its diagram, a graded check, and a source view refusing an excluded file.
 - **Browser tests** came with the page's redesign, when its JavaScript grew: Playwright for Python against `serve` with the fake assistant, and an axe-core scan of each page type (section 16.7, ADR 0008).
 
-Recipes: `just test-quick` (unit, API and the hooks' tests, in parallel, run by the pre-push hook; ADR 0011), `just test` (everything but live and browser), `just test-browser`, `just test-live`. `just ci` adds the browser tests, ruff, mypy strict and the repository checks.
+Recipes: `just test-quick` (unit, API and the hooks' tests, in parallel, run by the pre-push hook; ADR 0011), `just test` (everything but live and browser, in parallel; ADR 0015), `just test-browser` (in parallel too), `just test-live`. `just ci` adds the browser tests, ruff, mypy strict and the repository checks.
 
 ## 12. Dependencies
 
