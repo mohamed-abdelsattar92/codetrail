@@ -113,3 +113,15 @@ def test_metrics_that_cant_be_computed_only_warn(
     assert result.snapshot.id == 1
     assert str(Metric.DOCUMENTED_SHARE) not in rows(paths)[1]  # the repository statistics are still recorded
     assert "The documentation metrics weren't recorded" in caplog.text
+
+
+def test_a_binary_file_among_the_documents_is_not_read_as_text(paths: Paths, tmp_path: Path) -> None:
+    # docs/** is a document glob, but an image there is binary: its bytes must neither cost time nor make a mention.
+    add_commit(tmp_path / "target", {"docs/diagram.png": "\x89PNG\r\n\x1a\n\0\0\0\rIHDR httpx\0\0"}, "docs: a diagram")
+    run_update(paths, "shop", facts_only=True)
+    connection = connect(paths.target_data("shop") / "codetrail.db")
+    try:
+        report = build_report(paths, "shop", GlobalConfig(), FactStore(connection), date(2026, 10, 10))
+    finally:
+        connection.close()
+    assert [entity.id for entity in report.mentions.unmentioned] == ["package:pypi/httpx"]
