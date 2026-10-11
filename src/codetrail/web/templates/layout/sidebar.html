@@ -7,14 +7,14 @@
 <h2 class="nav-heading"><button type="button" class="nav-fold" data-fold="{{ name }}" aria-expanded="true" aria-controls="nav-{{ name }}">{{ icon("chevron") }}<span class="nav-fold-label">{{ heading }}</span>{% if count is not none %}<span class="count">{{ count }}</span>{% endif %}</button></h2>
 {%- endmacro %}
 {% macro pin(page) -%}
-<button type="button" class="nav-pin" data-pin="{{ page.id }}" data-initials="{{ page.title|initials }}" aria-pressed="{{ 'true' if page.id in pinned_ids else 'false' }}" aria-label="{{ _('Pin %(title)s', title=page.title) }}"{% if full and page.id not in pinned_ids %} disabled title="{{ _('Unpin a page first') }}"{% endif %} hidden>{{ icon("pin") }}</button>
+<button type="button" class="nav-pin" data-pin="{{ page.id }}" data-kind="{{ page.kind }}" data-initials="{{ page.title|initials }}" aria-pressed="{{ 'true' if page.id in pinned_ids else 'false' }}" aria-label="{{ _('Pin %(title)s', title=page.title) }}"{% if full and page.id not in pinned_ids %} disabled title="{{ _('Unpin a page first') }}"{% endif %} hidden>{{ icon("pin") }}</button>
 {%- endmacro %}
 <nav class="sidebar" id="sidebar" aria-label="{{ _('Guide') }}" data-max-pins="{{ max_pins }}"
      data-label-unpin="{{ _('Unpin %(title)s', title='{title}') }}" data-label-full="{{ _('Unpin a page first') }}">
   <ul class="pins" data-pins aria-label="{{ _('Pinned pages') }}"{% if not nav.pins %} hidden{% endif %}>
-    {% for page in nav.pins %}<li class="pin-item"><a class="pin" href="/pages/{{ page.id }}" {% if active == page.id %}aria-current="page" {% endif %}title="{{ page.title }}" aria-label="{{ page.title }}" lang="en" dir="ltr">{{ page.title|initials }}</a><button type="button" class="pin-remove" data-unpin="{{ page.id }}" aria-label="{{ _('Unpin %(title)s', title=page.title) }}" hidden>{{ icon("close") }}</button></li>{% endfor %}
+    {% for page in nav.pins %}<li class="pin-item"><a class="pin" href="/pages/{{ page.id }}" {% if active == page.id %}aria-current="page" {% endif %}title="{{ page.title }}" aria-label="{{ page.title }}" {% if page.kind == "answer" %}dir="auto"{% else %}lang="en" dir="ltr"{% endif %}>{{ page.title|initials }}</a><button type="button" class="pin-remove" data-unpin="{{ page.id }}" aria-label="{{ _('Unpin %(title)s', title=page.title) }}" hidden>{{ icon("close") }}</button></li>{% endfor %}
   </ul>
-  <template data-pin-template><li class="pin-item"><a class="pin" lang="en" dir="ltr"></a><button type="button" class="pin-remove">{{ icon("close") }}</button></li></template>
+  <template data-pin-template><li class="pin-item"><a class="pin"></a><button type="button" class="pin-remove">{{ icon("close") }}</button></li></template>
 
   <ul class="nav-list">
     <li><a class="nav-link" href="/" {% if active == "home" %}aria-current="page"{% endif %}>{{ icon("home") }}<span class="label">{{ _("Home") }}</span></a></li>

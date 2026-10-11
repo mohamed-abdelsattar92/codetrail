@@ -221,7 +221,7 @@
   background: var(--raised);
   color: var(--accent-text);
   font-weight: 500;
-  box-shadow: 0 1px 2px rgb(16 24 64 / 0.08), 0 0 0 1px var(--line);
+  box-shadow: var(--shadow-pill);
 }
 
 /* A pinnable row's pin button sits at its end, shown on hover or focus (design section 22.3). */
@@ -252,8 +252,7 @@
   block-size: 14px;
 }
 
-.nav-row:hover .nav-pin,
-.nav-pin:focus-visible {
+.nav-row:is(:hover, :focus-within) .nav-pin {
   opacity: 1;
 }
 
@@ -263,10 +262,9 @@
 
 .nav-pin:disabled {
   cursor: not-allowed;
-  opacity: 0;
 }
 
-.nav-row:hover .nav-pin:disabled {
+.nav-row:is(:hover, :focus-within) .nav-pin:disabled {
   opacity: 0.5;
 }
 
@@ -311,7 +309,7 @@
 .pin[aria-current="page"] {
   background: var(--raised);
   color: var(--accent-text);
-  box-shadow: 0 1px 2px rgb(16 24 64 / 0.1), 0 0 0 1px var(--line);
+  box-shadow: var(--shadow-pill);
 }
 
 .pin-remove {

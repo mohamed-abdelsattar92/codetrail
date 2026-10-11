@@ -73,6 +73,7 @@ def test_the_sidebar_hidden_or_peeking(page: Page, site: Site, errors: list[str]
     page.set_viewport_size({"width": 1280, "height": 800})
     site.sign_in(page, "/pages/areas/app")
     page.keyboard.press("\\")
+    page.locator("#sidebar").wait_for(state="hidden")  # slid away, so the pointer below lands on the edge
     if state == "peek":
         page.mouse.move(3, 400)
         page.locator("#sidebar").wait_for(state="visible")

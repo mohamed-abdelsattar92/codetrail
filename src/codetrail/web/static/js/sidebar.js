@@ -43,32 +43,46 @@ function closeSoon() {
   peekTimer = setTimeout(() => closePeek(), LEAVE_DELAY);
 }
 
+// Esc: the focus goes back to the edge only when it was in the sidebar; elsewhere it stays where the reader is.
+export function dismissPeek() {
+  closePeek(Boolean(panel()?.contains(document.activeElement)));
+}
+
 export function toggleSidebar() {
   if (narrow.matches) return;
   const hide = !isHidden(); // while peeking it is hidden, so this docks it
+  const focusWasInside = Boolean(panel()?.contains(document.activeElement));
   if (hide) root.dataset.sidebar = "hidden";
   else delete root.dataset.sidebar;
   remember("localStorage", "codetrail.sidebar", hide ? "hidden" : null);
   closePeek();
   syncToggle();
+  if (hide && focusWasInside) document.querySelector("[data-sidebar-toggle]")?.focus();
 }
 
 function setUpPeek() {
   const strip = edge();
   const sidebar = panel();
   if (!strip || !sidebar) return;
-  strip.addEventListener("pointerenter", () => {
+  // The card slides in under the pointer resting on the edge: moving between the two isn't leaving.
+  const inside = (node) => node instanceof Node && (node === strip || sidebar.contains(node));
+  strip.addEventListener("pointerenter", (event) => {
     clearTimeout(peekTimer);
-    peekTimer = setTimeout(() => openPeek(false), PEEK_DELAY);
+    // Only a pointer arriving from the page peeks: the card sliding away under it after Esc mustn't reopen it.
+    if (!isPeeking() && !inside(event.relatedTarget)) peekTimer = setTimeout(() => openPeek(false), PEEK_DELAY);
   });
-  strip.addEventListener("pointerleave", () => (isPeeking() ? closeSoon() : clearTimeout(peekTimer)));
-  strip.addEventListener("click", () => (isPeeking() ? closePeek(true) : openPeek(true)));
+  strip.addEventListener("pointerleave", (event) => {
+    if (!isPeeking()) clearTimeout(peekTimer);
+    else if (!inside(event.relatedTarget)) closeSoon();
+  });
+  strip.addEventListener("click", () => openPeek(true)); // open, or already open: either way, into the sidebar
   strip.addEventListener("focusout", (event) => {
     const next = event.relatedTarget;
     if (isPeeking() && next instanceof Node && !sidebar.contains(next)) closePeek(); // tabbed on into the page
   });
   sidebar.addEventListener("pointerenter", () => clearTimeout(peekTimer));
-  sidebar.addEventListener("pointerleave", () => isPeeking() && closeSoon());
+  sidebar.addEventListener("pointerleave", (event) => isPeeking() && !inside(event.relatedTarget) && closeSoon());
+  narrow.addEventListener("change", () => closePeek()); // the drawer takes over below 900 px
   sidebar.addEventListener("focusout", (event) => {
     const next = event.relatedTarget;
     if (isPeeking() && next instanceof Node && !sidebar.contains(next) && next !== strip) closePeek();
@@ -129,11 +143,14 @@ function setUpPins() {
     link.title = title;
     link.setAttribute("aria-label", title);
     link.textContent = button.dataset.initials;
+    // The guide's pages are English; a saved answer is in whatever language it was asked in.
+    if (button.dataset.kind === "answer") link.dir = "auto";
+    else Object.assign(link, { lang: "en", dir: "ltr" });
     // Compared as written: the template's link has no base to resolve against until it joins the page.
     if (window.location.pathname === href) link.setAttribute("aria-current", "page");
     const remove = item.querySelector("button");
     remove.dataset.unpin = id;
-    remove.setAttribute("aria-label", sidebar.dataset.labelUnpin.replace("{title}", title));
+    remove.setAttribute("aria-label", sidebar.dataset.labelUnpin.replace("{title}", () => title)); // no $ patterns
     return item;
   }
 

@@ -409,7 +409,7 @@ Every rubric point is grounded in a fact or a quoted source. The rubric is never
 - Digests have the same *read* mark. "New since you last caught up" means unread digests and unread new pages.
 
 ### 8.4 Tables
-`page_marks(page_id, read_version, learned_version, learned_at)`, `check_passes(page_id, check_id, check_hash, passed_at)`, `check_attempts(page_id, check_id, check_hash, answer, verdict, feedback, language, attempted_at)`, `digest_reads(digest_id, read_at)`, `settings(key, value)` (interface language).
+`page_marks(page_id, read_version, learned_version, learned_at)`, `check_passes(page_id, check_id, check_hash, passed_at)`, `check_attempts(page_id, check_id, check_hash, answer, verdict, feedback, language, attempted_at)`, `digest_reads(digest_id, read_at)`, `settings(key, value)` (interface language, pinned pages).
 
 ### 8.5 The "you're behind" signal
 On the home page, `repo` fetches into `mirror.git` without rebuilding `source/`, counts the merges on the configured branch since the last update's commit, and maps the touched paths (filtered by the exclusion rules) to areas through the outline's scopes. It never calls Claude, and the result is cached for `signal.cache_seconds`.
@@ -427,6 +427,7 @@ update_log_lines = 200
 
 [ui]
 default_language = "en"
+max_pins = 9                 # pinned pages the sidebar keeps (section 22.3)
 
 [bridge]
 max_question_chars = 4000
@@ -1115,7 +1116,7 @@ Approved by the founder on 11 October 2026, from mockups reviewed in the design 
 - **Docked or hidden.** Docked is the default. The choice is remembered per browser in `localStorage` (`codetrail.sidebar`) and applied before the page is drawn, by `theme-init.js` setting `data-sidebar="hidden"` on `<html>`, so nothing flashes.
 - **Switching:** a button at the start of the header ("Hide the sidebar" or "Show the sidebar", with `aria-expanded` and `aria-controls`), or the **\\** key, listed among the shortcuts and ignored while typing like every single-key shortcut.
 - **Peek.** While hidden, resting the pointer on the window's start edge for 150 ms slides the sidebar out over the page as a floating card; it slides away 300 ms after the pointer leaves it, on **Esc**, or when a link in it is followed. Peeking doesn't change the remembered state; the button or **\\** while peeking docks it.
-- **From the keyboard:** the edge is a focusable button, "Show the sidebar for a moment". **Enter** or **Space** opens the peek and moves the focus to the sidebar's first link; **Esc**, or the focus leaving the sidebar, closes it and returns the focus to the edge button.
+- **From the keyboard:** the edge is a focusable button, "Show the sidebar for a moment". **Enter** or **Space** opens the peek and moves the focus to the sidebar's first link; **Esc** closes it and returns the focus to the edge button when the focus was in the sidebar (elsewhere the focus stays where it is), and the focus moving on out of the sidebar or the edge button closes it without moving the focus. Clicking the edge of an open peek moves into it. A pointer resting on the edge keeps the peek open while the card slides in under it, and only a pointer arriving from the page opens it again after it closes.
 - **Resizing** (section 16.1) works only while docked; the peek card takes the remembered width.
 - **Below 900 px** the sidebar stays a drawer behind the menu button, as now, with the new look; the hidden state and the peek don't apply.
 - **Reduced motion** makes the slide an instant show and hide. The Ask and update panels at the inline end are unchanged.
