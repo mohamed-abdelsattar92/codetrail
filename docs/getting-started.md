@@ -154,7 +154,7 @@ Press **?** on any page to see them all.
 | **\\** | Hide or show the sidebar |
 | **M** | Mark this page read, or unread |
 | **U** | Update the guide (shows the estimate first) |
-| **Esc** | Close the palette, the panel or a dialog |
+| **Esc** | Close the palette, the panel, the sidebar's peek or a dialog |
 
 No shortcut spends anything: questions are sent by their **Send** button, and an update starts only when you choose **Go ahead**.
 

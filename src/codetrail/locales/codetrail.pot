@@ -501,7 +501,7 @@ msgstr ""
 msgid "Close"
 msgstr ""
 
-msgid "Close the palette, the panel or a dialog"
+msgid "Close the palette, the panel, the sidebar's peek or a dialog"
 msgstr ""
 
 msgid "Code"

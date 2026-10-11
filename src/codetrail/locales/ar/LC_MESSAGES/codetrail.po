@@ -700,8 +700,10 @@ msgstr "اختبر فهمك"
 msgid "Close"
 msgstr "إغلاق"
 
-msgid "Close the palette, the panel or a dialog"
-msgstr "أغلق لوحة الأوامر أو اللوحة الجانبية أو نافذة الحوار"
+msgid "Close the palette, the panel, the sidebar's peek or a dialog"
+msgstr ""
+"أغلق لوحة الأوامر أو اللوحة الجانبية أو لمحة الشريط الجانبي أو نافذة "
+"الحوار"
 
 msgid "Code"
 msgstr "الكود"
