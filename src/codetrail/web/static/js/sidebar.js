@@ -63,6 +63,10 @@ function setUpPeek() {
   });
   strip.addEventListener("pointerleave", () => (isPeeking() ? closeSoon() : clearTimeout(peekTimer)));
   strip.addEventListener("click", () => (isPeeking() ? closePeek(true) : openPeek(true)));
+  strip.addEventListener("focusout", (event) => {
+    const next = event.relatedTarget;
+    if (isPeeking() && next instanceof Node && !sidebar.contains(next)) closePeek(); // tabbed on into the page
+  });
   sidebar.addEventListener("pointerenter", () => clearTimeout(peekTimer));
   sidebar.addEventListener("pointerleave", () => isPeeking() && closeSoon());
   sidebar.addEventListener("focusout", (event) => {
@@ -141,19 +145,25 @@ function setUpPins() {
     }
   }
 
+  let saving = false; // one change at a time, so a quick second click can't work from a stale list
   sidebar.addEventListener("click", async (event) => {
     const target = event.target instanceof Element ? event.target : null;
     const pin = target?.closest("[data-pin]");
     const unpin = target?.closest("[data-unpin]");
-    if (!pin && !unpin) return;
-    const id = pin ? pin.dataset.pin : unpin.dataset.unpin;
-    const ids = pinned();
-    const next = ids.includes(id) ? ids.filter((other) => other !== id) : [...ids, id];
-    if (!(await save(next))) return;
-    if (next.includes(id)) list.append(tile(pin));
-    else list.querySelector(`[data-unpin="${CSS.escape(id)}"]`)?.closest("li")?.remove();
-    sync(next);
-    if (unpin) sidebar.querySelector("a[href]")?.focus();
+    if ((!pin && !unpin) || saving) return;
+    saving = true;
+    try {
+      const id = pin ? pin.dataset.pin : unpin.dataset.unpin;
+      const ids = pinned();
+      const next = ids.includes(id) ? ids.filter((other) => other !== id) : [...ids, id];
+      if (!(await save(next))) return;
+      if (next.includes(id)) list.append(tile(pin));
+      else list.querySelector(`[data-unpin="${CSS.escape(id)}"]`)?.closest("li")?.remove();
+      sync(next);
+      if (unpin) sidebar.querySelector("a[href]")?.focus();
+    } finally {
+      saving = false;
+    }
   });
   for (const button of sidebar.querySelectorAll("[data-pin], [data-unpin]")) button.hidden = false;
 }

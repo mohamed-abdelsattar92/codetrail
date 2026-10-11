@@ -161,3 +161,30 @@ def test_a_new_tile_for_the_current_page_is_marked_current(page: Page, site: Sit
     row.hover()
     row.locator("[data-pin]").click()
     expect(page.locator("[data-pins] a.pin")).to_have_attribute("aria-current", "page")
+
+
+def test_tabbing_out_of_the_peek_from_the_edge_closes_it(page: Page, site: Site) -> None:
+    wide(page)
+    site.sign_in(page, "/pages/areas/app")
+    page.keyboard.press("\\")
+    edge = page.locator("[data-sidebar-edge]")
+    edge.focus()
+    page.keyboard.press("Enter")
+    expect(page.locator("#sidebar")).to_be_visible()
+    edge.focus()  # back on the edge: the peek stays open
+    expect(page.locator("#sidebar")).to_be_visible()
+    page.keyboard.press("Tab")  # on into the page
+    expect(page.locator("#sidebar")).to_be_hidden()
+
+
+def test_a_double_click_on_a_pin_adds_one_tile(page: Page, site: Site) -> None:
+    wide(page)
+    site.sign_in(page, "/pages/areas/app")
+    row = page.locator("#nav-concepts li").first
+    row.hover()
+    row.locator("[data-pin]").dblclick()
+    page.wait_for_timeout(500)
+    expect(page.locator("[data-pins] a.pin")).to_have_count(1)
+    page.reload()
+    ready(page)
+    expect(page.locator("[data-pins] a.pin")).to_have_count(1)

@@ -131,3 +131,11 @@ def test_the_sidebar_carries_its_folds_pins_and_toggle(paths: Paths) -> None:
     assert "data-pin-template" in sidebar and 'data-max-pins="9"' in sidebar
     assert "data-sidebar-toggle" in page and "data-sidebar-edge" in page
     assert 'href="/pages/areas/app" aria-current="page"' in sidebar
+
+
+def test_a_lowered_limit_draws_only_that_many_pins(paths: Paths) -> None:
+    client, headers = signed_in(paths)
+    client.post("/settings/pins", json={"pages": ["concepts/db", "areas/app", "paths/start"]}, headers=headers)
+    lowered, _ = signed_in(paths, GlobalConfig.model_validate({"ui": {"max_pins": 1}}))
+    tiles = tiles_of(lowered.get("/").text)
+    assert tiles.count('class="pin"') == 1 and 'href="/pages/concepts/db"' in tiles  # unpinning it stays possible

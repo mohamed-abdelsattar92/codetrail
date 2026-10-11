@@ -275,7 +275,7 @@ def create_app(
         except CodetrailError:
             branch = ""
         return build_navigation(pages, statuses, unread, branch, manifest.commit if manifest else "",
-                                pinned=read_pins(setting(PINS_SETTING)))  # fmt: skip
+                                pinned=read_pins(setting(PINS_SETTING))[: settings.ui.max_pins])  # fmt: skip
 
     def render(template: str, status_code: int = 200, **context: Any) -> HTMLResponse:
         current = language()
