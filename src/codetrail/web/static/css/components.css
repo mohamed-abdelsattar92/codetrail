@@ -1132,20 +1132,28 @@ dialog[open] {
 }
 
 .doc-fold > summary h2 {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
   margin: 0;
   font-size: 1.05rem;
 }
 
-.doc-fold > summary h2::before {
-  content: "›";
-  display: inline-block;
-  inline-size: 1em;
+/* The sidebar's chevron, centred on the heading's text: it points down while the section is open. */
+.doc-fold > summary h2 .icon {
+  flex: none;
+  inline-size: 16px;
+  block-size: 16px;
   color: var(--text-faint);
   transition: transform var(--duration) var(--ease);
 }
 
-.doc-fold[open] > summary h2::before {
+.doc-fold[open] > summary h2 .icon {
   transform: rotate(90deg);
+}
+
+.doc-fold:not([open]) > summary h2 .icon:dir(rtl) {
+  transform: scaleX(-1);
 }
 
 .doc-todo {
@@ -1366,9 +1374,24 @@ dialog[open] {
   border-inline-start: 1px dashed var(--accent);
   color: var(--text-faint);
   font-size: 0.7rem;
-  padding-inline-start: var(--space-1);
   white-space: nowrap;
   overflow: hidden;
+}
+
+.lane-watch-label {
+  display: block;
+  padding-inline: var(--space-1);
+  line-height: 28px;
+}
+
+/* Too narrow for its label: the label sits just before the band's dashed edge, inside the lane. */
+.lane-watch.narrow {
+  overflow: visible;
+}
+
+.lane-watch.narrow .lane-watch-label {
+  position: absolute;
+  inset-inline-end: 100%;
 }
 
 .release-mark {
