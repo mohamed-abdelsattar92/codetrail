@@ -152,3 +152,12 @@ def test_a_failed_pin_request_changes_nothing(page: Page, site: Site) -> None:
     row.locator("[data-pin]").click()
     expect(row.locator("[data-pin]")).to_have_attribute("aria-pressed", "false")
     expect(page.locator("[data-pins] a.pin")).to_have_count(0)
+
+
+def test_a_new_tile_for_the_current_page_is_marked_current(page: Page, site: Site) -> None:
+    wide(page)
+    site.sign_in(page, "/pages/concepts/retries")
+    row = page.locator("#nav-concepts li", has=page.locator("a[href='/pages/concepts/retries']"))
+    row.hover()
+    row.locator("[data-pin]").click()
+    expect(page.locator("[data-pins] a.pin")).to_have_attribute("aria-current", "page")

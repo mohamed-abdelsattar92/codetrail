@@ -120,11 +120,13 @@ function setUpPins() {
     const title = button.closest("li")?.querySelector(".label")?.textContent.trim() || id;
     const item = template.content.firstElementChild.cloneNode(true);
     const link = item.querySelector("a");
-    link.href = pageHref(id);
+    const href = pageHref(id);
+    link.href = href;
     link.title = title;
     link.setAttribute("aria-label", title);
     link.textContent = button.dataset.initials;
-    if (window.location.pathname === link.pathname) link.setAttribute("aria-current", "page");
+    // Compared as written: the template's link has no base to resolve against until it joins the page.
+    if (window.location.pathname === href) link.setAttribute("aria-current", "page");
     const remove = item.querySelector("button");
     remove.dataset.unpin = id;
     remove.setAttribute("aria-label", sidebar.dataset.labelUnpin.replace("{title}", title));
