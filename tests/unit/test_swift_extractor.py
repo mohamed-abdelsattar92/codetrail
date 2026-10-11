@@ -105,7 +105,10 @@ def test_hostile_manifests_stay_linear(tmp_path: Path) -> None:
     }
     started = time.process_time()
     extraction = run(tmp_path, hostile)
-    assert time.process_time() - started < 2
+    # About 0.7 s on a laptop and 2.2 s on CI's runner beside other workers. Measured on the laptop with each
+    # safeguard undone, the slowest input took 108 s without REMOTE_PACKAGE's bound and over 120 s without the
+    # nested-call skip or with per-call bracket matching, so 10 s catches each with room for a slow machine.
+    assert time.process_time() - started < 10
     assert {"project:a", "project:b", "project:c", "project:d"} <= {entity.id for entity in extraction.entities}
 
 
