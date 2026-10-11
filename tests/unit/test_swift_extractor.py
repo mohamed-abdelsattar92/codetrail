@@ -196,19 +196,16 @@ def test_hostile_deep_files_find_their_target_linearly(tmp_path: Path) -> None:
     """A deeply nested file with many imports can't stall the update: its folders are walked once per file."""
     import time
 
-    # Two files 400 folders deep (about 800 characters, under the 1,024 a macOS path can hold with the test's folder)
-    # in one target, each with 65,000 imports (about 910 KB).
+    # Six files 400 folders deep (about 800 characters, under the 1,024 a macOS path can hold with the test's
+    # folder) in one target, each with 65,000 imports (about 910 KB).
     deep = "d/" * 400
     imports = "".join(f"import T{number:05d}\n" for number in range(65_000))
-    hostile = {
-        "Package.swift": '.target(name: "A", path: "A")',
-        f"A/{deep}One.swift": imports,
-        f"A/{deep}Two.swift": imports,
-    }
+    hostile = {"Package.swift": '.target(name: "A", path: "A")'}
+    hostile.update({f"A/{deep}{number}.swift": imports for number in range(6)})
     started = time.process_time()
     extraction = run(tmp_path, hostile)
     # Measured on a laptop: resolving one such file took 0.06 s with the walk once per file, and 6.7 s when each
-    # import walked the 400 folders again, so the two files together took 16 s against this 10 s budget.
+    # import walked the 400 folders again; six files then took 35 s, three and a half times this 10 s budget.
     assert time.process_time() - started < 10
     assert extraction.unresolved == {"swift": 65_000}
 
