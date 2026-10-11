@@ -94,7 +94,7 @@ body {
   padding-inline: var(--space-12);
   border-radius: var(--radius-card);
   background: var(--page);
-  box-shadow: 0 1px 2px rgb(16 24 64 / 0.06), 0 0 0 1px var(--line);
+  box-shadow: var(--shadow-card);
 }
 
 .page-area:not(:has(> .outline:not([hidden]))) {

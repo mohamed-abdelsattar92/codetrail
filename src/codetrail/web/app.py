@@ -238,6 +238,18 @@ def create_app(
             connection.close()
         return row["value"] if row else None
 
+    def store_setting(key: str, value: str) -> None:
+        """Keeps one of the target's settings, replacing what it held."""
+        connection = connect(view.data / "codetrail.db")
+        try:
+            connection.execute(
+                "INSERT INTO settings (key, value) VALUES (?, ?)"
+                " ON CONFLICT (key) DO UPDATE SET value = excluded.value",
+                (key, value),
+            )
+        finally:
+            connection.close()
+
     def language() -> Language:
         return languages.get(setting(LANGUAGE_SETTING) or settings.ui.default_language) or languages["en"]
 
@@ -646,15 +658,7 @@ def create_app(
         pinnable = {page.id for page in guide.pages() if page.kind in PINNABLE} if guide.root.exists() else set()
         if len(pages) > settings.ui.max_pins or any(page not in pinnable for page in pages):
             return Response(status_code=400)
-        connection = connect(view.data / "codetrail.db")
-        try:
-            connection.execute(
-                "INSERT INTO settings (key, value) VALUES (?, ?)"
-                " ON CONFLICT (key) DO UPDATE SET value = excluded.value",
-                (PINS_SETTING, json.dumps(pages)),
-            )
-        finally:
-            connection.close()
+        store_setting(PINS_SETTING, json.dumps(pages))
         return Response(status_code=204)
 
     @app.post("/settings/language")
@@ -662,15 +666,7 @@ def create_app(
         language = choice.language
         if language not in languages:
             return Response(status_code=400)
-        connection = connect(view.data / "codetrail.db")
-        try:
-            connection.execute(
-                "INSERT INTO settings (key, value) VALUES (?, ?)"
-                " ON CONFLICT (key) DO UPDATE SET value = excluded.value",
-                (LANGUAGE_SETTING, language),
-            )
-        finally:
-            connection.close()
+        store_setting(LANGUAGE_SETTING, language)
         return Response(status_code=204)
 
     @app.exception_handler(404)

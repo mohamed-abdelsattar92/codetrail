@@ -236,6 +236,13 @@ def test_stylesheets_use_logical_properties_only(sheet: str) -> None:
     assert PHYSICAL.findall(text) == []
 
 
+@pytest.mark.parametrize("sheet", ["layout.css", "components.css"])
+def test_shadows_come_from_tokens(sheet: str) -> None:
+    """A shadow's color differs between the themes, so it is a token with its dark value (design section 22.2)."""
+    shadows = re.findall(r"box-shadow:[^;]*;", (STATIC / "css" / sheet).read_text())
+    assert [shadow for shadow in shadows if "rgb(" in shadow or "#" in shadow] == []
+
+
 def test_a_path_links_only_steps_that_exist(paths: Paths) -> None:
     guide = GuideRepository(paths.target_data("t") / "guide")
     path = guide.read_page("paths/start")

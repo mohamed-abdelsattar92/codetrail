@@ -82,6 +82,8 @@
   --chart-band: rgb(91 91 214 / 0.07);
 
   --shadow-float: 0 12px 32px rgb(16 24 64 / 0.14), 0 2px 6px rgb(16 24 64 / 0.08);
+  --shadow-card: 0 1px 2px rgb(16 24 64 / 0.06), 0 0 0 1px var(--line); /* the page's card in the frame */
+  --shadow-pill: 0 1px 2px rgb(16 24 64 / 0.1), 0 0 0 1px var(--line); /* the sidebar's current row and tile */
   --focus: 0 0 0 3px rgb(91 91 214 / 0.35);
 
   --space-1: 4px;
@@ -136,6 +138,8 @@
     --danger: #ff8a7a;
     --mark: #4a3f12;
     --shadow-float: 0 16px 40px rgb(0 0 0 / 0.5), 0 2px 8px rgb(0 0 0 / 0.4);
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 0 0 1px var(--line);
+    --shadow-pill: 0 1px 2px rgb(0 0 0 / 0.5), 0 0 0 1px var(--line);
     --focus: 0 0 0 3px rgb(155 155 245 / 0.45);
 
     --series-1: #7c7cee;
@@ -184,6 +188,8 @@
   --danger: #ff8a7a;
   --mark: #4a3f12;
   --shadow-float: 0 16px 40px rgb(0 0 0 / 0.5), 0 2px 8px rgb(0 0 0 / 0.4);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 0 0 1px var(--line);
+  --shadow-pill: 0 1px 2px rgb(0 0 0 / 0.5), 0 0 0 1px var(--line);
   --focus: 0 0 0 3px rgb(155 155 245 / 0.45);
 
   --series-1: #7c7cee;
