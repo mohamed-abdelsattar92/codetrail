@@ -213,6 +213,20 @@ def test_hostile_deep_files_find_their_target_linearly(tmp_path: Path) -> None:
     assert extraction.unresolved == {"swift": 65_000}
 
 
+def test_hostile_long_target_names_resolve_linearly(tmp_path: Path) -> None:
+    """A target with a very long name and many dependencies can't stall the update."""
+    import time
+
+    # A 480 KB name, dropped as a fact for its overlong id, with 120,000 dependencies (about 480 KB).
+    manifest = f'.target(name: "{"N" * 480_000}", dependencies: [{'"a",' * 120_000}])'
+    started = time.process_time()
+    extraction = run(tmp_path, {"Package.swift": manifest})
+    # About 0.4 s on a laptop. Measured there when each dependency split the 480 KB id again, it took 22 s.
+    assert time.process_time() - started < 10
+    assert any("skipped a fact whose id is longer" in warning for warning in extraction.warnings)
+    assert extraction.relations == []
+
+
 def test_package_urls_lose_their_credentials(tmp_path: Path) -> None:
     url = "https://me:hunter2@git.example/Lib.git"
     manifest = f'let package = Package(name: "X", dependencies: [.package(url: "{url}", from: "1.0.0")])'

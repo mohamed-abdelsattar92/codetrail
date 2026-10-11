@@ -189,6 +189,8 @@ class SwiftExtractor:
                     if holder is None:
                         continue
                     source_id = holder
+                if source_id not in known:  # e.g. a target dropped for its overlong id: no relation can start there
+                    continue
                 target = reference.target
                 if target.startswith("target-name:") or reference.kind is RelationKind.IMPORTS:
                     name = target.removeprefix("target-name:")
@@ -196,7 +198,7 @@ class SwiftExtractor:
                     if not target:
                         unresolved_names.add(name)
                         continue
-                if target in known and source_id in known and target != source_id:
+                if target in known and target != source_id:
                     relation = Relation(source_id, reference.kind, target, reference.attributes, reference.sources)
                     relations.setdefault(relation.key, relation)
         return Resolution(list(relations.values()), len(unresolved_names))
