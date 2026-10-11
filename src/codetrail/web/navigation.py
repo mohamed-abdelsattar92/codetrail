@@ -5,12 +5,16 @@ never breaks it.
 
 from __future__ import annotations
 
+import json
+import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 
 from codetrail.guide import Page
 
 SIDEBAR_ANSWERS = 5
+PINNABLE = ("path", "area", "concept", "answer")  # the guide pages the sidebar lists, which can be pinned
+WORD = re.compile(r"[^\W_]+")
 
 
 @dataclass(frozen=True)
@@ -24,6 +28,26 @@ class Navigation:
     unread_digests: bool = False
     branch: str = ""
     commit: str = ""
+    pins: list[Page] = field(default_factory=list)  # pinned pages, in the order they were pinned
+
+
+def initials(title: str) -> str:
+    """A pinned tile's letters: the first letters of the title's first two words, or one word's first two."""
+    words: list[str] = WORD.findall(title)
+    if not words:
+        return "·"
+    if len(words) == 1:
+        return words[0][:1].upper() + words[0][1:2]
+    return (words[0][:1] + words[1][:1]).upper()
+
+
+def read_pins(value: str | None) -> list[str]:
+    """The pinned page ids as stored, a JSON list of strings; anything else reads as no pins."""
+    try:
+        loaded = json.loads(value) if value else []
+    except ValueError:
+        return []
+    return [item for item in loaded if isinstance(item, str)] if isinstance(loaded, list) else []
 
 
 def steps_of(path: Page) -> list[str]:
@@ -49,8 +73,9 @@ def answers_newest_first(pages: Iterable[Page]) -> list[Page]:
 
 def build_navigation(
     pages: Sequence[Page], statuses: Mapping[str, str], unread_digests: Sequence[str], branch: str = "",
-    commit: str = "",
+    commit: str = "", pinned: Sequence[str] = (),
 ) -> Navigation:  # fmt: skip
+    pinnable = {page.id: page for page in pages if page.kind in PINNABLE}
     paths = [
         (path, sum(1 for step in steps_of(path) if statuses.get(step) == "learned"), len(steps_of(path)))
         for path in _by_title(page for page in pages if page.kind == "path")
@@ -66,6 +91,7 @@ def build_navigation(
         unread_digests=bool(unread_digests),
         branch=branch,
         commit=commit,
+        pins=[pinnable[page_id] for page_id in pinned if page_id in pinnable],
     )
 
 

@@ -148,6 +148,7 @@ class ServerSettings(Settings):
 
 class InterfaceSettings(Settings):
     default_language: str = "en"
+    max_pins: int = Field(default=9, ge=1, le=50)  # pinned pages the sidebar keeps
 
 
 class SignalSettings(Settings):
