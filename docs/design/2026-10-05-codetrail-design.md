@@ -596,6 +596,7 @@ Each phase is usable on its own, has its own implementation plan, and ends with 
 | 15. Where change happens | Hot spots by file, folder and guide area with their rationale, quiet code and commit size (section 19.1) | Where a repository changes most, and where documenting would help most | Phase 14 |
 | 17. The Repository page's charts | The interactive timeline, the activity calendar, the change heat map and grid, and the charts for size, types and facts (section 20) | A repository's history and change at a glance, explorable | Phase 15 |
 | 18. The Documentation page's charts | The overview column, folding sections with a chart each, and filter chips (section 21) | How well a repository explains itself at a glance, and what to fix first | Phase 17 |
+| 19. The sidebar | Hiding and peeking, the frame and card, folding sections and pinned tiles (section 22) | A sidebar that gets out of the way, with the pages you use most at the top | Phase 11 |
 | 16. Decision inventory (planned) | An opt-in paid pass listing the decisions in the code and their documented "why" (section 18.8) | The share of the repository's decisions that are documented, beyond what the guide wrote about | Phase 13 |
 
 ## 14. Answers to the brainstorm's open questions
@@ -677,6 +678,7 @@ The feel is a documentation site in the manner of Stripe's: calm, precise, with 
 - **Outline:** "On this page", built from the page's headings, highlighting the section in view; hidden below about 1200 px. The article and its outline are one group, centered in the space beside the sidebar, so on a wide screen the text never hugs the sidebar and the outline stays next to the text; a page without an outline centers one wider column.
 - **Ask panel:** slides in from the inline end, over the outline column, without covering the reading column on wide screens (section 16.4).
 - **Update panel:** takes the same place, above the Ask panel, while an update runs; opening Ask hides it, and closing it shows Ask again (section 15.4).
+- **The sidebar hides, peeks, folds and pins pages** (section 22).
 - **Resizing:** the sidebar and the Ask panel have a handle on their inner edge. Drag it, or focus it and use the arrow keys (16 px a step), Home and End; double-click resets. The sidebar stays between 200 and 420 px and at most 30% of the window; the panel between 320 and 720 px and at most 45%. Neither may squeeze the reading column below 480 px: a narrower window shrinks the panels first. Widths are remembered per browser in `localStorage`; below 900 px nothing resizes. The handles are ARIA separators that report their value.
 
 The **home page** leads with progress: the target's name, branch, commit and last update; a "Continue where you left off" card (the current path, its next unlearned page and a progress bar); three figures (how far the guide is behind the branch, with the Update button and the last update's actual cost, labelled as such, since a new estimate needs the facts refreshed first; pages learned, and how many changed since; the unread digest); your newest saved answers; then the areas.
@@ -1104,3 +1106,45 @@ Nothing new leaves the machine and nothing calls an assistant; the page stays on
 
 ### 21.6 Delivery
 Phase 18, in one feature branch started from `develop` once Phase 17 was finished into it. It reuses the Repository page's chart classes and helpers; nothing moves.
+
+## 22. The sidebar
+
+Approved by the founder on 11 October 2026, from mockups reviewed in the design session. The sidebar of section 16.1 becomes a sidebar in the manner of Arc's: it can be hidden so the page takes the whole width, it slides out over the page when the pointer rests on the window's edge, its sections fold, and pages can be pinned to the top as tiles. The header and the sidebar become one tinted frame around a page drawn as a card. What the sidebar lists, and in which order, is unchanged.
+
+### 22.1 Behaviour
+- **Docked or hidden.** Docked is the default. The choice is remembered per browser in `localStorage` (`codetrail.sidebar`) and applied before the page is drawn, by `theme-init.js` setting `data-sidebar="hidden"` on `<html>`, so nothing flashes.
+- **Switching:** a button at the start of the header ("Hide the sidebar" or "Show the sidebar", with `aria-expanded` and `aria-controls`), or the **\\** key, listed among the shortcuts and ignored while typing like every single-key shortcut.
+- **Peek.** While hidden, resting the pointer on the window's start edge for 150 ms slides the sidebar out over the page as a floating card; it slides away 300 ms after the pointer leaves it, on **Esc**, or when a link in it is followed. Peeking doesn't change the remembered state; the button or **\\** while peeking docks it.
+- **From the keyboard:** the edge is a focusable button, "Show the sidebar for a moment". **Enter** or **Space** opens the peek and moves the focus to the sidebar's first link; **Esc**, or the focus leaving the sidebar, closes it and returns the focus to the edge button.
+- **Resizing** (section 16.1) works only while docked; the peek card takes the remembered width.
+- **Below 900 px** the sidebar stays a drawer behind the menu button, as now, with the new look; the hidden state and the peek don't apply.
+- **Reduced motion** makes the slide an instant show and hide. The Ask and update panels at the inline end are unchanged.
+
+### 22.2 The look
+- **A frame and a card.** The header and the sidebar share the sidebar's tint (`--sidebar`), with no line between them or under the header. The page sits in a card (`--page`, a 12 px radius and a faint shadow) inset 8 px from the sidebar and from the window's end. The window scrolls as before, so the outline, links to sections and scroll restoration are unchanged; the card is the page's backdrop.
+- **Rows** are about 26 px high with rounded corners; hovering shows a soft wash, and the current page is a white pill (`--raised`) with a faint shadow and accent text. Icons, the learned check, the "changed since" dot and counts keep their places.
+- **Section headings** are small, quiet capitals with a chevron that turns as the section folds, and the section's count at their end. A path keeps a thin progress bar under its name.
+- **Pinned tiles:** a grid three across above Home. A tile shows up to two initials of its page's title ("PR" for Payment retries; a one-word title gives its first two letters); the full title is its tooltip and its accessible name. The current page's tile is a white pill. Hovering or focusing a tile shows a small ✕ that unpins it.
+- **The peek card** is the same sidebar, floating 8 px from the window's edges, rounded, with the floating shadow (`--shadow-float`).
+- Every color is a token, redefined for dark mode. In a right-to-left language everything mirrors: the sidebar sits on the right and peeks from the right edge.
+
+### 22.3 Structure
+- **Folding sections.** Paths, Areas, Concepts, Saved answers and More each have a heading button with `aria-expanded` and `aria-controls`; Home, Progress and System stay above them. The folded sections are remembered per browser (`codetrail.sidebar-folded`, a list of section names) and applied before the page is drawn as `data-folded` on `<html>`, which the styles read. A folded section still shows the current page's row. Without the script every section is open.
+- **Pinning.** A guide page listed in the sidebar (a path, an area, a concept or a saved answer) can be pinned with the small pin button its row shows on hover or focus ("Pin Payment retries"), and unpinned with its tile's ✕. Pins keep the order they were added in. At most `ui.max_pins` (9) are kept; at the limit the pin buttons say "Unpin a page first". Without the script the tiles still show and link; only pinning and unpinning need it.
+- **Storage.** The pinned page ids are kept in the target's `settings` table under `pinned_pages`, as a JSON list, beside the interface language. The sidebar reads them when it is drawn and leaves out any page that no longer exists, so the tiles are drawn with the page and follow the reader to any browser.
+- **`POST /settings/pins`** takes `{"pages": [...]}` and replaces the whole list, so repeating a request is harmless. It sits behind the session and the same origin and token checks as `/settings/language`; the body allows no other field, at most `ui.max_pins` ids of at most 200 characters each; duplicates are dropped, and every id must be a pinnable page of the guide, or the request is refused with 400. It writes only that setting.
+- **`static/js/sidebar.js`** runs the button, the key, the peek, the folding and the pins. A new tile is built from its row's title with `textContent` only; the list is sent, and a failed request leaves the sidebar as it was.
+
+### 22.4 Configuration
+`ui.max_pins = 9` (1 to 50), globally.
+
+### 22.5 Security
+One new endpoint, `POST /settings/pins`, reachable only from the page: behind the session, with the origin and token checks every state-changing request has (section 7.4). It accepts only ids of pages the guide holds, writes one row of the target's own database, and returns no content. Titles reach the page through autoescaping templates, and the script moves them only with `textContent`. Nothing is sent anywhere else, and nothing calls an assistant.
+
+### 22.6 Testing
+- **Unit:** the pins as read back (stored order, missing pages left out, a malformed value read as none); the initials ("Payment retries" gives "PR", one word gives its first two letters, other scripts work); the configuration refusing `ui.max_pins` outside 1 to 50.
+- **API:** `POST /settings/pins` needs the session and the token and refuses another origin; a good list is stored and the next page draws its tiles in order; an unknown id, an id that isn't a pinnable page (a fact id), too many ids, an extra field and a 201-character id are refused with 400; a title holding markup stays text in its tile; the sidebar carries its heading buttons and the pin buttons rendered hidden.
+- **Browser:** **\\** and the button hide the sidebar, and a reload keeps it hidden with `data-sidebar` set before the page is drawn; resting on the edge peeks, and leaving, **Esc** or following a link closes the peek; the edge button peeks from the keyboard and returns the focus; a section folds and stays folded after a reload, still showing the current page; pinning adds a tile that survives a reload, unpinning removes it, and at the limit the pin buttons say so; below 900 px the drawer works; in Arabic the sidebar sits on the right; the accessibility scan passes in both themes, docked, hidden and peeking; no console errors.
+
+### 22.7 Delivery
+Phase 19, in one feature branch.
