@@ -112,6 +112,29 @@ def test_hostile_manifests_stay_linear(tmp_path: Path) -> None:
     assert {"project:a", "project:b", "project:c", "project:d"} <= {entity.id for entity in extraction.entities}
 
 
+def test_hostile_dependency_lists_stay_linear(tmp_path: Path) -> None:
+    """A target's dependencies list can't stall the update: PRODUCT's and NAMED_TARGET's tails are bounded."""
+    import time
+
+    # Every bracket closes, so each target's ~0.93 MB dependencies list is read, with no ")" in it for PRODUCT
+    # (e, f) or NAMED_TARGET (g) to stop at. Each file stays under the extractor's 1,000,000-byte cap; PRODUCT's
+    # cost without its bound is quadratic in one list, so a second file doubles the margin over the budget.
+    products = '.target(name: "A", dependencies: [' + '.product(name: "P", package: "Q"' * 29_000 + "]" + ")" * 29_001
+    hostile = {
+        "e/Package.swift": products,
+        "f/Package.swift": products,
+        "g/Package.swift": '.target(name: "A", dependencies: [' + '.byName(name: "A"' * 55_000 + "]" + ")" * 55_001,
+    }
+    started = time.process_time()
+    extraction = run(tmp_path, hostile)
+    # About 1 s on a laptop (1.7 s while it was heavily loaded); with a bound undone, measured on the laptop by
+    # patching the loaded module, this test took 36-45 s without PRODUCT's and 35-41 s without NAMED_TARGET's.
+    # At 15,000 calls a list took only 6 s and 3 s, which is why the files are near the cap.
+    assert time.process_time() - started < 10
+    # Each target call was read, so its dependencies list reached PRODUCT and NAMED_TARGET.
+    assert {f"swift_target:{folder}/A" for folder in "efg"} <= {entity.id for entity in extraction.entities}
+
+
 def test_package_urls_lose_their_credentials(tmp_path: Path) -> None:
     url = "https://me:hunter2@git.example/Lib.git"
     manifest = f'let package = Package(name: "X", dependencies: [.package(url: "{url}", from: "1.0.0")])'
