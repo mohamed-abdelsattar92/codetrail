@@ -154,12 +154,12 @@ class SwiftExtractor:
         # Indexed once, so each name is a lookup rather than a scan of every target; the first target wins.
         first_named: dict[str, str] = {}
         first_named_in_folder: dict[tuple[str, str], str] = {}
-        for target in targets:
-            name = target.attributes.get("name")
-            if not isinstance(name, str):
+        for swift_target in targets:
+            target_name = swift_target.attributes.get("name")
+            if not isinstance(target_name, str):
                 continue
-            first_named.setdefault(name, target.id)
-            first_named_in_folder.setdefault((target.id.rsplit("/", 1)[0], name), target.id)
+            first_named.setdefault(target_name, swift_target.id)
+            first_named_in_folder.setdefault((swift_target.id.rsplit("/", 1)[0], target_name), swift_target.id)
 
         def by_name(name: str, near: str) -> str | None:
             """The target with that name, preferring one beside `near`."""
