@@ -13,7 +13,7 @@ It works with the assistant you already pay for: **Claude Code** on a Claude sub
 
 **[Get started in ten minutes →](docs/getting-started.md)**
 
-![Codetrail's home page for its own repository: where to continue, how far behind the guide is, what you've learned and what changed](docs/images/home.png)
+![Codetrail's home page for its own repository: pinned pages and folding sections in the sidebar, where to continue, how far behind the guide is, what you've learned and what changed](docs/images/home.png)
 
 ## Contents
 - [Why Codetrail](#why-codetrail)
@@ -58,11 +58,12 @@ Codetrail uses the assistant for meaning and code for structure: deterministic e
 | 💬 | **Ask from any page** | Questions go to your assistant with read-only tools; answers come into the page in your language. |
 | 📌 | **Save to guide** | Answers worth keeping become part of the guide instead of disappearing like chat history: they're in the sidebar, on the Saved answers page, and in search. |
 | 🔎 | **Search** | Press ⌘K or / on any page to search the guide's pages, saved answers, decisions and facts. It runs on your machine and costs nothing. |
-| ⌨️ | **Shortcuts** | Ask (A), go places (G then H, P, Y, S, D, R, O or T), step through a path ([ and ]), mark read (M), update (U). None of them spends anything. |
+| ⌨️ | **Shortcuts** | Ask (A), go places (G then H, P, Y, S, D, R, O or T), step through a path ([ and ]), mark read (M), update (U), hide or show the sidebar (\\). None of them spends anything. |
+| 📌 | **A sidebar that gets out of the way** | Pin the pages you use most as tiles at the top, fold the sections you don't need, or hide the sidebar so the page takes the whole width and peek at it from the window's edge. Pins are kept by Codetrail, so they follow you to any browser. |
 | 🧭 | **Guided paths** | Ordered routes through the pages toward a goal, such as "how a request travels through the API". The home page picks up where you left off. |
 | ✅ | **Checks** | Open questions on each page, graded against a rubric grounded in the code. |
 | ♻️ | **Staleness** | When the code behind a page you learned changes, the page says so and shows what changed. |
-| 📊 | **Documentation metrics** | How well the repository explains itself: how much of the guide's rationale is documented (and from where: ADRs, documents, code comments, commits), commits that explain why, ADRs to revisit, and dependencies no document mentions. Each number lists what's behind it and keeps a trend across updates. Free: no assistant call. |
+| 📊 | **Documentation metrics** | How well the repository explains itself: how much of the guide's rationale is documented (and from where: ADRs, documents, code comments, commits), commits that explain why, ADRs to revisit, and dependencies no document mentions. An overview shows each number with its bar and trend across updates; each section opens to a chart and the items behind it, the one most in need first. Free: no assistant call. |
 | 📈 | **Repository statistics** | What the repository is, in charts you can explore: an interactive timeline of commits with its releases and dependency changes, a day-by-day activity calendar, a heat map of where change happens (by guide area, folder or file) with each area's commits month by month, and its age, commits and activity month by month, its releases from tags, lines of code by language with the share in tests, its facts by kind with the dependencies that arrived and left, and where change happens: the most changed files, folders and guide areas beside how much of each area's rationale is documented, quiet code and commit size. `codetrail stats <target>` prints the summary. Free: no assistant call. |
 | 💲 | **Estimates first** | Every paid action shows what it will use before it runs: tokens, dollars at API prices, and your plan's usage. |
 
@@ -73,6 +74,10 @@ These screenshots are Codetrail's guide to its own repository, written by Claude
 **A concept page** explains one part of the code, with quotes checked against their source lines, links to every fact and file, and an outline that follows you down the page. **Previous** and **Next** follow the path you came from.
 
 ![A concept page in a guided path, with its outline and its documented and inferred blocks](docs/images/area.png)
+
+**Hide the sidebar** with the button at the start of the header, or **\\**, and the page takes the whole width. Rest the pointer on the window's edge and it slides out over the page, with your pinned pages on top.
+
+![The sidebar hidden, peeking out over a page from the window's edge, with pinned pages as tiles at its top](docs/images/sidebar.png)
 
 **Search** the whole guide from the keyboard: press ⌘K or /, type, and press Enter.
 
@@ -89,6 +94,14 @@ These screenshots are Codetrail's guide to its own repository, written by Claude
 **Your system** shows how the repository's parts fit together, drawn from facts: services and apps, the contracts between them, libraries, infrastructure and where each part runs. Under the diagram, every arrow says why it's there: the file and line that shows it, or, for a dashed arrow, the two names that matched. (This one is a small example repository.)
 
 ![The system page: parts, contracts and platforms with solid and dashed arrows, and a legend](docs/images/system.png)
+
+**The repository** at a glance (G then T): a timeline of commits you can range over and pan, with its releases and the dependencies that came and went, a calendar of the last year, and a heat map of where change happens. All of it is read from the code and its history, for free.
+
+![The Repository page's timeline: commits per day, the releases on their own lane with the chosen one's notes, and the whole history below](docs/images/repository.png)
+
+**Documentation** (G then O) shows how well the repository explains itself: an overview of each number with its trend, and a section per metric that opens to a chart and the items behind it, starting with the one most in need.
+
+![The Documentation page: the overview of documented rationale, commits that explain why and ADRs needing attention, beside the open Architecture decisions section](docs/images/documentation.png)
 
 **Update the guide** refreshes the facts for free, then shows the estimate. Nothing is spent until you choose **Go ahead**.
 
