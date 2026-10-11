@@ -4,6 +4,9 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+### Security
+- A repository whose `Package.swift` files list many targets and many dependencies or imports can no longer stall an update: Swift targets are found by name and by folder in one lookup each, instead of a scan of every target.
+
 ## [1.2.0] - 2026-10-11
 
 Release notes: [docs/releases/v1.2.0.md](docs/releases/v1.2.0.md).
