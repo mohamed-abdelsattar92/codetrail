@@ -151,11 +151,19 @@ class SwiftExtractor:
             if "product" in reference.attributes
         }
 
+        # Indexed once, so each name is a lookup rather than a scan of every target; the first target wins.
+        first_named: dict[str, str] = {}
+        first_named_in_folder: dict[tuple[str, str], str] = {}
+        for target in targets:
+            name = target.attributes.get("name")
+            if not isinstance(name, str):
+                continue
+            first_named.setdefault(name, target.id)
+            first_named_in_folder.setdefault((target.id.rsplit("/", 1)[0], name), target.id)
+
         def by_name(name: str, near: str) -> str | None:
-            matches = [target for target in targets if target.attributes.get("name") == name]
-            same = [target for target in matches if target.id.rsplit("/", 1)[0] == near.rsplit("/", 1)[0]]
-            chosen = same or matches
-            return chosen[0].id if chosen else None
+            """The target with that name, preferring one beside `near`."""
+            return first_named_in_folder.get((near.rsplit("/", 1)[0], name)) or first_named.get(name)
 
         def owner(path: str) -> str | None:
             """The target whose folder holds the file; the deepest one when folders nest."""
