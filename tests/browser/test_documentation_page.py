@@ -1,5 +1,7 @@
 """The Documentation page's folding sections and filter chips (design section 21)."""
 
+import re
+
 import pytest
 from playwright.sync_api import Locator, Page, expect
 
@@ -76,3 +78,18 @@ def test_the_whole_overview_stays_reachable_on_a_laptop_screen(page: Page, site:
         " return {top: box.top, bottom: box.bottom, height: innerHeight}; }"
     )
     assert box["top"] >= 0 and box["bottom"] <= box["height"]  # its last tile can be scrolled to, not cut off
+
+
+def test_a_section_s_arrow_sits_on_its_heading_s_text(page: Page, site: Site) -> None:
+    site.sign_in(page, "/documentation")
+    for name in ("rationale", "commits"):  # one open, one closed
+        heading = fold(page, name).locator(":scope > summary h2")
+        arrow = heading.locator(".icon")
+        arrow_box, text_box = arrow.bounding_box(), heading.bounding_box()
+        assert arrow_box is not None and text_box is not None
+        arrow_middle = arrow_box["y"] + arrow_box["height"] / 2
+        text_middle = text_box["y"] + text_box["height"] / 2
+        assert abs(arrow_middle - text_middle) <= 2, name
+    turned = re.compile(r"matrix\([-0-9.e]+, 1, -1, [-0-9.e]+, 0, 0\)")  # rotate(90deg), as Chrome reports it
+    expect(fold(page, "rationale").locator(":scope > summary h2 .icon")).to_have_css("transform", turned)
+    expect(fold(page, "commits").locator(":scope > summary h2 .icon")).to_have_css("transform", "none")

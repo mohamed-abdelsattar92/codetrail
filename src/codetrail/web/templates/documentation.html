@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% from "layout/icons.html" import icon %}
 {% block title %}{{ _("Documentation") }}{% endblock %}
 {% block content %}
 {# A list of `listed` items and its folded rest; with a filter, each item carries its kind and the rest's summary
@@ -108,7 +109,7 @@
 
 <section id="rationale" aria-labelledby="rationale-title">
 <details class="doc-fold"{% if open_section == "rationale" %} open{% endif %}>
-  <summary><h2 id="rationale-title">{{ _("Documented rationale") }}</h2><span class="doc-todo">{% if not has_pages %}{{ _("No pages yet") }}{% elif rationale.inferred %}{% trans count=rationale.inferred %}{{ count }} inferred, worth documenting{% pluralize %}{{ count }} inferred, worth documenting{% endtrans %}{% else %}{{ _("Nothing inferred") }}{% endif %}</span></summary>
+  <summary><h2 id="rationale-title">{{ icon("chevron") }}{{ _("Documented rationale") }}</h2><span class="doc-todo">{% if not has_pages %}{{ _("No pages yet") }}{% elif rationale.inferred %}{% trans count=rationale.inferred %}{{ count }} inferred, worth documenting{% pluralize %}{{ count }} inferred, worth documenting{% endtrans %}{% else %}{{ _("Nothing inferred") }}{% endif %}</span></summary>
   <div class="doc-body">
   {{ about(_("Rationale blocks in the guide's area and concept pages: documented ones quote a source Codetrail checked, inferred ones are the assistant's reading. It counts only what the guide wrote about.")) }}
   {% if not has_pages %}
@@ -134,7 +135,7 @@
 
 <section id="commits" aria-labelledby="commits-title">
 <details class="doc-fold"{% if open_section == "commits" %} open{% endif %}>
-  <summary><h2 id="commits-title">{{ _("Commits that explain why") }}</h2><span class="doc-todo">{% if commits is none %}{{ _("Not available just now.") }}{% else %}{% trans count=commits.without_why|length, measured=commits.measured %}{{ count }} without a why, of the latest {{ measured }}{% pluralize %}{{ count }} without a why, of the latest {{ measured }}{% endtrans %}{% endif %}</span></summary>
+  <summary><h2 id="commits-title">{{ icon("chevron") }}{{ _("Commits that explain why") }}</h2><span class="doc-todo">{% if commits is none %}{{ _("Not available just now.") }}{% else %}{% trans count=commits.without_why|length, measured=commits.measured %}{{ count }} without a why, of the latest {{ measured }}{% pluralize %}{{ count }} without a why, of the latest {{ measured }}{% endtrans %}{% endif %}</span></summary>
   <div class="doc-body">
   {% if commits is none %}
   <p class="muted">{{ _("The commit history couldn't be read just now; the log says why.") }}</p>
@@ -158,7 +159,7 @@
 <section id="decisions" aria-labelledby="decisions-title">
 {% set to_check = decisions.undated|length + (decisions.uncited|length if has_pages else 0) %}
 <details class="doc-fold"{% if open_section == "decisions" %} open{% endif %}>
-  <summary><h2 id="decisions-title">{{ _("Architecture decisions") }}</h2><span class="doc-todo">{% if not decisions.by_status %}{{ _("None found") }}{% else %}{% trans count=decisions.attention %}{{ count }} needs attention{% pluralize %}{{ count }} need attention{% endtrans %}{% if to_check %} · {% trans count=to_check %}{{ count }} to check{% pluralize %}{{ count }} to check{% endtrans %}{% endif %}{% endif %}</span></summary>
+  <summary><h2 id="decisions-title">{{ icon("chevron") }}{{ _("Architecture decisions") }}</h2><span class="doc-todo">{% if not decisions.by_status %}{{ _("None found") }}{% else %}{% trans count=decisions.attention %}{{ count }} needs attention{% pluralize %}{{ count }} need attention{% endtrans %}{% if to_check %} · {% trans count=to_check %}{{ count }} to check{% pluralize %}{{ count }} to check{% endtrans %}{% endif %}{% endif %}</span></summary>
   <div class="doc-body">
   {% if not decisions.by_status %}
   <p class="muted">{{ _("No architecture decision records were found where the target's settings say they live.") }}</p>
@@ -203,7 +204,7 @@
 <section id="coverage" aria-labelledby="coverage-title">
 {% set mention_total = mentions.mentioned|length + mentions.unmentioned|length %}
 <details class="doc-fold"{% if open_section == "coverage" %} open{% endif %}>
-  <summary><h2 id="coverage-title">{{ _("Mentioned and explained") }}</h2><span class="doc-todo">{% trans count=mentions.unmentioned|length %}{{ count }} never mentioned{% pluralize %}{{ count }} never mentioned{% endtrans %}{% if has_pages %} · {% trans count=explained.unexplained|length %}{{ count }} unexplained{% pluralize %}{{ count }} unexplained{% endtrans %}{% endif %}</span></summary>
+  <summary><h2 id="coverage-title">{{ icon("chevron") }}{{ _("Mentioned and explained") }}</h2><span class="doc-todo">{% trans count=mentions.unmentioned|length %}{{ count }} never mentioned{% pluralize %}{{ count }} never mentioned{% endtrans %}{% if has_pages %} · {% trans count=explained.unexplained|length %}{{ count }} unexplained{% pluralize %}{{ count }} unexplained{% endtrans %}{% endif %}</span></summary>
   <div class="doc-body">
   {{ about(_("A package counts when a document names it as a whole word, a project when its folder holds a README or a document names its folder, and a resource when a document names its address. A fact is explained when it falls in the scope of a written area or concept page.")) }}
   <p class="muted">{{ _("External packages, projects and infrastructure resources that some document names. A mention isn't a reason: this only shows what no document talks about at all.") }}</p>

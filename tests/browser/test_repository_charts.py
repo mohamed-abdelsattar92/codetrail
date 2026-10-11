@@ -109,3 +109,15 @@ def test_the_window_starts_at_the_first_commit_and_panning_keeps_it_full(page: P
     while earlier.is_enabled():
         earlier.click()
     expect(page.locator('[data-chart="timeline"] .timeline-bar')).to_have_count(90)
+
+
+def test_the_watched_label_shows_in_full_when_the_band_is_narrow(page: Page, site: Site) -> None:
+    # The fixture's history spans over a year and Codetrail has watched it since today: the band is a sliver.
+    open_repository(page, site)
+    label = page.locator('[data-chart="timeline"] .lane-watch-label')
+    expect(label).to_contain_text("Watched by Codetrail since")
+    clipped = label.evaluate("label => label.scrollWidth > label.clientWidth + 1")
+    lane = label.evaluate("label => label.closest('.timeline-lane').getBoundingClientRect().toJSON()")
+    box = label.bounding_box()
+    assert not clipped and box is not None
+    assert lane["left"] <= box["x"] and box["x"] + box["width"] <= lane["right"] + 1
