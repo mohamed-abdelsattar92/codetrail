@@ -55,16 +55,6 @@ msgstr[4] "%(count)s ملف ثنائي"
 msgstr[5] "%(count)s ملفًا ثنائيًا"
 
 #, python-format
-msgid "%(count)s changed since you learned it"
-msgid_plural "%(count)s changed since you learned them"
-msgstr[0] "لم تتغيّر أي صفحة منذ أن تعلّمتها"
-msgstr[1] "تغيّرت صفحة واحدة منذ أن تعلّمتها"
-msgstr[2] "تغيّرت صفحتان منذ أن تعلّمتهما"
-msgstr[3] "تغيّرت %(count)s صفحات منذ أن تعلّمتها"
-msgstr[4] "تغيّرت %(count)s صفحة منذ أن تعلّمتها"
-msgstr[5] "تغيّرت %(count)s صفحة منذ أن تعلّمتها"
-
-#, python-format
 msgid "%(count)s commit"
 msgid_plural "%(count)s commits"
 msgstr[0] "%(count)s commits"
@@ -153,16 +143,6 @@ msgstr[2] "يومان، من %(start)s إلى %(end)s"
 msgstr[3] "%(count)s أيام، من %(start)s إلى %(end)s"
 msgstr[4] "%(count)s يوم، من %(start)s إلى %(end)s"
 msgstr[5] "%(count)s يومًا، من %(start)s إلى %(end)s"
-
-#, python-format
-msgid "%(count)s file"
-msgid_plural "%(count)s files"
-msgstr[0] "لا ملفات"
-msgstr[1] "ملف واحد"
-msgstr[2] "ملفان"
-msgstr[3] "%(count)s ملفات"
-msgstr[4] "%(count)s ملف"
-msgstr[5] "%(count)s ملفًا"
 
 #, python-format
 msgid ""
@@ -393,10 +373,6 @@ msgstr[2] "مستندان، الأسطر: %(lines)s"
 msgstr[3] "%(files)s مستندات، الأسطر: %(lines)s"
 msgstr[4] "%(files)s مستند، الأسطر: %(lines)s"
 msgstr[5] "%(files)s مستندًا، الأسطر: %(lines)s"
-
-#, python-format
-msgid "%(learned)s of %(total)s"
-msgstr "%(learned)s من %(total)s"
 
 #, python-format
 msgid "%(learned)s of %(total)s learned"
@@ -684,6 +660,9 @@ msgstr "إلغاء"
 
 msgid "Change over time, by area"
 msgstr "التغيير عبر الزمن، حسب المنطقة"
+
+msgid "Changed"
+msgstr "تغيّرت"
 
 msgid "Changed since you learned it"
 msgstr "تغيّرت منذ أن تعلّمتها"
@@ -1608,9 +1587,6 @@ msgstr "اعرض النظام كاملًا"
 msgid "See what's documented"
 msgstr "انظر ما هو موثّق"
 
-msgid "See your progress"
-msgstr "اعرض تقدّمك"
-
 msgid "Send"
 msgstr "أرسل"
 
@@ -1654,9 +1630,6 @@ msgstr "بدأ في %(date)s"
 
 msgid "Steps"
 msgstr "الخطوات"
-
-msgid "Steps learned"
-msgstr "الخطوات المُتعلَّمة"
 
 msgid "Subject only"
 msgstr "عنوان فقط"
@@ -1798,6 +1771,9 @@ msgstr "الأجزاء في هذا المجلد والأجزاء المرتبط�
 
 msgid "The releases couldn't be read just now; the log says why."
 msgstr "تعذّرت قراءة الإصدارات الآن؛ السجل يذكر السبب."
+
+msgid "The repository"
+msgstr "المستودع"
 
 msgid "The repository doesn't appear to use typed commit subjects."
 msgstr "لا يبدو أن المستودع يستخدم عناوين commits مصنّفة بأنواع."
@@ -2093,9 +2069,6 @@ msgstr "تعلّمت كل المسارات الموجَّهة. ستخبرك ال
 msgid "Your answer"
 msgstr "إجابتك"
 
-msgid "Your guide to"
-msgstr "دليلك إلى"
-
 msgid "Your progress"
 msgstr "تقدّمك"
 
@@ -2204,9 +2177,6 @@ msgstr[3] "تغيّرت %(count)s من حقائقها في هذا التحديث
 msgstr[4] "تغيّرت %(count)s من حقائقها في هذا التحديث"
 msgstr[5] "تغيّرت %(count)s من حقائقها في هذا التحديث"
 
-msgid "pages, by passing their checks"
-msgstr "صفحات، باجتياز اختباراتها"
-
 #, python-format
 msgid "proposed %(count)s day ago"
 msgid_plural "proposed %(count)s days ago"
@@ -2264,4 +2234,3 @@ msgstr "تنتظر «%(title)s» التحديث القادم: نفدت المي�
 #, python-format
 msgid "“%(title)s” wasn’t written: %(reason)s"
 msgstr "لم تُكتب «%(title)s»: %(reason)s"
-

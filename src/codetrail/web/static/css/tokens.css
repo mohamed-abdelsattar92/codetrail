@@ -81,6 +81,13 @@
   --heat-ink-4: #ffffff;
   --chart-band: rgb(91 91 214 / 0.07);
 
+  /* The home page's metric cards (design section 16.2): the system blue and the repository pink, from the chart
+     series, each with a darker shade for its text. Indigo is documentation's, green learned's, amber inferred's. */
+  --system: var(--series-3);
+  --system-text: #1f62b5;
+  --repository: var(--series-2);
+  --repository-text: #b23a6a;
+
   --shadow-float: 0 12px 32px rgb(16 24 64 / 0.14), 0 2px 6px rgb(16 24 64 / 0.08);
   --shadow-card: 0 1px 2px rgb(16 24 64 / 0.06), 0 0 0 1px var(--line); /* the page's card in the frame */
   --shadow-pill: 0 1px 2px rgb(16 24 64 / 0.1), 0 0 0 1px var(--line); /* the sidebar's current row and tile */
@@ -158,6 +165,8 @@
     --heat-ink-3: #0f1220;
     --heat-ink-4: #0f1220;
     --chart-band: rgb(155 155 245 / 0.08);
+    --system-text: #79b0f2;
+    --repository-text: #f08cb3;
   }
 }
 
@@ -208,6 +217,8 @@
   --heat-ink-3: #0f1220;
   --heat-ink-4: #0f1220;
   --chart-band: rgb(155 155 245 / 0.08);
+  --system-text: #79b0f2;
+  --repository-text: #f08cb3;
 }
 
 @media (prefers-reduced-motion: reduce) {

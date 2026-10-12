@@ -1,61 +1,112 @@
 {% extends "base.html" %}
 {% from "layout/icons.html" import icon %}
 {% block content %}
+{% macro since_last_update() %}
+<section class="card rail-card" aria-labelledby="update-title">
+  <p class="card-label" id="update-title">{{ _("Since the last update") }}</p>
+  <div class="rail-row">
+    {% if signal is none %}
+      <span class="chip">—</span>
+    {% elif signal.updating %}
+      <span class="chip">…</span>
+    {% elif signal.commits == 0 %}
+      <span class="chip chip-ok">{{ _("Up to date") }}</span>
+    {% else %}
+      <span class="chip chip-behind">{% trans count=signal.commits %}{{ count }} commit behind{% pluralize %}{{ count }} commits behind{% endtrans %}</span>
+    {% endif %}
+    <button type="button" class="button small" data-update-button>{{ _("Update the guide") }}</button>
+  </div>
+  <p class="stat-note">
+    {%- if signal is none %}{{ _("Couldn't check for new commits just now.") }}
+    {%- elif signal.updating %}{{ _("An update is running.") }}
+    {%- elif signal.commits == 0 %}{{ _("The guide matches the branch.") }}
+    {%- else %}{% trans count=signal.merges %}{{ count }} merge landed{% pluralize %}{{ count }} merges landed{% endtrans %}{% if signal.areas %} · <span lang="en" dir="ltr">{{ signal.areas[:3] | join(", ") }}</span>{% endif %}{% endif -%}
+  </p>
+  {% if last_update %}<p class="stat-note">{% trans tokens=last_update.tokens|tokens, cost=last_update.cost_usd|dollars %}The last update used ~{{ tokens }} tokens ({{ cost }} at API prices).{% endtrans %}</p>{% endif %}
+</section>
+{% endmacro %}
+{% macro what_changed() %}
+<section class="card rail-card" aria-labelledby="changed-title">
+  <p class="card-label" id="changed-title">{{ _("What changed") }}</p>
+  {% if unread_digests %}
+    <a class="stat-link" href="/pages/{{ unread_digests[0].id }}" lang="en" dir="ltr">{{ unread_digests[0].title }}</a>
+    <p class="stat-note">{% trans count=unread_digests|length %}{{ count }} unread digest{% pluralize %}{{ count }} unread digests{% endtrans %}</p>
+  {% elif latest_digest %}
+    <a class="stat-link" href="/pages/{{ latest_digest.id }}" lang="en" dir="ltr">{{ latest_digest.title }}</a>
+    <p class="stat-note">{{ _("You're caught up.") }}</p>
+  {% else %}
+    <p class="stat-note">{{ _("No digest yet.") }}</p>
+  {% endif %}
+</section>
+{% endmacro %}
 {% macro system_card() %}
 {% if system %}
-<section class="card" aria-labelledby="system-title">
-  <p class="card-label" id="system-title">{{ _("Your system") }}</p>
-  <p class="card-title">{% trans count=system.parts %}{{ count }} part{% pluralize %}{{ count }} parts{% endtrans %} · {% trans count=system.connections %}{{ count }} connection{% pluralize %}{{ count }} connections{% endtrans %}{{ _(", drawn from the code") }}</p>
-  <div class="card-row"><a class="button" href="/system">{{ _("See how it fits together") }} {{ icon("arrow") }}</a></div>
+<section class="card rail-card metric-card" data-hue="system" aria-labelledby="system-title">
+  <span class="hue">{{ icon("system") }}</span>
+  <div>
+    <p class="card-label" id="system-title">{{ _("Your system") }}</p>
+    <p class="metric-figure">{% trans count=system.parts %}{{ count }} part{% pluralize %}{{ count }} parts{% endtrans %} · {% trans count=system.connections %}{{ count }} connection{% pluralize %}{{ count }} connections{% endtrans %}{{ _(", drawn from the code") }}</p>
+    <a class="stat-note" href="/system">{{ _("See how it fits together") }}</a>
+  </div>
 </section>
 {% endif %}
 {% endmacro %}
 {% macro documentation_card() %}
 {% if snapshot %}
-<section class="card" aria-labelledby="documentation-title">
-  <p class="card-label" id="documentation-title">{{ _("Documentation") }}</p>
-  {% if documentation and documentation.percent is not none %}
-  <p class="card-title">{% trans percent=documentation.percent %}{{ percent }}% of the guide's rationale is documented{% endtrans %}{% if documentation.change is not none %}<span class="faint"> · {% trans change="%+d"|format(documentation.change) %}{{ change }} points since the last update{% endtrans %}</span>{% endif %}</p>
-  {% else %}
-  <p class="card-title">{{ _("How well the repository explains itself: rationale, commits, decisions and documents.") }}</p>
-  {% endif %}
-  <div class="card-row"><a class="button" href="/documentation">{{ _("See what's documented") }} {{ icon("arrow") }}</a></div>
+<section class="card rail-card metric-card" data-hue="documented" aria-labelledby="documentation-title">
+  <span class="hue">{{ icon("metrics") }}</span>
+  <div class="grow">
+    <p class="card-label" id="documentation-title">{{ _("Documentation") }}</p>
+    {% if documentation and documentation.percent is not none %}
+    <p class="metric-figure">{% trans percent=documentation.percent %}{{ percent }}% of the guide's rationale is documented{% endtrans %}</p>
+    <progress class="bar" max="100" value="{{ documentation.percent }}" aria-hidden="true"></progress>
+    {% if documentation.change is not none %}<p class="stat-note">{% trans change="%+d"|format(documentation.change) %}{{ change }} points since the last update{% endtrans %}</p>{% endif %}
+    {% else %}
+    <p class="stat-note">{{ _("How well the repository explains itself: rationale, commits, decisions and documents.") }}</p>
+    {% endif %}
+    <a class="stat-note" href="/documentation">{{ _("See what's documented") }}</a>
+  </div>
 </section>
 {% endif %}
 {% endmacro %}
 {% macro repository_card() %}
 {% if snapshot and repository %}
-<section class="card" aria-labelledby="repository-title">
-  <p class="card-label" id="repository-title">{{ _("Repository") }}</p>
-  <p class="card-title">{% if repository.first %}{% trans date=repository.first.isoformat() %}Started on {{ date }}{% endtrans %}{% if repository.commits is not none %} · {% endif %}{% endif %}{% if repository.commits is not none %}{% trans count=repository.commits, commits=repository.commits|number %}{{ commits }} commit{% pluralize %}{{ commits }} commits{% endtrans %}{% endif %}{% if repository.code_lines is not none %} · {% trans count=repository.code_lines, lines=repository.code_lines|number %}{{ lines }} line of code{% pluralize %}{{ lines }} lines of code{% endtrans %}{% endif %}</p>
-  <div class="card-row"><a class="button" href="/repository">{{ _("See the repository's statistics") }} {{ icon("arrow") }}</a></div>
+<section class="card rail-card metric-card" data-hue="repository" aria-labelledby="repository-title">
+  <span class="hue">{{ icon("repository") }}</span>
+  <div>
+    <p class="card-label" id="repository-title">{{ _("Repository") }}</p>
+    {% if repository.commits is not none %}<p class="metric-figure">{% trans count=repository.commits, commits=repository.commits|number %}{{ commits }} commit{% pluralize %}{{ commits }} commits{% endtrans %}</p>{% endif %}
+    <p class="stat-note">{% if repository.first %}{% trans date=repository.first.isoformat() %}Started on {{ date }}{% endtrans %}{% if repository.code_lines is not none %} · {% endif %}{% endif %}{% if repository.code_lines is not none %}{% trans count=repository.code_lines, lines=repository.code_lines|number %}{{ lines }} line of code{% pluralize %}{{ lines }} lines of code{% endtrans %}{% endif %}</p>
+    <a class="stat-note" href="/repository">{{ _("See the repository's statistics") }}</a>
+  </div>
 </section>
 {% endif %}
 {% endmacro %}
-{% macro since_last_update() %}
-  <div class="stat">
-    <span class="card-label">{{ _("Since the last update") }}</span>
-    {% if signal is none %}
-      <span class="stat-value">—</span><span class="stat-note">{{ _("Couldn't check for new commits just now.") }}</span>
-    {% elif signal.updating %}
-      <span class="stat-value">…</span><span class="stat-note">{{ _("An update is running.") }}</span>
-    {% elif signal.commits == 0 %}
-      <span class="stat-value ok">{{ _("Up to date") }}</span><span class="stat-note">{{ _("The guide matches the branch.") }}</span>
-    {% else %}
-      <span class="stat-value behind">{% trans count=signal.commits %}{{ count }} commit behind{% pluralize %}{{ count }} commits behind{% endtrans %}</span>
-      <span class="stat-note">{% trans count=signal.merges %}{{ count }} merge landed{% pluralize %}{{ count }} merges landed{% endtrans %}{% if signal.areas %} · <span lang="en" dir="ltr">{{ signal.areas[:3] | join(", ") }}</span>{% endif %}</span>
-    {% endif %}
-    <button type="button" class="button small" data-update-button>{{ _("Update the guide") }}</button>
-    {% if last_update %}<span class="stat-note">{% trans tokens=last_update.tokens|tokens, cost=last_update.cost_usd|dollars %}The last update used ~{{ tokens }} tokens ({{ cost }} at API prices).{% endtrans %}</span>{% endif %}
-  </div>
+{% macro browse_the_code() %}
+<section class="card rail-card" aria-labelledby="browse-title">
+  <p class="card-label" id="browse-title">{{ _("Browse the code") }}</p>
+  {% if areas %}
+  <ul class="folder-chips" lang="en" dir="ltr">
+    {% for area, files in areas %}
+    <li><a class="folder-chip" href="/areas/{{ area }}">{{ icon("folder") }} {{ area }}/ <span class="faint">{{ files }}</span></a></li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="stat-note">{% trans name=target %}No sources yet. Run <code>codetrail update {{ name }}</code> to read the repository.{% endtrans %}</p>
+  {% endif %}
+  {% if counts %}
+  <p class="stat-note">{{ _("Facts:") }} {% for kind, count in counts %}<span lang="en" dir="ltr">{{ kind }}</span> {{ count }}{% if not loop.last %} · {% endif %}{% endfor %}</p>
+  {% endif %}
+</section>
 {% endmacro %}
-<div class="wide">
-<header class="page-head">
-  <p class="eyebrow">{{ _("Your guide to") }}</p>
+<div class="wide home">
+<header class="home-head">
   <h1 lang="en" dir="ltr">{{ target }}</h1>
   <p class="meta" lang="en" dir="ltr">{% if nav.branch %}{{ nav.branch }}{% endif %}{% if snapshot %} · {{ snapshot.commit[:12] }} · {{ snapshot.taken_at | utc }}{% endif %}</p>
 </header>
 
+<div class="home-columns">
+<div class="home-main">
 {% if not guide_pages %}
 <section class="empty">
   <h2>{{ _("Run your first update") }}</h2>
@@ -63,22 +114,19 @@
   <button type="button" class="button primary" data-update-button>{{ _("Update the guide") }}</button>
   <p class="faint">{% trans name=target %}Or from a terminal: <code>codetrail update {{ name }}</code>{% endtrans %}</p>
 </section>
-{% if snapshot %}<div class="stats">{{ since_last_update() }}</div>{% endif %}
-{{ system_card() }}
-{{ documentation_card() }}
-{{ repository_card() }}
 {% else %}
 
 {% if continue_reading %}
 {% set path, step, steps_learned, steps_total = continue_reading %}
-<section class="card card-accent" aria-labelledby="continue-title">
-  <p class="card-label" id="continue-title">{{ _("Continue where you left off") }}</p>
-  <p class="card-title" lang="en" dir="ltr">{{ path.title }} · {{ step.title }}</p>
-  <div class="card-row">
-    <progress class="bar" max="{{ steps_total or 1 }}" value="{{ steps_learned }}" aria-label="{{ _('Steps learned') }}"></progress>
-    <span class="faint">{% trans learned=steps_learned, total=steps_total %}{{ learned }} of {{ total }} learned{% endtrans %}</span>
-    <a class="button primary" href="/pages/{{ step.id }}?path={{ path.id }}">{{ _("Continue") }} {{ icon("arrow") }}</a>
+<section class="card card-accent continue" aria-labelledby="continue-title">
+  <svg class="ring" viewBox="0 0 44 44" aria-hidden="true" focusable="false"><circle class="ring-track" cx="22" cy="22" r="18" pathLength="100"/>{% if steps_learned %}<circle class="ring-value" cx="22" cy="22" r="18" pathLength="100" stroke-dasharray="{{ (100 * steps_learned / (steps_total or 1)) | round(1) }} 100"/>{% endif %}</svg>
+  <div class="grow">
+    <p class="card-label" id="continue-title">{{ _("Continue where you left off") }}</p>
+    <p class="continue-path" lang="en" dir="ltr">{{ path.title }}</p>
+    <p class="card-title" lang="en" dir="ltr">{{ step.title }}</p>
+    <p class="faint">{% trans learned=steps_learned, total=steps_total %}{{ learned }} of {{ total }} learned{% endtrans %}</p>
   </div>
+  <a class="button primary" href="/pages/{{ step.id }}?path={{ path.id }}">{{ _("Continue") }} {{ icon("arrow") }}</a>
 </section>
 {% elif nav.paths %}
 <section class="card card-accent">
@@ -87,27 +135,19 @@
 </section>
 {% endif %}
 
-<div class="stats">
-{{ since_last_update() }}
-  <div class="stat">
-    <span class="card-label">{{ _("Learned") }}</span>
-    <span class="stat-value">{% trans learned=learned, total=guide_pages|length %}{{ learned }} of {{ total }}{% endtrans %}</span>
-    <span class="stat-note">{% if stale_pages %}{% trans count=stale_pages|length %}{{ count }} changed since you learned it{% pluralize %}{{ count }} changed since you learned them{% endtrans %}{% else %}{{ _("pages, by passing their checks") }}{% endif %}</span>
-    <a class="stat-note" href="/progress">{{ _("See your progress") }}</a>
+<section class="card home-paths" aria-labelledby="paths-title">
+  <div class="section-head">
+    <h2 id="paths-title">{{ _("Paths") }}</h2>
+    <a href="/progress">{% trans learned=learned, total=guide_pages|length %}{{ learned }} of {{ total }} learned{% endtrans %}</a>
   </div>
-  <div class="stat">
-    <span class="card-label">{{ _("What changed") }}</span>
-    {% if unread_digests %}
-      <a class="stat-link" href="/pages/{{ unread_digests[0].id }}" lang="en" dir="ltr">{{ unread_digests[0].title }}</a>
-      <span class="stat-note">{% trans count=unread_digests|length %}{{ count }} unread digest{% pluralize %}{{ count }} unread digests{% endtrans %}</span>
-    {% elif latest_digest %}
-      <a class="stat-link" href="/pages/{{ latest_digest.id }}" lang="en" dir="ltr">{{ latest_digest.title }}</a>
-      <span class="stat-note">{{ _("You're caught up.") }}</span>
-    {% else %}
-      <span class="stat-value">—</span><span class="stat-note">{{ _("No digest yet.") }}</span>
-    {% endif %}
-  </div>
-</div>
+  {% if nav.paths %}
+  <ul class="path-rows" lang="en" dir="ltr">
+    {% for path, steps_learned, steps_total in nav.paths %}
+    <li><a href="/pages/{{ path.id }}">{{ path.title }}</a><progress class="bar" max="{{ steps_total or 1 }}" value="{{ steps_learned }}" aria-hidden="true"></progress><span class="faint">{{ steps_learned }}/{{ steps_total }}</span></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+</section>
 
 {% if stale_pages %}
 <section>
@@ -118,46 +158,39 @@
 </section>
 {% endif %}
 
-<section>
-  <div class="section-head"><h2>{{ _("Your saved answers") }}</h2>{% if nav.answer_count %}<a href="/answers">{{ _("All saved answers") }}</a>{% endif %}</div>
-  {% if nav.answers %}
-  <ul class="list">
-    {% for answer in nav.answers %}<li><a class="grow" href="/pages/{{ answer.id }}" dir="auto">{{ answer.title }}</a><span class="faint">{{ answer.meta.get("asked_at", "")[:10] }}</span></li>{% endfor %}
-  </ul>
-  {% else %}
-  <p class="muted">{{ _("Ask a question from any page (press A) and save the answers worth keeping. They'll be here.") }}</p>
-  {% endif %}
-</section>
-
-{{ system_card() }}
-{{ documentation_card() }}
-{{ repository_card() }}
-
-<section>
-  <h2>{{ _("Areas") }}</h2>
-  <ul class="grid" lang="en" dir="ltr">
+<section aria-labelledby="areas-title">
+  <h2 id="areas-title">{{ _("Areas") }}</h2>
+  <ul class="grid area-grid" lang="en" dir="ltr">
     {% for area in nav.areas %}
-    <li><a class="tile" href="/pages/{{ area.id }}"><span class="tile-title">{{ area.title }}</span>
-      <span class="tile-note">{% set state = nav.statuses.get(area.id, "unread") %}{% if state == "learned" %}{{ _("Learned") }}{% elif state == "stale" %}{{ _("Changed since you learned it") }}{% elif state == "read" %}{{ _("Read") }}{% else %}{{ _("Not read yet") }}{% endif %}</span></a></li>
+    {% set state = nav.statuses.get(area.id, "unread") %}
+    <li><a class="tile area-tile" data-status="{{ state }}" href="/pages/{{ area.id }}"><span class="tile-title">{{ area.title }}</span>
+      {% if state == "learned" %}<span class="pill pill-learned">{{ _("Learned") }}</span>{% elif state == "stale" %}<span class="pill pill-stale">{{ _("Changed") }}</span>{% elif state == "read" %}<span class="pill pill-read">{{ _("Read") }}</span>{% else %}<span class="pill">{{ _("Not read yet") }}</span>{% endif %}</a></li>
     {% endfor %}
   </ul>
 </section>
 {% endif %}
+</div>
 
-<section>
-  <h2>{{ _("Browse the code") }}</h2>
-  {% if areas %}
-  <ul class="grid" lang="en" dir="ltr">
-    {% for area, files in areas %}
-    <li><a class="tile" href="/areas/{{ area }}"><span class="tile-title">{{ icon("folder") }} {{ area }}/</span><span class="tile-note">{% trans count=files %}{{ count }} file{% pluralize %}{{ count }} files{% endtrans %}</span></a></li>
-    {% endfor %}
+<aside class="home-rail" aria-label="{{ _('The repository') }}">
+{% if snapshot %}{{ since_last_update() }}{% endif %}
+{% if guide_pages %}{{ what_changed() }}{% endif %}
+{{ system_card() }}
+{{ documentation_card() }}
+{{ repository_card() }}
+{% if guide_pages %}
+<section class="card rail-card" aria-labelledby="answers-title">
+  <div class="section-head"><p class="card-label" id="answers-title">{{ _("Your saved answers") }}</p>{% if nav.answer_count %}<a class="stat-note" href="/answers">{{ _("All saved answers") }}</a>{% endif %}</div>
+  {% if nav.answers %}
+  <ul class="rail-list">
+    {% for answer in nav.answers %}<li><a href="/pages/{{ answer.id }}" dir="auto">{{ answer.title }}</a></li>{% endfor %}
   </ul>
   {% else %}
-  <p class="muted">{% trans name=target %}No sources yet. Run <code>codetrail update {{ name }}</code> to read the repository.{% endtrans %}</p>
-  {% endif %}
-  {% if counts %}
-  <p class="faint">{{ _("Facts:") }} {% for kind, count in counts %}<span lang="en" dir="ltr">{{ kind }}</span> {{ count }}{% if not loop.last %} · {% endif %}{% endfor %}</p>
+  <p class="stat-note">{{ _("Ask a question from any page (press A) and save the answers worth keeping. They'll be here.") }}</p>
   {% endif %}
 </section>
+{% endif %}
+{{ browse_the_code() }}
+</aside>
+</div>
 </div>
 {% endblock %}

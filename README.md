@@ -13,7 +13,7 @@ It works with the assistant you already pay for: **Claude Code** on a Claude sub
 
 **[Get started in ten minutes →](docs/getting-started.md)**
 
-![Codetrail's home page for its own repository: pinned pages and folding sections in the sidebar, where to continue, how far behind the guide is, what you've learned and what changed](docs/images/home.png)
+![Codetrail's home page for its own repository: pinned pages and folding sections in the sidebar; where to continue, every path's progress and the areas by state; and beside them, how far behind the guide is, what changed and the system, documentation and repository cards](docs/images/home.png)
 
 ## Contents
 - [Why Codetrail](#why-codetrail)
