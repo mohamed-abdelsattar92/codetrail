@@ -40,7 +40,7 @@
 
 <section>
   <h2>{{ _("Files") }}</h2>
-  <ul class="files" lang="en" dir="ltr">{% for path in files %}<li><a href="/source/{{ path }}">{{ path }}</a></li>{% endfor %}</ul>
+  <ul class="files" lang="en" dir="ltr">{% for path in files %}<li><a href="/source/{{ path|urlencode }}">{{ path }}</a></li>{% endfor %}</ul>
 </section>
 </div>
 {% endblock %}

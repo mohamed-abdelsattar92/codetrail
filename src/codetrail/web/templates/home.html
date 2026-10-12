@@ -88,7 +88,7 @@
   {% if areas %}
   <ul class="folder-chips" lang="en" dir="ltr">
     {% for area, files in areas %}
-    <li><a class="folder-chip" href="/areas/{{ area }}">{{ icon("folder") }} {{ area }}/ <span class="faint">{{ files }}</span></a></li>
+    <li><a class="folder-chip" href="/areas/{{ area|urlencode }}">{{ icon("folder") }} {{ area }}/ <span class="faint">{{ files }}</span></a></li>
     {% endfor %}
   </ul>
   {% else %}

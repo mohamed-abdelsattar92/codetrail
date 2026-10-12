@@ -14,7 +14,7 @@
 <h2>{{ _("Found in") }}</h2>
 <ul class="list" lang="en" dir="ltr">
   {% for source in entity.sources %}
-  <li><a class="grow" href="/source/{{ source.path }}{% if source.start_line %}#L{{ source.start_line }}{% endif %}">{{ source.path }}{% if source.start_line %}:{{ source.start_line }}{% endif %}</a></li>
+  <li><a class="grow" href="/source/{{ source.path|urlencode }}{% if source.start_line %}#L{{ source.start_line }}{% endif %}">{{ source.path }}{% if source.start_line %}:{{ source.start_line }}{% endif %}</a></li>
   {% endfor %}
 </ul>
 {% if outgoing %}
