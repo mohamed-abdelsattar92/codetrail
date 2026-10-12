@@ -8,6 +8,7 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 - The home page is redesigned to use its space and show more in color: learning sits in a wide column (where to continue, with a ring for the path's progress; every guided path with its own progress; the areas, each edged and labelled learned, changed, read or not read yet) beside a rail with the guide's state against the branch, what changed, the System, Documentation and Repository cards, each in its own color, your saved answers and the folders to browse as chips. The rail moves below the column when the page is narrow, including when the Ask panel takes the room.
 
 ### Fixed
+- A learned page's green tick in the sidebar shows on its own again, instead of inside a large bordered card meant for the checks on a guide page.
 - The Documentation page no longer takes a minute or more to open the first time after an update on a repository with images under `docs/`: images and other binary files that match the document globs are skipped instead of being read as text, which also stops their bytes from counting as a document mentioning a package.
 - A folder or file whose name holds `#` or `?` (such as `docs#1/` or `0002-use-c#.md`) now opens from its link on the home page, the area, fact, decisions and system pages and the Repository page, instead of opening the wrong folder or a page that isn't found.
 

@@ -310,3 +310,20 @@ def test_the_page_prints_without_its_frame(page: Page, site: Site) -> None:
     page.emulate_media(media="print")
     expect(page.locator(".page-area")).to_have_css("box-shadow", "none")
     expect(page.locator("[data-sidebar-toggle]")).to_be_hidden()
+
+
+def test_a_learned_page_shows_a_bare_tick_while_the_guide_keeps_its_check_cards(page: Page, site: Site) -> None:
+    wide(page)
+    site.sign_in(page, "/pages/areas/app")
+    page.locator(".check textarea").first.fill("Charges fail sometimes.")
+    page.locator(".check button[type=submit]").first.click()
+    expect(page.locator("[data-feedback]").first).to_contain_text("Passed")
+    page.reload()
+    ready(page)
+    tick = page.locator("#sidebar a[href='/pages/areas/app'] .check")
+    expect(tick).to_be_visible()
+    expect(tick).to_have_css("padding-inline-start", "0px")
+    expect(tick).to_have_css("border-block-start-width", "0px")
+    question = page.locator(".checks .check").first
+    expect(question).to_have_css("border-block-start-width", "1px")
+    expect(question).not_to_have_css("padding-inline-start", "0px")
