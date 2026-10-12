@@ -23,12 +23,6 @@ msgstr[0] ""
 msgstr[1] ""
 
 #, python-format
-msgid "%(count)s changed since you learned it"
-msgid_plural "%(count)s changed since you learned them"
-msgstr[0] ""
-msgstr[1] ""
-
-#, python-format
 msgid "%(count)s commit"
 msgid_plural "%(count)s commits"
 msgstr[0] ""
@@ -79,12 +73,6 @@ msgstr[1] ""
 #, python-format
 msgid "%(count)s day, from %(start)s to %(end)s"
 msgid_plural "%(count)s days, from %(start)s to %(end)s"
-msgstr[0] ""
-msgstr[1] ""
-
-#, python-format
-msgid "%(count)s file"
-msgid_plural "%(count)s files"
 msgstr[0] ""
 msgstr[1] ""
 
@@ -229,10 +217,6 @@ msgid "%(files)s document, %(lines)s lines"
 msgid_plural "%(files)s documents, %(lines)s lines"
 msgstr[0] ""
 msgstr[1] ""
-
-#, python-format
-msgid "%(learned)s of %(total)s"
-msgstr ""
 
 #, python-format
 msgid "%(learned)s of %(total)s learned"
@@ -484,6 +468,9 @@ msgid "Cancel"
 msgstr ""
 
 msgid "Change over time, by area"
+msgstr ""
+
+msgid "Changed"
 msgstr ""
 
 msgid "Changed since you learned it"
@@ -1348,9 +1335,6 @@ msgstr ""
 msgid "See what's documented"
 msgstr ""
 
-msgid "See your progress"
-msgstr ""
-
 msgid "Send"
 msgstr ""
 
@@ -1393,9 +1377,6 @@ msgid "Started on %(date)s"
 msgstr ""
 
 msgid "Steps"
-msgstr ""
-
-msgid "Steps learned"
 msgstr ""
 
 msgid "Subject only"
@@ -1526,6 +1507,9 @@ msgid "The parts in this folder and the parts they connect to."
 msgstr ""
 
 msgid "The releases couldn't be read just now; the log says why."
+msgstr ""
+
+msgid "The repository"
 msgstr ""
 
 msgid "The repository doesn't appear to use typed commit subjects."
@@ -1802,9 +1786,6 @@ msgstr ""
 msgid "Your answer"
 msgstr ""
 
-msgid "Your guide to"
-msgstr ""
-
 msgid "Your progress"
 msgstr ""
 
@@ -1904,9 +1885,6 @@ msgid "one of its facts changed in this update"
 msgid_plural "%(count)s of its facts changed in this update"
 msgstr[0] ""
 msgstr[1] ""
-
-msgid "pages, by passing their checks"
-msgstr ""
 
 #, python-format
 msgid "proposed %(count)s day ago"

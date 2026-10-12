@@ -140,7 +140,7 @@ def test_arabic_ships_with_codetrail(paths: Paths, session: SessionState) -> Non
     assert client.post("/settings/language", json={"language": "ar"}, headers=headers).status_code == 204
     page = client.get("/").text
     assert '<html lang="ar" dir="rtl">' in page
-    assert "دليلك إلى" in page  # "Your guide to"
+    assert "منذ التحديث السابق" in page  # "Since the last update"
     assert "، مرسومة من الكود" in page  # the catalog's own punctuation, not an English comma
 
 

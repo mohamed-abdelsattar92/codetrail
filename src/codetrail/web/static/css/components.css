@@ -465,18 +465,6 @@
   font-weight: 600;
 }
 
-.card-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3) var(--space-4);
-}
-
-.card-row .bar {
-  flex: 1;
-  min-inline-size: 120px;
-}
-
 .page-head {
   margin-block-end: var(--space-8);
 }
@@ -516,14 +504,6 @@
   font-weight: 600;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
-}
-
-.stat-value.behind {
-  color: var(--inferred-text);
-}
-
-.stat-value.ok {
-  color: var(--learned);
 }
 
 .stat-link {
@@ -571,11 +551,6 @@
 .tile-title {
   font-weight: 600;
   line-height: 1.35;
-}
-
-.tile-note {
-  color: var(--text-faint);
-  font-size: 0.8rem;
 }
 
 .list {
@@ -633,6 +608,321 @@
   max-inline-size: 46ch;
   margin-inline: auto;
   color: var(--text-muted);
+}
+
+/* The home page (design section 16.1): a learning column, and beside it a rail of the repository's state, which
+   drops below once the page is too narrow for both. The page, not the window, decides: the sidebar and the Ask
+   panel take their share of the width. */
+.home {
+  container-type: inline-size;
+}
+
+.home-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-4);
+  margin-block-end: var(--space-5);
+}
+
+.home-head h1 {
+  margin: 0;
+}
+
+.home-head .meta {
+  margin: 0;
+  color: var(--text-faint);
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+}
+
+.home-columns {
+  display: grid;
+  gap: var(--space-5);
+  align-items: start;
+}
+
+@container (min-width: 56rem) {
+  .home-columns {
+    grid-template-columns: minmax(0, 1fr) 20rem;
+  }
+}
+
+.home-main,
+.home-rail {
+  display: grid;
+  gap: var(--space-3);
+  min-inline-size: 0;
+}
+
+.home .card + .card {
+  margin-block-start: 0;
+}
+
+.home h2 {
+  margin-block: var(--space-3) var(--space-3);
+  font-size: 1.05rem;
+}
+
+.home .section-head h2 {
+  margin: 0;
+}
+
+.home .section-head {
+  margin-block-end: var(--space-3);
+}
+
+.home .card-label,
+.home .card-title,
+.home .stat-note {
+  margin-block: 0;
+}
+
+.continue {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-4);
+}
+
+.continue .grow {
+  flex: 1;
+  min-inline-size: 12rem;
+}
+
+.continue-path {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.continue .faint {
+  margin: var(--space-1) 0 0;
+  font-size: 0.8rem;
+}
+
+.ring {
+  inline-size: 48px;
+  block-size: 48px;
+  flex: none;
+  fill: none;
+  stroke-width: 5;
+}
+
+.ring-track {
+  stroke: var(--line);
+}
+
+.ring-value {
+  stroke: var(--learned);
+  stroke-linecap: round;
+  transform: rotate(-90deg);
+  transform-origin: center;
+}
+
+.path-rows {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.path-rows li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(4rem, 8rem) 2.5rem;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: 0.9rem;
+}
+
+.path-rows a {
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.path-rows .faint {
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+}
+
+/* Progress toward learning is green, wherever it's drawn on the page. */
+.path-rows .bar::-webkit-progress-value {
+  background: var(--learned);
+}
+
+.path-rows .bar::-moz-progress-bar {
+  background: var(--learned);
+}
+
+.area-grid {
+  margin: 0;
+  gap: var(--space-2);
+}
+
+.area-tile {
+  gap: var(--space-2);
+  align-items: flex-start;
+  padding: var(--space-3);
+  border-inline-start: 4px solid var(--line-strong);
+}
+
+.area-tile[data-status="learned"] {
+  border-inline-start-color: var(--learned);
+}
+
+.area-tile[data-status="stale"] {
+  border-inline-start-color: var(--inferred);
+}
+
+.area-tile[data-status="read"] {
+  border-inline-start-color: var(--accent);
+}
+
+.area-tile .tile-title {
+  font-size: 0.9rem;
+}
+
+.area-tile .pill {
+  padding: 0 var(--space-2);
+  font-size: 0.74rem;
+}
+
+.rail-card {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-4);
+}
+
+.rail-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  margin-block: var(--space-1);
+}
+
+.chip {
+  display: inline-flex;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.chip-ok {
+  background: var(--learned-tint);
+  color: var(--learned);
+}
+
+.chip-behind {
+  background: var(--inferred-tint);
+  color: var(--inferred-text);
+}
+
+/* A metric card's colour is its kind: the system blue, documentation indigo, the repository pink (section 16.2). */
+.metric-card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.metric-card > div {
+  display: grid;
+  gap: var(--space-1);
+  min-inline-size: 0;
+}
+
+.metric-card .grow {
+  flex: 1;
+}
+
+.hue {
+  display: grid;
+  place-items: center;
+  inline-size: 34px;
+  block-size: 34px;
+  flex: none;
+  border-radius: 9px;
+}
+
+.metric-figure {
+  margin: 0;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.metric-card[data-hue="system"] .hue {
+  background: color-mix(in srgb, var(--system) 16%, var(--raised));
+  color: var(--system-text);
+}
+
+.metric-card[data-hue="system"] .metric-figure {
+  color: var(--system-text);
+}
+
+.metric-card[data-hue="documented"] .hue {
+  background: var(--accent-tint);
+  color: var(--accent-text);
+}
+
+.metric-card[data-hue="documented"] .metric-figure {
+  color: var(--accent-text);
+}
+
+.metric-card[data-hue="repository"] .hue {
+  background: color-mix(in srgb, var(--repository) 16%, var(--raised));
+  color: var(--repository-text);
+}
+
+.metric-card[data-hue="repository"] .metric-figure {
+  color: var(--repository-text);
+}
+
+.rail-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-1) 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.88rem;
+}
+
+.folder-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: var(--space-1) 0 var(--space-2);
+  padding: 0;
+  list-style: none;
+}
+
+.folder-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--text);
+  font-size: 0.8rem;
+}
+
+.folder-chip:hover {
+  border-color: var(--accent);
+  text-decoration: none;
+}
+
+.folder-chip .icon {
+  inline-size: 14px;
+  block-size: 14px;
 }
 
 .notice {
