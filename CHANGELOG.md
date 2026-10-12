@@ -10,6 +10,7 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 ### Fixed
 - A learned page's green tick in the sidebar shows on its own again, instead of inside a large bordered card meant for the checks on a guide page.
 - The Documentation page no longer takes a minute or more to open the first time after an update on a repository with images under `docs/`: images and other binary files that match the document globs are skipped instead of being read as text, which also stops their bytes from counting as a document mentioning a package.
+- A folder or file whose name holds `#` or `?` (such as `docs#1/` or `0002-use-c#.md`) now opens from its link on the home page, the area, fact, decisions and system pages and the Repository page, instead of opening the wrong folder or a page that isn't found.
 
 ### Security
 - A repository whose `Package.swift` files list many targets and many dependencies or imports, or whose deeply nested Swift files hold many imports, can no longer stall an update: Swift targets are found by name and by folder in one lookup each, instead of a scan of every target, and each file's target is found once.

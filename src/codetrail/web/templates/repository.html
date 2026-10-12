@@ -274,7 +274,7 @@
   {% endif %}
   {% if churn.files %}
   <h3>{{ _("Most changed files") }}</h3>
-  <ul class="list" lang="en" dir="ltr">{% for spot in churn.files[:largest_files] %}<li><a class="grow" href="/source/{{ spot.name }}">{{ spot.name }}</a><span class="faint">{{ spot.count|number }}</span></li>{% endfor %}</ul>
+  <ul class="list" lang="en" dir="ltr">{% for spot in churn.files[:largest_files] %}<li><a class="grow" href="/source/{{ spot.name|urlencode }}">{{ spot.name }}</a><span class="faint">{{ spot.count|number }}</span></li>{% endfor %}</ul>
   <h3>{{ _("Most changed folders") }}</h3>
   <ul class="pills" lang="en" dir="ltr">{% for spot in churn.folders[:listed] %}<li class="pill">{{ spot.name }} · {{ spot.count|number }}</li>{% endfor %}</ul>
   {% endif %}
@@ -335,7 +335,7 @@
   </ul>
   {% if size.largest %}
   <h3>{{ _("Largest files") }}</h3>
-  <ul class="list" lang="en" dir="ltr">{% for file in size.largest[:largest_files] %}<li><a class="grow" href="/source/{{ file.path }}">{{ file.path }}</a><span class="faint">{{ file.language }} · {{ file.lines|number }}</span></li>{% endfor %}</ul>
+  <ul class="list" lang="en" dir="ltr">{% for file in size.largest[:largest_files] %}<li><a class="grow" href="/source/{{ file.path|urlencode }}">{{ file.path }}</a><span class="faint">{{ file.language }} · {{ file.lines|number }}</span></li>{% endfor %}</ul>
   {% endif %}
 </section>
 
