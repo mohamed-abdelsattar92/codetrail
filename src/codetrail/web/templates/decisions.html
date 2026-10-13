@@ -12,7 +12,7 @@
   <tbody>
   {% for decision in decisions %}
   <tr>
-    <td><a href="/facts/{{ decision.id }}">{{ decision.attributes.number }}</a></td>
+    <td><a href="/facts/{{ decision.id|urlencode }}">{{ decision.attributes.number }}</a></td>
     <td><a href="/source/{{ decision.attributes.path|urlencode }}">{{ decision.attributes.title }}</a></td>
     <td>{% if decision.attributes.get("status") %}<span class="pill">{{ decision.attributes.get("status", "") }}</span>{% endif %}</td>
     <td class="faint">{{ decision.attributes.get("date", "") }}</td>

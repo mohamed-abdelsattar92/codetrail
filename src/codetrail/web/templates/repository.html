@@ -356,7 +356,7 @@
   {% endif %}
   {% if inventory.arrived %}
   <h3>{{ _("Dependencies that arrived") }}</h3>
-  {% call(item) capped(inventory.arrived) %}<a class="grow" href="/facts/{{ item.package }}">{{ item.package }}</a><span class="faint">{{ item.snapshot.taken_at[:10] }} · {{ item.snapshot.commit[:7] }}</span>{% endcall %}
+  {% call(item) capped(inventory.arrived) %}<a class="grow" href="/facts/{{ item.package|urlencode }}">{{ item.package }}</a><span class="faint">{{ item.snapshot.taken_at[:10] }} · {{ item.snapshot.commit[:7] }}</span>{% endcall %}
   {% endif %}
   {% if inventory.left %}
   <h3>{{ _("Dependencies that left") }}</h3>
