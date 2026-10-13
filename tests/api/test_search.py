@@ -73,7 +73,7 @@ def test_results_find_titles_headings_and_facts(paths: Paths) -> None:
     client, headers = signed_in(paths)
     assert found(client, headers, "payment")[0]["link"] == "/pages/concepts/retries"
     assert found(client, headers, "backoff")[0]["title"] == "Payment retries"
-    assert any(result["link"] == "/facts/module:app/charges.py" for result in found(client, headers, "charges"))
+    assert any(result["link"] == "/facts/module%3Aapp/charges.py" for result in found(client, headers, "charges"))
 
 
 def test_results_carry_plain_segments(paths: Paths) -> None:

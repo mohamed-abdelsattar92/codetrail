@@ -23,7 +23,7 @@
     <tbody>
     {% for row in rows %}
     <tr>
-      <td lang="en" dir="ltr"><a href="/facts/{{ row.id }}">{{ row.name }}</a></td>
+      <td lang="en" dir="ltr"><a href="/facts/{{ row.id|urlencode }}">{{ row.name }}</a></td>
       <td lang="en" dir="ltr">{% if row.folder %}<a href="/areas/{{ row.folder|urlencode }}">{{ row.folder }}/</a>{% else %}—{% endif %}</td>
       <td lang="en" dir="ltr">{{ row.depends_on | join(", ") or "—" }}</td>
       <td lang="en" dir="ltr">{{ row.called_by | join(", ") or "—" }}</td>
