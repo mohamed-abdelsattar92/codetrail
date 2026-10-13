@@ -74,7 +74,7 @@ def test_every_part_is_drawn_with_its_kinds_shape(store: FactStore) -> None:
     assert any(re.fullmatch(r'\s+n\d+@\{ shape: doc, label: "openapi.yaml" \}', line) for line in lines)
     assert any(re.fullmatch(r'\s+n\d+\[\["infra/app"\]\]', line) for line in lines)  # infrastructure: double border
     assert any(re.fullmatch(r'\s+n\d+\(\["Cloudflare"\]\)', line) for line in lines)  # platform: stadium
-    assert {node.link for node in diagram.nodes} == {f"/facts/{quote(entity.id)}" for entity in PARTS}
+    assert {node.link for node in diagram.nodes} == {f"/facts/{quote(entity.id, safe='')}" for entity in PARTS}
 
 
 def test_arrows_are_solid_when_explicit_and_dashed_when_matched(store: FactStore) -> None:

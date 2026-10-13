@@ -167,7 +167,7 @@ def guide_documents(guide: GuideRepository, store: FactStore | None) -> list[Doc
         headings, text = _plain(page.body)
         documents.append(Document(page.id, page.kind, page.title, headings, text, f"/pages/{page.id}"))
     for entity in store.entities() if store is not None else []:
-        link = f"/facts/{quote(entity.id)}"
+        link = f"/facts/{quote(entity.id, safe='')}"
         if entity.kind == EntityKind.DECISION:
             title = f"{entity.attributes.get('number', '')}. {entity.attributes.get('title', '')}".strip(". ")
             text = str(entity.attributes.get("status", ""))

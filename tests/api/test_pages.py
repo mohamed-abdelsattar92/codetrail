@@ -74,8 +74,8 @@ def test_an_area_shows_its_diagrams_and_files(client: TestClient) -> None:
 def test_a_fact_links_its_sources_and_relations(client: TestClient) -> None:
     page = client.get("/facts/module:services/api/app/main.py").text
     assert 'href="/source/services/api/app/main.py"' in page
-    assert 'href="/facts/module%3Aservices/api/app/db.py"' in page
-    assert 'href="/facts/project%3Aservices/api"' in page
+    assert 'href="/facts/module%3Aservices%2Fapi%2Fapp%2Fdb.py"' in page
+    assert 'href="/facts/project%3Aservices%2Fapi"' in page
     assert client.get("/facts/module:missing.py").status_code == 404
 
 
