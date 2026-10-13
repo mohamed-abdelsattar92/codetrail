@@ -25,11 +25,12 @@ function label(name, query = "") {
 }
 
 // Resolved the way the browser will follow it: a check on the text alone misses `/\host` and `/<tab>/host`,
-// which browsers read as `//host`.
+// which browsers read as `//host`. A `blob:` URL takes the origin of the URL inside it, so the scheme is checked too.
 function isLocalLink(link) {
   if (typeof link !== "string") return false;
   try {
-    return new URL(link, window.location.origin).origin === window.location.origin;
+    const url = new URL(link, window.location.origin);
+    return url.origin === window.location.origin && (url.protocol === "http:" || url.protocol === "https:");
   } catch {
     return false;
   }
