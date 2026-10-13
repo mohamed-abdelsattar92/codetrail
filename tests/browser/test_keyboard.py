@@ -25,6 +25,30 @@ def test_the_palette_finds_a_page_and_opens_it(page: Page, site: Site, errors: l
     assert errors == []
 
 
+def test_the_palette_offers_no_result_that_leaves_the_site(page: Page, site: Site, errors: list[str]) -> None:
+    # Browsers read `\` as `/` and drop tabs and newlines, so each of these links opens another site.
+    results = [
+        {"kind": "concept", "title": "Backslash", "link": "/\\evil.example/", "snippet": []},
+        {"kind": "concept", "title": "Tab", "link": "/\t/evil.example/", "snippet": []},
+        {"kind": "concept", "title": "Newline", "link": "/\n/evil.example/", "snippet": []},
+        {"kind": "concept", "title": "Scheme", "link": "https://evil.example/", "snippet": []},
+        {"kind": "concept", "title": "Script", "link": "javascript:alert(1)", "snippet": []},
+        {"kind": "concept", "title": "Blob", "link": f"blob:{site.url}/0", "snippet": []},  # its origin is the site's
+        {"kind": "concept", "title": "The ledger", "link": "/pages/concepts/ledger", "snippet": []},
+    ]
+    page.route("**/search/results?*", lambda route: route.fulfill(json={"results": results, "available": True}))
+    site.sign_in(page)
+    page.keyboard.press("/")
+    page.keyboard.type("ledger")
+    first = page.locator(".palette-option").first
+    expect(first).to_contain_text("The ledger")
+    for title in ("Backslash", "Tab", "Newline", "Scheme", "Script", "Blob"):
+        expect(page.locator(".palette-option", has_text=title)).to_have_count(0)
+    page.keyboard.press("Enter")
+    expect(page).to_have_url(re.compile(r"/pages/concepts/ledger$"))
+    assert errors == []
+
+
 def test_arrows_move_through_results_and_escape_closes(page: Page, site: Site) -> None:
     site.sign_in(page)
     page.keyboard.press("/")

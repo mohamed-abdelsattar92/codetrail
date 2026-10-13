@@ -16,6 +16,7 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 
 ### Security
 - A repository whose `Package.swift` files list many targets and many dependencies or imports, or whose deeply nested Swift files hold many imports, can no longer stall an update: Swift targets are found by name and by folder in one lookup each, instead of a scan of every target, and each file's target is found once.
+- The command palette offers a search result only when its link stays on Codetrail's own page, judged the way the browser reads the link, so a link such as `/\example.com` (which browsers treat as `//example.com`) can never take you to another site. Codetrail's own results never held such links; this guards against one ever appearing.
 
 ## [1.2.0] - 2026-10-11
 
