@@ -24,8 +24,15 @@ function label(name, query = "") {
   return (dialog.dataset[name] ?? "").replace("{query}", query);
 }
 
+// Resolved the way the browser will follow it: a check on the text alone misses `/\host` and `/<tab>/host`,
+// which browsers read as `//host`.
 function isLocalLink(link) {
-  return typeof link === "string" && link.startsWith("/") && !link.startsWith("//");
+  if (typeof link !== "string") return false;
+  try {
+    return new URL(link, window.location.origin).origin === window.location.origin;
+  } catch {
+    return false;
+  }
 }
 
 function heading(text) {
