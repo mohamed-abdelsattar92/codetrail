@@ -39,7 +39,7 @@ class Segment:
 
 
 def render_markdown(text: str) -> Markup:
-    linked = FACT_LINK.sub(lambda match: f"[{match.group(1)}](</facts/{quote(match.group(1))}>)", text)
+    linked = FACT_LINK.sub(lambda match: f"[{match.group(1)}](</facts/{quote(match.group(1), safe='')}>)", text)
     # Raw HTML is off and links are validated, so the output holds only markdown-it's own markup.
     return Markup(MARKDOWN.render(linked))  # noqa: S704
 

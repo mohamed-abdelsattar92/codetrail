@@ -1,7 +1,9 @@
-"""Links built from folder and file names are URL-encoded, so a `#` or `?` in a name can't cut or split the link."""
+"""Links built from folder, file and fact names are URL-encoded, so a `#`, `?` or `/..` in a name can't cut, split or
+redirect the link."""
 
 import re
 from pathlib import Path
+from urllib.parse import urljoin, urlsplit
 
 import pytest
 from fastapi.testclient import TestClient
@@ -46,7 +48,7 @@ def client(tmp_path: Path) -> TestClient:
     )
     write_target(paths, "t", checkout, "develop")
     run_update(paths, "t", facts_only=True)
-    package = '{"name": "web", "dependencies": {"left#pad": "1.0.0"}}\n'
+    package = '{"name": "web", "dependencies": {"left#pad": "1.0.0", "../../../system": "1.0.0"}}\n'
     add_commit(checkout, {"svc#1/app/main.py": "print(2)\n", "web/package.json": package}, "fix: c")
     run_update(paths, "t", facts_only=True)
     GuideRepository(paths.target_data("t") / "guide").write_page(
@@ -111,37 +113,56 @@ def test_a_rolled_up_system_diagram_links_each_folder_by_its_encoded_path(client
 
 def test_diagrams_link_facts_by_their_encoded_ids(client: TestClient) -> None:
     area = diagrams(client.get("/areas/svc%231/lib").text)
-    assert 'href="/facts/part%3Asvc%231/lib"' in area  # the system diagram, focused on one part
-    assert 'href="/facts/project%3Asvc%231/lib"' in area  # its dependencies
-    opens(client, "/facts/part%3Asvc%231/lib", "part:svc#1/lib")
+    assert 'href="/facts/part%3Asvc%231%2Flib"' in area  # the system diagram, focused on one part
+    assert 'href="/facts/project%3Asvc%231%2Flib"' in area  # its dependencies
+    opens(client, "/facts/part%3Asvc%231%2Flib", "part:svc#1/lib")
     assert 'href="/facts/project%3Asvc%231"' in diagrams(client.get("/areas/svc%231").text)
     page = diagrams(client.get("/pages/concepts/odd-names").text)
-    assert 'href="/facts/module%3Asvc%231/lib/core.py"' in page  # the imports diagram, one module
+    assert 'href="/facts/module%3Asvc%231%2Flib%2Fcore.py"' in page  # the imports diagram, one module
     assert 'href="/facts/terraform_module%3Ainfra%231"' in page  # the resources diagram
-    opens(client, "/facts/module%3Asvc%231/lib/core.py", "module:svc#1/lib/core.py")
+    opens(client, "/facts/module%3Asvc%231%2Flib%2Fcore.py", "module:svc#1/lib/core.py")
 
 
 def test_a_guide_page_links_facts_and_citations_by_their_encoded_paths(client: TestClient) -> None:
     page = client.get("/pages/concepts/odd-names").text
-    assert 'href="/facts/module%3Asvc%231/app/main.py"' in page
+    assert 'href="/facts/module%3Asvc%231%2Fapp%2Fmain.py"' in page
     assert 'href="/source/a%3Fb/tool.py#L1"' in page
-    opens(client, "/facts/module%3Asvc%231/app/main.py", "module:svc#1/app/main.py")
+    opens(client, "/facts/module%3Asvc%231%2Fapp%2Fmain.py", "module:svc#1/app/main.py")
     opens(client, "/source/a%3Fb/tool.py", "x = 1")
 
 
 def test_search_links_facts_by_their_encoded_ids(client: TestClient) -> None:
-    assert 'href="/facts/module%3Asvc%231/app/main.py"' in client.get("/search", params={"q": "main"}).text
+    assert 'href="/facts/module%3Asvc%231%2Fapp%2Fmain.py"' in client.get("/search", params={"q": "main"}).text
+
+
+LINKING_PAGES = ("/system", "/areas/svc%231", "/areas/svc%231/lib", "/areas/web", "/facts/project%3Asvc%231",
+                 "/facts/project%3Aweb", "/documentation", "/decisions", "/repository", "/pages/concepts/odd-names",
+                 "/search?q=svc", "/search?q=system")  # fmt: skip
+SYSTEM_PACKAGE = "/facts/package%3Anpm%2F..%2F..%2F..%2Fsystem"  # a package.json key that reads as a path
 
 
 def test_no_link_holds_a_raw_hash_or_question_mark(client: TestClient) -> None:
-    for page in ("/system", "/areas/svc%231", "/areas/svc%231/lib", "/facts/project%3Asvc%231", "/facts/project%3Aweb",
-                 "/documentation", "/repository", "/pages/concepts/odd-names", "/search?q=svc"):  # fmt: skip
+    for page in LINKING_PAGES:
         links = re.findall(r'href="(/(?:facts|areas|source)/[^"]*)"', client.get(page).text)
         assert links, page
         assert [link for link in links if "?" in link or "#" in re.sub(r"#L\d+$", "", link)] == [], page
 
 
+def test_a_browser_keeps_every_fact_link_on_its_fact_page(client: TestClient) -> None:
+    for page in LINKING_PAGES:
+        links = re.findall(r'href="(/facts/[^"]*)"', client.get(page).text)
+        assert [link for link in links if urlsplit(urljoin(ORIGIN + page, link)).path != link] == [], page
+
+
 def test_a_package_that_arrived_links_its_fact_by_its_encoded_id(client: TestClient) -> None:
-    assert 'href="/facts/package%3Anpm/left%23pad"' in client.get("/repository").text
-    assert 'href="/facts/package%3Anpm/left%23pad"' in client.get("/facts/project%3Aweb").text
-    opens(client, "/facts/package%3Anpm/left%23pad", "package:npm/left#pad")
+    assert 'href="/facts/package%3Anpm%2Fleft%23pad"' in client.get("/repository").text
+    assert 'href="/facts/package%3Anpm%2Fleft%23pad"' in client.get("/facts/project%3Aweb").text
+    opens(client, "/facts/package%3Anpm%2Fleft%23pad", "package:npm/left#pad")
+
+
+def test_a_package_named_like_a_path_links_its_own_fact_page(client: TestClient) -> None:
+    for page in ("/repository", "/facts/project%3Aweb", "/search?q=system"):
+        assert f'href="{SYSTEM_PACKAGE}"' in client.get(page).text, page
+        followed = urlsplit(urljoin(ORIGIN + page, SYSTEM_PACKAGE)).path
+        assert followed == SYSTEM_PACKAGE, page  # not /system
+        opens(client, followed, "package:npm/../../../system")

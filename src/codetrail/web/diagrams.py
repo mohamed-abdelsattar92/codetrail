@@ -98,7 +98,7 @@ def imports_diagram(store: FactStore, scope: str, max_nodes: int) -> Diagram:
     if len(modules) <= max_nodes:
         group = {module_id: module_id for module_id in modules}
         labels = {module_id: str(entity.attributes.get("name", module_id)) for module_id, entity in modules.items()}
-        links = {module_id: f"/facts/{quote(module_id)}" for module_id in modules}
+        links = {module_id: f"/facts/{quote(module_id, safe='')}" for module_id in modules}
         return _render(group, labels, links, Counter(edges), rolled_up=False, counted=False)
     paths = {module_id: PurePosixPath(_location(module_id)).parent for module_id in modules}
     depth = max(len(path.parts) for path in paths.values())
@@ -125,7 +125,7 @@ def dependencies_diagram(store: FactStore, project_id: str) -> Diagram:
     lines += [_node(ids[key], label, key) for key, label in sorted(labels.items())]
     for relation in relations:
         lines.append(_edge(ids[project_id], ids[relation.target_id], str(relation.attributes.get("group") or "")))
-    nodes = [DiagramNode(ids[key], label, f"/facts/{quote(key)}") for key, label in sorted(labels.items())]
+    nodes = [DiagramNode(ids[key], label, f"/facts/{quote(key, safe='')}") for key, label in sorted(labels.items())]
     return Diagram("\n".join(lines) + "\n", nodes)
 
 
@@ -146,7 +146,7 @@ def resources_diagram(store: FactStore, scope: str, max_nodes: int) -> Diagram:
     for relation in store.relations(RelationKind.REFERENCES) + store.relations(RelationKind.CONTAINS):
         if relation.source_id in nodes and relation.target_id in nodes:
             edges[(relation.source_id, relation.target_id)] += 1
-    return _render({key: key for key in nodes}, labels, {key: f"/facts/{quote(key)}" for key in nodes}, edges,
+    return _render({key: key for key in nodes}, labels, {key: f"/facts/{quote(key, safe='')}" for key in nodes}, edges,
                    rolled_up=len(nodes) < len(modules) + len(resources), counted=False)  # fmt: skip
 
 
@@ -202,7 +202,7 @@ def system_diagram(store: FactStore, focus: str | None, max_nodes: int) -> Diagr
     group = {key: key for key in shown}
     labels = {key: str(parts[key].attributes.get("name") or "") for key in shown}
     kinds = {key: str(parts[key].attributes.get("kind", "library")) for key in shown}
-    links = {key: f"/facts/{quote(key)}" for key in shown}
+    links = {key: f"/facts/{quote(key, safe='')}" for key in shown}
     rolled_up = False
     for level in ("libraries", "parts"):
         if len(set(group.values())) <= max_nodes:
