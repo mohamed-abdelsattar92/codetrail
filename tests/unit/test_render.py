@@ -46,7 +46,7 @@ def test_ordinary_markdown_and_links(store: FactStore) -> None:
     )
     assert "<h1>Title</h1>" in html
     assert 'href="https://example.com/x"' in html
-    assert 'href="/facts/module:app/a.py"' in html
+    assert 'href="/facts/module%3Aapp%2Fa.py"' in html
     assert "<table>" in html
 
 

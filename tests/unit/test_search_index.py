@@ -188,8 +188,8 @@ def test_guide_documents_include_facts_and_decisions(tmp_path: Path) -> None:
     )
     documents = {document.id: document for document in guide_documents(GuideRepository(tmp_path / "guide"), store)}
     fact = documents["facts/module:app/retry.py"]
-    assert (fact.kind, fact.title, fact.link) == ("fact", "module:app/retry.py", "/facts/module:app/retry.py")
+    assert (fact.kind, fact.title, fact.link) == ("fact", "module:app/retry.py", "/facts/module%3Aapp%2Fretry.py")
     assert "module" in fact.text and "app.retry" in fact.text
     decision = documents["decisions/decision:0007"]
-    assert (decision.kind, decision.title, decision.link) == ("decision", "0007. Retry twice", "/facts/decision:0007")
+    assert (decision.kind, decision.title, decision.link) == ("decision", "0007. Retry twice", "/facts/decision%3A0007")
     connection.close()

@@ -14,6 +14,7 @@ import threading
 import unicodedata
 from collections.abc import Iterable
 from dataclasses import dataclass
+from urllib.parse import quote
 
 from markdown_it import MarkdownIt
 
@@ -166,11 +167,12 @@ def guide_documents(guide: GuideRepository, store: FactStore | None) -> list[Doc
         headings, text = _plain(page.body)
         documents.append(Document(page.id, page.kind, page.title, headings, text, f"/pages/{page.id}"))
     for entity in store.entities() if store is not None else []:
+        link = f"/facts/{quote(entity.id, safe='')}"
         if entity.kind == EntityKind.DECISION:
             title = f"{entity.attributes.get('number', '')}. {entity.attributes.get('title', '')}".strip(". ")
             text = str(entity.attributes.get("status", ""))
-            documents.append(Document(f"decisions/{entity.id}", "decision", title, "", text, f"/facts/{entity.id}"))
+            documents.append(Document(f"decisions/{entity.id}", "decision", title, "", text, link))
         else:
             text = f"{entity.kind} {entity.attributes.get('name', '')}".strip()
-            documents.append(Document(f"facts/{entity.id}", "fact", entity.id, "", text, f"/facts/{entity.id}"))
+            documents.append(Document(f"facts/{entity.id}", "fact", entity.id, "", text, link))
     return documents

@@ -88,6 +88,25 @@ def test_imports_belong_to_their_target(tmp_path: Path) -> None:
     assert extraction.unresolved == {"swift": 3}
 
 
+def test_a_name_prefers_the_target_beside_it_then_the_first(tmp_path: Path) -> None:
+    files = {
+        "p/Package.swift": '.target(name: "Shared")',
+        "q/Package.swift": '.target(name: "Shared"), .target(name: "App", dependencies: ["Shared"])',
+        "r/Package.swift": '.target(name: "Tool", dependencies: ["Shared"])',
+    }
+    edges = {(r.source_id, r.target_id) for r in run(tmp_path, files).relations if r.kind is RelationKind.DEPENDS_ON}
+    assert ("swift_target:q/App", "swift_target:q/Shared") in edges
+    assert ("swift_target:r/Tool", "swift_target:p/Shared") in edges
+    assert ("swift_target:q/App", "swift_target:p/Shared") not in edges
+
+
+def test_a_file_belongs_to_the_deepest_target_folder(tmp_path: Path) -> None:
+    manifest = '.target(name: "Outer"), .target(name: "Inner", path: "Sources/Outer/Inner"), .target(name: "Lib")'
+    files = {"P/Package.swift": manifest, "P/Sources/Outer/Inner/File.swift": "import Lib\n"}
+    imports = {(r.source_id, r.target_id) for r in run(tmp_path, files).relations if r.kind is RelationKind.IMPORTS}
+    assert imports == {("swift_target:P/Inner", "swift_target:P/Lib")}
+
+
 def test_a_broken_manifest_is_a_warning_not_a_failure(tmp_path: Path) -> None:
     extraction = run(tmp_path, {"Pkg/Package.swift": 'let package = Package(name: "X", targets: [.target(name: '})
     assert "project:Pkg" in {entity.id for entity in extraction.entities}
@@ -110,6 +129,99 @@ def test_hostile_manifests_stay_linear(tmp_path: Path) -> None:
     # nested-call skip or with per-call bracket matching, so 10 s catches each with room for a slow machine.
     assert time.process_time() - started < 10
     assert {"project:a", "project:b", "project:c", "project:d"} <= {entity.id for entity in extraction.entities}
+
+
+def test_hostile_dependency_lists_stay_linear(tmp_path: Path) -> None:
+    """A target's dependencies list can't stall the update: PRODUCT's and NAMED_TARGET's tails are bounded."""
+    import time
+
+    # Every bracket closes, so each target's ~0.93 MB dependencies list is read, with no ")" in it for PRODUCT
+    # (e, f) or NAMED_TARGET (g) to stop at. Each file stays under the extractor's 1,000,000-byte cap; PRODUCT's
+    # cost without its bound is quadratic in one list, so a second file doubles the margin over the budget.
+    products = '.target(name: "A", dependencies: [' + '.product(name: "P", package: "Q"' * 29_000 + "]" + ")" * 29_001
+    hostile = {
+        "e/Package.swift": products,
+        "f/Package.swift": products,
+        "g/Package.swift": '.target(name: "A", dependencies: [' + '.byName(name: "A"' * 55_000 + "]" + ")" * 55_001,
+    }
+    started = time.process_time()
+    extraction = run(tmp_path, hostile)
+    # About 1 s on a laptop (1.7 s while it was heavily loaded); with a bound undone, measured on the laptop by
+    # patching the loaded module, this test took 36-45 s without PRODUCT's and 35-41 s without NAMED_TARGET's.
+    # At 15,000 calls a list took only 6 s and 3 s, which is why the files are near the cap.
+    assert time.process_time() - started < 10
+    # Each target call was read, so its dependencies list reached PRODUCT and NAMED_TARGET.
+    assert {f"swift_target:{folder}/A" for folder in "efg"} <= {entity.id for entity in extraction.entities}
+
+
+# 40,000 uniquely named targets in one manifest, about 880 KB, under the extractor's 1,000,000-byte cap.
+MANY_TARGETS = "".join(f'.target(name:"T{number:05d}")' for number in range(40_000))
+
+
+def test_hostile_target_names_resolve_linearly(tmp_path: Path) -> None:
+    """Many dependency names against many targets can't stall the update: targets are looked up by name."""
+    import time
+
+    # One target depends on 90,000 names (about 810 KB); the first 40,000 name a target in the other manifest.
+    names = "".join(f'"T{number:05d}",' for number in range(90_000))
+    hostile = {"h/Package.swift": f'.target(name: "A", dependencies: [{names}])', "i/Package.swift": MANY_TARGETS}
+    started = time.process_time()
+    extraction = run(tmp_path, hostile)
+    # About 1.2 s on a laptop. Measured there when each name scanned every target, it took 111 s (3.6 billion
+    # comparisons), so 10 s catches a scan with room for a slow machine.
+    assert time.process_time() - started < 10
+    edges = {(r.source_id, r.kind, r.target_id) for r in extraction.relations}
+    assert ("swift_target:h/A", RelationKind.DEPENDS_ON, "swift_target:i/T39999") in edges
+    assert extraction.unresolved == {"swift": 50_000}
+
+
+def test_hostile_imports_find_their_target_linearly(tmp_path: Path) -> None:
+    """Many imports beside many targets can't stall the update: a file's target is found from its folders."""
+    import time
+
+    # One file of 65,000 imports (about 910 KB) in the first of 40,000 targets; the first 40,000 name a target.
+    imports = "".join(f"import T{number:05d}\n" for number in range(65_000))
+    hostile = {"i/Package.swift": MANY_TARGETS, "i/Sources/T00000/Hostile.swift": imports}
+    started = time.process_time()
+    extraction = run(tmp_path, hostile)
+    # About 1.2 s on a laptop (3 s while it was heavily loaded). Measured there when each import's file scanned
+    # every target's folder, it took 163 s (2.6 billion comparisons), so 10 s catches a scan with room to spare.
+    assert time.process_time() - started < 10
+    edges = {(r.source_id, r.kind, r.target_id) for r in extraction.relations}
+    assert ("swift_target:i/T00000", RelationKind.IMPORTS, "swift_target:i/T39999") in edges
+    assert extraction.unresolved == {"swift": 25_000}
+
+
+def test_hostile_deep_files_find_their_target_linearly(tmp_path: Path) -> None:
+    """A deeply nested file with many imports can't stall the update: its folders are walked once per file."""
+    import time
+
+    # Six files 400 folders deep (about 800 characters, under the 1,024 a macOS path can hold with the test's
+    # folder) in one target, each with 65,000 imports (about 910 KB).
+    deep = "d/" * 400
+    imports = "".join(f"import T{number:05d}\n" for number in range(65_000))
+    hostile = {"Package.swift": '.target(name: "A", path: "A")'}
+    hostile.update({f"A/{deep}{number}.swift": imports for number in range(6)})
+    started = time.process_time()
+    extraction = run(tmp_path, hostile)
+    # Measured on a laptop: resolving one such file took 0.06 s with the walk once per file, and 6.7 s when each
+    # import walked the 400 folders again; six files then took 35 s, three and a half times this 10 s budget.
+    assert time.process_time() - started < 10
+    assert extraction.unresolved == {"swift": 65_000}
+
+
+def test_hostile_long_target_names_resolve_linearly(tmp_path: Path) -> None:
+    """A target with a very long name and many dependencies can't stall the update."""
+    import time
+
+    # A 480 KB name, dropped as a fact for its overlong id, with 120,000 dependencies (about 480 KB).
+    manifest = f'.target(name: "{"N" * 480_000}", dependencies: [{'"a",' * 120_000}])'
+    started = time.process_time()
+    extraction = run(tmp_path, {"Package.swift": manifest})
+    # About 0.4 s on a laptop. Measured there when each dependency split the 480 KB id again, it took 22 s.
+    assert time.process_time() - started < 10
+    assert any("skipped a fact whose id is longer" in warning for warning in extraction.warnings)
+    assert extraction.relations == []
 
 
 def test_package_urls_lose_their_credentials(tmp_path: Path) -> None:

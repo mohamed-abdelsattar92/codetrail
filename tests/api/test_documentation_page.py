@@ -71,12 +71,12 @@ def test_before_the_first_paid_update_everything_but_the_rationale_is_measured(p
     assert "data-update-button" in page  # opens the estimate dialog; nothing is spent from here
     assert "1 of 3" in page  # commits that explain why
     assert "0002" in page and "Y" in page  # the proposed ADR, waiting since 2020
-    assert 'href="/facts/package:pypi/httpx"' in page  # no visible document names it
+    assert 'href="/facts/package%3Apypi%2Fhttpx"' in page  # no visible document names it
     assert "HIDDEN-NOTE-TEXT" not in page  # an excluded file is never read
     assert "Test Author" not in page  # metrics are about the repository, not people
     assert "measured once your assistant has written its pages" in page
-    assert 'href="/facts/decision:ADR-0001"' not in page  # with no pages, every ADR would be "uncited"
-    assert 'href="/facts/module:app/db.py"' not in page  # and every fact "unexplained"
+    assert 'href="/facts/decision%3AADR-0001"' not in page  # with no pages, every ADR would be "uncited"
+    assert 'href="/facts/module%3Aapp%2Fdb.py"' not in page  # and every fact "unexplained"
 
 
 def test_after_a_paid_update_the_rationale_is_measured(paths: Paths) -> None:
@@ -106,7 +106,7 @@ def test_without_the_history_the_other_metrics_still_show(paths: Paths, monkeypa
     monkeypatch.setattr(SecretScanner, "scan_text", broken)
     page = client_for(paths).get("/documentation").text
     assert "The commit history couldn't be read" in page
-    assert 'href="/facts/package:pypi/httpx"' in page
+    assert 'href="/facts/package%3Apypi%2Fhttpx"' in page
 
 
 def test_the_trend_and_the_change_since_the_last_update(paths: Paths, tmp_path: Path) -> None:

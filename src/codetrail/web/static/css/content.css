@@ -197,7 +197,7 @@
   margin-block-start: var(--space-12);
 }
 
-.check {
+.checks .check {
   display: grid;
   gap: var(--space-3);
   margin-block-end: var(--space-4);

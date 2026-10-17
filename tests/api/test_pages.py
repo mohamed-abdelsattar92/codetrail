@@ -74,8 +74,8 @@ def test_an_area_shows_its_diagrams_and_files(client: TestClient) -> None:
 def test_a_fact_links_its_sources_and_relations(client: TestClient) -> None:
     page = client.get("/facts/module:services/api/app/main.py").text
     assert 'href="/source/services/api/app/main.py"' in page
-    assert 'href="/facts/module:services/api/app/db.py"' in page
-    assert 'href="/facts/project:services/api"' in page
+    assert 'href="/facts/module%3Aservices%2Fapi%2Fapp%2Fdb.py"' in page
+    assert 'href="/facts/project%3Aservices%2Fapi"' in page
     assert client.get("/facts/module:missing.py").status_code == 404
 
 
@@ -140,7 +140,7 @@ def test_arabic_ships_with_codetrail(paths: Paths, session: SessionState) -> Non
     assert client.post("/settings/language", json={"language": "ar"}, headers=headers).status_code == 204
     page = client.get("/").text
     assert '<html lang="ar" dir="rtl">' in page
-    assert "دليلك إلى" in page  # "Your guide to"
+    assert "منذ التحديث السابق" in page  # "Since the last update"
     assert "، مرسومة من الكود" in page  # the catalog's own punctuation, not an English comma
 
 

@@ -12,6 +12,7 @@ import unicodedata
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import PurePosixPath
+from urllib.parse import quote
 
 from codetrail.facts import Entity, EntityKind, RelationKind
 from codetrail.facts.store import FactStore
@@ -97,7 +98,7 @@ def imports_diagram(store: FactStore, scope: str, max_nodes: int) -> Diagram:
     if len(modules) <= max_nodes:
         group = {module_id: module_id for module_id in modules}
         labels = {module_id: str(entity.attributes.get("name", module_id)) for module_id, entity in modules.items()}
-        links = {module_id: f"/facts/{module_id}" for module_id in modules}
+        links = {module_id: f"/facts/{quote(module_id, safe='')}" for module_id in modules}
         return _render(group, labels, links, Counter(edges), rolled_up=False, counted=False)
     paths = {module_id: PurePosixPath(_location(module_id)).parent for module_id in modules}
     depth = max(len(path.parts) for path in paths.values())
@@ -105,7 +106,7 @@ def imports_diagram(store: FactStore, scope: str, max_nodes: int) -> Diagram:
         depth -= 1
     group = {module_id: str(_truncate(path, depth)) for module_id, path in paths.items()}
     labels = {folder: f"{folder}/" for folder in group.values()}
-    links = {folder: f"/areas/{folder}" for folder in group.values()}
+    links = {folder: f"/areas/{quote(folder)}" for folder in group.values()}
     folder_edges = Counter((group[source], group[target]) for source, target in edges if group[source] != group[target])
     return _render(group, labels, links, folder_edges, rolled_up=True, counted=True)
 
@@ -124,7 +125,7 @@ def dependencies_diagram(store: FactStore, project_id: str) -> Diagram:
     lines += [_node(ids[key], label, key) for key, label in sorted(labels.items())]
     for relation in relations:
         lines.append(_edge(ids[project_id], ids[relation.target_id], str(relation.attributes.get("group") or "")))
-    nodes = [DiagramNode(ids[key], label, f"/facts/{key}") for key, label in sorted(labels.items())]
+    nodes = [DiagramNode(ids[key], label, f"/facts/{quote(key, safe='')}") for key, label in sorted(labels.items())]
     return Diagram("\n".join(lines) + "\n", nodes)
 
 
@@ -145,7 +146,7 @@ def resources_diagram(store: FactStore, scope: str, max_nodes: int) -> Diagram:
     for relation in store.relations(RelationKind.REFERENCES) + store.relations(RelationKind.CONTAINS):
         if relation.source_id in nodes and relation.target_id in nodes:
             edges[(relation.source_id, relation.target_id)] += 1
-    return _render({key: key for key in nodes}, labels, {key: f"/facts/{key}" for key in nodes}, edges,
+    return _render({key: key for key in nodes}, labels, {key: f"/facts/{quote(key, safe='')}" for key in nodes}, edges,
                    rolled_up=len(nodes) < len(modules) + len(resources), counted=False)  # fmt: skip
 
 
@@ -201,7 +202,7 @@ def system_diagram(store: FactStore, focus: str | None, max_nodes: int) -> Diagr
     group = {key: key for key in shown}
     labels = {key: str(parts[key].attributes.get("name") or "") for key in shown}
     kinds = {key: str(parts[key].attributes.get("kind", "library")) for key in shown}
-    links = {key: f"/facts/{key}" for key in shown}
+    links = {key: f"/facts/{quote(key, safe='')}" for key in shown}
     rolled_up = False
     for level in ("libraries", "parts"):
         if len(set(group.values())) <= max_nodes:
@@ -221,7 +222,7 @@ def system_diagram(store: FactStore, focus: str | None, max_nodes: int) -> Diagr
             noun = "libraries" if level == "libraries" else "parts"
             labels[folder_key] = f"{folder}/ ({len(keys)} {noun})"
             kinds[folder_key] = "library"
-            links[folder_key] = f"/areas/{folder}"
+            links[folder_key] = f"/areas/{quote(folder)}"
             for key in keys:
                 group[key] = folder_key
     sizes = Counter(group.values())

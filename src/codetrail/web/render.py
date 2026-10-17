@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from urllib.parse import quote
 
 from markdown_it import MarkdownIt
 from markupsafe import Markup
@@ -38,7 +39,7 @@ class Segment:
 
 
 def render_markdown(text: str) -> Markup:
-    linked = FACT_LINK.sub(lambda match: f"[{match.group(1)}](</facts/{match.group(1)}>)", text)
+    linked = FACT_LINK.sub(lambda match: f"[{match.group(1)}](</facts/{quote(match.group(1), safe='')}>)", text)
     # Raw HTML is off and links are validated, so the output holds only markdown-it's own markup.
     return Markup(MARKDOWN.render(linked))  # noqa: S704
 
@@ -84,7 +85,7 @@ def render_body(body: str, store: FactStore, max_nodes: int) -> list[Segment]:
 
 def _link(citation: str | None) -> str | None:
     match = FILE_CITATION.match(citation or "")
-    return f"/source/{match.group('path')}#L{match.group('start')}" if match else None
+    return f"/source/{quote(match.group('path'))}#L{match.group('start')}" if match else None
 
 
 def _diagram(arguments: str, store: FactStore, max_nodes: int) -> Diagram | None:

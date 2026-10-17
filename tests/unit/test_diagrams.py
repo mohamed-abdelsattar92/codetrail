@@ -32,7 +32,7 @@ def test_a_small_scope_shows_every_module_and_edge(store: FactStore) -> None:
     assert sorted(node.label for node in diagram.nodes) == ["app.a", "app.b"]
     assert diagram.mermaid.startswith("flowchart LR\n")
     assert diagram.mermaid.count("-->") == 1
-    assert [node.link for node in diagram.nodes if node.label == "app.a"] == ["/facts/module:app/a.py"]
+    assert [node.link for node in diagram.nodes if node.label == "app.a"] == ["/facts/module%3Aapp%2Fa.py"]
 
 
 def test_a_large_scope_rolls_up_to_folders_with_counts(store: FactStore) -> None:

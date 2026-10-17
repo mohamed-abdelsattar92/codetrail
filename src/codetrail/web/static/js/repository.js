@@ -234,10 +234,12 @@ function setUpTimeline(data, labels) {
 
     container.append(element("span", "timeline-label", labels.text("dependencies")));
     const depLane = element("div", "timeline-lane");
+    let watched = null;
     if (data.watchStart && dayOf(data.watchStart) < to) {
-      const band = element("div", "lane-watch", labels.text("watched", { date: data.watchStart }));
-      band.style.insetInlineStart = `${Math.max(0, position(dayOf(data.watchStart)))}%`;
-      depLane.append(band);
+      watched = element("div", "lane-watch");
+      watched.style.insetInlineStart = `${Math.max(0, position(dayOf(data.watchStart)))}%`;
+      watched.append(element("span", "lane-watch-label", labels.text("watched", { date: data.watchStart })));
+      depLane.append(watched);
     }
     const deps = data.deps.map((dep) => ({ ...dep, time: dayOf(dep.date) })).filter((dep) => dep.time >= from && dep.time < to);
     if (!deps.length && !(data.watchStart && dayOf(data.watchStart) < to)) depLane.append(element("p", "lane-empty", labels.text("noDeps")));
@@ -252,6 +254,8 @@ function setUpTimeline(data, labels) {
       depLane.append(mark);
     }
     container.append(depLane);
+    // A band too narrow for its label (Codetrail started watching late in the window) shows it just before its edge.
+    if (watched) watched.classList.toggle("narrow", watched.firstElementChild.scrollWidth > watched.clientWidth);
 
     container.append(element("span", "timeline-label", labels.text("wholeHistory")));
     const mini = element("div", "timeline-mini");

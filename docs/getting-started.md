@@ -33,7 +33,7 @@ cd codetrail && uv tool install .
 codetrail --version
 ```
 
-To install a release without cloning, run `uv tool install git+https://github.com/mohamed-abdelsattar92/codetrail@v1.2.0` instead. `uv tool install` puts `codetrail` on your `PATH`. After you pull a newer version, run `uv tool install --reinstall .` again. To try it without installing anything, run each command below as `uvx --from <path to the clone> codetrail …` instead.
+To install a release without cloning, run `uv tool install git+https://github.com/mohamed-abdelsattar92/codetrail@v1.3.0` instead. `uv tool install` puts `codetrail` on your `PATH`. After you pull a newer version, run `uv tool install --reinstall .` again. To try it without installing anything, run each command below as `uvx --from <path to the clone> codetrail …` instead.
 
 ## 3. Check your assistant
 
@@ -123,9 +123,9 @@ codetrail serve shop
 
 `serve` prints a one-time sign-in link and opens it in your browser. The page runs on `127.0.0.1` only, and the session ends when you stop `serve` (Ctrl-C). An update you started from the page stops with it, and the guide stays as it was before that update.
 
-![The home page: continue where you left off, how far behind the guide is, and your saved answers](images/home.png)
+![The home page: continue where you left off and every path's progress, with how far behind the guide is in the rail beside them](images/home.png)
 
-- **The home page** picks up where you left off: the next page of your current path, how far the guide is behind the branch (with what the last update used), how much you've learned, what changed, and your saved answers.
+- **The home page** picks up where you left off: the next page of your current path, every path's progress and how much you've learned, and the areas, each marked learned, changed, read or not read yet. Beside them, a rail shows how far the guide is behind the branch (with what the last update used), what changed, the System, Documentation and Repository cards, your saved answers and the folders to browse.
 - **The sidebar** lists the guided paths with your progress, the areas and concepts, your saved answers, the digests and the decisions. Each section folds from its heading. Pin the pages you use most with the pin on their row: they sit as tiles at the top, in any browser. Hide the sidebar with the button at the start of the header, or **\\**, and the page takes the whole width; rest the pointer on the window's edge to peek at it.
 - **System** (in the sidebar, or **G** then **Y**) draws how the repository's parts connect: services, apps, libraries, contracts, infrastructure and where each runs. Solid arrows come from a file you can open; dashed ones were matched by name. Each area page shows the same diagram focused on its folder.
 - **Documentation** (in the sidebar, or **G** then **O**) shows how well the repository explains itself: how much of the guide's rationale is documented and from where, which commits explain why, which ADRs need attention, and which dependencies no document mentions, each with the items behind it and a trend across updates. An overview beside the page shows each number with its bar and trend; each section opens to a chart and its items, the one most in need opens first, and the long lists filter by kind. It's free; `codetrail metrics shop` prints the same numbers. What counts as a document, and as a commit that explains why, is set per repository in `[metrics]` in its settings file.

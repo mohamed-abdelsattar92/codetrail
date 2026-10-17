@@ -14,16 +14,16 @@
 <h2>{{ _("Found in") }}</h2>
 <ul class="list" lang="en" dir="ltr">
   {% for source in entity.sources %}
-  <li><a class="grow" href="/source/{{ source.path }}{% if source.start_line %}#L{{ source.start_line }}{% endif %}">{{ source.path }}{% if source.start_line %}:{{ source.start_line }}{% endif %}</a></li>
+  <li><a class="grow" href="/source/{{ source.path|urlencode }}{% if source.start_line %}#L{{ source.start_line }}{% endif %}">{{ source.path }}{% if source.start_line %}:{{ source.start_line }}{% endif %}</a></li>
   {% endfor %}
 </ul>
 {% if outgoing %}
 <h2>{{ _("Points to") }}</h2>
-<ul class="list" lang="en" dir="ltr">{% for relation in outgoing %}<li><span class="kind">{{ relation.kind }}</span><a class="grow" href="/facts/{{ relation.target_id }}">{{ relation.target_id }}</a></li>{% endfor %}</ul>
+<ul class="list" lang="en" dir="ltr">{% for relation in outgoing %}<li><span class="kind">{{ relation.kind }}</span><a class="grow" href="/facts/{{ relation.target_id|urlencode|replace("/", "%2F") }}">{{ relation.target_id }}</a></li>{% endfor %}</ul>
 {% endif %}
 {% if incoming %}
 <h2>{{ _("Pointed to by") }}</h2>
-<ul class="list" lang="en" dir="ltr">{% for relation in incoming %}<li><a class="grow" href="/facts/{{ relation.source_id }}">{{ relation.source_id }}</a><span class="kind">{{ relation.kind }}</span></li>{% endfor %}</ul>
+<ul class="list" lang="en" dir="ltr">{% for relation in incoming %}<li><a class="grow" href="/facts/{{ relation.source_id|urlencode|replace("/", "%2F") }}">{{ relation.source_id }}</a><span class="kind">{{ relation.kind }}</span></li>{% endfor %}</ul>
 {% endif %}
 </div>
 {% endblock %}

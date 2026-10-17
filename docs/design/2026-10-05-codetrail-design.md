@@ -682,7 +682,7 @@ The feel is a documentation site in the manner of Stripe's: calm, precise, with 
 - **The sidebar hides, peeks, folds and pins pages** (section 22).
 - **Resizing:** the sidebar and the Ask panel have a handle on their inner edge. Drag it, or focus it and use the arrow keys (16 px a step), Home and End; double-click resets. The sidebar stays between 200 and 420 px and at most 30% of the window; the panel between 320 and 720 px and at most 45%. Neither may squeeze the reading column below 480 px: a narrower window shrinks the panels first. Widths are remembered per browser in `localStorage`; below 900 px nothing resizes. The handles are ARIA separators that report their value.
 
-The **home page** leads with progress: the target's name, branch, commit and last update; a "Continue where you left off" card (the current path, its next unlearned page and a progress bar); three figures (how far the guide is behind the branch, with the Update button and the last update's actual cost, labelled as such, since a new estimate needs the facts refreshed first; pages learned, and how many changed since; the unread digest); your newest saved answers; then the areas.
+The **home page** leads with progress, in two columns under one line naming the target, its branch, commit and last update. The wide column is for learning: a "Continue where you left off" card (the current path, its next unlearned page and a ring for its progress); every guided path with its progress, and the pages learned across the guide; the pages changed since you learned them, if any; then the areas, each tile edged and labelled by its state (green learned, amber changed, indigo read, gray not read yet). A rail beside it holds the repository's state: how far the guide is behind the branch, with the Update button and the last update's actual cost, labelled as such, since a new estimate needs the facts refreshed first; the unread digest; the System, Documentation and Repository cards, each with its own color; your newest saved answers; and the folders to browse. The rail drops below the learning column when the page, not the window, is too narrow for both (a CSS container query), so opening the sidebar or the Ask panel can move it.
 
 New routes, alongside those of section 7.1:
 
@@ -709,6 +709,8 @@ Empty states invite rather than apologize ("Ask a question from any page and sav
 | Documented callout | indigo tint | indigo tint |
 | Inferred callout, stale | amber `#b26a00` and its tint | amber `#f0b255` and its tint |
 | Learned | green `#18774d` | `#5fd39b` |
+| System card | the chart's blue, text `#1f62b5` | the chart's blue, text `#79b0f2` |
+| Repository card | the chart's pink, text `#b23a6a` | the chart's pink, text `#f08cb3` |
 
 - **Type.** Inter (weights 400, 500 and 600) for everything, bundled with Codetrail ([ADR 0007](../adr/0007-bundle-the-inter-typeface.md)); Arabic letters in Noto Sans Arabic, next in the font stack and loaded only for them ([ADR 0014](../adr/0014-bundle-noto-sans-arabic.md), proposed), with no letter-spacing on right-to-left text; code in the system's monospace (`ui-monospace`, SF Mono, Menlo). Body text 16 px with a line height of 1.65.
 - **Shape.** A 4 px spacing scale; 8 px corners on controls and 12 px on cards; hairline borders; shadows only on what floats (the palette, dialogs and the Ask panel).
@@ -853,7 +855,7 @@ The metric names are a fixed list in code, like fact kinds, each with its label 
 ### 18.2 How it is computed
 A `metrics` module (section 2.2), one file per metric (`rationale.py`, `commits.py`, `decisions.py`, `coverage.py`) and `report.py`, which builds a `MetricsReport`: each metric's numerator and denominator, and its detail lists. It reuses `parse_rationale` (section 6.5), the scope rules of section 4.3, and `repo`'s filtered history; it reads the target only through `repo` and the guide only through `guide`.
 
-- **Document files** are the allowed files matching `document_globs`, read from `source/` through the same reader as the system pass (section 17.3): an allowed path, inside `source/`, a plain file within `extract.max_file_bytes`. Their words are collected into a set once per report, and each name is looked up in it; no regular expression is ever built from a name a repository controls.
+- **Document files** are the allowed files matching `document_globs`, read from `source/` through the same reader as the system pass (section 17.3): an allowed path, inside `source/`, a plain file within `extract.max_file_bytes`. A binary file (one holding a NUL byte, as section 19.1's code size counts it), such as an image under `docs/`, is skipped: its bytes would cost time and could spell a package's name. Their words are collected into a set once per report, and each name is looked up in it; no regular expression is ever built from a name a repository controls.
 - **Commits** are read with one `git log` call (`--no-merges`, at most `commit_window`, fields separated by NUL, which no message can hold) and scanned with one gitleaks run, withholding flagged messages as `commits_between` does.
 - **When:** the page computes the report the first time it is shown after the guide or the facts move on, and keeps it in memory, keyed by the latest snapshot, the guide's head and the date (the only input that changes on its own is an ADR's age).
 
