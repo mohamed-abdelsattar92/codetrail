@@ -4,10 +4,15 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-18
+
+Release notes: [docs/releases/v1.3.0.md](docs/releases/v1.3.0.md).
+
 ### Changed
 - The home page is redesigned to use its space and show more in color: learning sits in a wide column (where to continue, with a ring for the path's progress; every guided path with its own progress; the areas, each edged and labelled learned, changed, read or not read yet) beside a rail with the guide's state against the branch, what changed, the System, Documentation and Repository cards, each in its own color, your saved answers and the folders to browse as chips. The rail moves below the column when the page is narrow, including when the Ask panel takes the room.
 
 ### Fixed
+- The Repository timeline's "Watched by Codetrail since" label shows in full when the band is too narrow for it, just before the band's edge, instead of being cut to nothing; and the arrows on the Documentation page's section headings sit centred on the heading's text.
 - A learned page's green tick in the sidebar shows on its own again, instead of inside a large bordered card meant for the checks on a guide page.
 - The Documentation page no longer takes a minute or more to open the first time after an update on a repository with images under `docs/`: images and other binary files that match the document globs are skipped instead of being read as text, which also stops their bytes from counting as a document mentioning a package.
 - A folder or file whose name holds `#` or `?` (such as `docs#1/` or `0002-use-c#.md`) now opens from its link on the home page, the area, fact, decisions and system pages and the Repository page, instead of opening the wrong folder or a page that isn't found.
@@ -120,7 +125,8 @@ The first public release. Release notes: [docs/releases/v1.0.0.md](docs/releases
 - The page and the bridge listen on 127.0.0.1 only, check `Host`, `Origin` and `Sec-Fetch-Site`, need a single-use login code and a per-session token, and send a strict content security policy.
 - The assistant gets read-only tools (Read, Grep, Glob) confined to the filtered sources: for Claude Code through two independent guards, and for local models through Codetrail's own tools. Codex can't be confined the same way, so it stays off unless a target opts in. Every provider gets an allowlisted environment: Codetrail never reads, stores or passes a key or token, unless you set `auth = "api_key"`, when the provider's key variable is handed to its program by name.
 
-[Unreleased]: https://github.com/mohamed-abdelsattar92/codetrail/compare/v1.2.0...develop
+[Unreleased]: https://github.com/mohamed-abdelsattar92/codetrail/compare/v1.3.0...develop
+[1.3.0]: https://github.com/mohamed-abdelsattar92/codetrail/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/mohamed-abdelsattar92/codetrail/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/mohamed-abdelsattar92/codetrail/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/mohamed-abdelsattar92/codetrail/compare/v1.0.1...v1.1.0
