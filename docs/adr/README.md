@@ -39,3 +39,4 @@ Everything smaller is explained in the commit body, not in an ADR.
 | [0013](0013-commit-the-compiled-catalogs.md) | Use Babel at development time for the interface's catalogs, and commit the compiled catalogs | proposed | 2026-10-09 |
 | [0014](0014-bundle-noto-sans-arabic.md) | Bundle Noto Sans Arabic for Arabic text in the page | proposed | 2026-10-09 |
 | [0015](0015-run-the-whole-suite-in-parallel.md) | Run the whole test suite in parallel with pytest-xdist, and give CI 30 minutes | proposed | 2026-10-11 |
+| [0016](0016-draw-diagrams-with-d2.md) | Draw diagrams with D2: committed SVGs in the documentation, and D2's WebAssembly build in an isolated worker on the page | proposed | 2026-10-21 |
