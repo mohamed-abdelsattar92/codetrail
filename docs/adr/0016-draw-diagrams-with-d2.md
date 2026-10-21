@@ -15,8 +15,10 @@
   - D2.js 0.1.33 (`@terrastruct/d2` on npm, MPL-2.0, tarball integrity `sha512-eK5hyfGIJFolC7sUsiKvWdY9xGFctTe3d+PSijo09IYDso8psztC+A4SammizXtlwYZpnnW0AtDjfBYauceSeA==`) is D2 compiled to WebAssembly. Its build reports D2 `v0.7.0-HEAD`. It ships `d2.wasm` (22 MB) and Go's `wasm_exec.js` (BSD-3, The Go Authors), plus a one-file browser bundle (8 MB).
   - The browser bundle starts its worker from a `blob:` URL and loads the ELK layout with `new Function`. A worker started from a `blob:` URL takes the page's Content-Security-Policy, so the page itself would need `blob:` and `'unsafe-eval'`.
   - D2's default layout engine, dagre, runs in the WebAssembly build through the JavaScript engine's string evaluation, so even without ELK the worker needs `'unsafe-eval'` (measured in headless Chromium: without it, every compile fails with a CSP violation).
-  - A dedicated worker loaded from its own same-origin URL takes the policy sent with its script instead of the page's. In headless Chromium, a worker served with `default-src 'none'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'; connect-src <the wasm file's URL>` compiled and rendered D2 while the page kept its current policy unchanged, and a `fetch("/")` from that worker was refused. The first diagram took about 2 seconds (most of it compiling the wasm); each diagram after it took under 0.1 seconds.
-  - Labels written as D2 double-quoted strings, with `"` and `\` escaped, came back unchanged, including `<script>`, `${x}` and `@import`.
+  - A dedicated worker loaded from its own same-origin URL takes the policy sent with its script instead of the page's. In headless Chromium, a worker served with `default-src 'none'; script-src <Go's loader's URL> 'unsafe-eval' 'wasm-unsafe-eval'; connect-src <the wasm file's URL>` compiled and rendered D2 while the page kept its current policy unchanged, and a `fetch("/")` from that worker was refused. The first diagram took about 2 seconds (most of it compiling the wasm); each diagram after it took under 0.1 seconds.
+  - Labels written as D2 double-quoted strings, with `"`, `\` and `$` escaped, came back unchanged, including `<script>`, `${x}` and `@import`.
+  - D2's dagre layout writes edge ids into the JavaScript it evaluates, escaping only backslashes and line breaks (`d2layouts/d2dagrelayout/object_mapper.go`), so a name used as a D2 key could run as code in the worker. Codetrail's D2 keys are generated ids (`n1`, `n2`, …); names appear only as quoted labels.
+  - D2.js 0.1.33 is the latest on npm, and its build is D2's master after v0.7.0 (May 2025); D2's latest release is v0.9.0. The page can only move to a newer D2 when D2.js publishes one.
 
 ## Decision drivers
 1. Security: the page's Content-Security-Policy doesn't loosen, and names from the target repository stay plain text (design 7.4).
@@ -54,7 +56,7 @@ Option C. The README's and docs' diagrams are written in D2 in `docs/diagrams/` 
 
 ## Consequences
 - Easier: one diagram language everywhere; D2's layout and themes; the page's policy no longer needs `'unsafe-inline'` styles for diagrams once Mermaid is gone (other inline styles would have to be checked first).
-- Harder: D2.js is young (0.1.x) and updated by hand, like Mermaid; the vendored files are updated together, with their version and checksums recorded. The worker's policy is a second policy to keep tight, with its own tests.
+- Harder: D2.js is young (0.1.x), lags D2's releases and is updated by hand, like Mermaid; the vendored files and the `d2` pin are updated together, with their version and checksums recorded. The worker's policy is a second policy to keep tight, with its own tests, and D2 keys must stay generated ids.
 - Revisit if D2's WebAssembly build stops needing `eval`, if a build without dagre's JavaScript appears, or if the first-diagram delay bothers readers.
 
 ## Changes required
@@ -67,4 +69,5 @@ Option C. The README's and docs' diagrams are written in D2 in `docs/diagrams/` 
 - [ ] `web/diagrams.py`: every diagram kind in D2, then the Mermaid text, `vendor/mermaid.js` and its tests removed.
 - [ ] `justfile` and CI: a check that the committed SVGs match their sources.
 - [ ] Design sections 4.4, 7.1, 7.4, 12 and 17.4, brainstorm decision 9 and the README's acknowledgements: D2 instead of Mermaid.
+- [ ] `docs/security/review-checklist.md`, the Rendering item: D2 labels as double-quoted strings with `\`, `"` and `$` escaped, D2 keys generated, and the worker's policy served only for `/static/js/d2-worker.js`, after the Host check.
 - [ ] ADR 0004: status `superseded by 0016` for its Mermaid part, when the founder accepts this ADR.

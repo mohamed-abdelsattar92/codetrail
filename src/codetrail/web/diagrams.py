@@ -2,8 +2,9 @@
 
 Every node and edge is a fact, so a diagram can't show a connection the code doesn't have. Node ids are generated and
 labels are escaped to Mermaid's entity codes, or written as D2 double-quoted strings, so a name from the target can't
-inject either language's syntax. Above the node limit, modules roll up to their folders, one level at a time, with the
-number of imports on each edge.
+inject either language's syntax. D2 keys are only ever generated ids: D2's dagre layout writes them into JavaScript it
+evaluates, escaping too little for a name. Above the node limit, modules roll up to their folders, one level at a time,
+with the number of imports on each edge.
 """
 
 from __future__ import annotations

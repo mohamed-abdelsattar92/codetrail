@@ -9,7 +9,8 @@
 - Every response, refusals included, carries the security headers and `Cache-Control: no-store`, unless its route
   sets its own; static files carry `no-cache`, so the browser revalidates them.
 - The worker that runs D2's WebAssembly build alone gets another Content-Security-Policy: its layout evaluates
-  JavaScript, so it may, but it can load nothing and reach nothing but its wasm file, and has no DOM (ADR 0016).
+  JavaScript, so it may, but it can import nothing but Go's loader, reach nothing but its wasm file, and has no DOM
+  (ADR 0016).
 Sessions live in memory and end with the process.
 """
 
@@ -161,7 +162,9 @@ def _headers(scope: Scope) -> dict[str, str]:
 
 
 def _worker_policy(host: str) -> str:
+    """Eval, but only Go's loader to import and only the wasm file to fetch, at the Host already checked."""
+    vendor = f"http://{host}/static/vendor/d2"
     return (
-        "default-src 'none'; script-src 'self' 'unsafe-eval' 'wasm-unsafe-eval'; "
-        f"connect-src http://{host}/static/vendor/d2/d2.wasm"
+        f"default-src 'none'; script-src {vendor}/wasm_exec.js 'unsafe-eval' 'wasm-unsafe-eval'; "
+        f"connect-src {vendor}/d2.wasm"
     )

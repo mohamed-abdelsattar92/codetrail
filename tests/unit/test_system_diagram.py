@@ -213,3 +213,16 @@ def test_hostile_names_are_plain_d2_strings(store: FactStore) -> None:
     [line] = [line for line in lines if "evil" in line]
     label = r'"x\\" \{shape: image; icon: http://evil\}\\\$\{y\} @import \\\\"'  # the line break dropped
     assert re.fullmatch(rf"n\d+: {label} \{{style.border-radius: 8\}}", line)
+
+
+def test_every_d2_key_is_a_generated_id(store: FactStore) -> None:
+    """D2's dagre layout writes edge ids into JavaScript it evaluates, escaping only backslashes and line breaks, so
+    no name from the target may ever be a D2 key: only labels, inside quotes (ADR 0016, security review)."""
+    hostile = "x`});fetch(1)//${y}"
+    uses = explicit("apps/x", RelationKind.DEPENDS_ON, "packages/ui", "apps/x/package.json#L1")
+    store.record("e", [part("apps/x", "app", hostile), *PARTS], [*RELATIONS, uses])
+    for focus, max_nodes in ((None, 25), (None, 3), ("apps", 25)):
+        lines = system_diagram(store, focus, max_nodes).d2.splitlines()
+        assert lines[0] == "direction: right"
+        for line in lines[1:]:
+            assert re.fullmatch(r'n\d+(?: -> n\d+)?(?:: "(?:[^"\\]|\\.)*")?(?: \{[^"]*\}|: \{[^"]*\})?', line), line
