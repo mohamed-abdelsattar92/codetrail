@@ -203,7 +203,25 @@ output = 10.0                          # https://developers.openai.com/api/docs/
 
 The full list of settings is in [the design, section 9](design/2026-10-05-codetrail-design.md#9-configuration), and providers are covered in [section 15](design/2026-10-05-codetrail-design.md#15-assistant-providers-sign-in-and-cost-estimates).
 
-## 9. Keep up
+## 9. Use Codetrail with your coding agents
+
+Every update also writes context for coding agents to `~/.local/share/codetrail/shop/agents/`:
+- a short map of the repository: its parts and how they connect, its decisions, recent changes and the guide's pages;
+- a brief per area and concept page: its key files, its conventions and the reasons for them, marked documented or inferred as on the page.
+
+An agent connected to Codetrail reads these before it starts a task, instead of rediscovering the repository each session. To connect one, run:
+
+```bash
+codetrail agents shop
+```
+
+It prints two commands, one for Claude Code and one for Codex, that register Codetrail's tool server with your own agent. Codetrail never runs them for you. Claude Code's is registered for your user, so it also works in the repository's worktrees, whose folders differ from the checkout's. When the agent starts, the server tells it which repository it covers, and to call `codetrail_map` before a task and `codetrail_brief` before changing an area. `codetrail_page` returns a whole guide page, and `codetrail_changes` the digests since a commit or a date.
+
+The tool server only reads Codetrail's export. It listens on no port, runs no git and calls no assistant, so nothing an agent asks for costs a call. The briefs themselves come from the call that already writes each page, which the update's estimate includes. A brief whose page is out of date says so, and the map gives the `git diff` command that shows what changed since the guide's commit.
+
+Without the tool server, an agent can still read the map at the start of every task: `codetrail agents` prints an import line for that. Put it only in an instruction file that isn't committed. Never put it in a committed `CLAUDE.md` or `AGENTS.md`, where a path in your home folder would reach everyone's history.
+
+## 10. Keep up
 
 Run `codetrail update shop` whenever the repository has moved on; the page's home says how far behind the guide is. Each update rewrites only the pages whose facts changed, learned pages first, and writes a digest of what changed and why.
 
@@ -212,7 +230,7 @@ Run `codetrail update shop` whenever the repository has moved on; the page's hom
 | Path | Holds |
 |---|---|
 | `~/.config/codetrail/` | Settings: `config.toml`, and `targets/<name>.toml` and `.ignore` |
-| `~/.local/share/codetrail/<name>/` | A private copy of the repository's allowed files, the facts, and the guide (its own git repository) |
+| `~/.local/share/codetrail/<name>/` | A private copy of the repository's allowed files, the facts, the guide (its own git repository), and `agents/`, the context for coding agents |
 | `~/.local/state/codetrail/<name>/` | Logs |
 
 The `XDG_CONFIG_HOME`, `XDG_DATA_HOME` and `XDG_STATE_HOME` variables move these folders.

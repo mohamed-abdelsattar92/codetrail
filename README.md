@@ -65,6 +65,7 @@ Codetrail uses the assistant for meaning and code for structure: deterministic e
 | ♻️ | **Staleness** | When the code behind a page you learned changes, the page says so and shows what changed. |
 | 📊 | **Documentation metrics** | How well the repository explains itself: how much of the guide's rationale is documented (and from where: ADRs, documents, code comments, commits), commits that explain why, ADRs to revisit, and dependencies no document mentions. An overview shows each number with its bar and trend across updates; each section opens to a chart and the items behind it, the one most in need first. Free: no assistant call. |
 | 📈 | **Repository statistics** | What the repository is, in charts you can explore: an interactive timeline of commits with its releases and dependency changes, a day-by-day activity calendar, a heat map of where change happens (by guide area, folder or file) with each area's commits month by month, and its age, commits and activity month by month, its releases from tags, lines of code by language with the share in tests, its facts by kind with the dependencies that arrived and left, and where change happens: the most changed files, folders and guide areas beside how much of each area's rationale is documented, quiet code and commit size. `codetrail stats <target>` prints the summary. Free: no assistant call. |
+| 🤖 | **Context for coding agents** | Claude Code and Codex start a task from Codetrail's map of the repository and the brief for the area they're changing (key files, conventions and the reasons, marked documented or inferred), through `codetrail mcp`, a read-only tool server that listens on no port. Nothing is written into the repository, and nothing an agent asks for costs a call. |
 | 💲 | **Estimates first** | Every paid action shows what it will use before it runs: tokens, dollars at API prices, and your plan's usage. |
 
 ## A tour
@@ -188,9 +189,9 @@ The interface is English first and switches language from the page; it ships in 
 
 ## Status
 
-The latest release is Codetrail 1.3.0 ([release notes](docs/releases/v1.3.0.md), [changelog](CHANGELOG.md)); 1.0.0 was the first public release. Phases 0 to 15 and 17 to 19 of the [design](docs/design/2026-10-05-codetrail-design.md) are built, tested and released; Phase 16 is planned.
+The latest release is Codetrail 1.3.0 ([release notes](docs/releases/v1.3.0.md), [changelog](CHANGELOG.md)); 1.0.0 was the first public release. Phases 0 to 15 and 17 to 19 of the [design](docs/design/2026-10-05-codetrail-design.md) are built, tested and released; Phase 20 is built and waits for the next release; Phase 16 is planned.
 
-![The design's phases: 0 to 15 and 17 to 19 built, 16 planned](docs/diagrams/phases.svg)
+![The design's phases: 0 to 15 and 17 to 20 built, 16 planned](docs/diagrams/phases.svg)
 
 | Phase | What you can do | Status |
 |---|---|---|
@@ -213,6 +214,7 @@ The latest release is Codetrail 1.3.0 ([release notes](docs/releases/v1.3.0.md),
 | 17. The Repository page's charts | An interactive timeline with releases and dependency changes, a day-by-day activity calendar, a heat map of where change happens by area, folder or file, a grid of each area's commits by month, and charts for commit size, languages, commit types and facts | Done |
 | 18. The Documentation page's charts | The Documentation page as an overview beside folding sections: each metric's bar and trend, a chart in each section, the section most in need open first, and the long lists filtered by kind | Done |
 | 19. The sidebar | Hide the sidebar and peek at it from the window's edge, fold its sections, and pin pages as tiles at the top; the page sits in a card inside a tinted frame | Done |
+| 20. Context for coding agents | A map and a brief per page for coding agents, exported on every update and served by `codetrail mcp` to Claude Code and Codex; `codetrail agents` prints how to connect them | Built, not yet released |
 | 16. Decision inventory | An opt-in paid pass that lists the decisions in the code and looks for a documented "why" for each ([design section 18.8](docs/design/2026-10-05-codetrail-design.md#188-delivery-and-later-work)) | Planned |
 
 Codex and local models are tested against stand-ins and Codetrail's own tests; Claude Code is also tested live. Codex's provider decision is [ADR 0006](docs/adr/0006-assistant-providers-and-subscriptions.md).

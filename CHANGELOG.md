@@ -4,6 +4,9 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+### Added
+- Context for coding agents. Each update now writes a short map of the repository (its parts and how they connect, its decisions, recent changes and the guide's pages) and a brief per area and concept page (key files, conventions and the reasons for them, still marked documented or inferred) to Codetrail's data folder. `codetrail mcp <target>` serves them to Claude Code and Codex as read-only tools, so an agent starting a task reads Codetrail's understanding instead of rediscovering the repository; `codetrail agents <target>` prints how to connect them. Briefs come from the call that already writes each page, so they add only a little output to each estimate, and nothing an agent asks for costs a call ([ADR 0017](docs/adr/0017-tool-server-for-coding-agents.md)).
+
 ### Changed
 - Every diagram (the system diagram, and the imports, dependencies and resources diagrams on area pages, guide pages and answers) is drawn with D2 instead of Mermaid, with a clearer layout and each kind of part in its own shape as before. The first diagram on a page takes about a second to appear while the browser prepares D2. The README's diagrams are drawn with D2 too ([ADR 0016](docs/adr/0016-draw-diagrams-with-d2.md)).
 

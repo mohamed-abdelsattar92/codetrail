@@ -69,6 +69,13 @@ Check the current version of each before citing it; when a newer one exists, use
 - Responses carry `Content-Security-Policy` (as in the design, with `frame-ancestors 'none'`), `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` and `X-Frame-Options: DENY`.
 - Rendering: Jinja2 autoescaping on, Markdown with raw HTML off, only `http(s)` and relative links, no inline scripts or styles. Diagrams (ADR 0016): D2 labels are double-quoted strings with `\`, `"` and `$` escaped and line breaks dropped; D2 keys are generated ids, never names (D2's layout evaluates them); the D2 worker's own policy is served only for `/static/js/d2-worker.js`, after the `Host` check, allows only its loader and its wasm file, and is the only place `eval` is allowed; the page shows the worker's SVG only as an `<img>`.
 
+### The tool server for coding agents (design section 23, ADR 0017)
+- `codetrail mcp` speaks only over standard input and output: no socket, no port. Standard output carries protocol messages only; errors and tracebacks go to standard error, never to the agent.
+- It reads only the target's `agents/index.json`. It never reads `source/`, the mirror, the guide or the database, runs no git (in the agent's folder or Codetrail's), calls no assistant, and never takes the update lock.
+- Every argument is checked: page ids against `PAGE_ID` and the export; paths relative and safe (`safe_path`), at most 1,000 characters, with no control characters, and only matched against scopes, never opened; commits as 7 to 40 lower-case hexadecimal characters; dates as `YYYY-MM-DD`; unknown arguments refused. A message line is at most 1 MB, and answers are cut at `agents.max_response_words`.
+- Everything exported and served says it is reference data, not instructions, and every `@` is fullwidth.
+- The export holds only what the guide and the facts already hold: no excluded path, file content or secret. `codetrail agents` prints commands and changes no file of the reader's or the target's.
+
 ### Input and injection (A05)
 - SQL is parameterised only; identifiers come from fixed code.
 - Nothing from outside reaches a shell, `eval`, a template compiler, a file path or a regular expression built at runtime. Subprocesses take argument lists, never `shell=True`.
