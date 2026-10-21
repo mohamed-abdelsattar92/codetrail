@@ -1,6 +1,6 @@
 # 0016. Draw diagrams with D2: committed SVGs in the documentation, and D2's WebAssembly build in an isolated worker on the page
 
-- Status: proposed
+- Status: accepted (by the founder, 21 October 2026)
 - Date: 2026-10-21
 - Deciders: KoGy
 - Proposed by: Claude Code (Claude Opus 5.5), after the founder asked on 2026-10-21 for an alternative to Mermaid that looks more professional, and chose D2 over React Flow
@@ -70,4 +70,6 @@ Option C. The README's and docs' diagrams are written in D2 in `docs/diagrams/` 
 - [ ] `justfile` and CI: a check that the committed SVGs match their sources.
 - [ ] Design sections 4.4, 7.1, 7.4, 12 and 17.4, brainstorm decision 9 and the README's acknowledgements: D2 instead of Mermaid.
 - [ ] `docs/security/review-checklist.md`, the Rendering item: D2 labels as double-quoted strings with `\`, `"` and `$` escaped, D2 keys generated, and the worker's policy served only for `/static/js/d2-worker.js`, after the Host check.
-- [ ] ADR 0004: status `superseded by 0016` for its Mermaid part, when the founder accepts this ADR.
+- [ ] `src/codetrail/web/security.py`: the page's policy without `'unsafe-inline'` styles, which only Mermaid needed (no template, script or Python code writes inline styles).
+- [x] ADR 0004: status `superseded by 0016` for its Mermaid part.
+- [x] The founder accepted this ADR on 21 October 2026.

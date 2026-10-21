@@ -27,7 +27,7 @@ Everything smaller is explained in the commit body, not in an ADR.
 | [0001](0001-pathspec-for-exclusion-rules.md) | Match exclusion rules with pathspec, in gitignore syntax | accepted | 2026-10-05 |
 | [0002](0002-gitleaks-on-every-update.md) | Scan the materialized sources with gitleaks on every update, and exclude what it flags | accepted | 2026-10-05 |
 | [0003](0003-facts-with-validity-ranges.md) | Store each fact once with a validity range over snapshots | accepted | 2026-10-05 |
-| [0004](0004-server-rendered-page-stack.md) | Render the page on the server with Jinja2 and markdown-it-py, keep front matter in YAML, serve with uvicorn, and vendor Mermaid | accepted | 2026-10-05 |
+| [0004](0004-server-rendered-page-stack.md) | Render the page on the server with Jinja2 and markdown-it-py, keep front matter in YAML, serve with uvicorn, and vendor Mermaid | accepted; its Mermaid part superseded by [0016](0016-draw-diagrams-with-d2.md) | 2026-10-05 |
 | [0005](0005-babel-for-interface-catalogs.md) | Use Babel at development time to extract and compile the interface's gettext catalogs | accepted | 2026-10-05 |
 | [0006](0006-assistant-providers-and-subscriptions.md) | Run the reader's own assistant programs (Claude Code, Codex) or a local model, on their subscription | proposed | 2026-10-05 |
 | [0007](0007-bundle-the-inter-typeface.md) | Bundle the Inter typeface with the page | accepted | 2026-10-05 |
@@ -39,4 +39,4 @@ Everything smaller is explained in the commit body, not in an ADR.
 | [0013](0013-commit-the-compiled-catalogs.md) | Use Babel at development time for the interface's catalogs, and commit the compiled catalogs | proposed | 2026-10-09 |
 | [0014](0014-bundle-noto-sans-arabic.md) | Bundle Noto Sans Arabic for Arabic text in the page | proposed | 2026-10-09 |
 | [0015](0015-run-the-whole-suite-in-parallel.md) | Run the whole test suite in parallel with pytest-xdist, and give CI 30 minutes | proposed | 2026-10-11 |
-| [0016](0016-draw-diagrams-with-d2.md) | Draw diagrams with D2: committed SVGs in the documentation, and D2's WebAssembly build in an isolated worker on the page | proposed | 2026-10-21 |
+| [0016](0016-draw-diagrams-with-d2.md) | Draw diagrams with D2: committed SVGs in the documentation, and D2's WebAssembly build in an isolated worker on the page | accepted | 2026-10-21 |

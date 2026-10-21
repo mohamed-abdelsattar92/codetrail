@@ -1,6 +1,6 @@
 # 0004. Render the page on the server with Jinja2 and markdown-it-py, keep front matter in YAML, serve with uvicorn, and vendor Mermaid
 
-- Status: accepted (by the founder, 5 October 2026)
+- Status: accepted (by the founder, 5 October 2026); its Mermaid part superseded by [0016](0016-draw-diagrams-with-d2.md)
 - Date: 2026-10-05
 - Deciders: KoGy
 - Proposed by: Claude Code, from the design session of 5 October 2026
