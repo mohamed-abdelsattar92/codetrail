@@ -60,16 +60,16 @@ Option C. The README's and docs' diagrams are written in D2 in `docs/diagrams/` 
 - Revisit if D2's WebAssembly build stops needing `eval`, if a build without dagre's JavaScript appears, or if the first-diagram delay bothers readers.
 
 ## Changes required
-- [x] `.mise.toml`: the `d2` binary, pinned (spike, on `feature/d2-diagrams`).
-- [x] `justfile`: `just diagrams` renders `docs/diagrams/*.d2` to SVGs marked GENERATED (spike).
-- [x] `README.md`: its diagrams as committed SVGs (spike).
-- [x] `src/codetrail/web/static/vendor/d2/`: `d2.wasm` and `wasm_exec.js` from D2.js 0.1.33, with `VERSION` and the licences (spike).
-- [x] `src/codetrail/web/security.py`: the worker's own policy (spike).
-- [x] `web/diagrams.py`, `diagram.js` and a worker: the system diagram in D2 (spike).
-- [ ] `web/diagrams.py`: every diagram kind in D2, then the Mermaid text, `vendor/mermaid.js` and its tests removed.
-- [ ] `justfile` and CI: a check that the committed SVGs match their sources.
-- [ ] Design sections 4.4, 7.1, 7.4, 12 and 17.4, brainstorm decision 9 and the README's acknowledgements: D2 instead of Mermaid.
-- [ ] `docs/security/review-checklist.md`, the Rendering item: D2 labels as double-quoted strings with `\`, `"` and `$` escaped, D2 keys generated, and the worker's policy served only for `/static/js/d2-worker.js`, after the Host check.
-- [ ] `src/codetrail/web/security.py`: the page's policy without `'unsafe-inline'` styles, which only Mermaid needed (no template, script or Python code writes inline styles).
+- [x] `.mise.toml`: the `d2` binary, pinned.
+- [x] `justfile`: `just diagrams` renders `docs/diagrams/*.d2` to SVGs marked GENERATED.
+- [x] `README.md`: its diagrams as committed SVGs.
+- [x] `src/codetrail/web/static/vendor/d2/`: `d2.wasm` and `wasm_exec.js` from D2.js 0.1.33, with `VERSION` and the licences.
+- [x] `src/codetrail/web/security.py`: the worker's own policy.
+- [x] `web/diagrams.py`, `diagram.js` and a worker: the system diagram in D2.
+- [x] `web/diagrams.py`: every diagram kind in D2, then the Mermaid text, `vendor/mermaid.js` and its tests removed.
+- [x] `justfile` and CI: a check that the committed SVGs match their sources.
+- [x] Design sections 4.4, 7.1, 7.4, 12 and 17.4, brainstorm decision 9 and the README's acknowledgements: D2 instead of Mermaid.
+- [x] `docs/security/review-checklist.md`, the Rendering item: D2 labels as double-quoted strings with `\`, `"` and `$` escaped, D2 keys generated, and the worker's policy served only for `/static/js/d2-worker.js`, after the Host check.
+- [x] `src/codetrail/web/security.py`: the page's policy without `'unsafe-inline'` styles, which only Mermaid needed (no template, script or Python code writes inline styles).
 - [x] ADR 0004: status `superseded by 0016` for its Mermaid part.
 - [x] The founder accepted this ADR on 21 October 2026.

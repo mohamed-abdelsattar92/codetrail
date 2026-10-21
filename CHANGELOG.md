@@ -5,7 +5,10 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 ## [Unreleased]
 
 ### Changed
-- The system diagram, on the System page, the home and area pages, guide pages and answers, is drawn with D2: clearer layout, with each kind of part in its own shape as before. The first diagram on a page takes about a second to appear while the browser prepares D2. The README's diagrams are drawn with D2 too. This is a trial of [ADR 0016](docs/adr/0016-draw-diagrams-with-d2.md), proposed; the other diagrams still use Mermaid.
+- Every diagram (the system diagram, and the imports, dependencies and resources diagrams on area pages, guide pages and answers) is drawn with D2 instead of Mermaid, with a clearer layout and each kind of part in its own shape as before. The first diagram on a page takes about a second to appear while the browser prepares D2. The README's diagrams are drawn with D2 too ([ADR 0016](docs/adr/0016-draw-diagrams-with-d2.md)).
+
+### Security
+- The page's Content-Security-Policy no longer allows inline styles, which only Mermaid needed. D2's layout evaluates JavaScript, so it runs in a worker with its own policy, which can load nothing but its own two files and has no access to the page, and its drawing is shown as an image, which can't run script or follow links.
 
 ## [1.3.0] - 2026-10-18
 
