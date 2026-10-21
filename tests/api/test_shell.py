@@ -104,12 +104,14 @@ def test_every_page_has_the_shell(paths: Paths, url: str) -> None:
 def test_pages_run_no_inline_script_or_handler(paths: Paths, url: str) -> None:
     client, _ = signed_in(paths)
     parser = Scripts()
-    parser.feed(client.get(url).text)
+    html = client.get(url).text
+    parser.feed(html)
     assert parser.inline == [] and parser.handlers == []
+    assert " style=" not in html and "<style" not in html  # the policy allows no inline styles (ADR 0016)
     assert [script.get("src") for script in parser.scripts] == [
-        "/static/js/theme-init.js", "/static/vendor/mermaid.js", "/static/js/main.js",
+        "/static/js/theme-init.js", "/static/js/main.js",
     ]  # fmt: skip
-    assert parser.scripts[2].get("type") == "module"
+    assert parser.scripts[1].get("type") == "module"
     assert all(set(block) == {"type", "data-repository-data"} for block in parser.data_blocks)
     assert len(parser.data_blocks) == (1 if url == "/repository" else 0)
 

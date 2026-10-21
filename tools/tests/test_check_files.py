@@ -22,8 +22,8 @@ def test_rejects_large_files_outside_the_vendor_folder(path: str, size: int) -> 
 
 
 def test_allows_large_vendored_files() -> None:
-    # Mermaid, vendored for the page (ADR 0004), is about 3 MB.
-    assert check_files.problems("src/codetrail/web/static/vendor/mermaid.min.js", 3 * MB) == []
+    # D2's WebAssembly build, vendored for the page (ADR 0016), is about 22 MB.
+    assert check_files.problems("src/codetrail/web/static/vendor/d2/d2.wasm", 22 * MB) == []
 
 
 def test_allows_small_files_anywhere() -> None:

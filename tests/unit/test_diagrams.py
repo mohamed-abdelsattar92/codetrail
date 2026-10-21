@@ -8,7 +8,7 @@ import pytest
 from codetrail.database import connect
 from codetrail.facts import Entity, EntityKind, Relation, RelationKind, Source
 from codetrail.facts.store import FactStore
-from codetrail.web.diagrams import dependencies_diagram, escape_label, imports_diagram
+from codetrail.web.diagrams import d2_label, dependencies_diagram, imports_diagram, resources_diagram
 
 
 def module(path: str) -> Entity:
@@ -30,8 +30,8 @@ def test_a_small_scope_shows_every_module_and_edge(store: FactStore) -> None:
     diagram = imports_diagram(store, "app", max_nodes=10)
     assert not diagram.rolled_up
     assert sorted(node.label for node in diagram.nodes) == ["app.a", "app.b"]
-    assert diagram.mermaid.startswith("flowchart LR\n")
-    assert diagram.mermaid.count("-->") == 1
+    assert diagram.d2.startswith("direction: right\n")
+    assert diagram.d2.count(" -> ") == 1
     assert [node.link for node in diagram.nodes if node.label == "app.a"] == ["/facts/module%3Aapp%2Fa.py"]
 
 
@@ -44,26 +44,42 @@ def test_a_large_scope_rolls_up_to_folders_with_counts(store: FactStore) -> None
     assert diagram.rolled_up
     assert len(diagram.nodes) <= 4
     assert sorted(node.label for node in diagram.nodes) == ["app/x/", "app/y/", "app/z/"]
-    assert '-->|"5"|' in diagram.mermaid
-    assert diagram.mermaid.count("-->") == 2
+    assert re.search(r'^n\d+ -> n\d+: "5"$', diagram.d2, re.MULTILINE)
+    assert diagram.d2.count(" -> ") == 2
 
 
-def test_hostile_names_are_escaped(store: FactStore) -> None:
-    hostile = 'app/x"]; click n1 call alert(1) %%{init}%% <script>`#.py'
+def test_hostile_names_are_one_quoted_label(store: FactStore) -> None:
+    hostile = 'app/x"; y: {shape: image; icon: http://evil} ${z} @import <script>`#.py'
     store.record("c", [module(hostile), module("app/b.py")], [imports(hostile, "app/b.py")])
-    diagram = imports_diagram(store, "app", max_nodes=10)
-    [line] = [line for line in diagram.mermaid.splitlines() if "alert" in line]
-    label = line.split('["', 1)[1].removesuffix('"]')
-    for forbidden in ('"', "]", "<", "%", "`", ";", "{"):
-        assert forbidden not in re.sub(r"#(\d+|quot|lt|gt);", "", label)
-    assert len(diagram.mermaid.splitlines()) == 4  # the header, two nodes and one edge: nothing injected
+    lines = imports_diagram(store, "app", max_nodes=10).d2.splitlines()
+    [line] = [line for line in lines if "evil" in line]
+    assert re.fullmatch(r'n\d+: "(?:[^"\\]|\\.)*"', line)  # one quoted label, nothing after it
+    assert len(lines) == 4  # the direction, two nodes and one edge: nothing injected
 
 
-@pytest.mark.parametrize("text", ['a"b', "a<b>", "a#b", "a%b", "a`b", "a\nb", "a[b]", "a{b}", "a|b", "a;b"])
-def test_labels_carry_no_mermaid_syntax(text: str) -> None:
-    escaped = re.sub(r"#(\d+|quot|lt|gt);", "", escape_label(text))
-    for character in '"<>%`\n[]{}|;':
-        assert character not in escaped
+@pytest.mark.parametrize("kind", ["imports", "dependencies", "resources"])
+def test_every_d2_key_is_a_generated_id(store: FactStore, kind: str) -> None:
+    """D2's dagre layout writes keys into JavaScript it evaluates, so names are only ever quoted labels (ADR 0016)."""
+    hostile = "x`});fetch(1)//${y}"
+    project = Entity("project:p", EntityKind.PROJECT, {"name": hostile})
+    package = Entity(f"package:pypi/{hostile}", EntityKind.PACKAGE)
+    terraform = Entity(f"terraform_module:{hostile}", EntityKind.TERRAFORM_MODULE, {}, (Source("main.tf"),))
+    bucket = f"resource:{hostile}/aws_s3_bucket.b"
+    resource = Entity(bucket, EntityKind.RESOURCE, {"module": hostile}, (Source("s.tf"),))
+    store.record("c", [module(f"{hostile}/a.py"), module(f"{hostile}/b.py"), project, package, terraform, resource], [
+        imports(f"{hostile}/a.py", f"{hostile}/b.py"),
+        Relation(project.id, RelationKind.DEPENDS_ON, package.id, {"group": hostile}),
+        Relation(terraform.id, RelationKind.CONTAINS, resource.id),
+    ])  # fmt: skip
+    diagram = {
+        "imports": imports_diagram(store, hostile, max_nodes=10),
+        "dependencies": dependencies_diagram(store, project.id),
+        "resources": resources_diagram(store, hostile, max_nodes=10),
+    }[kind]
+    lines = diagram.d2.splitlines()
+    assert lines[0] == "direction: right" and len(lines) == 4
+    for line in lines[1:]:
+        assert re.fullmatch(r'n\d+(?: -> n\d+)?(?:: "(?:[^"\\]|\\.)*")?', line), line
 
 
 def test_a_projects_dependencies(store: FactStore) -> None:
@@ -76,7 +92,7 @@ def test_a_projects_dependencies(store: FactStore) -> None:
     store.record("c", [project, *packages], relations)
     diagram = dependencies_diagram(store, project.id)
     assert sorted(node.label for node in diagram.nodes) == ["api", "fastapi", "httpx"]
-    assert '-->|"dev"|' in diagram.mermaid
+    assert re.search(r'^n\d+ -> n\d+: "dev"$', diagram.d2, re.MULTILINE)
 
 
 def test_rolled_up_folders_link_to_their_area(store: FactStore) -> None:
@@ -125,11 +141,11 @@ def test_folder_names_that_could_carry_text_into_a_prompt_are_never_listed(store
 
 
 def test_control_and_format_characters_are_dropped_from_labels() -> None:
-    assert escape_label("a\x01b\x7fc​d‮e") == "abcde"  # Mermaid's YAML refuses them in a shape's label
+    assert d2_label("a\x01b\x7fc\u200bd\u202ee") == "abcde"  # control and format characters: not text
 
 
 def test_noncharacters_are_dropped_from_labels() -> None:
-    assert escape_label("a\uffffb\ufffec\ufdd0d") == "abcd"  # js-yaml refuses them as non-printable
+    assert d2_label("a\uffffb\ufffec\ufdd0d") == "abcd"  # noncharacters: not text either
 
 
 @pytest.mark.parametrize(
@@ -139,13 +155,11 @@ def test_noncharacters_are_dropped_from_labels() -> None:
         ("a\\b", "a\\\\b"),
         ("${x}", "\\${x}"),
         ("a  b", "a b"),
-        ("a\nb", "ab"),  # control characters are dropped, as for Mermaid
+        ("a\nb", "ab"),  # control characters are dropped
         ("a\x01b\uffff", "ab"),
         ("", "?"),
     ],
 )
 def test_d2_labels_are_plain_double_quoted_text(text: str, expected: str) -> None:
     """Inside D2's double quotes only a quote, a backslash or a substitution could escape the label (ADR 0016)."""
-    from codetrail.web.diagrams import d2_label
-
     assert d2_label(text) == expected

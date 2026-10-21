@@ -1,5 +1,5 @@
 // Codetrail's page script. Each module wires one part of the page; the security policy allows no inline code,
-// so this file, the theme's first-paint script and the vendored Mermaid are all the page runs.
+// so this file and the theme's first-paint script are all the page runs; D2 runs in its own worker (d2-worker.js).
 import { post } from "./api.js";
 import { setUpAsk } from "./ask.js";
 import { setUpDiagrams } from "./diagram.js";

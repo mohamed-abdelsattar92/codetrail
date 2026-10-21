@@ -108,13 +108,11 @@
   text-align: center;
 }
 
-.diagram-svg svg,
 .diagram-svg img {
   max-inline-size: 100%;
   block-size: auto;
 }
 
-.diagram-block.enlarged .diagram-svg svg,
 .diagram-block.enlarged .diagram-svg img {
   max-inline-size: none;
 }

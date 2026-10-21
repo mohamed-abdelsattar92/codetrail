@@ -65,7 +65,7 @@ def test_rationale_blocks_become_labelled_boxes(store: FactStore) -> None:
 def test_diagram_placeholders_become_diagrams(store: FactStore) -> None:
     segments = render_body("Intro.\n\n{{diagram imports scope=app}}\n\nAfter.\n", store, 60)
     assert [segment.kind for segment in segments] == ["html", "diagram", "html"]
-    assert segments[1].diagram is not None and segments[1].diagram.mermaid.startswith("flowchart LR")
+    assert segments[1].diagram is not None and segments[1].diagram.d2.startswith("direction: right")
 
 
 def test_a_diagram_that_would_draw_nothing_is_left_out(store: FactStore) -> None:

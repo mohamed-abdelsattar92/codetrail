@@ -1,10 +1,9 @@
-"""Diagrams drawn from facts only, as Mermaid text, and the system diagram as D2 too (design section 4.4, ADR 0016).
+"""Diagrams drawn from facts only, as D2 text (design section 4.4, ADR 0016).
 
 Every node and edge is a fact, so a diagram can't show a connection the code doesn't have. Node ids are generated and
-labels are escaped to Mermaid's entity codes, or written as D2 double-quoted strings, so a name from the target can't
-inject either language's syntax. D2 keys are only ever generated ids: D2's dagre layout writes them into JavaScript it
-evaluates, escaping too little for a name. Above the node limit, modules roll up to their folders, one level at a time,
-with the number of imports on each edge.
+labels are written as D2 double-quoted strings, so a name from the target can't inject D2's syntax. D2 keys are only
+ever generated ids: D2's dagre layout writes them into JavaScript it evaluates, escaping too little for a name. Above
+the node limit, modules roll up to their folders, one level at a time, with the number of imports on each edge.
 """
 
 from __future__ import annotations
@@ -19,22 +18,11 @@ from urllib.parse import quote
 from codetrail.facts import Entity, EntityKind, RelationKind
 from codetrail.facts.store import FactStore
 
-# Mermaid reads #<code>; as an entity inside a quoted label; anything that could close the label, start a link, a
-# directive or a new statement is replaced.
-ESCAPES = {
-    "#": "#35;", '"': "#quot;", "<": "#lt;", ">": "#gt;", "%": "#37;", "`": "#96;", "[": "#91;", "]": "#93;",
-    "{": "#123;", "}": "#125;", "|": "#124;", ";": "#59;", "\\": "#92;", "&": "#38;",
-}  # fmt: skip
-
-
-def escape_label(text: str, fallback: str = "?") -> str:
-    """A label Mermaid reads as plain text; an empty one (Mermaid refuses `[""]`) becomes the fallback."""
-    return "".join(ESCAPES.get(character, character) for character in _flattened(text, fallback))
-
 
 def d2_label(text: str, fallback: str = "?") -> str:
     """A label D2 reads as plain text inside double quotes: only a quote, a backslash or a `${}` substitution could
-    end or change it, so each is escaped. Line breaks are flattened, as for Mermaid."""
+    end or change it, so each is escaped, and a line break, which would end the string, is dropped. An empty label
+    becomes the fallback."""
     return _flattened(text, fallback).replace("\\", "\\\\").replace('"', '\\"').replace("$", "\\$")
 
 
@@ -44,8 +32,8 @@ def _flattened(text: str, fallback: str) -> str:
 
 
 def _printable(text: str) -> str:
-    """Without control, format and surrogate characters or noncharacters (U+FDD0-U+FDEF, U+xFFFE and U+xFFFF):
-    Mermaid's YAML refuses them in a shape's label, failing the whole diagram."""
+    """Without control, format and surrogate characters or noncharacters (U+FDD0-U+FDEF, U+xFFFE and U+xFFFF): none is
+    text a reader can see, and a line break would end D2's quoted string."""
     return "".join(
         character
         for character in text
@@ -56,13 +44,13 @@ def _printable(text: str) -> str:
 
 
 def _node(node_id: str, label: str, key: str) -> str:
-    return f'    {node_id}["{escape_label(label, fallback=key)}"]'
+    return f'{node_id}: "{d2_label(label, fallback=key)}"'
 
 
 def _edge(source: str, target: str, label: str) -> str:
-    """An arrow, labelled only when there's a label: Mermaid refuses an empty one (`-->|""|`)."""
+    """An arrow, labelled only when there's a label."""
     text = " ".join(label.split())
-    return f'    {source} -->|"{escape_label(text)}"| {target}' if text else f"    {source} --> {target}"
+    return f'{source} -> {target}: "{d2_label(text)}"' if text else f"{source} -> {target}"
 
 
 @dataclass(frozen=True)
@@ -86,11 +74,10 @@ class DiagramArrow:
 
 @dataclass(frozen=True)
 class Diagram:
-    mermaid: str
+    d2: str
     nodes: list[DiagramNode] = field(default_factory=list)
     rolled_up: bool = False
     arrows: list[DiagramArrow] = field(default_factory=list)
-    d2: str = ""  # the same diagram in D2, for the diagrams the page draws with D2 (ADR 0016, proposed)
 
 
 def imports_diagram(store: FactStore, scope: str, max_nodes: int) -> Diagram:
@@ -128,13 +115,13 @@ def dependencies_diagram(store: FactStore, project_id: str) -> Diagram:
     """A project and the packages it depends on, each edge labelled with its dependency group."""
     project = store.entity(project_id)
     if project is None:
-        return Diagram("flowchart LR\n")
+        return Diagram("direction: right\n")
     relations = [r for r in store.relations(RelationKind.DEPENDS_ON) if r.source_id == project_id]
     labels = {project_id: str(project.attributes.get("name", project_id))}
     for relation in relations:
         labels[relation.target_id] = _package_name(relation.target_id)
     ids = {key: f"n{index}" for index, key in enumerate(sorted(labels), start=1)}
-    lines = ["flowchart LR"]
+    lines = ["direction: right"]
     lines += [_node(ids[key], label, key) for key, label in sorted(labels.items())]
     for relation in relations:
         lines.append(_edge(ids[project_id], ids[relation.target_id], str(relation.attributes.get("group") or "")))
@@ -163,17 +150,8 @@ def resources_diagram(store: FactStore, scope: str, max_nodes: int) -> Diagram:
                    rolled_up=len(nodes) < len(modules) + len(resources), counted=False)  # fmt: skip
 
 
-# Each kind of part has its own shape (Mermaid's syntax around a quoted, escaped label).
+# Each kind of part has its own shape: D2's syntax, after the quoted label.
 SHAPES = {
-    "service": ('("', '")'),
-    "app": ('("', '")'),
-    "library": ('["', '"]'),
-    "contract": ('@{ shape: doc, label: "', '" }'),
-    "infrastructure": ('[["', '"]]'),
-    "platform": ('(["', '"])'),
-}
-# The same shapes in D2's syntax, after the quoted label.
-D2_SHAPES = {
     "service": " {style.border-radius: 8}",
     "app": " {style.border-radius: 8}",
     "library": "",
@@ -269,23 +247,15 @@ def system_diagram(store: FactStore, focus: str | None, max_nodes: int) -> Diagr
         merged[pair] = (label, matched)
     keys = sorted(set(group.values()))
     ids = {key: f"n{index}" for index, key in enumerate(keys, start=1)}
-    lines = ["flowchart LR"]
-    d2_lines = ["direction: right"]
+    lines = ["direction: right"]
     for key in keys:
-        start, end = SHAPES.get(kinds[key], SHAPES["library"])
-        lines.append(f"    {ids[key]}{start}{escape_label(labels[key], fallback=key)}{end}")
-        d2_lines.append(f'{ids[key]}: "{d2_label(labels[key], fallback=key)}"{D2_SHAPES.get(kinds[key], "")}')
+        lines.append(_node(ids[key], labels[key], key) + SHAPES.get(kinds[key], ""))
     for (source, target), (label, matched) in sorted(merged.items()):
         text = str(counted[(source, target)]) if counted[(source, target)] > 1 else label
-        arrow = "-.->" if matched else "-->"
-        lines.append(f'    {ids[source]} {arrow}|"{escape_label(text)}"| {ids[target]}' if text.strip()
-                     else f"    {ids[source]} {arrow} {ids[target]}")  # fmt: skip
-        d2_arrow = f"{ids[source]} -> {ids[target]}"
-        if text.strip():
-            d2_arrow += f': "{d2_label(text)}"'
-        if matched:
-            d2_arrow += " {style.stroke-dash: 3}" if text.strip() else ": {style.stroke-dash: 3}"
-        d2_lines.append(d2_arrow)
+        arrow = _edge(ids[source], ids[target], text)
+        if matched:  # dashed
+            arrow += " {style.stroke-dash: 3}" if text.strip() else ": {style.stroke-dash: 3}"
+        lines.append(arrow)
     nodes = [DiagramNode(ids[key], labels[key] or key, links[key]) for key in keys]
     arrows = [
         DiagramArrow(
@@ -296,7 +266,7 @@ def system_diagram(store: FactStore, focus: str | None, max_nodes: int) -> Diagr
         )
         for relation in relations
     ]  # fmt: skip
-    return Diagram("\n".join(lines) + "\n", nodes, rolled_up, arrows, "\n".join(d2_lines) + "\n")
+    return Diagram("\n".join(lines) + "\n", nodes, rolled_up, arrows)
 
 
 PART_KINDS = ("service", "app", "library", "contract", "infrastructure", "platform")
@@ -436,7 +406,7 @@ def _render(
 ) -> Diagram:
     keys = sorted(set(group.values()))
     ids = {key: f"n{index}" for index, key in enumerate(keys, start=1)}
-    lines = ["flowchart LR"]
+    lines = ["direction: right"]
     lines += [_node(ids[key], labels[key], key) for key in keys]
     for (source, target), count in sorted(edges.items()):
         lines.append(_edge(ids[source], ids[target], str(count) if counted else ""))

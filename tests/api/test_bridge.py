@@ -307,7 +307,7 @@ def test_a_question_carries_the_guides_diagrams_and_an_answer_draws_them(paths: 
     done = events(response.text)[-1]
     html = str(done["html"])
     assert html.count('<pre class="diagram">') == 1  # the one that draws something; the other is left out
-    assert "flowchart LR" in html and "{{diagram" not in html
+    assert "direction: right" in html and "{{diagram" not in html
     [request] = [request for request in claude.requests if isinstance(request, QuestionRequest)]
     connection = connect(paths.target_data("t") / "codetrail.db")
     try:

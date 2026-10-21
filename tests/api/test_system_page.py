@@ -31,7 +31,7 @@ def client(tmp_path: Path) -> TestClient:
 
 def test_the_system_page_draws_and_explains_the_system(client: TestClient) -> None:
     page = client.get("/system").text
-    assert 'data-language="d2"' in page and '<pre class="diagram">direction: right' in page  # D2 (ADR 0016)
+    assert '<pre class="diagram">direction: right' in page  # D2 (ADR 0016)
     assert "{shape: page}" in page  # the contract
     assert "&#34;matched by name&#34; {style.stroke-dash: 3}" in page  # a dashed arrow, escaped like all page text
     assert "Why each arrow is there" in page

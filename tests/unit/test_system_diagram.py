@@ -54,38 +54,35 @@ def store(tmp_path: Path) -> FactStore:
     return store
 
 
-def node_ids(mermaid: str) -> dict[str, str]:
-    """Label -> generated node id, for every node line."""
-    found = {}
-    for line in mermaid.splitlines():
-        match = re.match(r'\s+(n\d+)(?:\(\[|\[\[|\(|\[|@\{ shape: doc, label: )"([^"]*)"', line)
-        if match:
-            found[match.group(2)] = match.group(1)
-    return found
+def d2_ids(d2: str) -> dict[str, str]:
+    """Label -> generated node id, for every D2 node line."""
+    return {label: node for node, label in re.findall(r'^(n\d+): "((?:[^"\\]|\\.)*)"', d2, re.MULTILINE)}
 
 
 def test_every_part_is_drawn_with_its_kinds_shape(store: FactStore) -> None:
     diagram = system_diagram(store, None, max_nodes=25)
-    lines = diagram.mermaid.splitlines()
-    assert lines[0] == "flowchart LR"
-    assert any(re.fullmatch(r'\s+n\d+\("api"\)', line) for line in lines)  # service: rounded
-    assert any(re.fullmatch(r'\s+n\d+\("site"\)', line) for line in lines)  # app: rounded
-    assert any(re.fullmatch(r'\s+n\d+\["ui"\]', line) for line in lines)  # library: plain
-    assert any(re.fullmatch(r'\s+n\d+@\{ shape: doc, label: "openapi.yaml" \}', line) for line in lines)
-    assert any(re.fullmatch(r'\s+n\d+\[\["infra/app"\]\]', line) for line in lines)  # infrastructure: double border
-    assert any(re.fullmatch(r'\s+n\d+\(\["Cloudflare"\]\)', line) for line in lines)  # platform: stadium
+    lines = diagram.d2.splitlines()
+    assert lines[0] == "direction: right"
+    ids = d2_ids(diagram.d2)
+    assert f'{ids["api"]}: "api" {{style.border-radius: 8}}' in lines  # service: rounded
+    assert f'{ids["site"]}: "site" {{style.border-radius: 8}}' in lines  # app: rounded
+    assert f'{ids["ui"]}: "ui"' in lines  # library: plain
+    assert f'{ids["openapi.yaml"]}: "openapi.yaml" {{shape: page}}' in lines  # contract: a document
+    assert f'{ids["infra/app"]}: "infra/app" {{style.double-border: true}}' in lines  # infrastructure: double border
+    assert f'{ids["Cloudflare"]}: "Cloudflare" {{style.border-radius: 999}}' in lines  # platform: a stadium
+    assert set(ids.values()) == {node.id for node in diagram.nodes}
     assert {node.link for node in diagram.nodes} == {f"/facts/{quote(entity.id, safe='')}" for entity in PARTS}
 
 
 def test_arrows_are_solid_when_explicit_and_dashed_when_matched(store: FactStore) -> None:
-    diagram = system_diagram(store, None, max_nodes=25)
-    ids = node_ids(diagram.mermaid)
-    assert f"    {ids['site']} --> {ids['ui']}" in diagram.mermaid  # depends on: a plain arrow
-    assert f'    {ids["site"]} -->|"openapi.yaml"| {ids["api"]}' in diagram.mermaid  # a client calls the service
-    assert f'    {ids["api"]} -->|"implements"| {ids["openapi.yaml"]}' in diagram.mermaid
-    assert f'    {ids["site"]} -->|"deployed on"| {ids["Cloudflare"]}' in diagram.mermaid
-    assert f'    {ids["api"]} -.->|"matched by name"| {ids["Google Cloud"]}' in diagram.mermaid
-    assert f'{ids["site"]} -->|"calls via"| {ids["openapi.yaml"]}' not in diagram.mermaid  # drawn as the call
+    lines = system_diagram(store, None, max_nodes=25).d2.splitlines()
+    ids = d2_ids("\n".join(lines))
+    assert f"{ids['site']} -> {ids['ui']}" in lines  # depends on: a plain arrow
+    assert f'{ids["site"]} -> {ids["api"]}: "openapi.yaml"' in lines  # a client calls the service
+    assert f'{ids["api"]} -> {ids["openapi.yaml"]}: "implements"' in lines
+    assert f'{ids["site"]} -> {ids["Cloudflare"]}: "deployed on"' in lines
+    assert f'{ids["api"]} -> {ids["Google Cloud"]}: "matched by name" {{style.stroke-dash: 3}}' in lines
+    assert f'{ids["site"]} -> {ids["openapi.yaml"]}: "calls via"' not in lines  # drawn as the call
 
 
 def test_every_arrow_is_explained_with_its_evidence(store: FactStore) -> None:
@@ -113,16 +110,9 @@ def test_libraries_roll_up_above_the_limit(store: FactStore) -> None:
     labels = {node.label for node in diagram.nodes}
     assert "packages/ (4 libraries)" in labels
     assert {"api", "site", "openapi.yaml", "infra/app", "Cloudflare", "Google Cloud"} <= labels
-    ids = node_ids(diagram.mermaid)
-    assert f'    {ids["site"]} -->|"4"| {ids["packages/ (4 libraries)"]}' in diagram.mermaid
+    ids = d2_ids(diagram.d2)
+    assert f'{ids["site"]} -> {ids["packages/ (4 libraries)"]}: "4"' in diagram.d2.splitlines()
     assert diagram.rolled_up
-
-
-def test_hostile_names_are_escaped_and_ids_generated(store: FactStore) -> None:
-    store.record("e", [part("apps/x", "app", 'x"]) --> click n1 %%{init}%%'), *PARTS], RELATIONS)
-    diagram = system_diagram(store, None, max_nodes=25)
-    hostile = next(line for line in diagram.mermaid.splitlines() if "click" in line)
-    assert re.fullmatch(r'\s+n\d+\("x#quot;#93;\) --#gt; click n1 #37;#37;#123;init#125;#37;#37;"\)', hostile)
 
 
 def test_no_parts_draw_nothing(tmp_path: Path) -> None:
@@ -165,7 +155,7 @@ def test_a_contract_shared_by_many_services_and_callers_draws_linearly(store: Fa
     diagram = system_diagram(store, None, max_nodes=10_000)
     listed = dict(system_parts(store))
     assert time.monotonic() - started < 5
-    assert len(diagram.mermaid.splitlines()) < 9_000  # each call is one arrow to the contract, not one per service
+    assert len(diagram.d2.splitlines()) < 9_000  # each call is one arrow to the contract, not one per service
     assert all(len(row.called_by) <= 1 for row in listed["service"])
 
 
@@ -175,35 +165,6 @@ def test_the_roll_up_never_draws_more_than_the_limit(store: FactStore) -> None:
     diagram = system_diagram(store, None, max_nodes=10)
     assert len(diagram.nodes) <= 10
     assert any(node.label.startswith("other parts (") for node in diagram.nodes)
-
-
-def d2_ids(d2: str) -> dict[str, str]:
-    """Label -> generated node id, for every D2 node line."""
-    return {label: node for node, label in re.findall(r'^(n\d+): "((?:[^"\\]|\\.)*)"', d2, re.MULTILINE)}
-
-
-def test_the_system_diagram_is_written_in_d2_too_with_each_kinds_shape(store: FactStore) -> None:
-    """ADR 0016 (proposed): the page draws the system diagram with D2."""
-    diagram = system_diagram(store, None, max_nodes=25)
-    lines = diagram.d2.splitlines()
-    assert lines[0] == "direction: right"
-    ids = d2_ids(diagram.d2)
-    assert f'{ids["api"]}: "api" {{style.border-radius: 8}}' in lines  # service: rounded
-    assert f'{ids["site"]}: "site" {{style.border-radius: 8}}' in lines  # app: rounded
-    assert f'{ids["ui"]}: "ui"' in lines  # library: plain
-    assert f'{ids["openapi.yaml"]}: "openapi.yaml" {{shape: page}}' in lines  # contract: a document
-    assert f'{ids["infra/app"]}: "infra/app" {{style.double-border: true}}' in lines  # infrastructure: double border
-    assert f'{ids["Cloudflare"]}: "Cloudflare" {{style.border-radius: 999}}' in lines  # platform: a stadium
-    assert ids == d2_ids(diagram.d2) and set(ids.values()) == {node.id for node in diagram.nodes}
-
-
-def test_d2_arrows_are_solid_when_explicit_and_dashed_when_matched(store: FactStore) -> None:
-    lines = system_diagram(store, None, max_nodes=25).d2.splitlines()
-    ids = d2_ids("\n".join(lines))
-    assert f"{ids['site']} -> {ids['ui']}" in lines
-    assert f'{ids["site"]} -> {ids["api"]}: "openapi.yaml"' in lines
-    assert f'{ids["api"]} -> {ids["openapi.yaml"]}: "implements"' in lines
-    assert f'{ids["api"]} -> {ids["Google Cloud"]}: "matched by name" {{style.stroke-dash: 3}}' in lines
 
 
 def test_hostile_names_are_plain_d2_strings(store: FactStore) -> None:

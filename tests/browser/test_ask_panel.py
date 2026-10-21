@@ -54,9 +54,9 @@ def test_an_answer_with_a_diagram_draws_it_in_the_panel(page: Page, site: Site, 
     page.locator("#ask-question").fill("Draw the architecture")
     page.locator("[data-ask-form] button[type=submit]").click()
     answer = page.locator(".ask-answer").first
-    expect(answer.locator(".diagram-svg svg")).to_be_visible()
-    expect(answer.locator("pre.diagram")).to_be_hidden()  # the Mermaid source gives way to the drawing
+    expect(answer.locator(".diagram-svg img")).to_be_visible(timeout=20_000)  # D2 compiles its wasm first
+    expect(answer.locator("pre.diagram")).to_be_hidden()  # the D2 source gives way to the drawing
     page.goto(f"{site.url}/pages/concepts/ledger")  # the session's answers come back drawn too
     ready(page)
-    expect(page.locator(".ask-answer").first.locator(".diagram-svg svg")).to_be_visible()
+    expect(page.locator(".ask-answer").first.locator(".diagram-svg img")).to_be_visible(timeout=20_000)
     assert errors == []
