@@ -181,8 +181,9 @@ def test_every_d2_key_is_a_generated_id(store: FactStore) -> None:
     no name from the target may ever be a D2 key: only labels, inside quotes (ADR 0016, security review)."""
     hostile = "x`});fetch(1)//${y}"
     uses = explicit("apps/x", RelationKind.DEPENDS_ON, "packages/ui", "apps/x/package.json#L1")
-    store.record("e", [part("apps/x", "app", hostile), *PARTS], [*RELATIONS, uses])
-    for focus, max_nodes in ((None, 25), (None, 3), ("apps", 25)):
+    folders = [part(f'{hostile}"/lib{index}', "library", f"lib{index}") for index in range(3)]  # roll up by folder
+    store.record("e", [part("apps/x", "app", hostile), *PARTS, *folders], [*RELATIONS, uses])
+    for focus, max_nodes in ((None, 25), (None, 3), (None, 8), ("apps", 25)):
         lines = system_diagram(store, focus, max_nodes).d2.splitlines()
         assert lines[0] == "direction: right"
         for line in lines[1:]:

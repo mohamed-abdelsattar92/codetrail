@@ -70,6 +70,6 @@ Option C. The README's and docs' diagrams are written in D2 in `docs/diagrams/` 
 - [x] `justfile` and CI: a check that the committed SVGs match their sources.
 - [x] Design sections 4.4, 7.1, 7.4, 12 and 17.4, brainstorm decision 9 and the README's acknowledgements: D2 instead of Mermaid.
 - [x] `docs/security/review-checklist.md`, the Rendering item: D2 labels as double-quoted strings with `\`, `"` and `$` escaped, D2 keys generated, and the worker's policy served only for `/static/js/d2-worker.js`, after the Host check.
-- [x] `src/codetrail/web/security.py`: the page's policy without `'unsafe-inline'` styles, which only Mermaid needed (no template, script or Python code writes inline styles).
+- [x] `src/codetrail/web/security.py`: the page's policy without `'unsafe-inline'` styles, which only Mermaid needed; markdown-it's inline `text-align` on aligned table columns becomes a class (`web/render.py`), and no template or script writes inline styles.
 - [x] ADR 0004: status `superseded by 0016` for its Mermaid part.
 - [x] The founder accepted this ADR on 21 October 2026.

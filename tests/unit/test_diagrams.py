@@ -163,3 +163,14 @@ def test_noncharacters_are_dropped_from_labels() -> None:
 def test_d2_labels_are_plain_double_quoted_text(text: str, expected: str) -> None:
     """Inside D2's double quotes only a quote, a backslash or a substitution could escape the label (ADR 0016)."""
     assert d2_label(text) == expected
+
+
+def test_rolled_up_hostile_folders_stay_quoted_labels(store: FactStore) -> None:
+    """Rolled-up folder names are labels too, never keys (ADR 0016, security review)."""
+    hostile = 'x`});fetch(1)//${y}"'
+    modules = [module(f"app/{hostile}{side}/m{index}.py") for side in "ab" for index in range(2)]
+    store.record("c", modules, [imports(f"app/{hostile}a/m0.py", f"app/{hostile}b/m0.py")])
+    diagram = imports_diagram(store, "app", max_nodes=3)
+    assert diagram.rolled_up
+    for line in diagram.d2.splitlines()[1:]:
+        assert re.fullmatch(r'n\d+(?: -> n\d+)?(?:: "(?:[^"\\]|\\.)*")?', line), line
