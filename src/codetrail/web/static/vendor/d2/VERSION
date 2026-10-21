@@ -2,7 +2,7 @@ D2.js 0.1.33, whose WebAssembly build reports D2 v0.7.0-HEAD (ADR 0016)
 source: https://registry.npmjs.org/@terrastruct/d2/-/d2-0.1.33.tgz (dist/node-esm/d2.wasm, dist/node-esm/wasm_exec.js and dist/node-esm/elk.js)
 integrity of the tarball: sha512-eK5hyfGIJFolC7sUsiKvWdY9xGFctTe3d+PSijo09IYDso8psztC+A4SammizXtlwYZpnnW0AtDjfBYauceSeA==
 licences: D2 under the Mozilla Public License 2.0 (LICENSE, from terrastruct/d2 v0.7.0); wasm_exec.js, Go's loader,
-under Go's BSD licence (LICENSE-wasm_exec); elk.js, the ELK layout (elkjs) with D2's synchronous wrapper, under the
+under Go's BSD licence (LICENSE-wasm_exec); elk.js, the ELK layout (elkjs) as D2 adapted it (its in-process worker exposed, a synchronous wrapper added), under the
 Eclipse Public License 2.0 (LICENSE-elk, from kieler/elkjs; ADR 0018)
 to re-verify: download the tarball, check its sha512 against the integrity above (and npm's), extract it, and compare
 the three files' sha256 sums below with the extracted ones; the build is D2's master after v0.7.0, not a tagged release

@@ -1,4 +1,4 @@
-// D2's WebAssembly build, in a worker of its own (ADR 0016). Its dagre layout evaluates JavaScript from strings, so
+// D2's WebAssembly build, in a worker of its own (ADR 0016). Its ELK layout evaluates JavaScript from strings, so
 // this file is served with its own policy: eval is allowed here, but there is no DOM and no network but d2.wasm.
 // It gets D2 text Codetrail wrote from facts and answers with an SVG, which the page shows only as an image.
 // Diagrams are laid out by ELK (ADR 0018): D2 calls the elkLayoutSync that elk.js defines, which needs an ELK

@@ -162,10 +162,10 @@ def _headers(scope: Scope) -> dict[str, str]:
 
 
 def _worker_policy(host: str) -> str:
-    """Eval, but only Go's loader and the ELK layout to import and only the wasm file to fetch, at the Host already
-    checked."""
+    """Eval, but only Go's loader and the ELK layout to import, only the wasm file to fetch and no nested workers (which
+    would otherwise fall back to script-src), at the Host already checked."""
     vendor = f"http://{host}/static/vendor/d2"
     return (
         f"default-src 'none'; script-src {vendor}/wasm_exec.js {vendor}/elk.js 'unsafe-eval' 'wasm-unsafe-eval'; "
-        f"connect-src {vendor}/d2.wasm"
+        f"connect-src {vendor}/d2.wasm; worker-src 'none'"
     )

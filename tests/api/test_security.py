@@ -226,7 +226,7 @@ def test_the_d2_worker_alone_may_evaluate_and_reaches_only_its_wasm(client: Test
     assert response.headers["content-security-policy"] == (
         f"default-src 'none'; script-src http://{host}/static/vendor/d2/wasm_exec.js "
         f"http://{host}/static/vendor/d2/elk.js 'unsafe-eval' 'wasm-unsafe-eval'; "
-        f"connect-src http://{host}/static/vendor/d2/d2.wasm"
+        f"connect-src http://{host}/static/vendor/d2/d2.wasm; worker-src 'none'"
     )
     for name in ("x-content-type-options", "referrer-policy", "x-frame-options", "cross-origin-resource-policy"):
         assert response.headers[name] == HEADERS[name]
