@@ -4,6 +4,9 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+### Changed
+- The system diagram, on the System page, the home and area pages, guide pages and answers, is drawn with D2: clearer layout, with each kind of part in its own shape as before. The first diagram on a page takes about a second to appear while the browser prepares D2. The README's diagrams are drawn with D2 too. This is a trial of [ADR 0016](docs/adr/0016-draw-diagrams-with-d2.md), proposed; the other diagrams still use Mermaid.
+
 ## [1.3.0] - 2026-10-18
 
 Release notes: [docs/releases/v1.3.0.md](docs/releases/v1.3.0.md).

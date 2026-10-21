@@ -199,8 +199,11 @@ def bridge_router(
         parts = []
         for segment in segments:
             if segment.kind == "diagram" and segment.diagram is not None:  # drawn by the page's script, from facts
-                parts.append(f'<figure class="diagram-block" lang="en" dir="ltr"><pre class="diagram">'
-                             f"{escape(segment.diagram.mermaid)}</pre></figure>")  # fmt: skip
+                diagram = segment.diagram
+                source = escape(diagram.d2 or diagram.mermaid)
+                d2 = f' data-language="d2" data-alt="{escape(", ".join(node.label for node in diagram.nodes))}"'
+                parts.append(f'<figure class="diagram-block" lang="en" dir="ltr"{d2 if diagram.d2 else ""}>'
+                             f'<pre class="diagram">{source}</pre></figure>')  # fmt: skip
             else:
                 parts.append(str(segment.html))
         return "".join(parts)

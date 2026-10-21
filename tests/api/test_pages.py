@@ -162,6 +162,14 @@ def test_static_files_are_served_with_the_policy(client: TestClient) -> None:
     assert client.get("/static/vendor/mermaid.js").status_code == 200
 
 
+def test_the_d2_files_are_served(client: TestClient) -> None:
+    """The worker, Go's loader and D2's WebAssembly, the last with the type the browser compiles (ADR 0016)."""
+    assert "'unsafe-eval'" in client.get("/static/js/d2-worker.js").headers["content-security-policy"]
+    assert client.get("/static/vendor/d2/wasm_exec.js").status_code == 200
+    wasm = client.get("/static/vendor/d2/d2.wasm")
+    assert (wasm.status_code, wasm.headers["content-type"]) == (200, "application/wasm")
+
+
 @pytest.mark.parametrize("path", ["/static/nope.js", "/static/../x", "/nowhere"])
 def test_no_unauthenticated_response_carries_the_token(
     paths: Paths, session: SessionState, locales: Path, path: str

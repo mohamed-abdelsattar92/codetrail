@@ -1,13 +1,30 @@
-// Diagrams drawn from facts, rendered by the vendored Mermaid in strict mode, in the page's light or dark theme.
-// Pages draw theirs on load; the Ask panel draws an answer's when it arrives.
+// Diagrams drawn from facts, rendered by the vendored Mermaid in strict mode, or by D2 for those written in D2
+// (ADR 0016), in the page's light or dark theme. Pages draw theirs on load; the Ask panel draws an answer's when it
+// arrives.
+import { renderD2 } from "./d2.js";
 import { isDark } from "./theme.js";
 
 let counter = 0;
 const figures = [];
 
+// D2's SVG is shown as an image, where it can't run script or follow links, whatever the worker sent.
+async function drawD2(figure, source, target) {
+  try {
+    const image = document.createElement("img");
+    image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(await renderD2(source, isDark()))}`;
+    image.alt = figure.dataset.alt ?? "";
+    target.replaceChildren(image);
+    target.hidden = false;
+    figure.querySelector("pre.diagram")?.setAttribute("hidden", "");
+  } catch {
+    figure.classList.add("diagram-failed");
+  }
+}
+
 async function draw(figure) {
   const source = figure.dataset.source;
   const target = figure.querySelector("[data-diagram-target]");
+  if (source && target && figure.dataset.language === "d2") return drawD2(figure, source, target);
   if (!window.mermaid || !source || !target) return;
   // Arrow labels sit on the page's own colour, so their text keeps its contrast in both themes.
   const colors = getComputedStyle(document.documentElement);

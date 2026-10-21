@@ -130,3 +130,22 @@ def test_control_and_format_characters_are_dropped_from_labels() -> None:
 
 def test_noncharacters_are_dropped_from_labels() -> None:
     assert escape_label("a\uffffb\ufffec\ufdd0d") == "abcd"  # js-yaml refuses them as non-printable
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ('a"b', 'a\\"b'),
+        ("a\\b", "a\\\\b"),
+        ("${x}", "\\${x}"),
+        ("a  b", "a b"),
+        ("a\nb", "ab"),  # control characters are dropped, as for Mermaid
+        ("a\x01b\uffff", "ab"),
+        ("", "?"),
+    ],
+)
+def test_d2_labels_are_plain_double_quoted_text(text: str, expected: str) -> None:
+    """Inside D2's double quotes only a quote, a backslash or a substitution could escape the label (ADR 0016)."""
+    from codetrail.web.diagrams import d2_label
+
+    assert d2_label(text) == expected

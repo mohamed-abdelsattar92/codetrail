@@ -29,6 +29,17 @@ def test_the_font_files_match_their_recorded_sums(folder: str, fonts: set[str], 
     assert "SIL Open Font License" in (vendor / licence).read_text()
 
 
+def test_the_d2_files_match_their_recorded_sums() -> None:
+    """D2's WebAssembly build and Go's loader, from D2.js, with their licences (ADR 0016)."""
+    vendor = STATIC / "vendor" / "d2"
+    recorded = dict(re.findall(r"([0-9a-f]{64})\s+(\S+)", (vendor / "VERSION").read_text()))
+    assert set(recorded.values()) == {"d2.wasm", "wasm_exec.js"}
+    for digest, name in recorded.items():
+        assert hashlib.sha256((vendor / name).read_bytes()).hexdigest() == digest, name
+    assert "Mozilla Public License Version 2.0" in (vendor / "LICENSE").read_text()
+    assert "The Go Authors" in (vendor / "LICENSE-wasm_exec").read_text()
+
+
 @pytest.mark.parametrize("svg", SVGS, ids=lambda path: path.name)
 def test_the_marks_are_inert_svg(svg: Path) -> None:
     root = ElementTree.fromstring(svg.read_text())  # noqa: S314 - Codetrail's own files, not untrusted input

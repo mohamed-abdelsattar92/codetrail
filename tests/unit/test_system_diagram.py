@@ -175,3 +175,41 @@ def test_the_roll_up_never_draws_more_than_the_limit(store: FactStore) -> None:
     diagram = system_diagram(store, None, max_nodes=10)
     assert len(diagram.nodes) <= 10
     assert any(node.label.startswith("other parts (") for node in diagram.nodes)
+
+
+def d2_ids(d2: str) -> dict[str, str]:
+    """Label -> generated node id, for every D2 node line."""
+    return {label: node for node, label in re.findall(r'^(n\d+): "((?:[^"\\]|\\.)*)"', d2, re.MULTILINE)}
+
+
+def test_the_system_diagram_is_written_in_d2_too_with_each_kinds_shape(store: FactStore) -> None:
+    """ADR 0016 (proposed): the page draws the system diagram with D2."""
+    diagram = system_diagram(store, None, max_nodes=25)
+    lines = diagram.d2.splitlines()
+    assert lines[0] == "direction: right"
+    ids = d2_ids(diagram.d2)
+    assert f'{ids["api"]}: "api" {{style.border-radius: 8}}' in lines  # service: rounded
+    assert f'{ids["site"]}: "site" {{style.border-radius: 8}}' in lines  # app: rounded
+    assert f'{ids["ui"]}: "ui"' in lines  # library: plain
+    assert f'{ids["openapi.yaml"]}: "openapi.yaml" {{shape: page}}' in lines  # contract: a document
+    assert f'{ids["infra/app"]}: "infra/app" {{style.double-border: true}}' in lines  # infrastructure: double border
+    assert f'{ids["Cloudflare"]}: "Cloudflare" {{style.border-radius: 999}}' in lines  # platform: a stadium
+    assert ids == d2_ids(diagram.d2) and set(ids.values()) == {node.id for node in diagram.nodes}
+
+
+def test_d2_arrows_are_solid_when_explicit_and_dashed_when_matched(store: FactStore) -> None:
+    lines = system_diagram(store, None, max_nodes=25).d2.splitlines()
+    ids = d2_ids("\n".join(lines))
+    assert f"{ids['site']} -> {ids['ui']}" in lines
+    assert f'{ids["site"]} -> {ids["api"]}: "openapi.yaml"' in lines
+    assert f'{ids["api"]} -> {ids["openapi.yaml"]}: "implements"' in lines
+    assert f'{ids["api"]} -> {ids["Google Cloud"]}: "matched by name" {{style.stroke-dash: 3}}' in lines
+
+
+def test_hostile_names_are_plain_d2_strings(store: FactStore) -> None:
+    hostile = 'x" {shape: image; icon: http://evil}\n${y} @import \\'
+    store.record("e", [part("apps/x", "app", hostile), *PARTS], RELATIONS)
+    lines = system_diagram(store, None, max_nodes=25).d2.splitlines()
+    [line] = [line for line in lines if "evil" in line]
+    label = r'"x\\" \{shape: image; icon: http://evil\}\\\$\{y\} @import \\\\"'  # the line break dropped
+    assert re.fullmatch(rf"n\d+: {label} \{{style.border-radius: 8\}}", line)

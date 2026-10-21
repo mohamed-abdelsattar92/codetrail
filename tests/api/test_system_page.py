@@ -31,9 +31,9 @@ def client(tmp_path: Path) -> TestClient:
 
 def test_the_system_page_draws_and_explains_the_system(client: TestClient) -> None:
     page = client.get("/system").text
-    assert '<pre class="diagram">flowchart LR' in page
-    assert "shape: doc" in page  # the contract
-    assert "-.-&gt;|&#34;matched by name&#34;|" in page  # a dashed arrow, escaped like all page text
+    assert 'data-language="d2"' in page and '<pre class="diagram">direction: right' in page  # D2 (ADR 0016)
+    assert "{shape: page}" in page  # the contract
+    assert "&#34;matched by name&#34; {style.stroke-dash: 3}" in page  # a dashed arrow, escaped like all page text
     assert "Why each arrow is there" in page
     assert 'href="/source/apps/site/package.json#L1"' in page  # an explicit arrow cites its file and line
     assert "matched by name:" in page
