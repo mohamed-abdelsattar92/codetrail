@@ -67,7 +67,7 @@ Check the current version of each before citing it; when a newer one exists, use
 - Session tokens and codes come from `secrets`, carry at least 128 bits, and are compared in constant time.
 - Input is checked at the boundary against an allowlist: language codes against installed catalogs, page and fact ids against the guide and the store, lengths limited.
 - Responses carry `Content-Security-Policy` (as in the design, with `frame-ancestors 'none'`), `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` and `X-Frame-Options: DENY`.
-- Rendering: Jinja2 autoescaping on, Markdown with raw HTML off, only `http(s)` and relative links, no inline scripts or styles. Diagrams (ADR 0016): D2 labels are double-quoted strings with `\`, `"` and `$` escaped and line breaks dropped; D2 keys are generated ids, never names (D2's layout evaluates them); the D2 worker's own policy is served only for `/static/js/d2-worker.js`, after the `Host` check, allows only its loader and its wasm file, and is the only place `eval` is allowed; the page shows the worker's SVG only as an `<img>`.
+- Rendering: Jinja2 autoescaping on, Markdown with raw HTML off, only `http(s)` and relative links, no inline scripts or styles. Diagrams (ADR 0016): D2 labels are double-quoted strings with `\`, `"` and `$` escaped and line breaks dropped; D2 keys are generated ids, never names (D2's layout evaluates them); the D2 worker's own policy is served only for `/static/js/d2-worker.js`, after the `Host` check, allows only its loader and ELK's script, and only its wasm file to fetch, and is the only place `eval` is allowed; the page shows the worker's SVG only as an `<img>`.
 
 ### Input and injection (A05)
 - SQL is parameterised only; identifiers come from fixed code.

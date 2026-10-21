@@ -5,6 +5,7 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 ## [Unreleased]
 
 ### Changed
+- Diagrams on the page are laid out by ELK, as in the README: right-angled, evenly spaced lines instead of loose curves, which keeps busy diagrams readable. The first diagram on a page takes a little longer to appear, about a second and a half ([ADR 0018](docs/adr/0018-lay-out-diagrams-with-elk.md)).
 - Every diagram (the system diagram, and the imports, dependencies and resources diagrams on area pages, guide pages and answers) is drawn with D2 instead of Mermaid, with a clearer layout and each kind of part in its own shape as before. The first diagram on a page takes about a second to appear while the browser prepares D2. The README's diagrams are drawn with D2 too ([ADR 0016](docs/adr/0016-draw-diagrams-with-d2.md)).
 
 ### Security
