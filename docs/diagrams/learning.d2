@@ -1,0 +1,14 @@
+# A page's learning state (README, "Learning, and knowing when it went stale"). Render with `just diagrams`.
+direction: right
+
+start: "" {shape: circle; width: 16; height: 16}
+unread: Unread
+read: Read
+learned: Learned
+stale: Stale
+
+start -> unread
+unread -> read: Mark read
+read -> learned: pass every check
+learned -> stale: an update rewrites the page
+stale -> learned: pass the new or changed checks

@@ -65,7 +65,7 @@ def test_home_shows_areas_counts_and_the_signal(client: TestClient) -> None:
 
 def test_an_area_shows_its_diagrams_and_files(client: TestClient) -> None:
     page = client.get("/areas/services").text
-    assert '<pre class="diagram">flowchart LR' in page
+    assert '<pre class="diagram">direction: right' in page
     assert "app.main" in page
     assert 'href="/source/services/api/app/main.py"' in page
     assert client.get("/areas/nowhere").status_code == 404
@@ -159,7 +159,16 @@ def test_static_files_are_served_with_the_policy(client: TestClient) -> None:
     response = client.get("/static/js/main.js")
     assert response.status_code == 200
     assert "script-src 'self'" in response.headers["content-security-policy"]
-    assert client.get("/static/vendor/mermaid.js").status_code == 200
+    assert "style-src 'self';" in response.headers["content-security-policy"]  # no inline styles (ADR 0016)
+    assert client.get("/static/vendor/mermaid.js").status_code == 404
+
+
+def test_the_d2_files_are_served(client: TestClient) -> None:
+    """The worker, Go's loader and D2's WebAssembly, the last with the type the browser compiles (ADR 0016)."""
+    assert "'unsafe-eval'" in client.get("/static/js/d2-worker.js").headers["content-security-policy"]
+    assert client.get("/static/vendor/d2/wasm_exec.js").status_code == 200
+    wasm = client.get("/static/vendor/d2/d2.wasm")
+    assert (wasm.status_code, wasm.headers["content-type"]) == (200, "application/wasm")
 
 
 @pytest.mark.parametrize("path", ["/static/nope.js", "/static/../x", "/nowhere"])

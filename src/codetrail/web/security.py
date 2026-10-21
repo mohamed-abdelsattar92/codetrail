@@ -8,6 +8,9 @@
 - A request a browser marks as coming from another site or another port (`Sec-Fetch-Site`) is refused.
 - Every response, refusals included, carries the security headers and `Cache-Control: no-store`, unless its route
   sets its own; static files carry `no-cache`, so the browser revalidates them.
+- The worker that runs D2's WebAssembly build alone gets another Content-Security-Policy: its layout evaluates
+  JavaScript, so it may, but it can import nothing but Go's loader, reach nothing but its wasm file, and has no DOM
+  (ADR 0016).
 Sessions live in memory and end with the process.
 """
 
@@ -25,9 +28,10 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 SESSION_COOKIE = "codetrail_session"
 TOKEN_HEADER = "x-codetrail-token"  # noqa: S105 - a header name, not a secret
 CONTENT_SECURITY_POLICY = (
-    "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
+    "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
     "connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
 )
+D2_WORKER = "/static/js/d2-worker.js"
 SECURITY_HEADERS = [
     (b"content-security-policy", CONTENT_SECURITY_POLICY.encode()),
     (b"x-content-type-options", b"nosniff"),
@@ -106,13 +110,18 @@ class SecurityMiddleware:
         # guide, so the browser never stores it, unless its route set its own policy (ASVS 14.3.2).
         is_static = scope["path"].startswith("/static/")
         replaced = {name for name, _ in SECURITY_HEADERS} | ({b"cache-control"} if is_static else set())
+        security_headers = SECURITY_HEADERS
+        if scope["path"] == D2_WORKER and refusal is None:  # the Host was checked, so it can name the wasm's origin
+            policy = _worker_policy(_headers(scope)["host"]).encode()
+            security_headers = [(name, policy if name == b"content-security-policy" else value)
+                                for name, value in SECURITY_HEADERS]  # fmt: skip
 
         async def send_with_headers(message: Message) -> None:
             if message["type"] == "http.response.start":
                 headers = [(name, value) for name, value in message.get("headers", []) if name not in replaced]
                 if not any(name == b"cache-control" for name, _ in headers):
                     headers.append((b"cache-control", b"no-cache" if is_static else b"no-store"))
-                message["headers"] = headers + SECURITY_HEADERS
+                message["headers"] = headers + security_headers
             await send(message)
 
         if refusal is not None:
@@ -121,7 +130,7 @@ class SecurityMiddleware:
         await self.app(scope, receive, send_with_headers)
 
     def _refusal(self, scope: Scope) -> Response | None:
-        headers = {name.decode("latin-1"): value.decode("latin-1") for name, value in scope["headers"]}
+        headers = _headers(scope)
         host = headers.get("host", "")
         if host not in self.hosts:
             return PlainTextResponse("This page is only served at 127.0.0.1 or localhost.", 400)
@@ -146,3 +155,16 @@ class SecurityMiddleware:
         ):
             return PlainTextResponse("This request didn't come from Codetrail's page.", 403)
         return None
+
+
+def _headers(scope: Scope) -> dict[str, str]:
+    return {name.decode("latin-1"): value.decode("latin-1") for name, value in scope["headers"]}
+
+
+def _worker_policy(host: str) -> str:
+    """Eval, but only Go's loader to import and only the wasm file to fetch, at the Host already checked."""
+    vendor = f"http://{host}/static/vendor/d2"
+    return (
+        f"default-src 'none'; script-src {vendor}/wasm_exec.js 'unsafe-eval' 'wasm-unsafe-eval'; "
+        f"connect-src {vendor}/d2.wasm"
+    )

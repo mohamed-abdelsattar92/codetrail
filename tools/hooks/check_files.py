@@ -1,6 +1,6 @@
 """Pre-commit check of staged files.
 
-- No file over 1 MB outside the vendor folder, where Mermaid lives (ADR 0004).
+- No file over 1 MB outside the vendor folder, where D2's WebAssembly build lives (ADR 0016).
 Sizes are read from the staged blobs, not the working tree.
 """
 from __future__ import annotations

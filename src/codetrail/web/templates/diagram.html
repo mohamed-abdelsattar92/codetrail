@@ -1,7 +1,7 @@
 {% from "layout/icons.html" import icon %}
-<figure class="diagram-block" lang="en" dir="ltr">
+<figure class="diagram-block" lang="en" dir="ltr" data-alt="{{ diagram.nodes|map(attribute='label')|join(', ') }}">
   <div class="diagram-tools"><button type="button" class="icon-button" data-diagram-enlarge aria-pressed="false" aria-label="{{ _('Enlarge the diagram') }}" title="{{ _('Enlarge the diagram') }}">{{ icon("expand") }}</button></div>
-  <pre class="diagram">{{ diagram.mermaid }}</pre>
+  <pre class="diagram">{{ diagram.d2 }}</pre>
   <figcaption>
     <details><summary>{{ _("What each box links to") }}</summary>
       <ul>{% for node in diagram.nodes %}<li><a href="{{ node.link }}">{{ node.label }}</a></li>{% endfor %}</ul>

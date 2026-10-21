@@ -18,7 +18,7 @@ setup:
     @echo "Setup complete."
 
 # Run every check CI runs
-ci: check-repo lint typecheck test test-browser
+ci: check-repo check-diagrams lint typecheck test test-browser
 
 # Repository-wide checks: secrets anywhere in the history, and the file rules on every tracked file
 check-repo:
@@ -63,6 +63,20 @@ catalogs:
     uv run pybabel extract --no-location --omit-header --sort-output -F babel.cfg -k pgettext:1c,2 -o src/codetrail/locales/codetrail.pot .
     if ls src/codetrail/locales/*/LC_MESSAGES/codetrail.po >/dev/null 2>&1; then uv run pybabel update --ignore-pot-creation-date -i src/codetrail/locales/codetrail.pot -d src/codetrail/locales -D codetrail; fi
     if ls src/codetrail/locales/*/LC_MESSAGES/codetrail.po >/dev/null 2>&1; then uv run pybabel compile -d src/codetrail/locales -D codetrail; fi
+
+# Render the documentation's diagrams, docs/diagrams/*.d2, to SVGs beside them, marked GENERATED (ADR 0016)
+diagrams:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for source in docs/diagrams/*.d2; do
+        svg="${source%.d2}.svg"
+        d2 --layout elk --theme 0 --dark-theme 200 --pad 24 "$source" "$svg"
+        python3 -c 'import pathlib, sys; svg = pathlib.Path(sys.argv[1]); svg.write_text(svg.read_text().replace("?>", f"?><!-- GENERATED from {sys.argv[2]} by just diagrams (ADR 0016); edit the source, not this file. -->", 1))' "$svg" "$source"
+    done
+
+# Check the committed diagram SVGs are what their D2 sources render to (ADR 0016)
+check-diagrams: diagrams
+    test -z "$(git status --porcelain -- docs/diagrams)" || { git status --short -- docs/diagrams; echo "Run just diagrams and commit the SVGs."; exit 1; }
 
 # Run every test except the live ones (the real providers) and the browser ones (just test-browser), in parallel (ADR 0015)
 test:

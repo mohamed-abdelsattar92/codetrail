@@ -49,6 +49,10 @@ def client(session: SessionState) -> TestClient:
     def script() -> PlainTextResponse:
         return PlainTextResponse("// script")
 
+    @app.get("/static/js/d2-worker.js")
+    def worker() -> PlainTextResponse:
+        return PlainTextResponse("// worker")
+
     @app.get("/cached")
     def cached() -> PlainTextResponse:
         return PlainTextResponse("cached", headers={"Cache-Control": "private, max-age=60"})
@@ -66,7 +70,7 @@ def signed_in(client: TestClient, session: SessionState) -> TestClient:
 
 HEADERS = {
     "content-security-policy": (
-        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
+        "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
         "connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
     ),
     "x-content-type-options": "nosniff",
@@ -212,3 +216,22 @@ def test_requests_from_the_page_or_the_address_bar_are_served(
     signed_in(client, session)
     headers = {"sec-fetch-site": site} if site else {}
     assert client.get("/", headers=headers).status_code == 200
+
+
+@pytest.mark.parametrize("host", [f"127.0.0.1:{PORT}", f"localhost:{PORT}"])
+def test_the_d2_worker_alone_may_evaluate_and_reaches_only_its_wasm(client: TestClient, host: str) -> None:
+    """D2's WebAssembly build evaluates its layout's JavaScript, so its worker gets its own policy: eval, but no
+    network but the wasm file, and nothing else to load (ADR 0016). The page's policy doesn't change."""
+    response = client.get("/static/js/d2-worker.js", headers={"host": host})
+    assert response.headers["content-security-policy"] == (
+        f"default-src 'none'; script-src http://{host}/static/vendor/d2/wasm_exec.js 'unsafe-eval' 'wasm-unsafe-eval'; "
+        f"connect-src http://{host}/static/vendor/d2/d2.wasm"
+    )
+    for name in ("x-content-type-options", "referrer-policy", "x-frame-options", "cross-origin-resource-policy"):
+        assert response.headers[name] == HEADERS[name]
+    assert_security_headers(client.get("/static/page.js", headers={"host": host}))
+
+
+def test_the_worker_policy_is_never_sent_for_another_path(client: TestClient) -> None:
+    for path in ("/static/js/d2-worker.js/", "/static/js/d2-worker.jsx", "/static/vendor/d2/wasm_exec.js"):
+        assert "unsafe-eval" not in client.get(path).headers["content-security-policy"], path
