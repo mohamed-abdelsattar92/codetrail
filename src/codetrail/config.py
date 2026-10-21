@@ -159,6 +159,17 @@ class DiagramSettings(Settings):
     max_nodes: int = Field(default=25, gt=0)
 
 
+class AgentSettings(Settings):
+    """The map, briefs and tool server for coding agents (design section 23.6)."""
+
+    max_map_words: int = Field(default=2500, ge=500, le=20_000)
+    max_brief_words: int = Field(default=300, ge=50, le=2000)
+    key_files_per_part: int = Field(default=5, ge=0, le=20)
+    recent_digests: int = Field(default=5, ge=0, le=50)
+    max_briefs_per_call: int = Field(default=3, ge=1, le=10)
+    max_response_words: int = Field(default=4000, ge=500, le=20_000)
+
+
 # A file name or suffix, lower-cased, and its language (design section 19.6); `[metrics.languages]` replaces it.
 DEFAULT_LANGUAGES = {
     ".py": "Python", ".pyi": "Python",
@@ -229,8 +240,8 @@ class EstimateSettings(Settings):
 
     history_size: int = Field(default=20, ge=3)
     plan: TokenGuess = TokenGuess(input=60_000, output=8_000)
-    write: TokenGuess = TokenGuess(input=120_000, output=6_000)
-    revise: TokenGuess = TokenGuess(input=40_000, output=2_000)
+    write: TokenGuess = TokenGuess(input=120_000, output=6_500)
+    revise: TokenGuess = TokenGuess(input=40_000, output=2_500)
     digest: TokenGuess = TokenGuess(input=40_000, output=3_000)
     answer: TokenGuess = TokenGuess(input=30_000, output=1_500)
     grade: TokenGuess = TokenGuess(input=4_000, output=500)
@@ -256,6 +267,7 @@ class GlobalConfig(Settings):
     ui: InterfaceSettings = InterfaceSettings()
     signal: SignalSettings = SignalSettings()
     diagrams: DiagramSettings = DiagramSettings()
+    agents: AgentSettings = AgentSettings()
     metrics: MetricsSettings = MetricsSettings()
 
 

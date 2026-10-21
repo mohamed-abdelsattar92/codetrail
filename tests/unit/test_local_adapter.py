@@ -13,7 +13,7 @@ from codetrail.assistant.local import LocalAssistant
 from codetrail.assistant.prompts import FULLWIDTH_AT
 from codetrail.config import GenerationSettings, LocalSettings
 
-PAGE = {"body": "A page.", "checks": []}
+PAGE = {"body": "A page.", "checks": [], "brief": "B"}
 
 
 def reply(
@@ -70,7 +70,7 @@ async def test_a_page_reads_through_the_tools_then_answers_json(source: Path) ->
         ]
     )
     draft = await adapter(source, endpoint).write_page(page_request())
-    assert (draft.body, draft.files_read) == ("A page.", ["app/main.py"])
+    assert (draft.body, draft.files_read, draft.brief) == ("A page.", ["app/main.py"], "B")
     first, second = endpoint.requests
     assert first["model"] == "qwen3:14b"
     assert {tool["function"]["name"] for tool in first["tools"]} == {"read", "grep", "glob"}
