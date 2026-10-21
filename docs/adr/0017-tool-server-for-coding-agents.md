@@ -1,6 +1,6 @@
 # 0017. Serve coding agents through a Model Context Protocol tool server over standard input and output, written with the standard library
 
-- Status: proposed
+- Status: accepted (by the founder, 22 October 2026)
 - Date: 2026-10-22
 - Deciders: KoGy
 - Proposed by: Claude Code (Claude Opus 5.5), in the design session of 2026-10-22 on context for coding agents
@@ -46,8 +46,8 @@ Option B. A tool server over standard input and output, written with the standar
 - Revisit when Codetrail needs more of the protocol (resources, prompts, the HTTP transport) or when the protocol changes faster than the live test can keep up. Then the SDK's dependencies would pay for themselves.
 
 ## Changes required
-- [ ] Design section 23.5 names this ADR as decided.
+- [x] Design section 23.5 names this ADR as decided.
 - [ ] The `agents` module's tool server, with unit and subprocess protocol tests (section 23.8).
 - [ ] `just test-live` starts the tool server from the installed Claude Code and Codex.
 - [ ] `docs/security/review-checklist.md` covers the tool server's inputs and outputs.
-- [ ] `docs/adr/README.md` lists this ADR.
+- [x] `docs/adr/README.md` lists this ADR.

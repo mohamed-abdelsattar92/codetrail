@@ -40,4 +40,4 @@ Everything smaller is explained in the commit body, not in an ADR.
 | [0014](0014-bundle-noto-sans-arabic.md) | Bundle Noto Sans Arabic for Arabic text in the page | proposed | 2026-10-09 |
 | [0015](0015-run-the-whole-suite-in-parallel.md) | Run the whole test suite in parallel with pytest-xdist, and give CI 30 minutes | proposed | 2026-10-11 |
 | [0016](0016-draw-diagrams-with-d2.md) | Draw diagrams with D2: committed SVGs in the documentation, and D2's WebAssembly build in an isolated worker on the page | accepted | 2026-10-21 |
-| [0017](0017-tool-server-for-coding-agents.md) | Serve coding agents through a Model Context Protocol tool server over standard input and output, written with the standard library | proposed | 2026-10-22 |
+| [0017](0017-tool-server-for-coding-agents.md) | Serve coding agents through a Model Context Protocol tool server over standard input and output, written with the standard library | accepted | 2026-10-22 |
