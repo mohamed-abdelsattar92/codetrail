@@ -167,6 +167,7 @@ def test_the_d2_files_are_served(client: TestClient) -> None:
     """The worker, Go's loader and D2's WebAssembly, the last with the type the browser compiles (ADR 0016)."""
     assert "'unsafe-eval'" in client.get("/static/js/d2-worker.js").headers["content-security-policy"]
     assert client.get("/static/vendor/d2/wasm_exec.js").status_code == 200
+    assert client.get("/static/vendor/d2/elk.js").status_code == 200  # the ELK layout (ADR 0018)
     wasm = client.get("/static/vendor/d2/d2.wasm")
     assert (wasm.status_code, wasm.headers["content-type"]) == (200, "application/wasm")
 

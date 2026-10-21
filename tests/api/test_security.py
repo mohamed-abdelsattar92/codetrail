@@ -224,7 +224,8 @@ def test_the_d2_worker_alone_may_evaluate_and_reaches_only_its_wasm(client: Test
     network but the wasm file, and nothing else to load (ADR 0016). The page's policy doesn't change."""
     response = client.get("/static/js/d2-worker.js", headers={"host": host})
     assert response.headers["content-security-policy"] == (
-        f"default-src 'none'; script-src http://{host}/static/vendor/d2/wasm_exec.js 'unsafe-eval' 'wasm-unsafe-eval'; "
+        f"default-src 'none'; script-src http://{host}/static/vendor/d2/wasm_exec.js "
+        f"http://{host}/static/vendor/d2/elk.js 'unsafe-eval' 'wasm-unsafe-eval'; "
         f"connect-src http://{host}/static/vendor/d2/d2.wasm"
     )
     for name in ("x-content-type-options", "referrer-policy", "x-frame-options", "cross-origin-resource-policy"):

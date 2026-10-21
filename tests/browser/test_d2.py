@@ -112,3 +112,15 @@ def test_every_diagram_draws_and_every_label_comes_back_as_written(site: Site, p
             source,
         )
         assert diagram.nodes and written and set(written) <= set(shown), name
+
+
+def test_diagrams_are_laid_out_by_elk(site: Site, page: Page) -> None:
+    """ELK draws right-angled lines with rounded corners (`L` then `S` in a path); dagre draws curves (ADR 0018)."""
+    site.sign_in(page, "/system")
+    svg = page.evaluate(
+        """async () => {
+            const { renderD2 } = await import("/static/js/d2.js");
+            return renderD2('a -> b\\na -> c\\nb -> d\\nc -> d', false);
+        }"""
+    )
+    assert re.search(r'<path d="M [\d.]+ [\d.]+ L [^"]* S ', svg)
