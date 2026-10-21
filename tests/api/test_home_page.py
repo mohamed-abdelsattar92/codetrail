@@ -32,7 +32,7 @@ FILES: Commit = {"pyproject.toml": '[project]\nname = "x"\n', "app/main.py": "fr
 def writer(request: PageRequest) -> PageDraft:
     rubric = [{"point": "db", "grounds": ["app/main.py"]}]
     checks = [{"id": "q1", "question": "What does main import?", "rubric": rubric}]
-    return PageDraft(f"About {request.title}.", checks, ["app/main.py"])
+    return PageDraft(f"About {request.title}.", checks, ["app/main.py"], brief="The key file is app/main.py.")
 
 
 @pytest.fixture

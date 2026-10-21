@@ -243,6 +243,7 @@ def run_update(
                     failed_pages=FailedPages(connection),
                     retry_failed=retry_failed,
                     revise_max_changes=target.generation.revise_max_changes,
+                    max_brief_words=settings.agents.max_brief_words,
                 )
                 if confirm is not None:
                     work = planned_work(context)

@@ -132,7 +132,7 @@ PLAN = PlanDraft([{"id": "areas/app", "kind": "area", "title": "The app", "scope
 
 def page_writer(request: PageRequest) -> PageDraft:
     checks = [{"id": "q", "question": "Why?", "rubric": [{"point": "p", "grounds": ["app/main.py"]}]}]
-    return PageDraft("> [!inferred]\n> It reads well.\n", checks, ["app/main.py"])
+    return PageDraft("> [!inferred]\n> It reads well.\n", checks, ["app/main.py"], brief="The key file is app/main.py.")
 
 
 def test_the_report_finds_where_change_happens(paths: Paths) -> None:

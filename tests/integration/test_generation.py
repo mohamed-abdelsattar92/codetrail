@@ -1,5 +1,6 @@
 """Generation in an update, with the fake Claude (design section 6)."""
 
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -30,6 +31,7 @@ PLAN = PlanDraft(
         {"id": "concepts/bad id", "kind": "concept", "title": "Dropped", "scope_paths": ["docs"], "facts": []},
     ]
 )  # fmt: skip
+BRIEF = "The key file is [[module:services/api/app/main.py]]."
 CHECKS = [{"id": "q1", "question": "Why FastAPI?", "rubric": [{"point": "The ADR", "grounds": ["decision:ADR-0001"]}]}]
 
 
@@ -39,7 +41,7 @@ def good_page(request: PageRequest) -> PageDraft:
         '> [!documented] docs/adr/0001-use-fastapi.md#L6-L6\n> "We use FastAPI for the API."\n\n'
         "{{diagram imports scope=services/api}}\n"
     )
-    return PageDraft(body, CHECKS, ["docs/adr/0001-use-fastapi.md"], 0.01)
+    return PageDraft(body, CHECKS, ["docs/adr/0001-use-fastapi.md"], 0.01, brief=BRIEF)
 
 
 @pytest.fixture
@@ -93,7 +95,7 @@ def test_a_changed_fact_rewrites_only_its_pages(paths: Paths, tmp_path: Path) ->
 
 
 def test_an_invalid_draft_is_retried_once_then_the_old_page_stays(paths: Paths) -> None:
-    bad = PageDraft("Cites [[module:ghost.py]].", CHECKS)
+    bad = PageDraft("Cites [[module:ghost.py]].", CHECKS, brief=BRIEF)
     claude = FakeAssistant(plans=[PLAN], pages={"areas/api": [bad, bad]}, page_writer=good_page)
     generation = run_update(paths, "t", claude=claude).generation
     assert generation is not None
@@ -203,7 +205,7 @@ def test_each_calls_usage_is_recorded_and_counted(paths: Paths) -> None:
     def priced_page(request: PageRequest) -> PageDraft:
         draft = good_page(request)
         usage = Usage("claude_code", "claude-sonnet-5-5", 1000, 0, 100, 0.25)
-        return PageDraft(draft.body, draft.checks, draft.files_read, 0.25, usage)
+        return PageDraft(draft.body, draft.checks, draft.files_read, 0.25, usage, brief=draft.brief)
 
     result = run_update(paths, "t", claude=FakeAssistant(plans=[PLAN], page_writer=priced_page))
     assert result.generation is not None and result.generation.cost_usd == 0.5
@@ -249,7 +251,7 @@ def test_an_update_reports_each_step_as_it_goes(paths: Paths) -> None:
 
 def test_the_steps_report_a_retry_a_failed_page_and_one_left_for_later(paths: Paths) -> None:
     one_at_a_time(paths, budget_usd=0.01)
-    bad = PageDraft("Cites [[module:ghost.py]].", CHECKS, cost_usd=0.01)
+    bad = PageDraft("Cites [[module:ghost.py]].", CHECKS, cost_usd=0.01, brief=BRIEF)
     events: list[dict[str, object]] = []
     claude = FakeAssistant(plans=[PLAN], pages={"areas/api": [bad, bad]}, page_writer=good_page)
     run_update(paths, "t", claude=claude, progress=events.append)
@@ -259,3 +261,19 @@ def test_the_steps_report_a_retry_a_failed_page_and_one_left_for_later(paths: Pa
     assert failed["title"] == "The API" and "ghost.py" in str(failed["reason"])
     assert events[7] == {"step": "page_later", "id": "concepts/fastapi", "title": "Why FastAPI"}
     assert events[-1] == {"step": "committed", "pages": 0, "failed": 1, "later": 1}
+
+
+def test_a_written_page_keeps_its_brief(paths: Paths) -> None:
+    run_update(paths, "t", claude=FakeAssistant(plans=[PLAN], page_writer=good_page))
+    page = guide(paths).read_page("areas/api")
+    assert page is not None and page.meta["brief"] == BRIEF
+
+
+def test_a_page_without_a_brief_is_retried_with_the_problem(paths: Paths) -> None:
+    request = PageRequest("areas/api", "area", "The API", ["services/api"], "", "", "")
+    drafts: list[PageDraft | Exception] = [replace(good_page(request), brief=""), good_page(request)]
+    claude = FakeAssistant(plans=[PLAN], pages={"areas/api": drafts}, page_writer=good_page)
+    run_update(paths, "t", claude=claude)
+    retry = [item for item in claude.requests if isinstance(item, PageRequest) and item.page_id == "areas/api"][1]
+    assert "The brief is missing." in retry.problems
+    assert retry.brief_words == 300

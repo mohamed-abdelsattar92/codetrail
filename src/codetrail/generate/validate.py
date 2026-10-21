@@ -101,6 +101,20 @@ def validate_page(body: str, checks: Sequence[Mapping[str, Any]] | None, context
     return problems
 
 
+def validate_brief(brief: str, context: ValidationContext, max_words: int) -> list[str]:
+    """A page's brief for coding agents (design 23.3): present, within its words, and valid as a page is. A secret
+    finding keeps its own wording, so a flagged revision is still retried from the page as it stood."""
+    if not brief.strip():
+        return ["The brief is missing."]
+    words = len(brief.split())
+    if words > max_words:
+        return [f"The brief has {words} words; keep it to at most {max_words}."]
+    return [
+        problem if problem.startswith(FLAGGED_PROBLEM) else f"In the brief: {problem}"
+        for problem in validate_page(brief, None, context)
+    ]
+
+
 def _check_documented(block: RationaleBlock, context: ValidationContext) -> list[str]:
     quote = normalize(block.text).strip(QUOTE_MARKS + " ")
     where = f"The documented block at line {block.line}"

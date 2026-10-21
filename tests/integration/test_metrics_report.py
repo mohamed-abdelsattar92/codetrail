@@ -28,7 +28,7 @@ PLAN = PlanDraft([{"id": "areas/app", "kind": "area", "title": "The app", "scope
 def page_writer(request: PageRequest) -> PageDraft:
     body = '> [!documented] docs/adr/0001-x.md#L5-L5\n> "We chose Python."\n\n> [!inferred]\n> It reads well.\n'
     checks = [{"id": "q", "question": "Why?", "rubric": [{"point": "p", "grounds": ["app/main.py"]}]}]
-    return PageDraft(body, checks, ["app/main.py"])
+    return PageDraft(body, checks, ["app/main.py"], brief="The key file is app/main.py.")
 
 
 def writer() -> FakeAssistant:

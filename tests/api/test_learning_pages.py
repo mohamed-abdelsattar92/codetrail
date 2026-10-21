@@ -26,7 +26,9 @@ FILES: Commit = {"pyproject.toml": '[project]\nname = "x"\n', "app/main.py": "fr
 def writer(question: str) -> object:
     def write(request: PageRequest) -> PageDraft:
         checks = [{"id": "q1", "question": question, "rubric": [{"point": RUBRIC_POINT, "grounds": ["app/main.py"]}]}]
-        return PageDraft(f"The app imports db.\n\nAsked: {question}", checks, ["app/main.py"])
+        return PageDraft(
+            f"The app imports db.\n\nAsked: {question}", checks, ["app/main.py"], brief="The key file is app/main.py."
+        )
 
     return write
 

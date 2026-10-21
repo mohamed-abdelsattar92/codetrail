@@ -1,5 +1,6 @@
 """An affected page with a few changes is revised, not rewritten (design section 6.3)."""
 
+from dataclasses import replace
 from pathlib import Path
 
 from codetrail.assistant import PageDraft, PageRequest
@@ -8,7 +9,7 @@ from codetrail.assistant.fake import FakeAssistant
 from codetrail.config import Paths
 from codetrail.update import run_update
 from tests.fixtures.repos import Commit, add_commit, fake_github_token
-from tests.integration.test_generation import ADR, CHECKS, PLAN, good_page, guide
+from tests.integration.test_generation import ADR, BRIEF, CHECKS, PLAN, good_page, guide
 from tests.integration.test_generation import paths as paths  # the fixture
 from tests.integration.test_page_selection import set_generation
 
@@ -121,3 +122,50 @@ def test_a_revision_keeps_the_old_version_of_files_it_didnt_read_again(paths: Pa
     assert after is not None and "The API has routes." in after.body  # revised
     kept = next(item for item in after.meta["files"] if item["path"] == "docs/adr/0001-use-fastapi.md")
     assert kept["blob"] == adr["blob"]  # still the version the page was written from: "sources changed" stays true
+
+
+ROUTES_SECTION: list[dict[str, object]] = [{"heading": "## Routes", "body": "The API has routes."}]
+
+
+def test_a_revision_without_a_brief_keeps_the_old_one(paths: Paths, tmp_path: Path) -> None:
+    run_update(paths, "t", claude=FakeAssistant(plans=[PLAN], page_writer=good_page))
+    add_commit(tmp_path / "target", ROUTES, "feat(api): routes")
+    claude = revising(ROUTES_SECTION)
+    generation = run_update(paths, "t", claude=claude).generation
+    assert generation is not None and generation.written == ["areas/api"] and generation.failed == []
+    [request] = page_requests(claude)
+    assert request.current_brief == BRIEF
+    page = guide(paths).read_page("areas/api")
+    assert page is not None and page.meta["brief"] == BRIEF
+
+
+def test_a_kept_brief_that_no_longer_validates_is_asked_for_again(paths: Paths, tmp_path: Path) -> None:
+    def linking_db(request: PageRequest) -> PageDraft:
+        return replace(good_page(request), brief="It reads [[module:services/api/app/db.py]].")
+
+    run_update(paths, "t", claude=FakeAssistant(plans=[PLAN], page_writer=linking_db))
+    add_commit(tmp_path / "target", {"services/api/app/db.py": None}, "refactor(api): no db module")
+    without = PageDraft("", [], [], sections=ROUTES_SECTION)
+    claude = FakeAssistant(pages={"areas/api": [without, replace(without, brief="Fixed.")]})
+    run_update(paths, "t", claude=claude)
+    requests = page_requests(claude)
+    assert requests[0].changes and any(problem.startswith("In the brief: ") for problem in requests[1].problems)
+    page = guide(paths).read_page("areas/api")
+    assert page is not None and page.meta["brief"] == "Fixed."
+
+
+def test_a_revision_of_a_page_without_a_brief_must_return_one(paths: Paths, tmp_path: Path) -> None:
+    run_update(paths, "t", claude=FakeAssistant(plans=[PLAN], page_writer=good_page))
+    pages = guide(paths)
+    page = pages.read_page("areas/api")
+    assert page is not None
+    pages.write_page(replace(page, meta={key: value for key, value in page.meta.items() if key != "brief"}))
+    pages.commit("A page from before briefs")
+    add_commit(tmp_path / "target", ROUTES, "feat(api): routes")
+    without = PageDraft("", [], [], sections=ROUTES_SECTION)
+    claude = FakeAssistant(pages={"areas/api": [without, replace(without, brief="Now it has one.")]})
+    run_update(paths, "t", claude=claude)
+    first, retry = page_requests(claude)
+    assert first.current_brief == "" and "The brief is missing." in retry.problems
+    page = pages.read_page("areas/api")
+    assert page is not None and page.meta["brief"] == "Now it has one."
