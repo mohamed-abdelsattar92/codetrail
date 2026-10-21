@@ -1,0 +1,25 @@
+# An update, step by step (README, "How it works"). Render with `just diagrams`.
+shape: sequence_diagram
+
+you: You
+repo: repo
+extract: Extractors
+facts: Fact store
+gen: Generator
+assistant: Assistant
+guide: "Guide (git)"
+
+you -> repo: "1. codetrail update shop"
+repo -> repo: "2. fetch the branch, rebuild source/ without excluded files"
+repo -> extract: "3. allowed files"
+extract -> facts: "4. entities and relations (free)"
+facts -> gen: "5. facts added, changed, removed"
+gen -> you: "6. the estimate: calls, tokens, dollars, plan usage" {style.stroke-dash: 3}
+you -> gen: "7. go ahead"
+each page: "each affected page, within the budget" {
+  gen -> assistant: "8. page outline + facts + log (read-only tools)"
+  assistant -> gen: "9. draft and checks" {style.stroke-dash: 3}
+  gen -> gen: "10. verify quotes, fact links and diagrams, and scan for secrets"
+}
+gen -> guide: "11. pages + digest, one commit"
+guide -> you: "12. \"7 pages written, used ~776k tokens\"" {style.stroke-dash: 3}

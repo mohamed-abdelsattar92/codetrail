@@ -111,59 +111,11 @@ These screenshots are Codetrail's guide to its own repository, written by Claude
 
 Codetrail never writes to the repository it teaches. It keeps its own mirror, copies out only the files it is allowed to see, extracts facts from them, and has your assistant write the guide from the facts.
 
-```mermaid
-flowchart TB
-    checkout[("Your checkout<br/>(read only)")]
-    subgraph data["Codetrail's data folder"]
-        mirror[("mirror.git<br/>bare clone")]
-        source["source/<br/>allowed files only"]
-        db[("codetrail.db<br/>facts · progress · usage")]
-        guide[("guide/<br/>Markdown, own git repo")]
-    end
-    rules{{"Exclusions<br/>secret patterns · ignore files · gitleaks"}}
-    extract["Extractors<br/>python · adr · openapi · terraform · swift · typescript · github_actions"]
-    assistant["Your assistant<br/>Claude Code · Codex · a local model<br/>read-only"]
-    page["Local page<br/>127.0.0.1"]
-
-    checkout -- fetch --> mirror
-    mirror --> rules --> source
-    source --> extract --> db
-    db --> assistant
-    source -. read only .-> assistant
-    assistant --> guide
-    guide --> page
-    db --> page
-    page -- questions --> assistant
-```
+![How Codetrail works: your checkout is fetched into a mirror, filtered by the exclusions into source/, extracted into codetrail.db; your assistant reads the facts and the allowed files and writes the guide, which the local page shows and sends questions from](docs/diagrams/how-it-works.svg)
 
 **An update, step by step.** You run it on demand, from the command line or the page's Update button.
 
-```mermaid
-sequenceDiagram
-    autonumber
-    participant You
-    participant Repo as repo
-    participant Extract as Extractors
-    participant Facts as Fact store
-    participant Gen as Generator
-    participant Assistant
-    participant Guide as Guide (git)
-
-    You->>Repo: codetrail update shop
-    Repo->>Repo: fetch the branch, rebuild source/ without excluded files
-    Repo->>Extract: allowed files
-    Extract->>Facts: entities and relations (free)
-    Facts->>Gen: facts added, changed, removed
-    Gen-->>You: the estimate: calls, tokens, dollars, plan usage
-    You->>Gen: go ahead
-    loop each affected page, within the budget
-        Gen->>Assistant: page outline + facts + log (read-only tools)
-        Assistant-->>Gen: draft and checks
-        Gen->>Gen: verify quotes, fact links and diagrams, and scan for secrets
-    end
-    Gen->>Guide: pages + digest, one commit
-    Guide-->>You: "7 pages written, used ~776k tokens"
-```
+![An update, step by step: fetch and rebuild source/, extract facts, show the estimate, then, after you go ahead, write and verify each affected page and commit the pages and digest](docs/diagrams/update-steps.svg)
 
 From the page, an update panel shows each step as it happens: the facts refreshed, the outline planned, each page written with its provider, model, tokens and cost, or not written and why. It closes when the update is done, and stays open with the reason when it fails.
 
@@ -218,20 +170,7 @@ Continue? [y/N]
 
 Codetrail runs an assistant over repositories that hold secrets, so what it can see is decided before anything reads a file.
 
-```mermaid
-flowchart TB
-    tracked["Every tracked file at the commit"] --> builtin
-    builtin{"Built-in secret patterns<br/>.env · *.tfvars · *.pem · *.p8 · *.tfstate · id_rsa* …<br/><i>nothing can override these</i>"}
-    builtin -- excluded --> gone(["Not there"])
-    builtin --> ignore{"Ignore files, gitignore syntax<br/>.codetrailignore in the repo<br/>+ your own targets/shop.ignore"}
-    ignore -- excluded --> gone
-    ignore --> scan{"gitleaks content scan<br/>secrets inside ordinary files"}
-    scan -- flagged --> gone
-    scan --> source["source/<br/>the only files that exist for Codetrail"]
-    source --> guard{"Read-only tools<br/>inside source/ only"}
-    guard --> assistant["Your assistant"]
-    assistant --> out{"Every page, answer and feedback<br/>scanned for secrets again"}
-```
+![What the assistant can see: every tracked file passes the built-in secret patterns, your ignore files and gitleaks; what's left is source/, read through read-only tools, and everything written is scanned for secrets again](docs/diagrams/secrets.svg)
 
 An excluded file is as if it weren't in the repository: it isn't extracted, readable by the assistant, shown in the page, or included in diffs, digests or the "you're behind" counts. Symlinks are never copied. `codetrail files <target>` shows exactly what's visible and what's hidden, and why.
 
@@ -239,14 +178,7 @@ An excluded file is as if it weren't in the repository: it isn't extracted, read
 
 ## Learning, and knowing when it went stale
 
-```mermaid
-stateDiagram-v2
-    [*] --> Unread
-    Unread --> Read: Mark read
-    Read --> Learned: pass every check
-    Learned --> Stale: an update rewrites the page
-    Stale --> Learned: pass the new or changed checks
-```
+![A page's learning state: Unread, Read after Mark read, Learned after passing every check, Stale when an update rewrites it, and Learned again after the new or changed checks](docs/diagrams/learning.svg)
 
 When a page you learned is rewritten, it shows a diff of what changed since you learned it, and only the new or changed checks need answering again. "Since you last caught up" lists the digests you haven't read, then the pages that went stale.
 
@@ -258,28 +190,7 @@ The interface is English first and switches language from the page; it ships in 
 
 The latest release is Codetrail 1.3.0 ([release notes](docs/releases/v1.3.0.md), [changelog](CHANGELOG.md)); 1.0.0 was the first public release. Phases 0 to 15 and 17 to 19 of the [design](docs/design/2026-10-05-codetrail-design.md) are built, tested and released; Phase 16 is planned.
 
-```mermaid
-flowchart LR
-    P0["0 · Engineering setup ✓"] --> P1["1 · Targets and exclusions ✓"]
-    P1 --> P2["2 · Facts ✓"]
-    P2 --> P3["3 · The page ✓"]
-    P3 --> P4["4 · Generation ✓"]
-    P4 --> P5["5 · Bridge ✓"]
-    P5 --> P6["6 · Learning ✓"]
-    P4 --> P7["7 · More extractors ✓"]
-    P6 --> P8["8 · Providers and sign-in ✓"]
-    P8 --> P9["9 · Cost estimates ✓"]
-    P9 --> P10["10 · Getting started ✓"]
-    P10 --> P11["11 · The page's design ✓"]
-    P11 --> P12["12 · The whole system ✓"]
-    P12 --> P13["13 · Documentation metrics ✓"]
-    P13 --> P14["14 · Repository statistics ✓"]
-    P14 --> P15["15 · Where change happens ✓"]
-    P15 --> P17["17 · The Repository page's charts ✓"]
-    P17 --> P18["18 · The Documentation page's charts ✓"]
-    P18 --> P19["19 · The sidebar ✓"]
-    P15 -.-> P16["16 · Decision inventory (planned)"]
-```
+![The design's phases: 0 to 15 and 17 to 19 built, 16 planned](docs/diagrams/phases.svg)
 
 | Phase | What you can do | Status |
 |---|---|---|

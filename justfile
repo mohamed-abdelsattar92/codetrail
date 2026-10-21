@@ -64,6 +64,16 @@ catalogs:
     if ls src/codetrail/locales/*/LC_MESSAGES/codetrail.po >/dev/null 2>&1; then uv run pybabel update --ignore-pot-creation-date -i src/codetrail/locales/codetrail.pot -d src/codetrail/locales -D codetrail; fi
     if ls src/codetrail/locales/*/LC_MESSAGES/codetrail.po >/dev/null 2>&1; then uv run pybabel compile -d src/codetrail/locales -D codetrail; fi
 
+# Render the documentation's diagrams, docs/diagrams/*.d2, to SVGs beside them, marked GENERATED (ADR 0016)
+diagrams:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for source in docs/diagrams/*.d2; do
+        svg="${source%.d2}.svg"
+        d2 --layout elk --theme 0 --dark-theme 200 --pad 24 "$source" "$svg"
+        python3 -c 'import pathlib, sys; svg = pathlib.Path(sys.argv[1]); svg.write_text(svg.read_text().replace("?>", f"?><!-- GENERATED from {sys.argv[2]} by just diagrams (ADR 0016); edit the source, not this file. -->", 1))' "$svg" "$source"
+    done
+
 # Run every test except the live ones (the real providers) and the browser ones (just test-browser), in parallel (ADR 0015)
 test:
     uv run pytest -q -n auto
