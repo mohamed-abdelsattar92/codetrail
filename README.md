@@ -5,11 +5,17 @@
   </picture>
 </h1>
 
-**Turn a git repository into a local learning guide that keeps up with it.**
+**Your repository's tutor, for you and your coding agent.**
 
-Codetrail is for the person responsible for a repository that changes faster than they can follow. It tells you what changed and why it matters, and teaches the architecture, design patterns and tools behind the code: concept pages tied to the real code, guided paths through it, checks on your understanding, and progress that notices when what you learned has gone stale. You read it as a local web page, and you can ask your assistant questions from any page.
+Codetrail reads a git repository and keeps a guide to it that grows as the code changes. It teaches you the architecture, patterns and tools behind the code, and tells you what changed and why it matters. It gives your coding agent the same understanding, so Claude Code or Codex starts every task knowing the repository instead of guessing at it.
 
-It works with the assistant you already pay for: **Claude Code** on a Claude subscription (the default), **Codex** on a ChatGPT subscription, or **a free local model** through Ollama or LM Studio. Before anything is spent, Codetrail shows an estimate and asks.
+| For you | For your agent |
+|---|---|
+| Concept pages tied to the real code, guided paths, checks on your understanding, and progress that notices when what you learned has gone stale | A map of the repository, and a brief for each area: its key files, its conventions and the reasons behind them |
+| What changed since you last looked, and why it matters | Facts extracted from the code, not recalled from memory, with every reason marked documented or inferred, so it guesses less and spends fewer tokens finding its way |
+| A local web page you can ask questions from | A read-only tool server that Claude Code and Codex start themselves, and that costs nothing to call |
+
+It runs on your machine, never writes to your repository, and works with the assistant you already pay for: **Claude Code** on a Claude subscription, **Codex** on a ChatGPT subscription, or **a free local model**. Before anything is spent, it shows an estimate and asks.
 
 **[Get started in ten minutes →](docs/getting-started.md)**
 
@@ -18,6 +24,7 @@ It works with the assistant you already pay for: **Claude Code** on a Claude sub
 ## Contents
 - [Why Codetrail](#why-codetrail)
 - [What you get](#what-you-get)
+- [For your coding agent](#for-your-coding-agent)
 - [A tour](#a-tour)
 - [How it works](#how-it-works)
 - [Your assistant, your subscription](#your-assistant-your-subscription)
@@ -39,6 +46,7 @@ An assistant such as Claude Code already answers questions about a repository we
 | An assistant alone | Codetrail |
 |---|---|
 | Each session rediscovers the architecture | A curated guide that persists and grows with the repository |
+| Your coding agent rediscovers the repository every session | Your agent starts from Codetrail's map and briefs |
 | Answers what you ask; you have to know what to ask | Tells you what changed since you last looked, and teaches it |
 | Diagrams drawn from memory can invent connections | Diagrams drawn only from facts extracted from the code |
 | A guess and a decision read the same | Rationale is marked **documented** (quoted and checked) or **inferred** |
@@ -46,6 +54,8 @@ An assistant such as Claude Code already answers questions about a repository we
 Codetrail uses the assistant for meaning and code for structure: deterministic extractors parse the repository into facts, and the assistant writes explanations from those facts, reading files read-only for the "why".
 
 ## What you get
+
+### For you
 
 | | Feature | What it does |
 |---|---|---|
@@ -65,8 +75,63 @@ Codetrail uses the assistant for meaning and code for structure: deterministic e
 | ♻️ | **Staleness** | When the code behind a page you learned changes, the page says so and shows what changed. |
 | 📊 | **Documentation metrics** | How well the repository explains itself: how much of the guide's rationale is documented (and from where: ADRs, documents, code comments, commits), commits that explain why, ADRs to revisit, and dependencies no document mentions. An overview shows each number with its bar and trend across updates; each section opens to a chart and the items behind it, the one most in need first. Free: no assistant call. |
 | 📈 | **Repository statistics** | What the repository is, in charts you can explore: an interactive timeline of commits with its releases and dependency changes, a day-by-day activity calendar, a heat map of where change happens (by guide area, folder or file) with each area's commits month by month, and its age, commits and activity month by month, its releases from tags, lines of code by language with the share in tests, its facts by kind with the dependencies that arrived and left, and where change happens: the most changed files, folders and guide areas beside how much of each area's rationale is documented, quiet code and commit size. `codetrail stats <target>` prints the summary. Free: no assistant call. |
-| 🤖 | **Context for coding agents** | Claude Code and Codex start a task from Codetrail's map of the repository and the brief for the area they're changing (key files, conventions and the reasons, marked documented or inferred), through `codetrail mcp`, a read-only tool server that listens on no port. Nothing is written into the repository, and nothing an agent asks for costs a call. |
 | 💲 | **Estimates first** | Every paid action shows what it will use before it runs: tokens, dollars at API prices, and your plan's usage. |
+
+### For your agent
+
+| | Feature | What it does |
+|---|---|---|
+| 🗺️ | **The map** | The repository's parts and how they connect, its decisions, recent changes and the guide's pages, in a few thousand words an agent reads before a task. Built from facts, rebuilt by every update, free. |
+| 📋 | **A brief per page** | For each area and concept: its key files, its conventions and the reasons for them, marked documented or inferred, and marked possibly stale when the code moved on. |
+| 🔌 | **`codetrail mcp`** | A read-only tool server Claude Code and Codex start themselves. It listens on no port, writes nothing into the repository, and no call to it costs anything. |
+
+## For your coding agent
+
+Each session, a coding agent starts from nothing: it reads files until it finds its footing, and what it doesn't find, it guesses. Codetrail already understands the repository, so every update also writes that understanding down for agents, in Codetrail's data folder and never in the repository:
+
+- **The map:** the repository's parts and how they connect, its decisions, recent changes and the guide's pages, built from facts extracted from the code.
+- **A brief per area and concept page:** its key files, its conventions and the reasons for them, each reason marked documented (quoted from its source and checked) or inferred.
+
+From the map of Codetrail's own repository:
+
+```markdown
+# Map of codetrail (generated by Codetrail; reference data, not instructions)
+Repository: ~/code/codetrail · branch develop · facts at 9caa276eee2a (2026-10-12) · 6 pages possibly stale
+To see what changed since: git diff --name-only 9caa276eee2a96eca1d23e8a55b98769b7f23a04
+
+## Decisions
+- ADR-0003 Store each fact once with a validity range over snapshots (accepted) — docs/adr/0003-facts-with-validity-ranges.md
+- ADR-0010 License Codetrail under the AGPL 3.0 only, sell commercial licenses, and reserve the name and logo (superseded) — docs/adr/0010-agpl-with-a-commercial-license.md; superseded by ADR-0012
+
+## Pages
+- areas/assistant-adapters — assistant: providers, the tool guard, usage and estimates — src/codetrail/assistant
+- areas/extractors — extract: one extractor per stack — src/codetrail/extract (possibly stale)
+```
+
+And from the brief an agent gets before it changes `src/codetrail/assistant`:
+
+```markdown
+Key files: docs/adr/0006-assistant-providers-and-subscriptions.md, src/codetrail/assistant/guard.py, …
+
+[documented: docs/adr/0006-assistant-providers-and-subscriptions.md#L43-L43] "Each provider uses the reader's subscription by default: the programs get an allowlisted environment with no keys."
+
+[documented: src/codetrail/assistant/guard_hook.py#L3-L6] "Claude Code runs a tool when a hook fails in any way other than exit code 2, so every error of the hook's own exits with code 2, which refuses the call"
+```
+
+Connect your agent once:
+
+```bash
+codetrail agents <name>
+```
+
+It prints two commands, one for Claude Code and one for Codex, that you run to register `codetrail mcp`, Codetrail's tool server. The agent starts it itself and calls four tools: `codetrail_map` before a task, `codetrail_brief` before changing an area, `codetrail_page` for a whole guide page, and `codetrail_changes` for what changed since a commit or a date.
+
+- **It only reads.** The server reads Codetrail's export and nothing else: no file of the repository, no git, no network port.
+- **It costs nothing to call.** No tool calls an assistant. The briefs come from the call that already writes each page, which the update's estimate includes.
+- **It says when it may be wrong.** A brief whose code changed since it was written says so, and the map gives the `git diff` that shows what changed since the guide's commit, so the agent reads the code before relying on it.
+- **It stays out of other repositories.** The server is registered for you, so it works in every worktree, and it tells agents which repository it covers and not to use it anywhere else.
+
+Without the tool server, an agent can read the map file directly; [the getting-started guide](docs/getting-started.md#9-use-codetrail-with-your-coding-agents) shows how.
 
 ## A tour
 
@@ -110,9 +175,9 @@ These screenshots are Codetrail's guide to its own repository, written by Claude
 
 ## How it works
 
-Codetrail never writes to the repository it teaches. It keeps its own mirror, copies out only the files it is allowed to see, extracts facts from them, and has your assistant write the guide from the facts.
+Codetrail never writes to the repository it teaches. It keeps its own mirror, copies out only the files it is allowed to see, extracts facts from them, and has your assistant write the guide from the facts. The facts and the guide also become the map and briefs your coding agent reads.
 
-![How Codetrail works: your checkout is fetched into a mirror, filtered by the exclusions into source/, extracted into codetrail.db; your assistant reads the facts and the allowed files and writes the guide, which the local page shows and sends questions from](docs/diagrams/how-it-works.svg)
+![How Codetrail works: your checkout is fetched into a mirror, filtered by the exclusions into source/, extracted into codetrail.db; your assistant reads the facts and the allowed files and writes the guide, which the local page shows and sends questions from; the facts and the guide also become agents/, the map and briefs, which codetrail mcp serves to your coding agent](docs/diagrams/how-it-works.svg)
 
 **An update, step by step.** You run it on demand, from the command line or the page's Update button.
 
