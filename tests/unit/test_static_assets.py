@@ -30,14 +30,15 @@ def test_the_font_files_match_their_recorded_sums(folder: str, fonts: set[str], 
 
 
 def test_the_d2_files_match_their_recorded_sums() -> None:
-    """D2's WebAssembly build and Go's loader, from D2.js, with their licences (ADR 0016)."""
+    """D2's WebAssembly build, Go's loader and the ELK layout, from D2.js, with their licences (ADRs 0016, 0018)."""
     vendor = STATIC / "vendor" / "d2"
     recorded = dict(re.findall(r"([0-9a-f]{64})\s+(\S+)", (vendor / "VERSION").read_text()))
-    assert set(recorded.values()) == {"d2.wasm", "wasm_exec.js"}
+    assert set(recorded.values()) == {"d2.wasm", "wasm_exec.js", "elk.js"}
     for digest, name in recorded.items():
         assert hashlib.sha256((vendor / name).read_bytes()).hexdigest() == digest, name
     assert "Mozilla Public License Version 2.0" in (vendor / "LICENSE").read_text()
     assert "The Go Authors" in (vendor / "LICENSE-wasm_exec").read_text()
+    assert "Eclipse Public License - v 2.0" in (vendor / "LICENSE-elk").read_text()
 
 
 @pytest.mark.parametrize("svg", SVGS, ids=lambda path: path.name)
