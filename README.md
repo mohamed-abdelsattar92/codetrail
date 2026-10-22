@@ -258,7 +258,7 @@ Then `just ci` runs every check CI runs; `just lint`, `just format`, `just typec
 ## Credits
 
 - The page's typeface is [Inter](https://rsms.me/inter/) by Rasmus Andersson, under the SIL Open Font License 1.1 ([its licence](src/codetrail/web/static/vendor/inter/LICENSE.txt), [ADR 0007](docs/adr/0007-bundle-the-inter-typeface.md)). Arabic text is set in [Noto Sans Arabic](https://github.com/notofonts/arabic) by the Noto Project Authors, under the same licence ([its licence](src/codetrail/web/static/vendor/noto-sans-arabic/OFL.txt), [ADR 0014](docs/adr/0014-bundle-noto-sans-arabic.md), proposed).
-- Diagrams, on the page and in this README, are drawn by [D2](https://d2lang.com) by Terrastruct, under the Mozilla Public License 2.0; the page runs D2's WebAssembly build with Go's `wasm_exec.js`, under Go's BSD licence ([their licences](src/codetrail/web/static/vendor/d2/), [ADR 0016](docs/adr/0016-draw-diagrams-with-d2.md)).
+- Diagrams, on the page and in this README, are drawn by [D2](https://d2lang.com) by Terrastruct, under the Mozilla Public License 2.0; the page runs D2's WebAssembly build with Go's `wasm_exec.js`, under Go's BSD licence ([their licences](src/codetrail/web/static/vendor/d2/), [ADR 0016](docs/adr/0016-draw-diagrams-with-d2.md)), and laid out by [ELK](https://eclipse.dev/elk/) (elkjs), under the Eclipse Public License 2.0 ([ADR 0018](docs/adr/0018-lay-out-diagrams-with-elk.md), proposed).
 - The browser tests check accessibility with [axe-core](https://github.com/dequelabs/axe-core) by Deque, under the Mozilla Public License 2.0; it is used by the tests only ([ADR 0008](docs/adr/0008-browser-tests-with-playwright.md)).
 
 ## License
