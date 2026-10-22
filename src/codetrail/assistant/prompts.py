@@ -128,7 +128,7 @@ PAGE_SCHEMA: dict[str, Any] = {
 REVISE_SCHEMA: dict[str, Any] = {
     "type": "object",
     "additionalProperties": False,
-    "required": ["sections", "checks"],
+    "required": ["sections", "checks", "brief"],
     "properties": {
         "sections": {
             "type": "array",
@@ -142,7 +142,7 @@ REVISE_SCHEMA: dict[str, Any] = {
                 },
             },
         },
-        "brief": {"type": "string", "description": "A new brief, only when the old one no longer fits"},
+        "brief": {"type": "string", "description": "A new brief, or empty to keep the current one"},
         "checks": {
             **PAGE_SCHEMA["properties"]["checks"],
             "description": "New checks only if the old ones no longer fit",
@@ -254,7 +254,8 @@ def revise_prompt(request: PageRequest) -> str:
         )
     brief = f"Return a new brief ({BRIEF_TEXT.format(words=request.brief_words)}) "
     if request.current_brief:
-        brief += "only when the sections you replace change something it says, or it no longer fits."
+        brief += "only when the sections you replace change something it says, or it no longer fits; otherwise "
+        brief += "return an empty brief, which keeps it."
     else:
         brief += "now: the page has no brief yet: return one."
     return f"""Revise the guide's page "{request.title}" ({request.kind} page, id {request.page_id}).

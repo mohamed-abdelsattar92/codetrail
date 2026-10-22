@@ -177,7 +177,7 @@ async def test_tool_calls_per_turn_are_capped(source: Path) -> None:
 async def test_a_revision_returns_its_sections(source: Path) -> None:
     from dataclasses import replace
 
-    sections = {"sections": [{"heading": "## A", "body": "New."}], "checks": []}
+    sections = {"sections": [{"heading": "## A", "body": "New."}], "checks": [], "brief": ""}
     endpoint = Endpoint([reply(json.dumps(sections))])
     request = replace(page_request(), current_body="## A\n\nOld.", changes=["added module module:app/b.py"])
     assert (await adapter(source, endpoint).write_page(request)).sections == [{"heading": "## A", "body": "New."}]

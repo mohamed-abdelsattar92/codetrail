@@ -193,3 +193,13 @@ def test_the_export_holds_no_excluded_path(world: World) -> None:
     for file in world.folder.rglob("*"):
         if file.is_file():
             assert ".env" not in file.read_text() and "secrets/key.pem" not in file.read_text()
+
+
+def test_a_page_text_says_when_it_was_written_and_whether_it_is_stale(world: World) -> None:
+    full(world)
+    world.store.record(LATER, entities({"changed": True}), RELATIONS)
+    pages = {page.id: page for page in world.export().pages}
+    lines = pages["areas/api"].text.splitlines()
+    assert lines[0].startswith("# The API (areas/api)") and lines[1].startswith("Possibly stale:")
+    assert f"Written at {COMMIT[:12]}." in pages["areas/api"].text
+    world.manifest = SourceManifest(COMMIT, dict(FILES))

@@ -75,14 +75,15 @@ def test_a_revision_gets_its_page_checks_changes_and_history_fenced() -> None:
     assert len([body for body in fenced(prompt) if INJECTED in body]) == 4
     assert INJECTED not in FENCED.sub("", prompt)
     assert "drawn from the current facts" in prompt
-    assert schema["required"] == ["sections", "checks"]
+    assert schema["required"] == ["sections", "checks", "brief"]
     plain, page_schema = page_task(PageRequest("areas/x", "area", "X", ["x"], "facts", "", ""))
     assert plain.startswith('Write the guide\'s page "X"') and page_schema["required"] == ["body", "checks", "brief"]
 
 
 def test_a_page_must_come_with_a_brief() -> None:
     assert PAGE_SCHEMA["required"] == ["body", "checks", "brief"]
-    assert "brief" in REVISE_SCHEMA["properties"] and "brief" not in REVISE_SCHEMA.get("required", [])
+    assert REVISE_SCHEMA["required"] == ["sections", "checks", "brief"]  # every property: strict schemas need it
+    assert "empty" in REVISE_SCHEMA["properties"]["brief"]["description"]
 
 
 def test_the_page_prompt_asks_for_a_brief_within_the_limit() -> None:

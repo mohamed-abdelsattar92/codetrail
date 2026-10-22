@@ -225,5 +225,5 @@ async def test_a_revision_asks_for_sections_and_returns_them(source: Path, tmp_p
     request = replace(page_request(), current_body="## How it works\n\nOld.", changes=["added module module:app/b.py"])
     draft = await adapter(source, program).write_page(request)
     argv = program.record["argv"]
-    assert json.loads(argv[argv.index("--json-schema") + 1])["required"] == ["sections", "checks"]
+    assert json.loads(argv[argv.index("--json-schema") + 1])["required"] == ["sections", "checks", "brief"]
     assert draft.sections == [{"heading": "## How it works", "body": "New."}] and draft.body == ""
