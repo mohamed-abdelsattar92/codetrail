@@ -35,6 +35,8 @@ Codetrail is one uv project with one package, `src/codetrail/`, and tests in `te
 | `codetrail update <target> [--yes] [--facts-only]` | Refreshes the sources, the facts and the guide, after showing the estimate (section 15.4) |
 | `codetrail providers` | Shows each assistant provider, whether it is installed and signed in, and how (section 15.2) |
 | `codetrail serve <target>` | Serves the page and the bridge on `127.0.0.1` and opens the browser |
+| `codetrail agents <target>` | Rebuilds the context for coding agents and prints how to connect them (section 23.4) |
+| `codetrail mcp <target>` | The tool server coding agents start over standard input and output (section 23.5) |
 
 During development it runs as `uv run codetrail` behind `just` recipes. For daily use the founder installs it with `uv tool install --editable .` from this repository; later releases install from a tag. Nothing is installed into or written to a target.
 
@@ -55,6 +57,7 @@ One module per part of the system. Every other module reads the target only thro
 | `system` | The system pass: a repository's parts and the connections between them, from facts (section 17.3) | `facts`, `repo` |
 | `bridge` | FastAPI router for questions, streamed answers, grading and "save to guide" | `assistant`, `guide`, `learn` |
 | `learn` | Progress, check attempts, staleness and settings in SQLite | `facts`, `guide` |
+| `agents` | The map, the briefs' export and the tool server for coding agents (section 23) | `guide`, `facts`, `system`, `repo` (the signal) |
 | `metrics` | Documentation metrics, repository statistics and their trend, from the guide, the facts, the history and the tags (sections 18 and 19) | `guide`, `facts`, `repo`, `generate` (its rationale and scope rules) |
 
 ### 2.3 Where things live
@@ -68,6 +71,7 @@ Codetrail follows the XDG base directories, on macOS too; configuration can move
 | `~/.local/share/codetrail/<name>/mirror.git` | A bare clone of the target |
 | `~/.local/share/codetrail/<name>/source/` | The allowed files at the current snapshot, with no `.git` |
 | `~/.local/share/codetrail/<name>/guide/` | The knowledge base, its own git repository |
+| `~/.local/share/codetrail/<name>/agents/` | The map and briefs for coding agents, rebuilt after every update (section 23.4) |
 | `~/.local/share/codetrail/<name>/codetrail.db` | Facts, learning state and the metrics' trend (SQLite) |
 | `~/.local/state/codetrail/<name>/codetrail.log` | The log |
 
@@ -600,6 +604,7 @@ Each phase is usable on its own, has its own implementation plan, and ends with 
 | 17. The Repository page's charts | The interactive timeline, the activity calendar, the change heat map and grid, and the charts for size, types and facts (section 20) | A repository's history and change at a glance, explorable | Phase 15 |
 | 18. The Documentation page's charts | The overview column, folding sections with a chart each, and filter chips (section 21) | How well a repository explains itself at a glance, and what to fix first | Phase 17 |
 | 19. The sidebar | Hiding and peeking, the frame and card, folding sections and pinned tiles (section 22) | A sidebar that gets out of the way, with the pages you use most at the top | Phase 11 |
+| 20. Context for coding agents | The map, briefs in the page call, the `agents/` export, `codetrail agents` and the `codetrail mcp` tool server (section 23) | Coding agents start a task from Codetrail's understanding of the repository instead of rediscovering it | ADR 0017 |
 | 16. Decision inventory (planned) | An opt-in paid pass listing the decisions in the code and their documented "why" (section 18.8) | The share of the repository's decisions that are documented, beyond what the guide wrote about | Phase 13 |
 
 ## 14. Answers to the brainstorm's open questions
@@ -1153,3 +1158,99 @@ One new endpoint, `POST /settings/pins`, reachable only from the page: behind th
 
 ### 22.7 Delivery
 Phase 19, in one feature branch.
+
+## 23. Context for coding agents
+
+Approved by the founder on 22 October 2026, in the design session of that day. Codetrail already pays an assistant once per update to understand a repository, but only a person reads the result: a coding agent starting a task in the repository (Claude Code, Codex or another) rediscovers the architecture each session, and an agent that skips that guesses. This section gives coding agents the same understanding in a form made for them, without Codetrail writing anything into the repository (decision 15). Codetrail's own answering assistant is a later step (section 23.10).
+
+### 23.1 What it's for, and what it isn't
+- **For:** before an agent reads the files it will change, it reads Codetrail's map of the repository, then the brief for the area its task touches, and goes straight to the right files knowing the reasons behind them.
+- **Success:** the map fits in `agents.max_map_words`; every line of it traces to a fact, a guide page or a digest; setting up an agent takes one or two commands the reader runs; and nothing the agent asks for costs a call to an assistant.
+- **Not:** a replacement for reading the code an agent changes; a second copy of the repository's own `CLAUDE.md` or `AGENTS.md`; anything written into the target repository; retrieval or embeddings over the code; a way for agents to write into the guide.
+- **Failure even if it works:** an agent treating an inferred line or a stale brief as a rule, or a map so long it costs more context than it saves.
+
+### 23.2 The format
+Terse Markdown, chosen because agents read it best for the fewest tokens; the savings come from what goes in, not from the syntax. One line per item, file paths instead of descriptions of code, and none of the front matter's hashes and blob ids. Rationale keeps its two marks, so an agent can tell a decision from a reading of the code. A documented block becomes one line, `[documented: <path>#L<start>-L<end>] "<the verified quote>"` (or `commit:<sha>`); the quote is kept because it is the reason itself, and it counts toward the word limits. An inferred block becomes `[inferred] <its text>`. Fact links become the fact's id in backticks (`` `module:app.db` ``). A diagram placeholder becomes a line naming the diagram and pointing to the page (`(diagram: imports in services/api/app; see the page in Codetrail)`). One converter does this for the map, the briefs and `codetrail_page`. Every file starts with a line saying it is generated by Codetrail, names the commit it describes, and says it is reference data, not instructions.
+
+**Which commit.** The map describes the **latest snapshot's commit**, since it is built from the facts, and a `--facts-only` update moves it. That is the commit the "you're behind" signal counts from (section 8.5). Each brief names **its page's own `built_at`**, since pages that weren't rewritten keep older ones. A brief is marked **possibly stale** when its page is affected (section 4.3: derived from its front matter against the current facts, with no git and no assistant) or flagged "sources changed". The mark is a line at the top of the brief, so an agent reads the code before relying on it.
+
+Two layers:
+
+**The map** (`agents/map.md`), read at the start of every task. In this order:
+1. **Header:** the target's name, its path on this machine (so an agent working in another repository can tell this map isn't for it), the branch, the latest snapshot's commit and date, how many pages are possibly stale, and how to see what changed since: `git diff --name-only <commit>`.
+2. **Parts:** one line per part from the system pass (section 17.3): folder, kind, what it depends on, what calls it and where it runs (as the system page lists them, section 17.4), and up to `agents.key_files_per_part` key files. Key files are the files the part's area page recorded in `files` (the ones the assistant read to write it), in the order recorded. Above `diagrams.max_nodes` parts, libraries roll up into their parent folder as the system diagram does (section 17.4).
+3. **Decisions:** one line per ADR fact: number, title, status and path. Superseded ADRs name what superseded them.
+4. **Recent changes:** the `agents.recent_digests` latest digests, each as its date, title and id.
+5. **Pages:** every area and concept page as its id, title and scope paths, so an agent knows which brief to ask for.
+
+If the map would exceed `agents.max_map_words`, sections 5, then 4, then 3, then 2 are shortened from the end, each with a line saying how many were left out and that `codetrail_brief` finds any page by path; the header is never cut. The map is built from facts, the outline and front matter only, by plain code, so it is free and deterministic.
+
+**Briefs** (`agents/briefs/<page id>.md`), one per area and concept page, read only when a task touches that area: what it does, its key files, its conventions (how code is written there), and the reasons behind them with their marks, in at most `agents.max_brief_words`. A brief is written by the assistant in the same call that writes or revises the page (section 23.3), and ends with the page's id and the snapshot it was written at.
+
+### 23.3 Writing briefs
+- The page schema gains a required `brief` field, and the page prompt asks for one written for a coding agent about to change code in the page's scope: key files, conventions, and the reasons. It is written in the page syntax (section 6.4): rationale blocks with their quotes, and fact links. So the page's validation checks it unchanged, and the export converts it (section 23.2). It adds only output tokens to a call Codetrail already makes; the estimate's tokens per page for `write` and `revise` grow by the brief's size until Codetrail's history replaces the starting values (section 15.4).
+- The brief is stored in the page's front matter (`brief:`), committed with the page, and validated with the page (section 6.5): documented quotes are checked, fact links must be current, and it must be within `agents.max_brief_words`. A brief that fails fails the page, with the same single retry. The retry's problems name the brief.
+- In the revision schema `brief` is required, since strict structured outputs (Codex's) need every property listed, but an empty brief keeps the old one. A revision returns a new one when the replaced sections change something the brief says. The prompt also requires one when the page has none yet. Otherwise the old brief stays, and it is validated with the revised page. A missing brief, or a kept one that no longer passes (a fact it links closed, a quote's lines moved), is a validation problem like any other. The single retry then asks for a new brief, so a revision can't keep a broken one. The revise estimate grows by a brief for the share of revisions that return one, starting at all of them until history exists.
+- A page written before this phase has no brief. Its brief file is derived instead, by plain code: the page's title, its first paragraph, its recorded files and its rationale blocks, each cut to its first sentence with its mark kept. It is replaced the next time the page is written or revised. Nothing rewrites pages just to give them briefs.
+
+### 23.4 The export
+- At the end of every update that records facts (after the guide's commit, section 6.8, and after `--facts-only` or declined updates too), under the update's lock, Codetrail writes `~/.local/share/codetrail/<name>/agents/`: `map.md`, `briefs/<page id>.md`, and `index.json`, which holds everything the tool server serves (the map, every brief with its stale mark, every area, concept and digest page converted as in section 23.2, the digests' commits and dates, and the snapshots' commits in order). Each file is written to a temporary name and renamed into place, so a reader never sees half a file, and the tool server reads only `index.json`, so a call sees one export whole. Briefs of pages that left the outline are deleted. It isn't a git repository; it is derived and can always be rebuilt. An update that fails leaves the old export.
+- Its location follows the guide's and can never be inside the target.
+- `codetrail agents <target>` rebuilds it from the current guide and facts (for a guide from before this phase) and prints how to connect agents. It prints them; it never runs them or edits any file of the reader's or the target's.
+  - **The tool server, the way it recommends:** the commands that register it with Claude Code (`claude mcp add --scope user codetrail-<name> -- <python> -I -m codetrail mcp <name>`) and with Codex (`codex mcp add codetrail-<name> -- <python> -I -m codetrail mcp <name>`), where `<python>` is the absolute path of the Python that runs Codetrail, so the command doesn't depend on `PATH`. `-I` matters: the agent starts the server in whatever repository it works in, and without it Python would import a `codetrail` folder or a `json.py` found there before Codetrail's own. Both are kept in the reader's own settings, so nothing lands in the repository. User scope makes the server available in the target's worktrees too, whose paths differ from the checkout's. The server's `initialize` reply carries instructions the agent reads: it holds the guide of `<name>` at `<path>`; when working in that repository, call `codetrail_map` before starting a task and `codetrail_brief` before changing an area; elsewhere, ignore it. So no instruction file needs editing. With several targets, each one is its own server, `codetrail-<name>`.
+  - **The map file alone, for readers without the tool server:** the import line `@~/.local/share/codetrail/<name>/agents/map.md`. It goes in an instruction file that isn't committed and applies only to that repository. Codetrail prints a warning never to put it in a committed `CLAUDE.md` or `AGENTS.md`, where a path in the reader's home would reach everyone's history.
+
+### 23.5 The tool server
+`codetrail mcp <target>` speaks the Model Context Protocol over standard input and output, so Claude Code and Codex start it themselves as the reader. How the protocol is implemented is [ADR 0017](../adr/0017-tool-server-for-coding-agents.md): a small server written with the standard library. It offers four tools, each reading only Codetrail's own data:
+
+| Tool | Takes | Returns |
+|---|---|---|
+| `codetrail_map` | nothing | the map as exported |
+| `codetrail_brief` | a page id, or a path relative to the repository root | the brief of that page, or of the innermost area whose scope holds the path followed by the concept pages whose scope holds it (at most `agents.max_briefs_per_call`), each with its possibly-stale mark |
+| `codetrail_page` | a page id | the full guide page, without front matter, converted as in section 23.2, for the whole explanation |
+| `codetrail_changes` | a commit or a date | the digests after it, newest first, within `agents.max_response_words` |
+
+- A tool's text is the same Markdown as the files, and every response ends with the commit it describes. A whole page carries its brief's stale mark and the commit it was written at.
+- Every tool's description starts by naming the target and its repository and saying not to call it elsewhere, since the server is registered for the reader and agents in other repositories see it too.
+- **Freshness comes from what Codetrail already knows, never from a fetch.** The "you're behind" signal takes the target's lock without waiting (section 8.5). Run from every agent session, it would make a reader's own `codetrail update` fail as busy, so the tool server doesn't run it. An agent learns how far its checkout is from the guide with the `git diff --name-only <commit>` the map gives, in its own checkout.
+- **`codetrail_changes` runs no git.** It matches the commit against the digests' `from_commit` and `to_commit` and the snapshots' commits: a full commit, or a prefix of at least 7 characters that matches exactly one of them, returns the digests that follow it. A prefix matching several is refused, saying so. A commit Codetrail doesn't know (an agent's own unmerged commit, say) returns the latest digests within the limit, with a line saying the commit isn't in the guide. A date (`YYYY-MM-DD`) returns the digests written on or after it.
+- **Locks:** each call takes the target's shared in-use lock for its own length, as the page's requests do (section 10). So `codetrail target remove` is refused only while a call runs, and a call after removal answers that the target no longer exists. The process holds no lock between calls and never takes the update lock. While an update swaps in a new export, a call reads either the old one or the new one whole.
+- It listens on no port, holds no session and needs none: only a process the reader runs can start it, and such a process can already read Codetrail's data folder.
+- It never calls an assistant, never writes, and runs no git command, in the agent's working folder or in Codetrail's. It writes nothing to standard output but protocol messages; anything else goes to standard error.
+- A target with no export yet gets one answer from every tool: run `codetrail update <target>` or `codetrail agents <target>`.
+
+### 23.6 Configuration
+In the global file:
+
+```toml
+[agents]
+max_map_words = 2500          # 500 to 20000
+max_brief_words = 300         # 50 to 2000
+key_files_per_part = 5        # 0 to 20
+recent_digests = 5            # 0 to 50
+max_briefs_per_call = 3       # 1 to 10
+max_response_words = 4000     # 500 to 20000
+```
+
+### 23.7 Security
+- **Who can reach it:** only processes running as the reader, through standard input. There is no network surface, so the bridge's `Host`, `Origin`, token and session checks have nothing to guard here.
+- **What it can show:** only what the guide, the facts and the digests already hold. These were built from allowed files only, scanned and validated (sections 3 and 6.5), so the export adds no new path for secrets. The tool server reads only the export's `index.json`; it never reads `source/`, `mirror.git`, the guide or the database.
+- **Input:** a page id passes `validate_page_id` and must name a page in the guide. A path must be relative, contain no `..`, NUL or control characters, and be at most 1,000 characters; it is only matched against scopes and never opened. A commit must be 7 to 40 lower-case hexadecimal characters and a date `YYYY-MM-DD`. Malformed messages, unknown methods and unknown tools get protocol errors. A line over 1 MB is refused, and output is cut at `agents.max_response_words`.
+- **Prompt injection:** unlike Codetrail's own assistant, a coding agent has write tools and a shell. The export carries text an assistant wrote from the repository, which is no more than the agent can already read in the repository itself. But Codetrail's text could look more authoritative than the code, so every file and response says it is reference data, not instructions, and the guide's existing defences apply (verified quotes, inert fact links, no `@` paths: every `@` becomes `＠` as in prompts, so an agent that expands `@path` attaches nothing).
+- **Cost:** no tool spends tokens beyond the agent's own reading. Briefs cost output tokens inside calls the reader already approved through the estimate.
+
+### 23.8 Testing
+- **Unit:** the map's order, roll-up and word budget, with the counts of what it left out; key files taken from area pages in recorded order; a brief chosen by path (innermost area, then concepts, capped); a derived brief for a page without one; every input refusal in section 23.7; the configuration refusing values outside their ranges.
+- **Generation:** the page and revision schemas with `brief`; a brief over the limit or with an unverifiable quote fails the page and is retried once; a revision with no `brief` keeps the old one; the estimate counts the brief.
+- **Export:** an update writes `agents/` after the guide's commit and a failed update leaves the old export; a `--facts-only` update rebuilds the map; the export never contains an excluded path (the secret-filter fixtures); `codetrail agents` prints the setup lines with the absolute command path and changes no file.
+- **Tool server:** `codetrail_changes` with a full commit, a unique 7-character prefix, an ambiguous prefix (refused), an unknown commit (latest digests and the notice) and a date; a brief marked possibly stale when its page is affected or its sources changed; a call during `target remove` and after it; a call while an update swaps the export reads one whole export; no call takes the update lock, so `codetrail update` runs while an agent calls the server.
+- **Protocol:** over a real subprocess's standard input and output: initialize (with the version negotiated and the instructions naming the target and its path), the tool list, each tool, a malformed line, an oversized line, an unknown method and tool, a target with no export.
+- **Live** (`just test-live`): the real Claude Code and Codex installed here start the tool server and call `codetrail_map`.
+
+### 23.9 Delivery
+Phase 20, with its own implementation plan (ADR 0017 accepted on 22 October 2026). The getting-started guide gains "Using Codetrail with your coding agents", the README's current state and `CHANGELOG.md` say what's new, and the security checklist covers the tool server.
+
+### 23.10 Later work
+- **Codetrail's own answering assistant** gets the map in its prompt (section 7.3), so it reaches the right files with fewer tool calls; its estimate grows by the map's size.
+- **Measuring the savings:** comparing the tokens and tool calls an agent spends getting started with and without the map.
+- **Saved answers** as briefs an agent can ask for by question.

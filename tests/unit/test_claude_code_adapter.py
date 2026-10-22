@@ -18,7 +18,7 @@ WINDOWS = {
     "seven_day": {"utilization": 0.63, "resetsAt": 1791216000},
 }
 LIMITS = {"status": "allowed", "unifiedWindows": WINDOWS}
-PAGE = {"body": "A page.", "checks": [{"id": "c1", "question": "Why?", "rubric": []}]}
+PAGE = {"body": "A page.", "checks": [{"id": "c1", "question": "Why?", "rubric": []}], "brief": "B"}
 
 
 def result(structured: dict[str, Any] | None = None, error: bool = False, subtype: str = "success") -> dict[str, Any]:
@@ -85,11 +85,11 @@ async def test_a_page_runs_claude_read_only_with_the_prompt_on_stdin(source: Pat
     assert "--bare" not in argv
     assert (argv[argv.index("--max-turns") + 1], argv[argv.index("--max-budget-usd") + 1]) == ("7", "0.5")
     assert argv[argv.index("--model") + 1] == "claude-sonnet-5-5"
-    assert json.loads(argv[argv.index("--json-schema") + 1])["required"] == ["body", "checks"]
+    assert json.loads(argv[argv.index("--json-schema") + 1])["required"] == ["body", "checks", "brief"]
     assert record["cwd"] == str(source.resolve())
     assert f"{FULLWIDTH_AT}app/secret.txt" in record["stdin"] and "@app" not in record["stdin"]
     assert "facts mention" not in " ".join(argv)  # the prompt never appears in the arguments
-    assert draft.body == "A page." and draft.checks[0]["id"] == "c1"
+    assert draft.body == "A page." and draft.checks[0]["id"] == "c1" and draft.brief == "B"
 
 
 @pytest.mark.anyio
@@ -225,5 +225,5 @@ async def test_a_revision_asks_for_sections_and_returns_them(source: Path, tmp_p
     request = replace(page_request(), current_body="## How it works\n\nOld.", changes=["added module module:app/b.py"])
     draft = await adapter(source, program).write_page(request)
     argv = program.record["argv"]
-    assert json.loads(argv[argv.index("--json-schema") + 1])["required"] == ["sections", "checks"]
+    assert json.loads(argv[argv.index("--json-schema") + 1])["required"] == ["sections", "checks", "brief"]
     assert draft.sections == [{"heading": "## How it works", "body": "New."}] and draft.body == ""

@@ -28,7 +28,7 @@ FILES: Commit = {"pyproject.toml": '[project]\nname = "x"\n', "app/main.py": "fr
 
 def writer(request: PageRequest) -> PageDraft:
     checks = [{"id": "q1", "question": "Why?", "rubric": [{"point": "p", "grounds": ["app/main.py"]}]}]
-    return PageDraft("## First part\n\nText.", checks, ["app/main.py"])
+    return PageDraft("## First part\n\nText.", checks, ["app/main.py"], brief="The key file is app/main.py.")
 
 
 @pytest.fixture

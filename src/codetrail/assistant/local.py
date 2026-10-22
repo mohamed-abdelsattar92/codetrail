@@ -90,7 +90,7 @@ class LocalAssistant:
         prompt, schema = page_task(request)  # a new page, or a revision's sections
         data, result = await self._structured("write", GROUND_RULES + "\n" + PAGE_SYNTAX, prompt, schema)
         return PageDraft(str(data.get("body", "")), list(data.get("checks", [])), result.files_read, 0.0, result.usage,
-                         list(data.get("sections", [])))  # fmt: skip
+                         list(data.get("sections", [])), str(data.get("brief", "")))  # fmt: skip
 
     async def write_digest(self, request: DigestRequest) -> DigestDraft:
         data, result = await self._structured(

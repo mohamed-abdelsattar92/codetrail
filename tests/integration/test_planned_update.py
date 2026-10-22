@@ -66,7 +66,9 @@ def test_the_token_budget_stops_an_update_whatever_the_price(paths: Paths) -> No
 
     def unpriced_page(request: PageRequest) -> PageDraft:
         draft = good_page(request)
-        return PageDraft(draft.body, draft.checks, draft.files_read, 0.0, Usage("codex", "unpriced", 900, 0, 200))
+        return PageDraft(
+            draft.body, draft.checks, draft.files_read, 0.0, Usage("codex", "unpriced", 900, 0, 200), brief=draft.brief
+        )
 
     result = run_update(paths, "t", claude=FakeAssistant(plans=[PLAN], page_writer=unpriced_page))
     assert result.generation is not None

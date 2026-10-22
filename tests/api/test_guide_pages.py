@@ -25,7 +25,7 @@ def page_writer(request: PageRequest) -> PageDraft:
         "{{diagram imports scope=app}}\n"
     )
     checks = [{"id": "q", "question": "Why?", "rubric": [{"point": "p", "grounds": ["app/main.py"]}]}]
-    return PageDraft(body, checks, ["app/main.py"])
+    return PageDraft(body, checks, ["app/main.py"], brief="The key file is app/main.py.")
 
 
 @pytest.fixture

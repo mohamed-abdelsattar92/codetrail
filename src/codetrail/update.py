@@ -15,6 +15,7 @@ from pathlib import Path
 
 import anyio
 
+from codetrail.agents.export import build_export, write_export
 from codetrail.assistant import Assistant
 from codetrail.assistant.estimate import PageToWrite, UpdateEstimate, estimate_update
 from codetrail.assistant.routing import build_assistant
@@ -211,10 +212,16 @@ def run_update(
             connection = connect(data / "codetrail.db")
             try:
                 store = FactStore(connection)
+
+                def export() -> None:  # the context for coding agents, rebuilt from what this update recorded
+                    write_export(data / "agents", build_export(name, target, GuideRepository(data / "guide"), store,
+                                                               manifest, settings))  # fmt: skip
+
                 snapshot, diff = store.record(manifest.commit, extraction.entities, extraction.relations)
                 progress({"step": "facts_recorded", "changes": len(diff.changed_ids())})
                 if facts_only:
                     record_metrics(paths, name, settings, store)
+                    export()
                     return UpdateResult(manifest, snapshot, diff, extraction)
                 previous = store.previous_snapshot(snapshot)
                 mirror = data / "mirror.git"
@@ -243,6 +250,7 @@ def run_update(
                     failed_pages=FailedPages(connection),
                     retry_failed=retry_failed,
                     revise_max_changes=target.generation.revise_max_changes,
+                    max_brief_words=settings.agents.max_brief_words,
                 )
                 if confirm is not None:
                     work = planned_work(context)
@@ -254,6 +262,7 @@ def run_update(
                                                [entry.title for entry in work.skipped])  # fmt: skip
                     if not confirm(estimate):
                         record_metrics(paths, name, settings, store)
+                        export()
                         return UpdateResult(manifest, snapshot, diff, extraction, None, estimate, declined=True)
                 writer = claude or build_assistant(source, settings, target)
                 if stop is None:
@@ -261,6 +270,7 @@ def run_update(
                 else:
                     generation = anyio.run(generate_until_stopped, context, writer, stop)
                 record_metrics(paths, name, settings, store)
+                export()
             finally:
                 connection.close()
         return UpdateResult(manifest, snapshot, diff, extraction, generation)

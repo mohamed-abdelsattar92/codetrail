@@ -12,6 +12,10 @@ from pathlib import Path
 from types import FrameType
 
 from codetrail import __version__
+from codetrail.agents.export import refresh_export
+from codetrail.agents.instructions import server_instructions, setup_text
+from codetrail.agents.protocol import serve_stdio
+from codetrail.agents.tools import AgentTools
 from codetrail.assistant.estimate import UpdateEstimate, describe, tokens_text
 from codetrail.assistant.status import provider_status
 from codetrail.config import PROVIDERS, Paths, load_global, load_target, validate_target_name, write_target
@@ -70,6 +74,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     commands.add_parser("providers", help="show each assistant provider: installed, signed in, and how")
 
+    agents = commands.add_parser("agents", help="rebuild the context for coding agents and print how to connect them")
+    agents.add_argument("name")
+    mcp = commands.add_parser("mcp", help="the tool server coding agents start over standard input and output")
+    mcp.add_argument("name")
     serve_command = commands.add_parser("serve", help="serve the guide's page on 127.0.0.1")
     serve_command.add_argument("name")
     serve_command.add_argument("--no-browser", action="store_true", help="print the sign-in link without opening it")
@@ -100,6 +108,10 @@ def main(argv: list[str] | None = None) -> int:
         if arguments.command == "update":
             return update_target(paths, arguments.name, facts_only=arguments.facts_only, yes=arguments.yes,
                                  retry_failed=arguments.retry_failed)  # fmt: skip
+        if arguments.command == "mcp":
+            return serve_agent_tools(paths, arguments.name)
+        if arguments.command == "agents":
+            return connect_agents(paths, arguments.name)
         if arguments.command == "serve":
             serve(paths, arguments.name, open_browser=not arguments.no_browser)
             return 0
@@ -107,6 +119,20 @@ def main(argv: list[str] | None = None) -> int:
     except CodetrailError as error:
         print(f"codetrail: {error}", file=sys.stderr)
         return 1
+
+
+def connect_agents(paths: Paths, name: str) -> int:
+    folder = refresh_export(paths, name)
+    print(setup_text(name, sys.executable, folder), end="")
+    return 0
+
+
+def serve_agent_tools(paths: Paths, name: str) -> int:
+    """Runs the tool server until the agent closes standard input (design section 23.5)."""
+    target = load_target(paths, name)
+    tools = AgentTools(paths, name, load_global(paths).agents, str(target.repository))
+    serve_stdio(tools, server_instructions(name, str(target.repository)), sys.stdin.buffer, sys.stdout.buffer)
+    return 0
 
 
 def stop_on_signal(signal_number: int, _frame: FrameType | None) -> None:

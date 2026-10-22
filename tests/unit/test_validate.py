@@ -8,7 +8,7 @@ from codetrail.config import ToolsSettings
 from codetrail.database import connect
 from codetrail.facts import Entity, EntityKind, Relation, RelationKind, Source
 from codetrail.facts.store import FactStore
-from codetrail.generate.validate import ValidationContext, parse_rationale, validate_page
+from codetrail.generate.validate import ValidationContext, parse_rationale, validate_brief, validate_page
 from codetrail.repo.mirror import refresh_mirror
 from codetrail.repo.secrets import SecretScanner
 from codetrail.repo.source import SourceManifest
@@ -146,3 +146,12 @@ def test_a_page_holding_a_secret_gets_no_problem_that_quotes_it(context: Validat
     problems = validate_page(body, GOOD_CHECKS, context)
     assert problems and all("looks like a secret" in problem for problem in problems)
     assert not any(token in problem for problem in problems)  # these reach the retry prompt, the CLI and the page
+
+
+def test_a_brief_is_required_and_checked(context: ValidationContext) -> None:
+    assert validate_brief("", context, 300) == ["The brief is missing."]
+    assert validate_brief("word " * 301, context, 300) == ["The brief has 301 words; keep it to at most 300."]
+    assert validate_brief("See [[module:ghost.py]].", context, 300) == [
+        "In the brief: The fact link [[module:ghost.py]] names no existing fact."
+    ]
+    assert validate_brief("The key file is app/main.py.", context, 300) == []

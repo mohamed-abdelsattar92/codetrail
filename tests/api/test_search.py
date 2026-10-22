@@ -23,7 +23,12 @@ PLAN = PlanDraft(
 
 def page_writer(request: PageRequest) -> PageDraft:
     checks = [{"id": "q", "question": "Why?", "rubric": [{"point": "zanzibar", "grounds": ["app/main.py"]}]}]
-    return PageDraft("## Backoff\n\nA failed charge is retried with a delay.\n", checks, ["app/main.py"])
+    return PageDraft(
+        "## Backoff\n\nA failed charge is retried with a delay.\n",
+        checks,
+        ["app/main.py"],
+        brief="The key file is app/main.py.",
+    )
 
 
 @pytest.fixture
