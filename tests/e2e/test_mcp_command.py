@@ -1,6 +1,7 @@
 """`codetrail mcp`: the tool server a coding agent starts, over a real subprocess's standard input and output."""
 
 import json
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -55,3 +56,24 @@ def test_mcp_for_an_unknown_target_fails_on_standard_error(environment: Path) ->
         [sys.executable, "-m", "codetrail", "mcp", "nobody"], input=b"", capture_output=True, timeout=60
     )
     assert result.returncode == 1 and result.stdout == b"" and b"No target named 'nobody'" in result.stderr
+
+
+def test_the_printed_command_ignores_modules_in_the_working_folder(
+    environment: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    checkout = make_repository(environment / "target", [{"services/api/pyproject.toml": PYPROJECT}])
+    assert main(["target", "add", "api", str(checkout)]) == 0
+    assert main(["update", "api", "--facts-only"]) == 0
+    capsys.readouterr()
+    assert main(["agents", "api"]) == 0
+    claude_line = next(text for text in capsys.readouterr().out.splitlines() if "claude mcp add" in text)
+    command = shlex.split(claude_line.split(" -- ", 1)[1])
+    planted = environment / "other-repository"  # an agent's working folder: any repository the reader opens
+    marker = environment / "planted-code-ran"
+    (planted / "codetrail").mkdir(parents=True)
+    for module in ("json.py", "codetrail/__init__.py", "codetrail/__main__.py"):
+        (planted / module).write_text(f"open({str(marker)!r}, 'w').close()\n")
+    result = subprocess.run(command, input=message(1, "ping"), capture_output=True, timeout=60, cwd=planted)
+    assert not marker.exists()
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout) == {"jsonrpc": "2.0", "id": 1, "result": {}}

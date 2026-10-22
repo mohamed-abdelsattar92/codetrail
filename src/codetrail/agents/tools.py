@@ -75,10 +75,17 @@ ARGUMENTS = {tool["name"]: set(tool["inputSchema"]["properties"]) for tool in TO
 
 
 class AgentTools:
-    def __init__(self, paths: Paths, name: str, settings: AgentSettings) -> None:
+    def __init__(self, paths: Paths, name: str, settings: AgentSettings, repository: str) -> None:
         self.paths = paths
         self.name = name
         self.settings = settings
+        self.repository = repository
+
+    def definitions(self) -> list[dict[str, object]]:
+        """The tools, each saying which repository it covers: the server is registered for the reader, so agents
+        working in other repositories see it too."""
+        scope = f"For {self.name}, the repository at {self.repository}, only; in any other repository don't call it. "
+        return [{**tool, "description": scope + str(tool["description"])} for tool in TOOLS]
 
     def call(self, tool: str, arguments: Mapping[str, object]) -> str:
         """The tool's answer; raises ToolInputError for a bad argument and KeyError for an unknown tool."""

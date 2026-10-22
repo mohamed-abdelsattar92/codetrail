@@ -130,7 +130,7 @@ def connect_agents(paths: Paths, name: str) -> int:
 def serve_agent_tools(paths: Paths, name: str) -> int:
     """Runs the tool server until the agent closes standard input (design section 23.5)."""
     target = load_target(paths, name)
-    tools = AgentTools(paths, name, load_global(paths).agents)
+    tools = AgentTools(paths, name, load_global(paths).agents, str(target.repository))
     serve_stdio(tools, server_instructions(name, str(target.repository)), sys.stdin.buffer, sys.stdout.buffer)
     return 0
 

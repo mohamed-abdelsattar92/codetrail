@@ -75,12 +75,14 @@ def test_errors_have_their_codes(tools: AgentTools) -> None:
         request(1, "resources/list"),
         request(2, "tools/call", {"name": "codetrail_write", "arguments": {}}),
         request(3, "tools/call", {"name": "codetrail_map", "arguments": []}),
+        request(6, "tools/call", {"name": ["codetrail_map"]}),
+        b"[" * 200_000 + b"\n",
         b"x" * (2 * MAX_LINE_BYTES) + b"\n",
         line({"id": 4, "method": "ping"}),
         request(5, "ping"),
     )
     assert [answer.get("error", {}).get("code") for answer in answers] == [
-        -32700, -32601, -32602, -32602, -32700, -32600, None
+        -32700, -32601, -32602, -32602, -32602, -32700, -32700, -32600, None
     ]  # fmt: skip
     assert answers[0]["id"] is None and answers[-1]["id"] == 5  # the line after the long one is still answered
 
@@ -106,3 +108,33 @@ def test_an_unexpected_failure_is_an_internal_error(tools: AgentTools, monkeypat
 def test_requests_before_initialize_are_answered(tools: AgentTools, tmp_path: Path) -> None:
     [answer] = run(tools, request(1, "tools/call", {"name": "codetrail_map", "arguments": {}}))
     assert answer["result"]["isError"] is False
+
+
+def test_the_tool_list_names_the_target(tools: AgentTools) -> None:
+    [listed] = run(tools, request(1, "tools/list"))
+    assert all("/work/t" in tool["description"] for tool in listed["result"]["tools"])
+
+
+def test_null_arguments_are_no_arguments(tools: AgentTools) -> None:
+    [answer] = run(tools, request(1, "tools/call", {"name": "codetrail_map", "arguments": None}))
+    assert answer["result"]["isError"] is False
+
+
+def test_any_unexpected_failure_still_answers_and_the_server_lives_on(
+    tools: AgentTools, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from codetrail.agents import protocol
+
+    original = protocol.handle
+    calls: list[int] = []
+
+    def first_breaks(message: object, tools: AgentTools, instructions: str) -> dict[str, object] | None:
+        calls.append(1)
+        if len(calls) == 1:
+            raise RuntimeError("/secret/path")
+        return original(message, tools, instructions)
+
+    monkeypatch.setattr(protocol, "handle", first_breaks)
+    failed, ping = run(tools, request(7, "ping"), request(8, "ping"))
+    assert failed["id"] == 7 and failed["error"]["code"] == -32603 and "/secret/path" not in json.dumps(failed)
+    assert ping["result"] == {}

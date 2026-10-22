@@ -14,7 +14,7 @@ def test_the_instructions_name_the_target_and_its_path() -> None:
 
 def test_the_setup_registers_the_server_for_both_agents() -> None:
     text = setup_text("shop", "/opt/py thon/bin/python3", Path("/data/shop/agents"))
-    assert "claude mcp add --scope user codetrail-shop -- '/opt/py thon/bin/python3' -m codetrail mcp shop" in text
-    assert "codex mcp add codetrail-shop -- '/opt/py thon/bin/python3' -m codetrail mcp shop" in text
+    assert "claude mcp add --scope user codetrail-shop -- '/opt/py thon/bin/python3' -I -m codetrail mcp shop" in text
+    assert "codex mcp add codetrail-shop -- '/opt/py thon/bin/python3' -I -m codetrail mcp shop" in text
     assert "@/data/shop/agents/map.md" in text
     assert "never" in text.lower() and "committed" in text

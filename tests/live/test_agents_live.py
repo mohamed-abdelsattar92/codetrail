@@ -37,7 +37,7 @@ def test_claude_code_calls_the_tool_server(environment: dict[str, str], tmp_path
     if not provider_status("claude_code", GlobalConfig()).ready:
         pytest.skip("Claude Code isn't installed or signed in with a subscription here.")
     config = tmp_path / "mcp.json"
-    server = {"command": sys.executable, "args": ["-m", "codetrail", "mcp", "tiny"], "env": environment}
+    server = {"command": sys.executable, "args": ["-I", "-m", "codetrail", "mcp", "tiny"], "env": environment}
     config.write_text(json.dumps({"mcpServers": {"codetrail-tiny": server}}))
     result = subprocess.run(
         [str(shutil.which("claude")), "-p", PROMPT, "--model", CHEAP, "--mcp-config", str(config),
@@ -52,7 +52,7 @@ def test_claude_code_calls_the_tool_server(environment: dict[str, str], tmp_path
 def test_codex_calls_the_tool_server(environment: dict[str, str], tmp_path: Path) -> None:
     if not provider_status("codex", GlobalConfig()).ready:
         pytest.skip("Codex isn't installed or signed in here.")
-    arguments = json.dumps(["-m", "codetrail", "mcp", "tiny"])
+    arguments = json.dumps(["-I", "-m", "codetrail", "mcp", "tiny"])
     variables = "{" + ", ".join(f"{key} = {json.dumps(value)}" for key, value in environment.items()) + "}"
     result = subprocess.run(
         [str(shutil.which("codex")), "exec", PROMPT, "--skip-git-repo-check", "--sandbox", "read-only",

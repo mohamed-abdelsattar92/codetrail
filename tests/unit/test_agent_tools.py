@@ -46,7 +46,7 @@ def paths(tmp_path: Path) -> Paths:
 def tools_for(paths: Paths, export: AgentExport | None = EXPORT, **settings: int) -> AgentTools:
     if export is not None:
         write_export(paths.target_data("t") / "agents", export)
-    return AgentTools(paths, "t", AgentSettings(**settings))
+    return AgentTools(paths, "t", AgentSettings(**settings), "/work/t")
 
 
 @pytest.fixture
@@ -179,3 +179,10 @@ def test_no_call_takes_the_update_lock(tools: AgentTools, paths: Paths) -> None:
 def test_a_target_without_an_export_says_what_to_run(paths: Paths) -> None:
     answer = tools_for(paths, None).call("codetrail_map", {})
     assert answer == "Codetrail has no context for t yet: run codetrail update t or codetrail agents t."
+
+
+def test_the_tool_descriptions_name_the_target_and_its_repository(tools: AgentTools) -> None:
+    definitions = tools.definitions()
+    assert [tool["name"] for tool in definitions] == [tool["name"] for tool in TOOLS]
+    for tool in definitions:
+        assert "t, the repository at /work/t" in str(tool["description"]) and "only" in str(tool["description"])

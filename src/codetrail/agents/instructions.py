@@ -21,7 +21,9 @@ def server_instructions(name: str, repository: str) -> str:
 
 
 def setup_text(name: str, python: str, folder: Path) -> str:
-    command = f"{shlex.quote(python)} -m codetrail mcp {name}"
+    # -I: the agent starts the server in whatever repository it works in, and Python would otherwise import a
+    # `codetrail` folder or a `json.py` found there before Codetrail's own (the guard hook runs the same way).
+    command = f"{shlex.quote(python)} -I -m codetrail mcp {name}"
     return f"""Codetrail's context for coding agents is in {folder}.
 
 Connect Claude Code (registered for your user, so it works in every worktree of the repository):

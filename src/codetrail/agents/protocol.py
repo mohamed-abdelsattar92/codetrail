@@ -41,7 +41,7 @@ def handle(message: object, tools: AgentTools, instructions: str) -> dict[str, o
     if method == "ping":
         return _result(identity, {})
     if method == "tools/list":
-        return _result(identity, {"tools": TOOLS})
+        return _result(identity, {"tools": tools.definitions()})
     if method == "tools/call":
         return _call(identity, params, tools)
     return _error(identity, METHOD_NOT_FOUND, f"There is no method {method!r}.")
@@ -62,20 +62,29 @@ def serve_stdio(tools: AgentTools, instructions: str, reader: BinaryIO, writer: 
             continue
         try:
             message = json.loads(line)
-        except ValueError:
+        except ValueError, RecursionError:  # RecursionError: deeply nested arrays
             _send(writer, _error(None, PARSE_ERROR, "The message isn't valid JSON."))
             continue
         if isinstance(message, list):
             _send(writer, _error(None, INVALID_REQUEST, "Batches aren't supported."))
             continue
-        answer = handle(message, tools, instructions)
+        try:
+            answer = handle(message, tools, instructions)
+        except Exception:  # the server outlives any one message; the details go to standard error only
+            logger.exception("A message couldn't be handled")
+            identity = message.get("id") if isinstance(message, dict) else None
+            answer = _error(
+                identity, INTERNAL_ERROR, "The message couldn't be handled; see the server's standard error."
+            )
         if answer is not None:
             _send(writer, answer)
 
 
 def _call(identity: object, params: dict[str, Any], tools: AgentTools) -> dict[str, object]:
-    name, arguments = params.get("name"), params.get("arguments", {})
-    if name not in TOOL_NAMES:
+    name, arguments = params.get("name"), params.get("arguments")
+    if arguments is None:  # some clients send null, or nothing, for a tool without arguments
+        arguments = {}
+    if not isinstance(name, str) or name not in TOOL_NAMES:
         return _error(identity, INVALID_PARAMS, f"There is no tool {name!r}.")
     if not isinstance(arguments, dict):
         return _error(identity, INVALID_PARAMS, "arguments must be an object.")

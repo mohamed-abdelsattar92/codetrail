@@ -32,7 +32,7 @@ def test_agents_prints_the_setup_and_changes_nothing(environment: Path, capsys: 
     capsys.readouterr()
     assert main(["agents", "api"]) == 0
     out = capsys.readouterr().out
-    assert sys.executable in out and "-m codetrail mcp api" in out and "--scope user" in out
+    assert sys.executable in out and "-I -m codetrail mcp api" in out and "--scope user" in out
     assert "committed" in out
     assert snapshot_tree(checkout) == before
     assert (environment / "data" / "codetrail" / "api" / "agents" / "map.md").exists()  # rebuilt
