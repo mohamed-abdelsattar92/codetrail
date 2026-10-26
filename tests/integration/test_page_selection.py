@@ -31,7 +31,7 @@ def test_pages_this_update_changed_come_before_older_backlog(paths: Paths, tmp_p
     assert generation.left_for_later == ["concepts/fastapi"]
 
 
-BAD = PageDraft("Cites [[module:ghost.py]].", CHECKS)
+BAD = PageDraft("Cites [[module:ghost.py]].", CHECKS, brief="The key file is app/main.py.")
 
 
 def page_requests(claude: FakeAssistant, page_id: str) -> int:

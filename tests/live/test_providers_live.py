@@ -64,7 +64,7 @@ def test_write_page_reads_only_inside(claude: ClaudeCodeAssistant) -> None:
     draft = anyio.run(
         claude.write_page, PageRequest("areas/app", "area", "The app", ["app"], "module:app/db.py", "", "")
     )
-    assert draft.body.strip()
+    assert draft.body.strip() and draft.brief.strip()
     assert all(not path.startswith("/") and ".." not in path for path in draft.files_read)
 
 

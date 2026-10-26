@@ -4,6 +4,22 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-10-26
+
+Release notes: [docs/releases/v1.4.0.md](docs/releases/v1.4.0.md).
+
+### Added
+- Context for coding agents. Each update now writes a short map of the repository (its parts and how they connect, its decisions, recent changes and the guide's pages) and a brief per area and concept page (key files, conventions and the reasons for them, still marked documented or inferred) to Codetrail's data folder. `codetrail mcp <target>` serves them to Claude Code and Codex as read-only tools, so an agent starting a task reads Codetrail's understanding instead of rediscovering the repository; `codetrail agents <target>` prints how to connect them. Briefs come from the call that already writes each page, so they add only a little output to each estimate, and nothing an agent asks for costs a call ([ADR 0017](docs/adr/0017-tool-server-for-coding-agents.md)).
+
+### Changed
+- The README presents Codetrail as your repository's tutor, for you and your coding agent: what each of you gets, a new section on the context for coding agents with excerpts of a real map and brief, and the agent's path in the "How it works" diagram.
+- Diagrams on the page are laid out by ELK, as in the README: right-angled, evenly spaced lines instead of loose curves, which keeps busy diagrams readable. The first diagram on a page takes a little longer to appear, about a second and a half ([ADR 0018](docs/adr/0018-lay-out-diagrams-with-elk.md)).
+- Every diagram (the system diagram, and the imports, dependencies and resources diagrams on area pages, guide pages and answers) is drawn with D2 instead of Mermaid, with a clearer layout and each kind of part in its own shape as before. The first diagram on a page takes about a second to appear while the browser prepares D2. The README's diagrams are drawn with D2 too ([ADR 0016](docs/adr/0016-draw-diagrams-with-d2.md)).
+
+### Security
+- The page's Content-Security-Policy no longer allows inline styles, which only Mermaid needed. D2's layout evaluates JavaScript, so it runs in a worker with its own policy, which can load nothing but its own files and has no access to the page, and its drawing is shown as an image, which can't run script or follow links.
+- `codetrail mcp` speaks over standard input and output with no port, reads only Codetrail's export, and checks every argument; the command `codetrail agents` prints runs Python with `-I`, so code planted in the folder an agent works in never runs, and each tool tells agents in any other repository not to call it.
+
 ## [1.3.0] - 2026-10-18
 
 Release notes: [docs/releases/v1.3.0.md](docs/releases/v1.3.0.md).
@@ -125,7 +141,8 @@ The first public release. Release notes: [docs/releases/v1.0.0.md](docs/releases
 - The page and the bridge listen on 127.0.0.1 only, check `Host`, `Origin` and `Sec-Fetch-Site`, need a single-use login code and a per-session token, and send a strict content security policy.
 - The assistant gets read-only tools (Read, Grep, Glob) confined to the filtered sources: for Claude Code through two independent guards, and for local models through Codetrail's own tools. Codex can't be confined the same way, so it stays off unless a target opts in. Every provider gets an allowlisted environment: Codetrail never reads, stores or passes a key or token, unless you set `auth = "api_key"`, when the provider's key variable is handed to its program by name.
 
-[Unreleased]: https://github.com/mohamed-abdelsattar92/codetrail/compare/v1.3.0...develop
+[Unreleased]: https://github.com/mohamed-abdelsattar92/codetrail/compare/v1.4.0...develop
+[1.4.0]: https://github.com/mohamed-abdelsattar92/codetrail/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/mohamed-abdelsattar92/codetrail/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/mohamed-abdelsattar92/codetrail/compare/v1.1.1...v1.2.0
 [1.1.1]: https://github.com/mohamed-abdelsattar92/codetrail/compare/v1.1.0...v1.1.1

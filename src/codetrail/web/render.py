@@ -8,10 +8,14 @@ view, and diagram placeholders are replaced by diagrams drawn from facts.
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from urllib.parse import quote
 
 from markdown_it import MarkdownIt
+from markdown_it.renderer import RendererHTML
+from markdown_it.token import Token
+from markdown_it.utils import EnvType, OptionsDict
 from markupsafe import Markup
 
 from codetrail.facts.store import FactStore
@@ -26,6 +30,22 @@ from codetrail.web.diagrams import (
 
 FACT_LINK = re.compile(r"\[\[([a-z_]+:[^\]\s]+)\]\]")
 MARKDOWN = MarkdownIt("commonmark", {"html": False, "linkify": False}).enable("table")
+
+
+def _aligned_cell(
+    renderer: RendererHTML, tokens: Sequence[Token], index: int, options: OptionsDict, env: EnvType
+) -> str:
+    """A table column's alignment as a class, where markdown-it writes an inline style: the page's policy allows no
+    inline styles (ADR 0016)."""
+    token = tokens[index]
+    style = token.attrs.pop("style", None)
+    if isinstance(style, str) and style.startswith("text-align:"):
+        token.attrSet("class", "align-" + style.removeprefix("text-align:"))
+    return renderer.renderToken(tokens, index, options, env)
+
+
+for cell in ("th_open", "td_open"):
+    MARKDOWN.add_render_rule(cell, _aligned_cell)
 
 
 @dataclass(frozen=True)

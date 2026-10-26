@@ -52,7 +52,7 @@ from codetrail.generate.scope import (
     scope_changes,
     scope_hash,
 )
-from codetrail.generate.validate import FLAGGED_PROBLEM, ValidationContext, validate_page
+from codetrail.generate.validate import FLAGGED_PROBLEM, ValidationContext, validate_brief, validate_page
 from codetrail.guide import GuideRepository, Page
 from codetrail.repo.history import Commit, commits_between, recent_commits
 from codetrail.repo.secrets import SecretScanner
@@ -91,6 +91,7 @@ class GenerationContext:
     failed_pages: FailedPages | None = None  # pages that failed validation, skipped until their scope changes
     retry_failed: bool = False  # try them anyway
     revise_max_changes: int = 0  # an affected page with at most this many changes in its scope is revised (6.3)
+    max_brief_words: int = 300  # the brief for coding agents each page carries (23.3)
 
 
 @dataclass
@@ -258,10 +259,12 @@ async def _write_page(
     if current is not None:
         checks = [dict(check) for check in current.meta.get("checks") or []]
         request = PageRequest(entry.id, entry.kind, entry.title, entry.scope_paths, "", "", history,
-                              current_body=current.body, current_checks=checks, changes=planned.changes)  # fmt: skip
+                              current_body=current.body, current_checks=checks, changes=planned.changes,
+                              brief_words=context.max_brief_words,
+                              current_brief=str(current.meta.get("brief") or ""))  # fmt: skip
     else:
         request = PageRequest(entry.id, entry.kind, entry.title, entry.scope_paths, facts_text(context.store, entry),
-                              decisions_text(context.store), history)  # fmt: skip
+                              decisions_text(context.store), history, brief_words=context.max_brief_words)  # fmt: skip
     problems: list[str] = []
     try:
         for attempt in range(1, PAGE_ATTEMPTS + 1):
@@ -270,14 +273,17 @@ async def _write_page(
                               "revise": revising})  # fmt: skip
             draft = await claude.write_page(request)
             spent = _spend(context, result, "revise" if revising else "write", draft)
-            body, checks = draft.body, draft.checks
+            body, checks, brief = draft.body, draft.checks, draft.brief
             if current is not None:
                 body = apply_sections(request.current_body, draft.sections)
                 checks = draft.checks or request.current_checks
+                brief = draft.brief or request.current_brief  # a revision keeps the brief it doesn't replace
             problems = validate_page(body, checks, validation)
+            problems += validate_brief(brief, validation, context.max_brief_words)
             if not problems:
                 meta = page_meta(entry, context.store, context.manifest, draft.files_read)
                 meta["checks"] = checks
+                meta["brief"] = brief
                 if current is not None:  # files it didn't read again keep the version the page was written from
                     kept = [
                         item for item in current.meta.get("files") or [] if item.get("path") not in draft.files_read
@@ -287,14 +293,16 @@ async def _write_page(
                 result.written.append(entry.id)
                 if context.failed_pages is not None:
                     context.failed_pages.forget(entry.id)
-                unchanged = revising and not draft.sections and not draft.checks
+                unchanged = revising and not draft.sections and not draft.checks and not draft.brief
                 context.progress({"step": "page_written", "id": entry.id, "title": entry.title, "revise": revising,
                                   "unchanged": unchanged, **spent})  # fmt: skip
                 return
             if current is not None and any(problem.startswith(FLAGGED_PROBLEM) for problem in problems):
                 request = replace(request, problems=problems)  # a flagged revision never goes back to the provider
             elif current is not None:  # the retry sees its own revision in the page, and what's wrong with it
-                request = replace(request, problems=problems, current_body=body, current_checks=checks)
+                request = replace(
+                    request, problems=problems, current_body=body, current_checks=checks, current_brief=brief
+                )
             else:
                 request = replace(request, problems=problems, previous_body=draft.body)
         reason = "; ".join(problems[:3])

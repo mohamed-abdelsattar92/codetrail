@@ -100,7 +100,7 @@ class ClaudeCodeAssistant:
         prompt, schema = page_task(request)  # a new page, or a revision's sections
         data, files, usage = await self._run("write", prompt, schema, GROUND_RULES + "\n" + PAGE_SYNTAX)
         return PageDraft(str(data.get("body", "")), list(data.get("checks", [])), files, _cost(usage), usage,
-                         list(data.get("sections", [])))  # fmt: skip
+                         list(data.get("sections", [])), str(data.get("brief", "")))  # fmt: skip
 
     async def write_digest(self, request: DigestRequest) -> DigestDraft:
         data, files, usage = await self._run(

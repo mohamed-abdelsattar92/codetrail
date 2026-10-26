@@ -1,0 +1,31 @@
+# How Codetrail turns a checkout into a guide for you and your coding agent (README, "How it works"). Render with `just diagrams`.
+direction: right
+
+checkout: "Your checkout\n(read only)" {shape: cylinder}
+codetrail: "Codetrail, on your machine" {
+  mirror: "mirror.git\nbare clone" {shape: cylinder}
+  rules: "Exclusions\nsecret patterns · ignore files · gitleaks" {shape: hexagon}
+  source: "source/\nallowed files only"
+  extract: "Extractors\npython · adr · openapi · terraform\nswift · typescript · github_actions"
+  db: "codetrail.db\nfacts · progress · usage" {shape: cylinder}
+  guide: "guide/\nMarkdown, own git repo" {shape: cylinder}
+  page: "Local page\n127.0.0.1"
+  agents: "agents/\nthe map · a brief per page" {shape: cylinder}
+  mcp: "codetrail mcp\nread-only tools · no port"
+
+  mirror -> rules -> source -> extract -> db
+  guide -> page
+  db -> page
+  db -> agents: map
+  guide -> agents: briefs
+  agents -> mcp
+}
+assistant: "Your assistant\nClaude Code · Codex · a local model\nread-only"
+agent: "Your coding agent\nClaude Code · Codex"
+
+checkout -> codetrail.mirror: fetch
+codetrail.db -> assistant: facts
+codetrail.source -> assistant: read only {style.stroke-dash: 3}
+assistant -> codetrail.guide: pages
+codetrail.page -> assistant: questions
+agent -> codetrail.mcp: map · briefs · changes

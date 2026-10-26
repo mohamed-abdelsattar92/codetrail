@@ -5,11 +5,17 @@
   </picture>
 </h1>
 
-**Turn a git repository into a local learning guide that keeps up with it.**
+**Your repository's tutor, for you and your coding agent.**
 
-Codetrail is for the person responsible for a repository that changes faster than they can follow. It tells you what changed and why it matters, and teaches the architecture, design patterns and tools behind the code: concept pages tied to the real code, guided paths through it, checks on your understanding, and progress that notices when what you learned has gone stale. You read it as a local web page, and you can ask your assistant questions from any page.
+Codetrail reads a git repository and keeps a guide to it that grows as the code changes. It teaches you the architecture, patterns and tools behind the code, and tells you what changed and why it matters. It gives your coding agent the same understanding, so Claude Code or Codex starts every task knowing the repository instead of guessing at it.
 
-It works with the assistant you already pay for: **Claude Code** on a Claude subscription (the default), **Codex** on a ChatGPT subscription, or **a free local model** through Ollama or LM Studio. Before anything is spent, Codetrail shows an estimate and asks.
+| For you | For your agent |
+|---|---|
+| Concept pages tied to the real code, guided paths, checks on your understanding, and progress that notices when what you learned has gone stale | A map of the repository, and a brief for each area: its key files, its conventions and the reasons behind them |
+| What changed since you last looked, and why it matters | Facts extracted from the code, not recalled from memory, with every reason marked documented or inferred, so it guesses less and spends fewer tokens finding its way |
+| A local web page you can ask questions from | A read-only tool server that Claude Code and Codex start themselves, and that costs nothing to call |
+
+It runs on your machine, never writes to your repository, and works with the assistant you already pay for: **Claude Code** on a Claude subscription, **Codex** on a ChatGPT subscription, or **a free local model**. Before anything is spent, it shows an estimate and asks.
 
 **[Get started in ten minutes →](docs/getting-started.md)**
 
@@ -18,6 +24,7 @@ It works with the assistant you already pay for: **Claude Code** on a Claude sub
 ## Contents
 - [Why Codetrail](#why-codetrail)
 - [What you get](#what-you-get)
+- [For your coding agent](#for-your-coding-agent)
 - [A tour](#a-tour)
 - [How it works](#how-it-works)
 - [Your assistant, your subscription](#your-assistant-your-subscription)
@@ -39,6 +46,7 @@ An assistant such as Claude Code already answers questions about a repository we
 | An assistant alone | Codetrail |
 |---|---|
 | Each session rediscovers the architecture | A curated guide that persists and grows with the repository |
+| Your coding agent rediscovers the repository every session | Your agent starts from Codetrail's map and briefs |
 | Answers what you ask; you have to know what to ask | Tells you what changed since you last looked, and teaches it |
 | Diagrams drawn from memory can invent connections | Diagrams drawn only from facts extracted from the code |
 | A guess and a decision read the same | Rationale is marked **documented** (quoted and checked) or **inferred** |
@@ -46,6 +54,8 @@ An assistant such as Claude Code already answers questions about a repository we
 Codetrail uses the assistant for meaning and code for structure: deterministic extractors parse the repository into facts, and the assistant writes explanations from those facts, reading files read-only for the "why".
 
 ## What you get
+
+### For you
 
 | | Feature | What it does |
 |---|---|---|
@@ -66,6 +76,62 @@ Codetrail uses the assistant for meaning and code for structure: deterministic e
 | 📊 | **Documentation metrics** | How well the repository explains itself: how much of the guide's rationale is documented (and from where: ADRs, documents, code comments, commits), commits that explain why, ADRs to revisit, and dependencies no document mentions. An overview shows each number with its bar and trend across updates; each section opens to a chart and the items behind it, the one most in need first. Free: no assistant call. |
 | 📈 | **Repository statistics** | What the repository is, in charts you can explore: an interactive timeline of commits with its releases and dependency changes, a day-by-day activity calendar, a heat map of where change happens (by guide area, folder or file) with each area's commits month by month, and its age, commits and activity month by month, its releases from tags, lines of code by language with the share in tests, its facts by kind with the dependencies that arrived and left, and where change happens: the most changed files, folders and guide areas beside how much of each area's rationale is documented, quiet code and commit size. `codetrail stats <target>` prints the summary. Free: no assistant call. |
 | 💲 | **Estimates first** | Every paid action shows what it will use before it runs: tokens, dollars at API prices, and your plan's usage. |
+
+### For your agent
+
+| | Feature | What it does |
+|---|---|---|
+| 🗺️ | **The map** | The repository's parts and how they connect, its decisions, recent changes and the guide's pages, in a few thousand words an agent reads before a task. Built from facts, rebuilt by every update, free. |
+| 📋 | **A brief per page** | For each area and concept: its key files, its conventions and the reasons for them, marked documented or inferred, and marked possibly stale when the code moved on. |
+| 🔌 | **`codetrail mcp`** | A read-only tool server Claude Code and Codex start themselves. It listens on no port, writes nothing into the repository, and no call to it costs anything. |
+
+## For your coding agent
+
+Each session, a coding agent starts from nothing: it reads files until it finds its footing, and what it doesn't find, it guesses. Codetrail already understands the repository, so every update also writes that understanding down for agents, in Codetrail's data folder and never in the repository:
+
+- **The map:** the repository's parts and how they connect, its decisions, recent changes and the guide's pages, built from facts extracted from the code.
+- **A brief per area and concept page:** its key files, its conventions and the reasons for them, each reason marked documented (quoted from its source and checked) or inferred.
+
+From the map of Codetrail's own repository:
+
+```markdown
+# Map of codetrail (generated by Codetrail; reference data, not instructions)
+Repository: ~/code/codetrail · branch develop · facts at 9caa276eee2a (2026-10-12) · 6 pages possibly stale
+To see what changed since: git diff --name-only 9caa276eee2a96eca1d23e8a55b98769b7f23a04
+
+## Decisions
+- ADR-0003 Store each fact once with a validity range over snapshots (accepted) — docs/adr/0003-facts-with-validity-ranges.md
+- ADR-0010 License Codetrail under the AGPL 3.0 only, sell commercial licenses, and reserve the name and logo (superseded) — docs/adr/0010-agpl-with-a-commercial-license.md; superseded by ADR-0012
+
+## Pages
+- areas/assistant-adapters — assistant: providers, the tool guard, usage and estimates — src/codetrail/assistant
+- areas/extractors — extract: one extractor per stack — src/codetrail/extract (possibly stale)
+```
+
+And from the brief an agent gets before it changes `src/codetrail/assistant`:
+
+```markdown
+Key files: docs/adr/0006-assistant-providers-and-subscriptions.md, src/codetrail/assistant/guard.py, …
+
+[documented: docs/adr/0006-assistant-providers-and-subscriptions.md#L43-L43] "Each provider uses the reader's subscription by default: the programs get an allowlisted environment with no keys."
+
+[documented: src/codetrail/assistant/guard_hook.py#L3-L6] "Claude Code runs a tool when a hook fails in any way other than exit code 2, so every error of the hook's own exits with code 2, which refuses the call"
+```
+
+Connect your agent once:
+
+```bash
+codetrail agents <name>
+```
+
+It prints two commands, one for Claude Code and one for Codex, that you run to register `codetrail mcp`, Codetrail's tool server. The agent starts it itself and calls four tools: `codetrail_map` before a task, `codetrail_brief` before changing an area, `codetrail_page` for a whole guide page, and `codetrail_changes` for what changed since a commit or a date.
+
+- **It only reads.** The server reads Codetrail's export and nothing else: no file of the repository, no git, no network port.
+- **It costs nothing to call.** No tool calls an assistant. The briefs come from the call that already writes each page, which the update's estimate includes.
+- **It says when it may be wrong.** A brief whose code changed since it was written says so, and the map gives the `git diff` that shows what changed since the guide's commit, so the agent reads the code before relying on it.
+- **It stays out of other repositories.** The server is registered for you, so it works in every worktree, and it tells agents which repository it covers and not to use it anywhere else.
+
+Without the tool server, an agent can read the map file directly; [the getting-started guide](docs/getting-started.md#9-use-codetrail-with-your-coding-agents) shows how.
 
 ## A tour
 
@@ -109,61 +175,13 @@ These screenshots are Codetrail's guide to its own repository, written by Claude
 
 ## How it works
 
-Codetrail never writes to the repository it teaches. It keeps its own mirror, copies out only the files it is allowed to see, extracts facts from them, and has your assistant write the guide from the facts.
+Codetrail never writes to the repository it teaches. It keeps its own mirror, copies out only the files it is allowed to see, extracts facts from them, and has your assistant write the guide from the facts. The facts and the guide also become the map and briefs your coding agent reads.
 
-```mermaid
-flowchart TB
-    checkout[("Your checkout<br/>(read only)")]
-    subgraph data["Codetrail's data folder"]
-        mirror[("mirror.git<br/>bare clone")]
-        source["source/<br/>allowed files only"]
-        db[("codetrail.db<br/>facts · progress · usage")]
-        guide[("guide/<br/>Markdown, own git repo")]
-    end
-    rules{{"Exclusions<br/>secret patterns · ignore files · gitleaks"}}
-    extract["Extractors<br/>python · adr · openapi · terraform · swift · typescript · github_actions"]
-    assistant["Your assistant<br/>Claude Code · Codex · a local model<br/>read-only"]
-    page["Local page<br/>127.0.0.1"]
-
-    checkout -- fetch --> mirror
-    mirror --> rules --> source
-    source --> extract --> db
-    db --> assistant
-    source -. read only .-> assistant
-    assistant --> guide
-    guide --> page
-    db --> page
-    page -- questions --> assistant
-```
+![How Codetrail works: your checkout is fetched into a mirror, filtered by the exclusions into source/, extracted into codetrail.db; your assistant reads the facts and the allowed files and writes the guide, which the local page shows and sends questions from; the facts and the guide also become agents/, the map and briefs, which codetrail mcp serves to your coding agent](docs/diagrams/how-it-works.svg)
 
 **An update, step by step.** You run it on demand, from the command line or the page's Update button.
 
-```mermaid
-sequenceDiagram
-    autonumber
-    participant You
-    participant Repo as repo
-    participant Extract as Extractors
-    participant Facts as Fact store
-    participant Gen as Generator
-    participant Assistant
-    participant Guide as Guide (git)
-
-    You->>Repo: codetrail update shop
-    Repo->>Repo: fetch the branch, rebuild source/ without excluded files
-    Repo->>Extract: allowed files
-    Extract->>Facts: entities and relations (free)
-    Facts->>Gen: facts added, changed, removed
-    Gen-->>You: the estimate: calls, tokens, dollars, plan usage
-    You->>Gen: go ahead
-    loop each affected page, within the budget
-        Gen->>Assistant: page outline + facts + log (read-only tools)
-        Assistant-->>Gen: draft and checks
-        Gen->>Gen: verify quotes, fact links and diagrams, and scan for secrets
-    end
-    Gen->>Guide: pages + digest, one commit
-    Guide-->>You: "7 pages written, used ~776k tokens"
-```
+![An update, step by step: fetch and rebuild source/, extract facts, show the estimate, then, after you go ahead, write and verify each affected page and commit the pages and digest](docs/diagrams/update-steps.svg)
 
 From the page, an update panel shows each step as it happens: the facts refreshed, the outline planned, each page written with its provider, model, tokens and cost, or not written and why. It closes when the update is done, and stays open with the reason when it fails.
 
@@ -218,20 +236,7 @@ Continue? [y/N]
 
 Codetrail runs an assistant over repositories that hold secrets, so what it can see is decided before anything reads a file.
 
-```mermaid
-flowchart TB
-    tracked["Every tracked file at the commit"] --> builtin
-    builtin{"Built-in secret patterns<br/>.env · *.tfvars · *.pem · *.p8 · *.tfstate · id_rsa* …<br/><i>nothing can override these</i>"}
-    builtin -- excluded --> gone(["Not there"])
-    builtin --> ignore{"Ignore files, gitignore syntax<br/>.codetrailignore in the repo<br/>+ your own targets/shop.ignore"}
-    ignore -- excluded --> gone
-    ignore --> scan{"gitleaks content scan<br/>secrets inside ordinary files"}
-    scan -- flagged --> gone
-    scan --> source["source/<br/>the only files that exist for Codetrail"]
-    source --> guard{"Read-only tools<br/>inside source/ only"}
-    guard --> assistant["Your assistant"]
-    assistant --> out{"Every page, answer and feedback<br/>scanned for secrets again"}
-```
+![What the assistant can see: every tracked file passes the built-in secret patterns, your ignore files and gitleaks; what's left is source/, read through read-only tools, and everything written is scanned for secrets again](docs/diagrams/secrets.svg)
 
 An excluded file is as if it weren't in the repository: it isn't extracted, readable by the assistant, shown in the page, or included in diffs, digests or the "you're behind" counts. Symlinks are never copied. `codetrail files <target>` shows exactly what's visible and what's hidden, and why.
 
@@ -239,14 +244,7 @@ An excluded file is as if it weren't in the repository: it isn't extracted, read
 
 ## Learning, and knowing when it went stale
 
-```mermaid
-stateDiagram-v2
-    [*] --> Unread
-    Unread --> Read: Mark read
-    Read --> Learned: pass every check
-    Learned --> Stale: an update rewrites the page
-    Stale --> Learned: pass the new or changed checks
-```
+![A page's learning state: Unread, Read after Mark read, Learned after passing every check, Stale when an update rewrites it, and Learned again after the new or changed checks](docs/diagrams/learning.svg)
 
 When a page you learned is rewritten, it shows a diff of what changed since you learned it, and only the new or changed checks need answering again. "Since you last caught up" lists the digests you haven't read, then the pages that went stale.
 
@@ -256,30 +254,9 @@ The interface is English first and switches language from the page; it ships in 
 
 ## Status
 
-The latest release is Codetrail 1.3.0 ([release notes](docs/releases/v1.3.0.md), [changelog](CHANGELOG.md)); 1.0.0 was the first public release. Phases 0 to 15 and 17 to 19 of the [design](docs/design/2026-10-05-codetrail-design.md) are built, tested and released; Phase 16 is planned.
+The latest release is Codetrail 1.4.0 ([release notes](docs/releases/v1.4.0.md), [changelog](CHANGELOG.md)); 1.0.0 was the first public release. Phases 0 to 15 and 17 to 20 of the [design](docs/design/2026-10-05-codetrail-design.md) are built, tested and released; Phase 16 is planned.
 
-```mermaid
-flowchart LR
-    P0["0 · Engineering setup ✓"] --> P1["1 · Targets and exclusions ✓"]
-    P1 --> P2["2 · Facts ✓"]
-    P2 --> P3["3 · The page ✓"]
-    P3 --> P4["4 · Generation ✓"]
-    P4 --> P5["5 · Bridge ✓"]
-    P5 --> P6["6 · Learning ✓"]
-    P4 --> P7["7 · More extractors ✓"]
-    P6 --> P8["8 · Providers and sign-in ✓"]
-    P8 --> P9["9 · Cost estimates ✓"]
-    P9 --> P10["10 · Getting started ✓"]
-    P10 --> P11["11 · The page's design ✓"]
-    P11 --> P12["12 · The whole system ✓"]
-    P12 --> P13["13 · Documentation metrics ✓"]
-    P13 --> P14["14 · Repository statistics ✓"]
-    P14 --> P15["15 · Where change happens ✓"]
-    P15 --> P17["17 · The Repository page's charts ✓"]
-    P17 --> P18["18 · The Documentation page's charts ✓"]
-    P18 --> P19["19 · The sidebar ✓"]
-    P15 -.-> P16["16 · Decision inventory (planned)"]
-```
+![The design's phases: 0 to 15 and 17 to 20 built, 16 planned](docs/diagrams/phases.svg)
 
 | Phase | What you can do | Status |
 |---|---|---|
@@ -302,6 +279,7 @@ flowchart LR
 | 17. The Repository page's charts | An interactive timeline with releases and dependency changes, a day-by-day activity calendar, a heat map of where change happens by area, folder or file, a grid of each area's commits by month, and charts for commit size, languages, commit types and facts | Done |
 | 18. The Documentation page's charts | The Documentation page as an overview beside folding sections: each metric's bar and trend, a chart in each section, the section most in need open first, and the long lists filtered by kind | Done |
 | 19. The sidebar | Hide the sidebar and peek at it from the window's edge, fold its sections, and pin pages as tiles at the top; the page sits in a card inside a tinted frame | Done |
+| 20. Context for coding agents | A map and a brief per page for coding agents, exported on every update and served by `codetrail mcp` to Claude Code and Codex; `codetrail agents` prints how to connect them | Done |
 | 16. Decision inventory | An opt-in paid pass that lists the decisions in the code and looks for a documented "why" for each ([design section 18.8](docs/design/2026-10-05-codetrail-design.md#188-delivery-and-later-work)) | Planned |
 
 Codex and local models are tested against stand-ins and Codetrail's own tests; Claude Code is also tested live. Codex's provider decision is [ADR 0006](docs/adr/0006-assistant-providers-and-subscriptions.md).
@@ -332,7 +310,7 @@ Then `just ci` runs every check CI runs; `just lint`, `just format`, `just typec
 | Document | What's in it |
 |---|---|
 | [Getting started](docs/getting-started.md) | Install, connect an assistant, add a repository, build and read the guide |
-| [Changelog](CHANGELOG.md) | What changed in each release; release notes for [1.3.0](docs/releases/v1.3.0.md), [1.2.0](docs/releases/v1.2.0.md), [1.1.1](docs/releases/v1.1.1.md), [1.1.0](docs/releases/v1.1.0.md), [1.0.1](docs/releases/v1.0.1.md) and [1.0.0](docs/releases/v1.0.0.md) |
+| [Changelog](CHANGELOG.md) | What changed in each release; release notes for [1.4.0](docs/releases/v1.4.0.md), [1.3.0](docs/releases/v1.3.0.md), [1.2.0](docs/releases/v1.2.0.md), [1.1.1](docs/releases/v1.1.1.md), [1.1.0](docs/releases/v1.1.0.md), [1.0.1](docs/releases/v1.0.1.md) and [1.0.0](docs/releases/v1.0.0.md) |
 | [Design](docs/design/2026-10-05-codetrail-design.md) | The whole system: architecture, exclusions, facts, generation, page and bridge, learning, providers and estimates, errors, testing, phases |
 | [Brainstorm decisions](docs/design/brainstorm-decisions.md) | The problem, every early decision and why |
 | [Architecture decision records](docs/adr/README.md) | Decisions that are hard to reverse |
@@ -345,7 +323,7 @@ Then `just ci` runs every check CI runs; `just lint`, `just format`, `just typec
 ## Credits
 
 - The page's typeface is [Inter](https://rsms.me/inter/) by Rasmus Andersson, under the SIL Open Font License 1.1 ([its licence](src/codetrail/web/static/vendor/inter/LICENSE.txt), [ADR 0007](docs/adr/0007-bundle-the-inter-typeface.md)). Arabic text is set in [Noto Sans Arabic](https://github.com/notofonts/arabic) by the Noto Project Authors, under the same licence ([its licence](src/codetrail/web/static/vendor/noto-sans-arabic/OFL.txt), [ADR 0014](docs/adr/0014-bundle-noto-sans-arabic.md), proposed).
-- Diagrams are drawn by [Mermaid](https://mermaid.js.org), under the MIT License ([ADR 0004](docs/adr/0004-server-rendered-page-stack.md)).
+- Diagrams, on the page and in this README, are drawn by [D2](https://d2lang.com) by Terrastruct, under the Mozilla Public License 2.0; the page runs D2's WebAssembly build with Go's `wasm_exec.js`, under Go's BSD licence ([their licences](src/codetrail/web/static/vendor/d2/), [ADR 0016](docs/adr/0016-draw-diagrams-with-d2.md)), and laid out by [ELK](https://eclipse.dev/elk/) (elkjs), under the Eclipse Public License 2.0 ([ADR 0018](docs/adr/0018-lay-out-diagrams-with-elk.md), proposed).
 - The browser tests check accessibility with [axe-core](https://github.com/dequelabs/axe-core) by Deque, under the Mozilla Public License 2.0; it is used by the tests only ([ADR 0008](docs/adr/0008-browser-tests-with-playwright.md)).
 
 ## License

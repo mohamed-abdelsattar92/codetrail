@@ -76,6 +76,8 @@ class PageRequest:
     current_body: str = ""
     current_checks: list[dict[str, Any]] = field(default_factory=list)
     changes: list[str] = field(default_factory=list)
+    brief_words: int = 300  # the brief for coding agents (design 23.3) has at most this many words
+    current_brief: str = ""  # a revision's brief as it stands; empty when the page has none yet
 
 
 @dataclass(frozen=True)
@@ -86,6 +88,7 @@ class PageDraft:
     cost_usd: float = 0.0
     usage: Usage = field(default_factory=Usage)
     sections: list[dict[str, Any]] = field(default_factory=list)  # a revision's sections: {"heading", "body"}
+    brief: str = ""  # the brief for coding agents; a revision may return none, keeping the page's
 
 
 @dataclass(frozen=True)

@@ -1,25 +1,27 @@
-"""Every diagram Codetrail draws parses with the vendored Mermaid, whatever names the facts carry (design 4.4).
+"""Every diagram drawn with D2's WebAssembly build, in its own worker, under the real policies (design 4.4, ADR 0016).
 
-The diagrams are built from facts in a fixture store and parsed in headless Chromium on a blank page, with the same
-Mermaid file the page serves and the same strict security level.
+The page's policy never allows `eval`; the worker's does, and nothing else. Every diagram kind, built from facts with
+hostile names, is drawn through the page's own module, and every box shows its label exactly as Codetrail wrote it.
 """
 
 import re
 from collections.abc import Iterator
-from importlib.resources import files
 from pathlib import Path
 
 import pytest
-from playwright.sync_api import Page
+from playwright.sync_api import Page, expect
 
 from codetrail.database import connect
 from codetrail.facts import Entity, EntityKind, Relation, RelationKind, Source
 from codetrail.facts.store import FactStore
 from codetrail.web.diagrams import Diagram, dependencies_diagram, imports_diagram, resources_diagram, system_diagram
+from tests.browser.conftest import Site
 
 pytestmark = pytest.mark.browser
-MERMAID = Path(str(files("codetrail.web").joinpath("static"))) / "vendor" / "mermaid.js"
-HOSTILE = ['a"b', "a<b>c", "a#b", "a%%b", "a`b", "a[b]", "a{b}", "a|b", "a;b", "a\\b", "a&b", "end", "graph", "x-->y",
+DRAWING = 20_000  # ms: the first diagram compiles 22 MB of WebAssembly
+
+HOSTILE = ['x" {shape: image; icon: http://evil}', "${y} @import", "a\\", "x`});fetch(1)//",
+           'a"b', "a<b>c", "a#b", "a%%b", "a`b", "a[b]", "a{b}", "a|b", "a;b", "a\\b", "a&b", "end", "graph", "x-->y",
            "click n1 call alert(1)", "%%{init: {}}%%", "naïve ünïcödé", "😀 emoji", "", "   ",
            "a\x01b", "a\x7fb", "a\uffffb"]  # fmt: skip
 
@@ -85,44 +87,40 @@ def all_diagrams(store: FactStore) -> list[tuple[str, Diagram]]:
     ]
 
 
-def test_every_diagram_parses_with_mermaid(page: Page, store: FactStore) -> None:
-    page.set_content("<html><body></body></html>")
-    page.add_script_tag(path=str(MERMAID))
-    page.evaluate("mermaid.initialize({startOnLoad: false, securityLevel: 'strict'})")
-    failures = {}
+def test_the_system_page_draws_its_diagram_with_d2(site: Site, page: Page, errors: list[str]) -> None:
+    site.sign_in(page, "/system")
+    figure = page.locator("figure.diagram-block").first
+    image = figure.locator(".diagram-svg img")
+    expect(image).to_be_visible(timeout=DRAWING)
+    assert (image.get_attribute("src") or "").startswith("data:image/svg+xml")
+    expect(figure.locator("pre.diagram")).to_be_hidden()
+    assert errors == []
+
+
+def test_every_diagram_draws_and_every_label_comes_back_as_written(site: Site, page: Page, store: FactStore) -> None:
+    site.sign_in(page, "/system")
     for name, diagram in all_diagrams(store):
-        assert diagram.nodes, name
-        error = page.evaluate(
-            "async (text) => { try { await mermaid.parse(text); return null } catch (e) { return String(e.message) } }",
-            diagram.mermaid,
-        )
-        if error:
-            failures[name] = (error.splitlines()[0], diagram.mermaid)
-    assert failures == {}
-
-
-ROOT = Path(__file__).resolve().parents[2]
-MARKDOWN_BLOCK = re.compile(r"^```mermaid\n(.*?)^```", re.MULTILINE | re.DOTALL)
-
-
-def test_every_diagram_in_the_docs_parses_with_mermaid(page: Page) -> None:
-    """The README's and docs' hand-written diagrams, which GitHub renders with Mermaid too."""
-    documents = [ROOT / "README.md", *sorted((ROOT / "docs").rglob("*.md"))]
-    blocks = [
-        (f"{document.relative_to(ROOT)}:{text[: match.start()].count(chr(10)) + 1}", match.group(1))
-        for document in documents
-        for text in [document.read_text()]
-        for match in MARKDOWN_BLOCK.finditer(text)
-    ]
-    page.set_content("<html><body></body></html>")
-    page.add_script_tag(path=str(MERMAID))
-    page.evaluate("mermaid.initialize({startOnLoad: false})")
-    failures = {}
-    for where, source in blocks:
-        error = page.evaluate(
-            "async (text) => { try { await mermaid.parse(text); return null } catch (e) { return String(e.message) } }",
+        source = diagram.d2
+        written = [re.sub(r"\\(.)", r"\1", label) for label in re.findall(r'^n\d+: "((?:[^"\\]|\\.)*)"', source, re.M)]
+        shown = page.evaluate(
+            """async (source) => {
+                const { renderD2 } = await import("/static/js/d2.js");
+                const svg = await renderD2(source, false);
+                const drawing = new DOMParser().parseFromString(svg, "image/svg+xml");
+                return [...drawing.querySelectorAll("text")].map((text) => text.textContent);
+            }""",
             source,
         )
-        if error:
-            failures[where] = error.splitlines()[:3]
-    assert blocks and failures == {}
+        assert diagram.nodes and written and set(written) <= set(shown), name
+
+
+def test_diagrams_are_laid_out_by_elk(site: Site, page: Page) -> None:
+    """ELK draws right-angled lines with rounded corners (`L` then `S` in a path); dagre draws curves (ADR 0018)."""
+    site.sign_in(page, "/system")
+    svg = page.evaluate(
+        """async () => {
+            const { renderD2 } = await import("/static/js/d2.js");
+            return renderD2('a -> b\\na -> c\\nb -> d\\nc -> d', false);
+        }"""
+    )
+    assert re.search(r'<path d="M [\d.]+ [\d.]+ L [^"]* S ', svg)

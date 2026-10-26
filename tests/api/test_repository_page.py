@@ -247,7 +247,9 @@ def test_the_change_section_lists_the_guide_areas_with_their_rationale(paths: Pa
 
     def writer(request: PageRequest) -> PageDraft:
         checks = [{"id": "q", "question": "Why?", "rubric": [{"point": "p", "grounds": ["app/main.py"]}]}]
-        return PageDraft("> [!inferred]\n> It reads well.\n", checks, ["app/main.py"])
+        return PageDraft(
+            "> [!inferred]\n> It reads well.\n", checks, ["app/main.py"], brief="The key file is app/main.py."
+        )
 
     run_update(paths, "shop", claude=FakeAssistant(plans=[plan], page_writer=writer))
     change = section(client_for(paths).get("/repository").text, "change")
@@ -288,7 +290,9 @@ def test_the_grid_shades_each_area_and_month(paths: Paths) -> None:
 
     def writer(request: PageRequest) -> PageDraft:
         checks = [{"id": "q", "question": "Why?", "rubric": [{"point": "p", "grounds": ["app/main.py"]}]}]
-        return PageDraft("> [!inferred]\n> It reads well.\n", checks, ["app/main.py"])
+        return PageDraft(
+            "> [!inferred]\n> It reads well.\n", checks, ["app/main.py"], brief="The key file is app/main.py."
+        )
 
     run_update(paths, "shop", claude=FakeAssistant(plans=[plan], page_writer=writer))
     page = client_for(paths).get("/repository").text
@@ -311,7 +315,9 @@ def test_the_calendar_states_its_facts_and_the_grid_names_its_years(paths: Paths
 
     def writer(request: PageRequest) -> PageDraft:
         checks = [{"id": "q", "question": "Why?", "rubric": [{"point": "p", "grounds": ["app/main.py"]}]}]
-        return PageDraft("> [!inferred]\n> It reads well.\n", checks, ["app/main.py"])
+        return PageDraft(
+            "> [!inferred]\n> It reads well.\n", checks, ["app/main.py"], brief="The key file is app/main.py."
+        )
 
     run_update(paths, "shop", claude=FakeAssistant(plans=[plan], page_writer=writer))
     page = client_for(paths).get("/repository").text

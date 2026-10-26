@@ -34,7 +34,7 @@ jobs:
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
           version: ${{ env.MISE_VERSION }}
-          install_args: gitleaks just python uv node pnpm
+          install_args: gitleaks just python uv node pnpm d2
       - run: pnpm install --frozen-lockfile
       - run: uv sync --locked
       # Headless Chromium and its system libraries for the browser tests (ADR 0008)

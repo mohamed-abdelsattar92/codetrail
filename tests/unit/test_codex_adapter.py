@@ -12,7 +12,7 @@ from codetrail.assistant.prompts import FULLWIDTH_AT
 from codetrail.config import CodexSettings, GenerationSettings
 from tests.fixtures.programs import FakeProgram, make_program
 
-PAGE = {"body": "A page.", "checks": []}
+PAGE = {"body": "A page.", "checks": [], "brief": "B"}
 
 
 def message(text: str) -> dict[str, Any]:
@@ -94,10 +94,10 @@ async def test_a_page_runs_codex_read_only_and_isolated(source: Path, tmp_path: 
         "project_doc_max_bytes=0",
         'shell_environment_policy.inherit="none"',
     ]
-    assert record["schema"]["required"] == ["body", "checks"]
+    assert record["schema"]["required"] == ["body", "checks", "brief"]
     assert f"{FULLWIDTH_AT}app/main.py" in record["stdin"]
     assert record["cwd"] == str(source.resolve())
-    assert (draft.body, draft.files_read) == ("A page.", ["app/main.py"])
+    assert (draft.body, draft.files_read, draft.brief) == ("A page.", ["app/main.py"], "B")
     assert (draft.usage.provider, draft.usage.input_tokens, draft.usage.cached_input_tokens) == ("codex", 600, 400)
     assert draft.usage.cost_usd is None
 

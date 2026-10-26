@@ -25,7 +25,7 @@ def page_writer(request: PageRequest) -> PageDraft:
         "{{diagram imports scope=app}}\n"
     )
     checks = [{"id": "q", "question": "Why?", "rubric": [{"point": "p", "grounds": ["app/main.py"]}]}]
-    return PageDraft(body, checks, ["app/main.py"])
+    return PageDraft(body, checks, ["app/main.py"], brief="The key file is app/main.py.")
 
 
 @pytest.fixture
@@ -62,7 +62,7 @@ def test_a_guide_page_renders_rationale_and_diagrams_inertly(paths: Paths) -> No
     assert 'class="rationale documented"' in page
     assert 'href="/source/docs/adr/0001-x.md#L3"' in page
     assert 'class="rationale inferred"' in page
-    assert '<pre class="diagram">flowchart LR' in page
+    assert '<pre class="diagram">direction: right' in page
 
 
 @pytest.mark.parametrize("page_id", ["areas/missing", "../outline", "areas/../../x", "outline"])

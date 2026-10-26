@@ -56,7 +56,7 @@ def writer(request: PageRequest) -> PageDraft:
         "> [!inferred]\n> The delay grows with each attempt.\n\n## Where it lives\n\nIn `app/charges.py`.\n"
     )
     checks = [{"id": "q1", "question": "Why retry?", "rubric": [{"point": "p", "grounds": ["app/main.py"]}]}]
-    return PageDraft(body, checks, ["app/main.py"])
+    return PageDraft(body, checks, ["app/main.py"], brief="The key file is app/main.py.")
 
 
 @dataclass

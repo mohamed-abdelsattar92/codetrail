@@ -65,7 +65,7 @@ def test_rationale_blocks_become_labelled_boxes(store: FactStore) -> None:
 def test_diagram_placeholders_become_diagrams(store: FactStore) -> None:
     segments = render_body("Intro.\n\n{{diagram imports scope=app}}\n\nAfter.\n", store, 60)
     assert [segment.kind for segment in segments] == ["html", "diagram", "html"]
-    assert segments[1].diagram is not None and segments[1].diagram.mermaid.startswith("flowchart LR")
+    assert segments[1].diagram is not None and segments[1].diagram.d2.startswith("direction: right")
 
 
 def test_a_diagram_that_would_draw_nothing_is_left_out(store: FactStore) -> None:
@@ -85,3 +85,13 @@ def test_the_system_placeholder_draws_the_system_or_one_folder(store: FactStore)
     assert [segment.kind for segment in whole] == ["diagram"] and [segment.kind for segment in focused] == ["diagram"]
     assert whole[0].diagram is not None and len(whole[0].diagram.nodes) == 2
     assert elsewhere == []
+
+
+def test_aligned_table_columns_use_classes_not_inline_styles() -> None:
+    """The page's policy allows no inline styles (ADR 0016), so a column's alignment is a class."""
+    from codetrail.web.render import render_markdown
+
+    html = render_markdown("| a | b | c | d |\n|:--|:-:|--:|---|\n| 1 | 2 | 3 | 4 |\n")
+    assert " style=" not in html
+    assert '<th class="align-left">a</th>' in html and '<th class="align-center">b</th>' in html
+    assert '<td class="align-right">3</td>' in html and "<td>4</td>" in html

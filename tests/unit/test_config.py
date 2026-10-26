@@ -6,6 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from codetrail.config import (
+    AgentSettings,
     GlobalConfig,
     Paths,
     check_containment,
@@ -344,3 +345,17 @@ def test_quiet_days_are_bounded(paths: Paths) -> None:
 def test_refuses_a_pin_limit_out_of_range(value: int) -> None:
     with pytest.raises(ValidationError):
         GlobalConfig.model_validate({"ui": {"max_pins": value}})
+
+
+def test_agent_settings_have_their_defaults_and_ranges() -> None:
+    settings = GlobalConfig().agents
+    assert (settings.max_map_words, settings.max_brief_words, settings.key_files_per_part) == (2500, 300, 5)
+    assert (settings.recent_digests, settings.max_briefs_per_call, settings.max_response_words) == (5, 3, 4000)
+    for field, value in (("max_map_words", 499), ("max_brief_words", 2001), ("max_briefs_per_call", 0)):
+        with pytest.raises(ValidationError):
+            AgentSettings(**{field: value})
+
+
+def test_the_estimates_leave_room_for_a_brief() -> None:
+    estimates = GlobalConfig().estimates
+    assert (estimates.write.output, estimates.revise.output) == (6_500, 2_500)
