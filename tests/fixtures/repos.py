@@ -20,6 +20,13 @@ GIT_ENVIRONMENT = {
     "GIT_AUTHOR_EMAIL": "author@example.com",
     "GIT_COMMITTER_NAME": "Test Author",
     "GIT_COMMITTER_EMAIL": "author@example.com",
+    # No maintenance or garbage collection in the background: it writes and removes files under .git while a test
+    # compares the folder before and after Codetrail read it.
+    "GIT_CONFIG_COUNT": "2",
+    "GIT_CONFIG_KEY_0": "maintenance.auto",
+    "GIT_CONFIG_VALUE_0": "false",
+    "GIT_CONFIG_KEY_1": "gc.auto",
+    "GIT_CONFIG_VALUE_1": "0",
 }
 
 
