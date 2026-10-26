@@ -17,7 +17,7 @@ Release notes: [docs/releases/v1.4.0.md](docs/releases/v1.4.0.md).
 - Every diagram (the system diagram, and the imports, dependencies and resources diagrams on area pages, guide pages and answers) is drawn with D2 instead of Mermaid, with a clearer layout and each kind of part in its own shape as before. The first diagram on a page takes about a second to appear while the browser prepares D2. The README's diagrams are drawn with D2 too ([ADR 0016](docs/adr/0016-draw-diagrams-with-d2.md)).
 
 ### Security
-- The page's Content-Security-Policy no longer allows inline styles, which only Mermaid needed. D2's layout evaluates JavaScript, so it runs in a worker with its own policy, which can load nothing but its own two files and has no access to the page, and its drawing is shown as an image, which can't run script or follow links.
+- The page's Content-Security-Policy no longer allows inline styles, which only Mermaid needed. D2's layout evaluates JavaScript, so it runs in a worker with its own policy, which can load nothing but its own files and has no access to the page, and its drawing is shown as an image, which can't run script or follow links.
 - `codetrail mcp` speaks over standard input and output with no port, reads only Codetrail's export, and checks every argument; the command `codetrail agents` prints runs Python with `-I`, so code planted in the folder an agent works in never runs, and each tool tells agents in any other repository not to call it.
 
 ## [1.3.0] - 2026-10-18
