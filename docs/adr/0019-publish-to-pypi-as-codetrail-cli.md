@@ -30,7 +30,8 @@
 ### Option C: a workflow publishes on each published release, by trusted publishing (chosen)
 - Good, because no token exists anywhere, the upload is built from the tag the founder published, and the release needs nothing more.
 - Good, because the `pypi` environment can require the founder's approval before each upload.
-- Bad, because PyPI then trusts GitHub's identity for this workflow: anyone who can publish a release or change the workflow on a tag can publish. Only the founder can do either.
+- Bad, because PyPI trusts the workflow's file name and environment, not a ref: anyone who can publish a release, or push a tag whose copy of the workflow is changed, could upload. So the `pypi` environment and a tag ruleset must hold that to the founder (Changes required).
+- Bad, because the steps before the upload run in the job that can get the token. The job restores no cache, and its two actions and tools are pinned; splitting build and upload into two jobs would add two more actions to pin.
 
 ## Decision
 Publish as `codetrail-cli` (the import package and the command stay `codetrail`) from `.github/workflows/publish.yml`, which runs when a GitHub release is published, checks that the tag names the version in `pyproject.toml`, builds with `uv build` and uploads with `uv publish --trusted-publishing always` in the `pypi` environment. It wins on all three drivers: no secret, `uvx --from codetrail-cli codetrail` to try it, and no new step per release.
@@ -45,4 +46,8 @@ Publish as `codetrail-cli` (the import package and the command stay `codetrail`)
 - [x] `pyproject.toml`: `name = "codetrail-cli"`, `tool.uv.build-backend.module-name = "codetrail"`; `uv.lock`.
 - [x] `.github/workflows/publish.yml`, and a test that the wheel is named `codetrail-cli`, has the `codetrail` command and holds every committed file of the package.
 - [x] `docs/getting-started.md`: install from PyPI, and remove `codetrail-cli`.
-- [ ] The founder, once: on PyPI, add a pending trusted publisher (project `codetrail-cli`, owner `mohamed-abdelsattar92`, repository `codetrail`, workflow `publish.yml`, environment `pypi`); on GitHub, create the `pypi` environment, with the founder as a required reviewer if wanted.
+- [x] `CONTRIBUTING.md`, Releasing: publishing a release uploads to PyPI, and the one-time setup.
+- [ ] The founder, once, before the next release (`CONTRIBUTING.md`, Releasing):
+  - on PyPI, add a pending trusted publisher: project `codetrail-cli`, owner `mohamed-abdelsattar92`, repository `codetrail`, workflow `publish.yml`, environment `pypi`;
+  - on GitHub, create the `pypi` environment with the founder as its required reviewer and deployments limited to tags matching `v*`;
+  - on GitHub, add a tag ruleset that lets only the founder create, update or delete `v*` tags.

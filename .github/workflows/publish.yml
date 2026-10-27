@@ -32,6 +32,8 @@ jobs:
         with:
           version: ${{ env.MISE_VERSION }}
           install_args: python uv
+          # Fresh tools, never a cache another workflow could have written, in the one job that can get an upload token
+          cache: false
       # The release's tag must name the version the package carries, or nothing is uploaded
       - name: Tag matches the version
         env:
