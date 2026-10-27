@@ -223,8 +223,8 @@ wheels = [
 ]
 
 [[package]]
-name = "codetrail"
-version = "1.4.0"
+name = "codetrail-cli"
+version = "1.4.1"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },

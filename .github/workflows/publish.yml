@@ -1,0 +1,53 @@
+# Publishes each release to PyPI as codetrail-cli (ADR 0019), once the founder publishes its GitHub release
+# (CONTRIBUTING.md, Releasing, step 6). PyPI trusts this workflow and its `pypi` environment, so no token is stored.
+# Third-party actions are pinned to full commit SHAs. Agents never trigger runs.
+name: publish
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+env:
+  MISE_VERSION: "2026.9.13"
+  # The mise binary for linux-x64, as listed for ./mise-v2026.9.13-linux-x64 in that release's SHASUMS256.txt,
+  # whose minisign signature was checked when it was pinned. mise.lock pins each tool's download by checksum.
+  MISE_SHA256: "a72f49916b33ba952ba398046c5cc91a58238f0b718fee1d938206ef2af21c6d"
+
+jobs:
+  publish:
+    name: publish to PyPI
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    environment:
+      name: pypi
+      url: https://pypi.org/project/codetrail-cli/
+    permissions:
+      contents: read
+      id-token: write # trusted publishing: PyPI exchanges this run's identity for a short-lived upload token
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
+        with:
+          version: ${{ env.MISE_VERSION }}
+          sha256: ${{ env.MISE_SHA256 }}
+          # Only the versions, download addresses and checksums in mise.lock
+          install_args: --locked python uv
+          # Fresh tools, never a cache another workflow could have written, in the one job that can get an upload token
+          cache: false
+      # The release's tag must name the version the package carries, or nothing is uploaded
+      - name: Tag matches the version
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version="$(uv version --short)"
+          if [ "$TAG" != "v$version" ]; then
+            echo "The release's tag is $TAG but pyproject.toml says $version." >&2
+            exit 1
+          fi
+      - run: uv build
+      - run: uv publish --trusted-publishing always

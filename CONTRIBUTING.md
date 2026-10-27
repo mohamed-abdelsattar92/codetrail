@@ -7,6 +7,8 @@ To report a security problem, don't open an issue: follow [SECURITY.md](SECURITY
 ## Set up
 Once per clone: `mise trust && mise install`, then `just setup` (the Python and commit-message dependencies, the git hooks and the git-flow settings). Everything runs through `just`; `just ci` runs what CI runs.
 
+`.mise.toml` pins each tool's version, and `mise.lock` its download address and checksum for Linux and macOS on x64 and arm64; CI installs with `--locked`, so it refuses any other download. To change a tool's version, edit `.mise.toml` and run `mise lock`. To change mise's own version in CI, set `MISE_VERSION` and `MISE_SHA256` in both workflows: the checksum is the one for `mise-v<version>-linux-x64` in that release's `SHASUMS256.txt`, after checking its minisign signature.
+
 ## Workflow
 1. **Discuss first.** For anything larger than a small fix, open an issue before you write it, so that we agree on the approach.
 2. **Use git-flow.** Branch features off `develop` with `git flow feature start <name>`, and fixes with `git flow bugfix start <name>`. One topic per branch. Never branch from `main`; `release/` and `hotfix/` branches are the maintainer's.
@@ -46,6 +48,8 @@ For the maintainer. `main` accepts changes only through a pull request that pass
 3. `gh pr create --base main --head release/<version> --title "Release <version>"`, and when CI passes, `gh pr merge --merge`.
 4. `git checkout main && git pull`, then `git tag -a v<version> -m "Codetrail <version>"` and `git push origin v<version>`.
 5. Bring the release back: `git checkout develop && git merge --no-ff main && git push origin develop`, then delete `release/<version>` locally and on GitHub.
-6. `gh release create v<version> --draft --verify-tag --title "Codetrail <version>" --notes-file docs/releases/v<version>.md`, check it, and publish it with `gh release edit v<version> --draft=false`. With the repository's release immutability setting on, as it is, a published release and its tag can't be changed.
+6. `gh release create v<version> --draft --verify-tag --title "Codetrail <version>" --notes-file docs/releases/v<version>.md`, check it, and publish it with `gh release edit v<version> --draft=false`. With the repository's release immutability setting on, as it is, a published release and its tag can't be changed. Publishing it also starts `publish.yml`, which waits for your approval in the `pypi` environment and then uploads the release to PyPI as `codetrail-cli`; a version on PyPI can never be uploaded again, even after it's deleted ([ADR 0019](docs/adr/0019-publish-to-pypi-as-codetrail-cli.md)).
+
+Once, before the first release on PyPI: on PyPI, add a pending trusted publisher (project `codetrail-cli`, owner `mohamed-abdelsattar92`, repository `codetrail`, workflow `publish.yml`, environment `pypi`); on GitHub, create the `pypi` environment with yourself as its required reviewer and deployments limited to tags matching `v*`, and add a tag ruleset that lets only you create, update or delete `v*` tags.
 
 `just release <version>` runs steps 2 to 6 for you, from your own terminal, once step 1 is on `origin/develop` and CI has passed on it. It refuses coding-agent sessions. Before it changes anything it checks that you're on a clean `develop` equal to `origin/develop`, that `pyproject.toml`, the package, `CHANGELOG.md` and `docs/releases/v<version>.md` are ready for that version, and that the tag doesn't exist yet; if one check fails, nothing changes. It waits for the pull request's CI before merging, and stops at the draft release, for you to check and publish as in step 6. If a step fails, it says which; the steps before it are done, so finish from that step by hand.

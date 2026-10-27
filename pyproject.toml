@@ -1,7 +1,8 @@
 [project]
-name = "codetrail"
-version = "1.4.0"
-description = "Turn a git repository into a local learning guide that keeps up with it."
+# PyPI's "codetrail" is another project; the import package and the command stay codetrail (ADR 0019).
+name = "codetrail-cli"
+version = "1.4.1"
+description = "Get up to speed on any codebase in days, not months: a local guide to a git repository, for you and your coding agent."
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
@@ -30,6 +31,9 @@ codetrail = "codetrail.cli:main"
 # Rebuild an installed Codetrail whenever the checkout's commit changes, not only when pyproject.toml does,
 # so `uv tool install --reinstall .` after a `git pull` installs the new code.
 cache-keys = [{ file = "pyproject.toml" }, { git = { commit = true } }]
+
+[tool.uv.build-backend]
+module-name = "codetrail"
 
 [build-system]
 requires = ["uv_build>=0.12,<0.13"]
