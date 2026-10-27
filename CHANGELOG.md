@@ -4,6 +4,9 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+### Changed
+- The README and the getting-started guide install Codetrail from PyPI: `uv tool install codetrail-cli`.
+
 ## [1.4.1] - 2026-10-27
 
 Release notes: [docs/releases/v1.4.1.md](docs/releases/v1.4.1.md).
