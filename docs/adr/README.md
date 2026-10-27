@@ -42,3 +42,4 @@ Everything smaller is explained in the commit body, not in an ADR.
 | [0016](0016-draw-diagrams-with-d2.md) | Draw diagrams with D2: committed SVGs in the documentation, and D2's WebAssembly build in an isolated worker on the page | accepted | 2026-10-21 |
 | [0017](0017-tool-server-for-coding-agents.md) | Serve coding agents through a Model Context Protocol tool server over standard input and output, written with the standard library | accepted | 2026-10-22 |
 | [0018](0018-lay-out-diagrams-with-elk.md) | Lay out the page's diagrams with ELK, and vendor D2's ELK build | proposed | 2026-10-22 |
+| [0019](0019-publish-to-pypi-as-codetrail-cli.md) | Publish each release to PyPI as codetrail-cli, by trusted publishing from GitHub Actions | proposed | 2026-10-27 |

@@ -4,6 +4,9 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+### Changed
+- Codetrail is on PyPI as `codetrail-cli`: install it with `uv tool install codetrail-cli`, or try it with `uvx --from codetrail-cli codetrail`. The command is still `codetrail`. If you installed it from a clone or a release tag, run `uv tool uninstall codetrail` once first ([ADR 0019](docs/adr/0019-publish-to-pypi-as-codetrail-cli.md)).
+
 ## [1.4.0] - 2026-10-26
 
 Release notes: [docs/releases/v1.4.0.md](docs/releases/v1.4.0.md).
