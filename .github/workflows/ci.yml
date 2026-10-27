@@ -20,6 +20,10 @@ concurrency:
 
 env:
   MISE_VERSION: "2026.9.13"
+  # The mise binary for linux-x64, as listed for ./mise-v2026.9.13-linux-x64 in that release's SHASUMS256.txt,
+  # whose minisign signature was checked when it was pinned. mise.lock pins each tool's download by checksum, except
+  # d2's, which d2 doesn't publish. Tools restored from this job's cache aren't checked again.
+  MISE_SHA256: "a72f49916b33ba952ba398046c5cc91a58238f0b718fee1d938206ef2af21c6d"
 
 jobs:
   ci:
@@ -34,7 +38,9 @@ jobs:
       - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4.3.0
         with:
           version: ${{ env.MISE_VERSION }}
-          install_args: gitleaks just python uv node pnpm d2
+          sha256: ${{ env.MISE_SHA256 }}
+          # Only the versions, download addresses and checksums in mise.lock
+          install_args: --locked gitleaks just python uv node pnpm d2
       - run: pnpm install --frozen-lockfile
       - run: uv sync --locked
       # Headless Chromium and its system libraries for the browser tests (ADR 0008)
