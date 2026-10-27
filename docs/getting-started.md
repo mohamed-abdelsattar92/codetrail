@@ -22,14 +22,14 @@ Codetrail runs your own signed-in `claude` or `codex` program and never sees you
 ## 2. Install
 
 ```bash
-uv tool install git+https://github.com/mohamed-abdelsattar92/codetrail@v1.4.1
+uv tool install codetrail-cli
 ```
 
 ```bash
 codetrail --version
 ```
 
-`uv tool install` puts `codetrail` on your `PATH`, as a tool named `codetrail-cli`; to upgrade, run the same command with `--reinstall` and the newer release's tag. If you installed 1.4.0 or earlier, whose tool was named `codetrail`, run `uv tool uninstall codetrail` first: both put a `codetrail` command on your `PATH`. To run the code on `develop`, clone the repository and run `uv tool install .` in it.
+Codetrail is on PyPI as `codetrail-cli`; the command is `codetrail`. PyPI's `codetrail` is an unrelated project, so always name `codetrail-cli`, and use `--from codetrail-cli` with `uvx`. `uv tool install` puts it on your `PATH`, and `uv tool upgrade codetrail-cli` installs a newer release. To try it without installing anything, run each command below as `uvx --from codetrail-cli codetrail …` instead. If you installed 1.4.0 or earlier, whose tool was named `codetrail`, run `uv tool uninstall codetrail` first: both put a `codetrail` command on your `PATH`. To run the code on `develop`, clone the repository and run `uv tool install .` in it.
 
 ## 3. Check your assistant
 
