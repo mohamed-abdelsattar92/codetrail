@@ -31,7 +31,7 @@
 - Good, because no token exists anywhere, the upload is built from the tag the founder published, and the release needs nothing more.
 - Good, because the `pypi` environment can require the founder's approval before each upload.
 - Bad, because PyPI trusts the workflow's file name and environment, not a ref: anyone who can publish a release, or push a tag whose copy of the workflow is changed, could upload. So the `pypi` environment and a tag ruleset must hold that to the founder (Changes required).
-- Bad, because the steps before the upload run in the job that can get the token. The job restores no cache, and its two actions and tools are pinned; splitting build and upload into two jobs would add two more actions to pin.
+- Bad, because the steps before the upload run in the job that can get the token. The job restores no cache, its two actions are pinned by commit hash, and mise, Python and uv by version only (no checksum or mise lock file yet); splitting build and upload into two jobs would add two more actions to pin.
 
 ## Decision
 Publish as `codetrail-cli` (the import package and the command stay `codetrail`) from `.github/workflows/publish.yml`, which runs when a GitHub release is published, checks that the tag names the version in `pyproject.toml`, builds with `uv build` and uploads with `uv publish --trusted-publishing always` in the `pypi` environment. It wins on all three drivers: no secret, `uvx --from codetrail-cli codetrail` to try it, and no new step per release.

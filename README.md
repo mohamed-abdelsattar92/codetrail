@@ -268,7 +268,7 @@ The interface is English first and switches language from the page; it ships in 
 
 ## Status
 
-The latest release is Codetrail 1.4.0 ([release notes](docs/releases/v1.4.0.md), [changelog](CHANGELOG.md)); 1.0.0 was the first public release. Phases 0 to 15 and 17 to 20 of the [design](docs/design/2026-10-05-codetrail-design.md) are built, tested and released; Phase 16 is planned. From the next release, Codetrail installs from PyPI as `codetrail-cli` ([ADR 0019](docs/adr/0019-publish-to-pypi-as-codetrail-cli.md)).
+The latest release is Codetrail 1.4.0 ([release notes](docs/releases/v1.4.0.md), [changelog](CHANGELOG.md)); 1.0.0 was the first public release. Phases 0 to 15 and 17 to 20 of the [design](docs/design/2026-10-05-codetrail-design.md) are built, tested and released; Phase 16 is planned. Codetrail will also be published to PyPI ([ADR 0019](docs/adr/0019-publish-to-pypi-as-codetrail-cli.md)); until the install instructions here change, install from the release tag.
 
 ![The design's phases: 0 to 15 and 17 to 20 built, 16 planned](docs/diagrams/phases.svg)
 
