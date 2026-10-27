@@ -34,4 +34,4 @@ def test_the_stop_signal_handler_fires_once(monkeypatch: pytest.MonkeyPatch) -> 
 def test_the_installed_version_is_the_one_the_code_reports() -> None:
     from importlib.metadata import version
 
-    assert version("codetrail") == __version__  # pyproject.toml and __init__.py move together
+    assert version("codetrail-cli") == __version__  # pyproject.toml and __init__.py move together

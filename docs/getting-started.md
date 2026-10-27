@@ -22,14 +22,14 @@ Codetrail runs your own signed-in `claude` or `codex` program and never sees you
 ## 2. Install
 
 ```bash
-uv tool install git+https://github.com/mohamed-abdelsattar92/codetrail@v1.4.0
+uv tool install git+https://github.com/mohamed-abdelsattar92/codetrail@v1.4.1
 ```
 
 ```bash
 codetrail --version
 ```
 
-`uv tool install` puts `codetrail` on your `PATH`; to upgrade, run the same command with `--reinstall` and the newer release's tag. To run the code on `develop`, clone the repository and run `uv tool install .` in it; there the tool is named `codetrail-cli`, so run `uv tool uninstall codetrail` first if you installed a release before.
+`uv tool install` puts `codetrail` on your `PATH`, as a tool named `codetrail-cli`; to upgrade, run the same command with `--reinstall` and the newer release's tag. If you installed 1.4.0 or earlier, whose tool was named `codetrail`, run `uv tool uninstall codetrail` first: both put a `codetrail` command on your `PATH`. To run the code on `develop`, clone the repository and run `uv tool install .` in it.
 
 ## 3. Check your assistant
 
@@ -233,7 +233,7 @@ The `XDG_CONFIG_HOME`, `XDG_DATA_HOME` and `XDG_STATE_HOME` variables move these
 
 To remove one repository, run `codetrail target remove shop`; it refuses while `codetrail serve` or an update is using the target, so stop those first. It lists what it will delete (the target's settings, its ignore file, and its data and state folders), asks first, and never touches the repository itself. `--yes` skips the question.
 
-To remove Codetrail, run `uv tool uninstall codetrail` (`codetrail-cli` if you installed from a clone of `develop`) and delete those folders.
+To remove Codetrail, run `uv tool uninstall codetrail-cli` (`codetrail` for 1.4.0 and earlier) and delete those folders.
 
 ## Troubleshooting
 
