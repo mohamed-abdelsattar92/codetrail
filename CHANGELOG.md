@@ -5,6 +5,7 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 ## [Unreleased]
 
 ### Changed
+- The README leads with what Codetrail is for: getting up to speed on a codebase you're new to, on your own or as a team. It starts with a four-line quick start and says who it's for.
 - Codetrail is on PyPI as `codetrail-cli`: install it with `uv tool install codetrail-cli`, or try it with `uvx --from codetrail-cli codetrail`. The command is still `codetrail`. If you installed it from a clone or a release tag, run `uv tool uninstall codetrail` once first ([ADR 0019](docs/adr/0019-publish-to-pypi-as-codetrail-cli.md)).
 
 ## [1.4.0] - 2026-10-26

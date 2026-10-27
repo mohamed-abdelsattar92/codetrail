@@ -5,9 +5,9 @@
   </picture>
 </h1>
 
-**Your repository's tutor, for you and your coding agent.**
+**Get up to speed on any codebase in days, not months, and bring your coding agent with you.**
 
-Codetrail reads a git repository and keeps a guide to it that grows as the code changes. It teaches you the architecture, patterns and tools behind the code, and tells you what changed and why it matters. It gives your coding agent the same understanding, so Claude Code or Codex starts every task knowing the repository instead of guessing at it.
+A new job, a new team, or a service handed over by people who have moved on: Codetrail reads the git repository and keeps a guide to it that grows as the code changes. It teaches you the architecture, patterns and decisions behind the code, and tells you what changed since you last looked and why it matters. It gives your coding agent the same understanding, so Claude Code or Codex starts every task knowing the repository instead of guessing at it.
 
 | For you | For your agent |
 |---|---|
@@ -17,11 +17,19 @@ Codetrail reads a git repository and keeps a guide to it that grows as the code 
 
 It runs on your machine, never writes to your repository, and works with the assistant you already pay for: **Claude Code** on a Claude subscription, **Codex** on a ChatGPT subscription, or **a free local model**. Before anything is spent, it shows an estimate and asks.
 
+```bash
+uv tool install codetrail-cli
+codetrail target add shop ~/code/shop --branch main
+codetrail update shop
+codetrail serve shop
+```
+
 **[Get started in ten minutes →](docs/getting-started.md)**
 
 ![Codetrail's home page for its own repository: pinned pages and folding sections in the sidebar; where to continue, every path's progress and the areas by state; and beside them, how far behind the guide is, what changed and the system, documentation and repository cards](docs/images/home.png)
 
 ## Contents
+- [Who it's for](#whos-it-for)
 - [Why Codetrail](#why-codetrail)
 - [What you get](#what-you-get)
 - [For your coding agent](#for-your-coding-agent)
@@ -38,6 +46,12 @@ It runs on your machine, never writes to your repository, and works with the ass
 - [Documentation](#documentation)
 - [Credits](#credits)
 - [License](#license)
+
+## Who it's for
+
+- **You just joined a team.** Instead of reading files at random and saving up questions for busy teammates, follow guided paths through the parts that matter, check that you understood them, and see what changed each time you come back.
+- **Your team inherited a project.** After a reorganisation, an acquisition or a handover, everyone builds the same picture of the code from the same guide, with every reason marked as documented in the repository or inferred from the code.
+- **You bring people onto a codebase.** Point each newcomer at the guide instead of repeating the same walkthrough. It keeps up with the code on its own, and runs on each person's machine and their own assistant subscription, so the code goes nowhere it doesn't already go.
 
 ## Why Codetrail
 
