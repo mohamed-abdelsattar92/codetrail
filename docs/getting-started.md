@@ -29,7 +29,7 @@ uv tool install codetrail-cli
 codetrail --version
 ```
 
-Codetrail is on PyPI as `codetrail-cli`; the command is `codetrail`. `uv tool install` puts it on your `PATH`, and `uv tool upgrade codetrail-cli` installs a newer release. To try it without installing anything, run each command below as `uvx --from codetrail-cli codetrail …` instead. If you installed 1.4.0 or earlier, whose tool was named `codetrail`, run `uv tool uninstall codetrail` first: both put a `codetrail` command on your `PATH`. To run the code on `develop`, clone the repository and run `uv tool install .` in it.
+Codetrail is on PyPI as `codetrail-cli`; the command is `codetrail`. PyPI's `codetrail` is an unrelated project, so always name `codetrail-cli`, and use `--from codetrail-cli` with `uvx`. `uv tool install` puts it on your `PATH`, and `uv tool upgrade codetrail-cli` installs a newer release. To try it without installing anything, run each command below as `uvx --from codetrail-cli codetrail …` instead. If you installed 1.4.0 or earlier, whose tool was named `codetrail`, run `uv tool uninstall codetrail` first: both put a `codetrail` command on your `PATH`. To run the code on `develop`, clone the repository and run `uv tool install .` in it.
 
 ## 3. Check your assistant
 

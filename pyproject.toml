@@ -24,6 +24,12 @@ dependencies = [
     "uvicorn==0.54.0",
 ]
 
+[project.urls]
+Homepage = "https://github.com/mohamed-abdelsattar92/codetrail"
+Repository = "https://github.com/mohamed-abdelsattar92/codetrail"
+Documentation = "https://github.com/mohamed-abdelsattar92/codetrail/blob/develop/docs/getting-started.md"
+Changelog = "https://github.com/mohamed-abdelsattar92/codetrail/blob/develop/CHANGELOG.md"
+
 [project.scripts]
 codetrail = "codetrail.cli:main"
 
