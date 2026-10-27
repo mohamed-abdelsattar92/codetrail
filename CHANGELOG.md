@@ -12,6 +12,9 @@ Release notes: [docs/releases/v1.4.1.md](docs/releases/v1.4.1.md).
 - The README leads with what Codetrail is for: getting up to speed on a codebase you're new to, on your own or as a team. It starts with a four-line quick start and says who it's for.
 - Codetrail's package is named `codetrail-cli`, and each release from now on is published to PyPI under that name; the command is still `codetrail`. The installed tool is named `codetrail-cli` however you install it: if you installed 1.4.0 or earlier, run `uv tool uninstall codetrail` once first ([ADR 0019](docs/adr/0019-publish-to-pypi-as-codetrail-cli.md)).
 
+### Security
+- The workflow that publishes each release installs mise only by a checksum pinned in the workflow, and Python and uv only by the checksums in `mise.lock`. CI does the same for its tools except d2, which publishes no checksums.
+
 ## [1.4.0] - 2026-10-26
 
 Release notes: [docs/releases/v1.4.0.md](docs/releases/v1.4.0.md).
