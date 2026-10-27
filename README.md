@@ -300,7 +300,7 @@ Codex and local models are tested against stand-ins and Codetrail's own tests; C
 
 ## Developing Codetrail
 
-Python with uv, FastAPI, SQLite, tree-sitter and httpx. mise pins the tools, `just` runs everything, lefthook runs the git hooks, commits follow Conventional Commits with a *Why* in every body, and branches follow git-flow with local-only finishes.
+Python with uv, FastAPI, SQLite, tree-sitter and httpx. mise pins the tools (their checksums in `mise.lock`), `just` runs everything, lefthook runs the git hooks, commits follow Conventional Commits with a *Why* in every body, and branches follow git-flow with local-only finishes.
 
 - **Test first.** Every behaviour starts as a failing test, including what must be refused: excluded files, rejected requests, tools an assistant may not use.
 - **Coding agents never push**, never touch credentials and never write to a target repository. The full rules are in [AGENTS.md](AGENTS.md).

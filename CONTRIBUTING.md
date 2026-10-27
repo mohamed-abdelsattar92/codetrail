@@ -7,6 +7,8 @@ To report a security problem, don't open an issue: follow [SECURITY.md](SECURITY
 ## Set up
 Once per clone: `mise trust && mise install`, then `just setup` (the Python and commit-message dependencies, the git hooks and the git-flow settings). Everything runs through `just`; `just ci` runs what CI runs.
 
+`.mise.toml` pins each tool's version, and `mise.lock` its download address and checksum for Linux and macOS on x64 and arm64; CI installs with `--locked`, so it refuses any other download. To change a tool's version, edit `.mise.toml` and run `mise lock`. To change mise's own version in CI, set `MISE_VERSION` and `MISE_SHA256` in both workflows: the checksum is the one for `mise-v<version>-linux-x64` in that release's `SHASUMS256.txt`, after checking its minisign signature.
+
 ## Workflow
 1. **Discuss first.** For anything larger than a small fix, open an issue before you write it, so that we agree on the approach.
 2. **Use git-flow.** Branch features off `develop` with `git flow feature start <name>`, and fixes with `git flow bugfix start <name>`. One topic per branch. Never branch from `main`; `release/` and `hotfix/` branches are the maintainer's.
