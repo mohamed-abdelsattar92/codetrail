@@ -9,7 +9,7 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 - Codetrail's package is named `codetrail-cli`, and each release from now on is published to PyPI under that name; the command is still `codetrail`. The install instructions move to PyPI once the first release is there. Installed from a clone, the tool is now named `codetrail-cli`: run `uv tool uninstall codetrail` once first ([ADR 0019](docs/adr/0019-publish-to-pypi-as-codetrail-cli.md)).
 
 ### Security
-- The workflow that publishes each release, and CI, install mise, Python, uv and the other tools only from downloads whose checksums the repository records (`mise.lock`).
+- The workflow that publishes each release installs mise only by a checksum pinned in the workflow, and Python and uv only by the checksums in `mise.lock`. CI does the same for its tools except d2, which publishes no checksums.
 
 ## [1.4.0] - 2026-10-26
 

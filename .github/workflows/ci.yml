@@ -21,7 +21,8 @@ concurrency:
 env:
   MISE_VERSION: "2026.9.13"
   # The mise binary for linux-x64, as listed for ./mise-v2026.9.13-linux-x64 in that release's SHASUMS256.txt,
-  # whose minisign signature was checked when it was pinned. mise.lock pins each tool's download by checksum.
+  # whose minisign signature was checked when it was pinned. mise.lock pins each tool's download by checksum, except
+  # d2's, which d2 doesn't publish. Tools restored from this job's cache aren't checked again.
   MISE_SHA256: "a72f49916b33ba952ba398046c5cc91a58238f0b718fee1d938206ef2af21c6d"
 
 jobs:
