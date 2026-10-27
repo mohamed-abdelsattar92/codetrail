@@ -18,7 +18,7 @@ A new job, a new team, or a service handed over by people who have moved on: Cod
 It runs on your machine, never writes to your repository, and works with the assistant you already pay for: **Claude Code** on a Claude subscription, **Codex** on a ChatGPT subscription, or **a free local model**. Before anything is spent, it shows an estimate and asks.
 
 ```bash
-uv tool install codetrail-cli
+uv tool install git+https://github.com/mohamed-abdelsattar92/codetrail@v1.4.0
 codetrail target add shop ~/code/shop --branch main
 codetrail update shop
 codetrail serve shop
@@ -51,7 +51,7 @@ codetrail serve shop
 
 - **You just joined a team.** Instead of reading files at random and saving up questions for busy teammates, follow guided paths through the parts that matter, check that you understood them, and see what changed each time you come back.
 - **Your team inherited a project.** After a reorganisation, an acquisition or a handover, everyone builds the same picture of the code from the same guide, with every reason marked as documented in the repository or inferred from the code.
-- **You bring people onto a codebase.** Point each newcomer at the guide instead of repeating the same walkthrough. It keeps up with the code on its own, and runs on each person's machine and their own assistant subscription, so the code goes nowhere it doesn't already go.
+- **You bring people onto a codebase.** Point each newcomer at the guide instead of repeating the same walkthrough. One command brings it up to date, and the home page says how far behind it is. It runs on each person's machine with the assistant they choose: the files it reads go to that provider under their plan's terms, so check that your organisation allows it, or use a local model to keep everything on the machine.
 
 ## Why Codetrail
 

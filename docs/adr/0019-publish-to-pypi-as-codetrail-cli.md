@@ -45,7 +45,7 @@ Publish as `codetrail-cli` (the import package and the command stay `codetrail`)
 ## Changes required
 - [x] `pyproject.toml`: `name = "codetrail-cli"`, `tool.uv.build-backend.module-name = "codetrail"`; `uv.lock`.
 - [x] `.github/workflows/publish.yml`, and a test that the wheel is named `codetrail-cli`, has the `codetrail` command and holds every committed file of the package.
-- [x] `docs/getting-started.md`: install from PyPI, and remove `codetrail-cli`.
+- [ ] Only after the first release is on PyPI: the README's quick start and `docs/getting-started.md` install `codetrail-cli` from PyPI. Until then they install from the release tag, because a pending publisher doesn't reserve the name, and anyone could register `codetrail-cli` first and ship their own `codetrail` command to readers who follow the instructions.
 - [x] `CONTRIBUTING.md`, Releasing: publishing a release uploads to PyPI, and the one-time setup.
 - [ ] The founder, once, before the next release (`CONTRIBUTING.md`, Releasing):
   - on PyPI, add a pending trusted publisher: project `codetrail-cli`, owner `mohamed-abdelsattar92`, repository `codetrail`, workflow `publish.yml`, environment `pypi`;
