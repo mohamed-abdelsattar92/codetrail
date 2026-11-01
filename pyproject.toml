@@ -2,7 +2,8 @@
 # PyPI's "codetrail" is another project; the import package and the command stay codetrail (ADR 0019).
 name = "codetrail-cli"
 version = "1.4.1"
-description = "Get up to speed on any codebase in days, not months: a local guide to a git repository, for you and your coding agent."
+description = "Your onboarding guide to any codebase, whether you're new or coming back: it reads a git repository on your machine and teaches it to you and your coding agent."
+keywords = ["onboarding", "developer-onboarding", "codebase", "code-understanding", "documentation", "git", "claude-code", "codex", "mcp"]
 readme = "README.md"
 license = "Apache-2.0"
 license-files = ["LICENSE"]

@@ -6,6 +6,7 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 
 ### Changed
 - The README and the getting-started guide install Codetrail from PyPI: `uv tool install codetrail-cli`.
+- The README and the PyPI page present Codetrail as your onboarding guide to any codebase, whether you're new to it or coming back to it after months away, and the PyPI page lists keywords so searches for onboarding find it.
 
 ## [1.4.1] - 2026-10-27
 
