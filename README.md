@@ -5,9 +5,9 @@
   </picture>
 </h1>
 
-**Get up to speed on any codebase in days, not months, and bring your coding agent with you.**
+**Your onboarding guide to any codebase, whether you're new to it or coming back to it. Get up to speed in days, not months, and bring your coding agent with you.**
 
-A new job, a new team, or a service handed over by people who have moved on: Codetrail reads the git repository and keeps a guide to it that grows as the code changes. It teaches you the architecture, patterns and decisions behind the code, and tells you what changed since you last looked and why it matters. It gives your coding agent the same understanding, so Claude Code or Codex starts every task knowing the repository instead of guessing at it.
+A new job, a new team, a service handed over by people who have moved on, or months away from a codebase that kept moving: Codetrail reads the git repository and keeps a guide to it that grows as the code changes. It teaches you the architecture, patterns and decisions behind the code, and tells you what changed since you last looked and why it matters. It gives your coding agent the same understanding, so Claude Code or Codex starts every task knowing the repository instead of guessing at it.
 
 | For you | For your agent |
 |---|---|
@@ -50,6 +50,7 @@ codetrail serve shop
 ## Who it's for
 
 - **You just joined a team.** Instead of reading files at random and saving up questions for busy teammates, follow guided paths through the parts that matter, check that you understood them, and see what changed each time you come back.
+- **You're coming back to a codebase.** After leave, a long holiday or months on another project, one update tells you what landed while you were away, which areas it touched and why it matters, and marks the pages you had learned whose code has since changed.
 - **Your team inherited a project.** After a reorganisation, an acquisition or a handover, everyone builds the same picture of the code from the same guide, with every reason marked as documented in the repository or inferred from the code.
 - **You bring people onto a codebase.** Point each newcomer at the guide instead of repeating the same walkthrough. One command brings it up to date, and the home page says how far behind it is. It runs on each person's machine with the assistant they choose: the files it reads go to that provider under their plan's terms, so check that your organisation allows it, or use a local model to keep everything on the machine.
 
