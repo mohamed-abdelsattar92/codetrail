@@ -17,8 +17,9 @@ HTML_IMAGE_PATH = re.compile(rf"((?:src|srcset)=\")({RELATIVE}[^\"]+\")")
 
 
 def absolute_paths(text: str, repository: str, tag: str) -> str:
-    raw = f"https://raw.githubusercontent.com/{repository}/{tag}/"
-    blob = f"https://github.com/{repository}/blob/{tag}/"
+    # refs/tags/ so a branch named like the tag can never stand in for it on a description PyPI never changes
+    raw = f"https://raw.githubusercontent.com/{repository}/refs/tags/{tag}/"
+    blob = f"https://github.com/{repository}/blob/refs/tags/{tag}/"
     text = MARKDOWN_PATH.sub(lambda match: match[1] + match[2] + (raw if match[1] else blob) + match[3], text)
     return HTML_IMAGE_PATH.sub(lambda match: match[1] + raw + match[2], text)
 

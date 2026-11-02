@@ -10,8 +10,8 @@ spec.loader.exec_module(pypi_readme)
 
 REPOSITORY = "owner/project"
 TAG = "v1.2.0"
-RAW = "https://raw.githubusercontent.com/owner/project/v1.2.0/"
-BLOB = "https://github.com/owner/project/blob/v1.2.0/"
+RAW = "https://raw.githubusercontent.com/owner/project/refs/tags/v1.2.0/"
+BLOB = "https://github.com/owner/project/blob/refs/tags/v1.2.0/"
 README = pathlib.Path(__file__).resolve().parents[2] / "README.md"
 # A Markdown link or image, or an HTML src, srcset or href, whose target has no scheme and isn't an anchor
 RELATIVE_PATH = re.compile(r"\]\((?![a-z][a-z0-9+.-]*:|#)|(?:src|srcset|href)=\"(?![a-z][a-z0-9+.-]*:|#)")
