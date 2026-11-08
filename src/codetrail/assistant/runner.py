@@ -72,15 +72,21 @@ async def run_program(
 
 
 def run_command(
-    command: Sequence[str], cwd: Path, environment: Mapping[str, str], timeout_seconds: float, stdin: str = ""
+    command: Sequence[str],
+    cwd: Path,
+    environment: Mapping[str, str],
+    timeout_seconds: float,
+    stdin: str = "",
+    *,
+    include_stderr: bool = False,
 ) -> tuple[int, str]:
-    """Runs a short command (a sign-in check) and returns its exit code and output."""
+    """Runs a short command, optionally including stderr for programs such as Codex's sign-in check."""
     try:
         process = subprocess.Popen(  # noqa: S603  # the command is a resolved provider program and fixed arguments
             list(command),
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stderr=subprocess.STDOUT if include_stderr else subprocess.PIPE,
             text=True,
             cwd=cwd,
             env=dict(environment),
