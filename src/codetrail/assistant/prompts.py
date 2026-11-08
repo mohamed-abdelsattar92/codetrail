@@ -77,7 +77,7 @@ PLAN_SCHEMA: dict[str, Any] = {
             "items": {
                 "type": "object",
                 "additionalProperties": False,
-                "required": ["id", "kind", "title", "scope_paths", "facts"],
+                "required": ["id", "kind", "title", "scope_paths", "scope_kinds", "facts"],
                 "properties": {
                     "id": {"type": "string", "description": "areas/<slug> or concepts/<slug>, lower-case, hyphens"},
                     "kind": {"type": "string", "enum": ["area", "concept"]},

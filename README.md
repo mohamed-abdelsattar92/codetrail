@@ -215,6 +215,7 @@ If an update is interrupted, the guide's uncommitted changes are discarded and n
 Codetrail runs the programs you have already signed in to and **never reads, stores or passes your password, token or API key**. It removes every API key from those programs' environment, so the work counts against your subscription and never bills an API account by surprise. An API key is used only if you set `auth = "api_key"` for that provider. Each kind of call (plan, write, digest, answer, grade) can use a different provider and model, for example Claude Code for pages and a local model for quick questions.
 
 `codetrail providers` shows what's installed and signed in, and how.
+When a Codex call fails, Codetrail reports its structured error when available, rather than an unrelated diagnostic from standard error.
 
 ## No surprise costs
 

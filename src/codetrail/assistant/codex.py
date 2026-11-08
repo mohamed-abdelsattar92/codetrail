@@ -176,6 +176,8 @@ class CodexAssistant:
             except _LimitPassed:
                 raise
             except AssistantError as error:
+                if outcome.failure is not None:
+                    raise _ProgramFailed(f"Codex didn't finish the task: {outcome.failure[:300]}") from error
                 if outcome.message is None:
                     raise _ProgramFailed(str(error)) from error
                 raise
