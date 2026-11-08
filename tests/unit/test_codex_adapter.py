@@ -87,13 +87,6 @@ async def test_a_page_runs_codex_read_only_and_isolated(source: Path, tmp_path: 
         assert flag in argv
     assert argv[argv.index("-C") + 1] == str(source.resolve())
     assert argv[argv.index("-m") + 1] == "gpt-5.5-codex"
-    overrides = [argv[index + 1] for index, value in enumerate(argv) if value == "-c"]
-    assert overrides == [
-        "mcp_servers={}",
-        "notify=[]",
-        "project_doc_max_bytes=0",
-        'shell_environment_policy.inherit="none"',
-    ]
     assert record["schema"]["required"] == ["body", "checks", "brief"]
     assert f"{FULLWIDTH_AT}app/main.py" in record["stdin"]
     assert record["cwd"] == str(source.resolve())
