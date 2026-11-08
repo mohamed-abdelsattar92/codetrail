@@ -9,6 +9,7 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 - The README, the PyPI page and the banner used as GitHub's social preview present Codetrail as your onboarding guide to any codebase, whether you're new to it or coming back to it after months away, and the PyPI page lists keywords so searches for onboarding find it.
 
 ### Fixed
+- Codex calls skip the reader's user configuration while retaining their sign-in, so unrelated MCP servers don't start or block guide generation with authentication errors.
 - The PyPI page shows the README's screenshots, diagrams and logo, and its links open the files on GitHub, at the release's tag.
 
 ## [1.4.1] - 2026-10-27

@@ -2,8 +2,9 @@
 
 Codex's tools are shell commands, and its read-only sandbox prevents writes, not reads, so Codetrail can't confine it to
 `source/`; targets must opt in to it (section 15.5). Each call runs with an empty temporary `HOME`, `/bin/sh`, no
-`USER` or `LOGNAME`, the reader's `CODEX_HOME` for the sign-in, and `-c` overrides that switch off the reader's MCP
-servers, notifications and shell environment and the target's `AGENTS.md`. The prompt goes in on stdin; structured
+`USER` or `LOGNAME`, the reader's `CODEX_HOME` for the sign-in, and `--ignore-user-config` so the reader's MCP
+servers and other user settings aren't loaded. The `-c` overrides also disable notifications, shell environment and
+the target's `AGENTS.md`. The prompt goes in on stdin; structured
 answers follow `--output-schema`; tokens come from `turn.completed` events. Answers are buffered, not streamed, so the
 bridge can scan the whole text before the reader sees it.
 """
@@ -153,6 +154,7 @@ class CodexAssistant:
                 "read-only",
                 "--json",
                 "--ephemeral",
+                "--ignore-user-config",
                 "--skip-git-repo-check",
                 "-C",
                 str(self.root),
