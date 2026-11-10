@@ -232,7 +232,7 @@ class HostingSettings(Settings):
     timeout_seconds: int = Field(default=60, ge=5, le=600)  # each program run
     max_output_bytes: int = Field(default=10_000_000, ge=100_000, le=100_000_000)  # of one program's output
     max_repositories_per_source: int = Field(default=1000, ge=1, le=10_000)
-    concurrency: int = Field(default=4, ge=1, le=16)  # program runs at once
+    concurrency: int = Field(default=4, ge=1, le=16)  # a team's signal fetches, and first refreshes, at once
 
 
 class TeamSettings(Settings):

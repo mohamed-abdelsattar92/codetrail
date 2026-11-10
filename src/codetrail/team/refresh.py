@@ -36,11 +36,17 @@ class TeamRefreshJob:
         self._thread: threading.Thread | None = None
         self._log: deque[tuple[int, dict[str, object]]] = deque(maxlen=log_lines)  # (number, step), newest last
         self._numbered = 0  # keeps counting across runs, so a screen asking for the steps after one misses nothing
+        self._pending: set[str] = set()  # the run's targets not done or failed yet
         self.state = "idle"
 
     @property
     def running(self) -> bool:
         return self.state == "running"
+
+    def is_pending(self, target: str) -> bool:
+        """Whether the target waits for its refresh or is being refreshed."""
+        with self._lock:
+            return target in self._pending
 
     def start(self, targets: list[str]) -> bool:
         """Starts refreshing the targets; False while a run is going or once the server is stopping."""
@@ -49,6 +55,7 @@ class TeamRefreshJob:
                 return False
             self.state = "running"
             self._log.clear()
+            self._pending = set(targets)
             self._thread = threading.Thread(target=self._work, args=(list(targets),), daemon=True)
             self._thread.start()
         return True
@@ -68,6 +75,13 @@ class TeamRefreshJob:
             self.state = "done"
 
     def _refresh(self, target: str) -> None:
+        try:
+            self._refresh_one(target)
+        finally:
+            with self._lock:
+                self._pending.discard(target)
+
+    def _refresh_one(self, target: str) -> None:
         if self._stopping.is_set():
             return
         self._report({"step": "started", "target": target})

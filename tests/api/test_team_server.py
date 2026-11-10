@@ -2,6 +2,7 @@
 
 import functools
 import re
+import threading
 import time
 from collections.abc import Callable, Iterator
 from contextlib import ExitStack
@@ -13,7 +14,15 @@ import pytest
 from fastapi.testclient import TestClient
 
 from codetrail.assistant.estimate import UpdateEstimate
-from codetrail.config import GlobalConfig, Paths, RemoteSettings, SignalSettings, TeamSource, write_remote_target
+from codetrail.config import (
+    GlobalConfig,
+    HostingSettings,
+    Paths,
+    RemoteSettings,
+    SignalSettings,
+    TeamSource,
+    write_remote_target,
+)
 from codetrail.errors import CodetrailError
 from codetrail.hosting import HostingService, HostingStatus, Source
 from codetrail.hosting.fake import FakeHosting
@@ -142,6 +151,7 @@ def test_one_unreachable_repository_does_not_block_the_page(team: Team, monkeypa
             raise CodetrailError("git couldn't fetch the repository. If it needs your sign-in, run: gh auth setup-git")
         return behind(paths, name)
 
+    behind(team.paths, "acme-payments-api")  # cloned, so the page reads its signal
     monkeypatch.setattr("codetrail.team.server.behind", unreachable)
 
     page = client_for(team).get("/")
@@ -359,11 +369,73 @@ def test_serving_lists_the_sources_once_at_start(
     monkeypatch.setattr("codetrail.team.server.uvicorn.run", run)
     monkeypatch.setattr("codetrail.team.server.services_for", lambda settings: team.services)
     monkeypatch.setattr("codetrail.team.server.behind", lambda paths, name: Signal(updating=True))  # no fetch
+    refreshed: list[str] = []
+    finished = threading.Event()
+
+    def refresh(paths: Paths, target: str, facts_only: bool) -> None:
+        refreshed.append(target)
+        finished.set()
+
+    monkeypatch.setattr("codetrail.team.refresh.run_update", refresh)
 
     serve_team(team.paths, "acme", open_browser=False)
 
     assert "acme-repo-r-4" in existing_target_names(team.paths)  # written before serving
+    assert finished.wait(10) and refreshed == ["acme-repo-r-4"]  # and given its free first refresh, as a save does
     assert service.calls == [("repositories", "acme-org")]  # once, not per page
     for page in pages:
         assert ">repo-R_4<" in row(section(page, "repositories-title"), "acme-repo-r-4")
         assert ">inventory<" in row(section(page, "stopped-title"), "acme-inventory")
+
+
+def fetched_by_the_page(monkeypatch: pytest.MonkeyPatch, fetch: Callable[[Paths, str], Signal] = behind) -> list[str]:
+    """The targets whose signal the team page reads (each read fetches into the target's mirror)."""
+    fetched: list[str] = []
+
+    def recorded(paths: Paths, name: str) -> Signal:
+        fetched.append(name)
+        return fetch(paths, name)
+
+    monkeypatch.setattr("codetrail.team.server.behind", recorded)
+    return fetched
+
+
+def test_a_target_with_no_mirror_is_not_cloned_by_a_page_view(team: Team, monkeypatch: pytest.MonkeyPatch) -> None:
+    fetched = fetched_by_the_page(monkeypatch)
+
+    page = client_for(team).get("/").text
+
+    assert "Not updated yet" in row(section(page, "repositories-title"), "acme-payments-api")
+    assert "acme-payments-api" not in fetched and "acme-web-shop" in fetched
+    assert not (team.paths.target_data("acme-payments-api") / "mirror.git").exists()
+
+
+def test_a_target_waiting_for_its_first_refresh_is_not_fetched_by_a_page_view(
+    team: Team, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    team.services = listing("R_1", "R_2", "R_4", "R_5")  # two new repositories, refreshed one at a time
+    release = threading.Event()
+    monkeypatch.setattr("codetrail.team.refresh.run_update", lambda paths, name, facts_only: release.wait(30))
+    fetched = fetched_by_the_page(monkeypatch, lambda paths, name: Signal())  # nothing is fetched for real
+    settings = SETTINGS.model_copy(update={"hosting": HostingSettings(concurrency=1)})
+    session = SessionState(60)
+    synced = sync_team(team.paths, "acme", team.services, datetime.now(UTC))
+    app = create_team_app(team.paths, "acme", session, settings, team.services, team.hold, synced=synced)
+    with TestClient(app, base_url=ORIGIN, follow_redirects=False) as client:  # leaving it stops the refresh
+        try:
+            assert client.get(f"/login?code={session.issue_login_code()}").status_code == 303
+            repositories = section(client.get("/").text, "repositories-title")
+            for target in ("acme-repo-r-4", "acme-repo-r-5"):  # one refreshing, one queued
+                assert "Updating" in row(repositories, target), target
+                assert target not in fetched
+        finally:
+            release.set()
+        for _ in range(100):
+            if client.get("/team/refresh/status", headers={TOKEN_HEADER: session.token}).json()["state"] == "done":
+                break
+            time.sleep(0.05)
+        else:
+            raise AssertionError("the refresh never finished")
+        repositories = section(client.get("/").text, "repositories-title")
+    assert "Not updated yet" in row(repositories, "acme-repo-r-4")  # refreshed (no mirror here), so no longer pending
+    assert "acme-repo-r-4" not in fetched and "acme-repo-r-5" not in fetched

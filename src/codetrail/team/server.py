@@ -3,8 +3,8 @@
 The plain team page at `/` lists each repository the team follows with its free "you're behind" signal, and each
 repository's own page is mounted under `/repos/<target>/`. One security middleware wraps it all, so the token,
 `Origin`, session and `Sec-Fetch-Site` rules apply under a prefix as at `/`. The server holds the team's in-use lock,
-and every served target's, for as long as it runs. The sources are listed once, at the start; a page view changes
-no settings.
+and every served target's, for as long as it runs. The sources are listed once, at the start, and the targets that
+listing adds get their free first refresh. A page view writes no settings, lists no source and never clones.
 """
 
 from __future__ import annotations
@@ -168,8 +168,14 @@ def create_team_app(
             return None, _("Couldn't read this repository (%(error)s).") % {"error": type(error).__name__}
 
     def row(target: str, repository: str, branch: str) -> Row:
+        """A page view never clones: a target waiting for its first refresh says so, as one never cloned does,
+        without fetching (a fetch would clone it, and the refresh would then find it busy)."""
         if target in refused:
             return Row(target, repository, branch, reason=refused[target], served=False)
+        if refresh.is_pending(target):
+            return Row(target, repository, branch, Signal(updating=True))
+        if not (paths.target_data(target) / "mirror.git" / "HEAD").exists():
+            return Row(target, repository, branch, Signal())  # not updated yet
         signal, reason = signals.get(target, lambda: read_signal(target))
         return Row(target, repository, branch, signal, reason)
 
@@ -209,6 +215,8 @@ def create_team_app(
     app.mount("/static", StaticFiles(directory=str(files("codetrail.web").joinpath("static"))), name="static")
     for target in followed(load_team(paths, name)):
         mount(target)
+    if listing.added:  # the start's listing wrote them: they get the free first refresh a save starts
+        refresh.start(listing.added)
     return SecurityMiddleware(app, session=session, port=settings.server.port, mounted_targets=mounted)
 
 
