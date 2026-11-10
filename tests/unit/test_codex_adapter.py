@@ -151,6 +151,26 @@ async def test_an_unusable_run_raises(source: Path, tmp_path: Path, events: list
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize("event_type", ["error", "turn.failed"])
+async def test_structured_failure_takes_precedence_over_stderr(source: Path, tmp_path: Path, event_type: str) -> None:
+    detail = "Invalid output schema: missing scope_kinds"
+    event = (
+        {"type": "error", "message": detail}
+        if event_type == "error"
+        else {"type": "turn.failed", "error": {"message": detail}}
+    )
+    program = make_program(
+        tmp_path / "bin",
+        "fake-codex",
+        [event],
+        exit_code=1,
+        stderr="skills scan reached its traversal limit",
+    )
+    with pytest.raises(AssistantError, match="missing scope_kinds"):
+        await adapter(source, program).write_page(page_request())
+
+
+@pytest.mark.anyio
 async def test_an_answer_is_buffered_until_codex_finishes(source: Path, tmp_path: Path) -> None:
     events = [message("Hello there."), turn()]
     program = make_program(tmp_path / "bin", "fake-codex", events)

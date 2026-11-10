@@ -9,6 +9,8 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 - The README, the PyPI page and the banner used as GitHub's social preview present Codetrail as your onboarding guide to any codebase, whether you're new to it or coming back to it after months away, and the PyPI page lists keywords so searches for onboarding find it.
 
 ### Fixed
+- Codex planning requests include `scope_kinds` among the schema's required properties, as OpenAI strict structured output requires.
+- A failed Codex process reports its structured request error when available, instead of replacing it with the last standard-error diagnostic.
 - Codex signed in with ChatGPT is correctly reported as ready when `codex login status` writes its status to standard error.
 - The PyPI page shows the README's screenshots, diagrams and logo, and its links open the files on GitHub, at the release's tag.
 
