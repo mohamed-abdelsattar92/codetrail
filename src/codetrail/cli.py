@@ -7,6 +7,7 @@ import signal
 import sys
 import unicodedata
 from collections import Counter
+from collections.abc import Callable
 from datetime import UTC, date, datetime
 from pathlib import Path
 from types import FrameType
@@ -23,6 +24,7 @@ from codetrail.config import (
     Paths,
     load_global,
     load_target,
+    load_team,
     validate_target_name,
     write_target,
 )
@@ -34,11 +36,12 @@ from codetrail.lock import target_in_use
 from codetrail.metrics.history import values_before
 from codetrail.metrics.report import Metric, build_report
 from codetrail.metrics.repository import RepositoryReport, build_repository_report
-from codetrail.remove import remove_target
+from codetrail.remove import remove_target, remove_team
 from codetrail.repo.mirror import check_branch
 from codetrail.repo.refresh import refresh_source
 from codetrail.repo.rules import Reason
 from codetrail.server import serve
+from codetrail.team.settings import team_names, team_target_names, write_team
 from codetrail.update import run_update
 from codetrail.web.documentation import COUNTS, age, build_tiles, percent_of
 
@@ -61,6 +64,17 @@ def build_parser() -> argparse.ArgumentParser:
     )
     remove.add_argument("name")
     remove.add_argument("--yes", action="store_true", help="delete without asking")
+
+    team = commands.add_parser("team", help="manage the teams, each following the repositories of its sources")
+    team_commands = team.add_subparsers(dest="team_command", required=True)
+    team_add = team_commands.add_parser("add", help="write a new team's settings")
+    team_add.add_argument("name", help="a short name: lower-case letters, digits and hyphens")
+    team_commands.add_parser("list", help="show each team with its sources and target count")
+    team_remove = team_commands.add_parser(
+        "remove", help="delete a team and every target it created; nothing on the service is touched"
+    )
+    team_remove.add_argument("name")
+    team_remove.add_argument("--yes", action="store_true", help="delete without asking")
 
     files = commands.add_parser("files", help="refresh a target's sources and list exactly what Codetrail can see")
     files.add_argument("name")
@@ -104,6 +118,8 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if arguments.command == "target" and arguments.target_command == "remove":
             return remove_target_command(paths, arguments.name, yes=arguments.yes)
+        if arguments.command == "team":
+            return team_command(paths, arguments)
         if arguments.command == "target":
             return add_target(paths, arguments.name, arguments.path, arguments.branch)
         if arguments.command == "providers":
@@ -170,27 +186,68 @@ def add_target(paths: Paths, name: str, path: Path, branch: str) -> int:
 
 
 def remove_target_command(paths: Paths, name: str, yes: bool = False) -> int:
+    return _remove(
+        f"target {name!r}",
+        "The repository itself isn't touched.",
+        yes,
+        lambda confirm: remove_target(paths, name, confirm),
+    )
+
+
+def team_command(paths: Paths, arguments: argparse.Namespace) -> int:
+    if arguments.team_command == "add":
+        file = write_team(paths, arguments.name)
+        print(f"Added team {arguments.name!r}. Settings: {file}")
+        print(f"Next: codetrail team serve {arguments.name}")
+        return 0
+    if arguments.team_command == "list":
+        return list_teams(paths)
+    return _remove(
+        f"team {arguments.name!r}",
+        "Nothing on the hosting services is touched.",
+        arguments.yes,
+        lambda confirm: remove_team(paths, arguments.name, confirm),
+    )
+
+
+def list_teams(paths: Paths) -> int:
+    for name in team_names(paths):
+        count = len(team_target_names(paths, name))
+        targets = _plural(count, "target")
+        try:
+            sources = [
+                f"{source.service}:{source.source} ({source.follow})" for source in load_team(paths, name).sources
+            ]
+        except CodetrailError:
+            print(f"{name}: its settings don't load - {targets}")
+            continue
+        print(f"{name}: {', '.join(sources) or 'no sources'} - {targets}")
+    return 0
+
+
+def _remove(what: str, reassurance: str, yes: bool, remove: Callable[[Callable[[list[Path]], bool]], bool]) -> int:
+    """Shows what removing a target or a team deletes, asks unless `--yes`, and removes it."""
     no_terminal = False
 
     def confirm(locations: list[Path]) -> bool:
         nonlocal no_terminal
-        print(f"Removing target {name!r} deletes:")
+        print(f"Removing {what} deletes:")
         for location in locations:
             print(f"  {printable(str(location))}")
-        print("The repository itself isn't touched.")
+        print(reassurance)
         if yes:
             return True
         if not sys.stdin.isatty():
             no_terminal = True
             print("There's no terminal to ask in, so nothing was removed. Run again with --yes to go ahead.")
             return False
-        return input(f"Remove target {name!r} and delete these? [y/N] ").strip().lower() in ("y", "yes")
+        return input(f"Remove {what} and delete these? [y/N] ").strip().lower() in ("y", "yes")
 
-    if not remove_target(paths, name, confirm):
+    if not remove(confirm):
         if not no_terminal:
             print("Nothing was removed.")
         return 2 if no_terminal else 0
-    print(f"Removed target {name!r}.")
+    print(f"Removed {what}.")
     return 0
 
 

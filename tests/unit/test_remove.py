@@ -6,15 +6,25 @@ from pathlib import Path
 
 import pytest
 
-from codetrail.config import Paths, write_target
+from codetrail.config import Paths, TeamSource, write_target
 from codetrail.errors import CodetrailError
-from codetrail.lock import target_in_use, target_lock
-from codetrail.remove import remove_target
+from codetrail.hosting import HostedRepository, HostingStatus, Source
+from codetrail.hosting.fake import FakeHosting
+from codetrail.lock import target_in_use, target_lock, team_in_use
+from codetrail.remove import remove_target, remove_team
+from codetrail.team.settings import save_selection, write_team
+from codetrail.team.sync import sync_team
+from tests.unit.test_team_follow import NOW, repository
 
 
 @pytest.fixture
 def paths(tmp_path: Path) -> Paths:
     return Paths(config_dir=tmp_path / "config", data_dir=tmp_path / "data", state_dir=tmp_path / "state")
+
+
+def fake_service(repositories: list[HostedRepository]) -> FakeHosting:
+    status = HostingStatus("github", installed=True, signed_in=True, account="reader", fix=None)
+    return FakeHosting("github", [status], [Source("github", "acme-org", None)], {"acme-org": repositories}, {})
 
 
 def add(paths: Paths, tmp_path: Path, name: str) -> list[Path]:
@@ -150,3 +160,75 @@ def test_a_target_whose_settings_no_longer_load_can_still_be_removed(paths: Path
     assert remove_target(paths, "shop", lambda found: True)
 
     assert not any(location.exists() for location in locations)
+
+
+def test_team_remove_lists_asks_and_removes_everything(paths: Paths, tmp_path: Path) -> None:
+    write_team(paths, "acme")
+    save_selection(paths, "acme", TeamSource(service="github", source="acme-org"))
+    sync_team(paths, "acme", {"github": fake_service([repository("a1")])}, NOW)
+    paths.team_data("acme").mkdir(parents=True)
+    (paths.team_data("acme") / "team.db").write_text("")
+    target_data = paths.target_data("acme-repo-a1")
+    target_data.mkdir(parents=True)
+    other = add(paths, tmp_path, "other")
+    asked: list[list[Path]] = []
+
+    def confirm(found: list[Path]) -> bool:
+        asked.append(found)
+        return True
+
+    assert remove_team(paths, "acme", confirm)
+
+    assert len(asked) == 1
+    assert asked[0] == [
+        paths.team_file("acme"),
+        paths.team_data("acme"),
+        target_data,
+        paths.target_file("acme-repo-a1"),
+    ]
+    assert not any(location.exists() for location in asked[0])
+    assert all(location.exists() for location in other)
+
+
+def test_team_remove_does_nothing_when_declined(paths: Paths) -> None:
+    write_team(paths, "acme")
+    assert not remove_team(paths, "acme", lambda found: False)
+    assert paths.team_file("acme").exists()
+
+
+def test_team_remove_refuses_while_served(paths: Paths) -> None:
+    write_team(paths, "acme")
+    with team_in_use(paths, "acme"), pytest.raises(CodetrailError, match="in use"):
+        remove_team(paths, "acme", lambda found: True)
+    assert paths.team_file("acme").exists()
+
+
+def test_target_remove_refuses_while_the_team_follows_it(paths: Paths) -> None:
+    write_team(paths, "acme")
+    save_selection(paths, "acme", TeamSource(service="github", source="acme-org"))
+    sync_team(paths, "acme", {"github": fake_service([repository("a1")])}, NOW)
+
+    with pytest.raises(CodetrailError, match="team 'acme'"):
+        remove_target(paths, "acme-repo-a1", lambda found: True)
+
+    assert paths.target_file("acme-repo-a1").exists()
+
+
+def test_target_remove_works_once_left_out(paths: Paths) -> None:
+    write_team(paths, "acme")
+    save_selection(paths, "acme", TeamSource(service="github", source="acme-org"))
+    sync_team(paths, "acme", {"github": fake_service([repository("a1")])}, NOW)
+    save_selection(paths, "acme", TeamSource(service="github", source="acme-org", left_out=["a1"]))
+
+    assert remove_target(paths, "acme-repo-a1", lambda found: True)
+
+    assert not paths.target_file("acme-repo-a1").exists()
+
+
+def test_target_remove_works_when_the_team_is_gone(paths: Paths) -> None:
+    write_team(paths, "acme")
+    save_selection(paths, "acme", TeamSource(service="github", source="acme-org"))
+    sync_team(paths, "acme", {"github": fake_service([repository("a1")])}, NOW)
+    paths.team_file("acme").unlink()
+
+    assert remove_target(paths, "acme-repo-a1", lambda found: True)
