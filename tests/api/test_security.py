@@ -286,7 +286,8 @@ def mounted(session: SessionState) -> TestClient:
         return PlainTextResponse("// script")
 
     app = Starlette(routes=[Mount(PREFIX, app=BasePathMiddleware(target)), Mount("/static", app=static)])
-    return TestClient(SecurityMiddleware(app, session=session, port=PORT), base_url=ORIGIN, follow_redirects=False)
+    secured = SecurityMiddleware(app, session=session, port=PORT, mounted_targets={"web-shop"})
+    return TestClient(secured, base_url=ORIGIN, follow_redirects=False)
 
 
 @pytest.mark.parametrize(
@@ -296,16 +297,46 @@ def mounted(session: SessionState) -> TestClient:
         ("/repos/web-shop/", "/"),
         ("/repos/web-shop", ""),
         ("/bridge/answers", "/bridge/answers"),
-        ("/repos/Web_Shop/bridge/answers", "/repos/Web_Shop/bridge/answers"),  # not a target's name
-        ("/repos/web-shopx/login", "/login"),
-        ("/repos/-web/login", "/repos/-web/login"),
-        ("/repos/web-shop/repos/other/login", "/repos/other/login"),  # one prefix only
+        ("/repos/other/bridge/answers", "/repos/other/bridge/answers"),  # not mounted
+        ("/repos/web-shopx/login", "/repos/web-shopx/login"),
+        ("/repos/web-shop\n/login", "/repos/web-shop\n/login"),
+        ("/repos/web-shop/repos/web-shop/login", "/repos/web-shop/login"),  # one prefix only
         ("/static/page.js", "/static/page.js"),
         ("/xrepos/web-shop/login", "/xrepos/web-shop/login"),
     ],
 )
-def test_the_route_path_drops_one_target_prefix(path: str, route: str) -> None:
-    assert route_path(path) == route
+def test_the_route_path_drops_one_mounted_target_s_prefix(path: str, route: str) -> None:
+    assert route_path(path, {"web-shop"}) == route
+
+
+def test_nothing_is_stripped_when_nothing_is_mounted() -> None:
+    assert route_path("/repos/web-shop/login", frozenset()) == "/repos/web-shop/login"
+
+
+def test_a_name_that_isn_t_mounted_keeps_its_prefix(mounted: TestClient, session: SessionState) -> None:
+    signed_in_mounted(mounted, session)
+    # Checked as the path it is, which no route serves, rather than as the token read it would be if mounted.
+    assert mounted.get("/repos/other/bridge/answers").status_code == 404
+    assert mounted.get("/repos/other/login?code=wrong").status_code == 404
+
+
+def test_a_target_mounted_later_is_checked_like_the_others(session: SessionState) -> None:
+    app = FastAPI()
+
+    @app.get("/login")
+    def login(code: str = "") -> object:
+        return login_response(session, code)
+
+    @app.get("/repos/later/bridge/answers")
+    def token_read() -> PlainTextResponse:
+        return PlainTextResponse("read")
+
+    mounted_targets: set[str] = set()
+    secured = SecurityMiddleware(app, session=session, port=PORT, mounted_targets=mounted_targets)
+    client = signed_in(TestClient(secured, base_url=ORIGIN, follow_redirects=False), session)
+    assert client.get("/repos/later/bridge/answers").text == "read"  # not mounted: not a token read
+    mounted_targets.add("later")  # the team page mounts a target while it runs
+    assert client.get("/repos/later/bridge/answers").status_code == 403
 
 
 def test_signing_in_under_a_prefix_leads_back_to_it(mounted: TestClient, session: SessionState) -> None:

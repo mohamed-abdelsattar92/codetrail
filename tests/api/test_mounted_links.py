@@ -1,8 +1,11 @@
 """One target's page mounted under /repos/<target>/, as the team page serves it (design section 24.7)."""
 
+import json
 import re
+from collections.abc import Callable
 from html.parser import HTMLParser
 from importlib.resources import files
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -10,9 +13,10 @@ from starlette.applications import Starlette
 from starlette.routing import Mount
 from starlette.staticfiles import StaticFiles
 
-from codetrail.assistant import PageDraft, PageRequest, PlanDraft
+from codetrail.assistant import AnswerChunk, Assistant, PageDraft, PageRequest, PlanDraft
 from codetrail.assistant.fake import FakeAssistant
 from codetrail.config import GlobalConfig, Paths, write_target
+from codetrail.lock import target_removal
 from codetrail.update import run_update
 from codetrail.web.app import create_app, create_target_app
 from codetrail.web.security import TOKEN_HEADER, SecurityMiddleware, SessionState
@@ -20,6 +24,9 @@ from tests.fixtures.repos import MIXED_REPOSITORY, make_repository
 
 ORIGIN = "http://127.0.0.1:8765"
 PREFIX = "/repos/web-shop"
+# Taken from the page before any link went through site_path (commit 9957dbf), at `/`.
+UNMOUNTED_LINKS = Path(__file__).parent.parent / "fixtures" / "unmounted_links.json"
+DIGEST_ID = re.compile(r"/digests/\d{4}-\d{2}-\d{2}-[0-9a-f]+")  # holds today's date
 PLAN = PlanDraft(
     [{"id": "areas/apps", "kind": "area", "title": "The apps", "scope_paths": ["apps"], "facts": []}],
     paths=[{"id": "paths/start", "title": "Start", "goal": "Learn the apps.", "steps": ["areas/apps"]}],
@@ -64,12 +71,15 @@ def paths(tmp_path_factory: pytest.TempPathFactory) -> Paths:
     return paths
 
 
-def mounted_client(paths: Paths, session: SessionState) -> TestClient:
+def mounted_client(
+    paths: Paths, session: SessionState, assistant_for: Callable[[], Assistant] | None = None
+) -> TestClient:
     """The target's page under its prefix and the shared static files at the root, behind one security middleware."""
     static = StaticFiles(directory=str(files("codetrail.web").joinpath("static")))
-    target = create_target_app(paths, "web-shop", session, GlobalConfig())
+    target = create_target_app(paths, "web-shop", session, GlobalConfig(), assistant_for=assistant_for)
     app = Starlette(routes=[Mount(PREFIX, app=target), Mount("/static", app=static)])
-    client = TestClient(SecurityMiddleware(app, session=session, port=8765), base_url=ORIGIN, follow_redirects=False)
+    secured = SecurityMiddleware(app, session=session, port=8765, mounted_targets={"web-shop"})
+    client = TestClient(secured, base_url=ORIGIN, follow_redirects=False)
     response = client.get(f"{PREFIX}/login?code={session.issue_login_code()}")
     assert response.status_code == 303
     assert response.headers["location"] == f"{PREFIX}/"
@@ -141,12 +151,20 @@ def test_unmounted_links_are_unchanged(paths: Paths) -> None:
     unmounted = crawl(unmounted_client(paths, SessionState(60)), "")
     mounted = crawl(mounted_client(paths, SessionState(60)), PREFIX)
     assert not any(link.startswith("/repos/") for link in unmounted)
-    today = ["/", "/pages/areas/apps?path=paths/start", "/areas/apps", "/facts/project%3Aapps%2Fsite",
-             "/source/docs/adr/0001-x.md#L3", "/search", "/static/js/main.js"]  # fmt: skip
-    assert set(today) <= set(unmounted)
     under_prefix = [PREFIX + link if link.startswith("/") and not link.startswith("/static/") else link
                     for link in unmounted]  # fmt: skip
     assert under_prefix == mounted
+
+
+def test_unmounted_links_match_the_page_before_the_change(paths: Paths) -> None:
+    client = unmounted_client(paths, SessionState(60))
+    before = json.loads(UNMOUNTED_LINKS.read_text())
+    now = {
+        page: sorted({DIGEST_ID.sub("/digests/<id>", link) for link in links_of(client.get(page).text)
+                      if link.startswith("/")})
+        for page in before
+    }  # fmt: skip
+    assert now == before
 
 
 def test_the_meta_base_is_the_prefix(paths: Paths) -> None:
@@ -162,6 +180,36 @@ def test_the_page_s_reads_and_writes_work_under_the_prefix(paths: Paths) -> None
     assert client.get(f"{PREFIX}/bridge/answers").status_code == 403
     assert client.get(f"{PREFIX}/bridge/answers", headers={TOKEN_HEADER: session.token}).json() == {"answers": []}
     write = {"origin": ORIGIN, TOKEN_HEADER: session.token}
-    assert client.post(f"{PREFIX}/settings/language", json={"language": "en"}).status_code == 403
-    assert client.post(f"{PREFIX}/settings/language", json={"language": "en"}, headers=write).status_code == 204
+    unknown = {"language": "xx"}  # refused by the route once past the middleware, so the fixture keeps its settings
+    assert client.post(f"{PREFIX}/settings/language", json=unknown).status_code == 403
+    assert client.post(f"{PREFIX}/settings/language", json=unknown, headers=write).status_code == 400
     assert client.get("/static/js/api.js").status_code == 200
+
+
+def test_a_mounted_page_holds_its_target_but_sign_in_and_static_files_don_t(paths: Paths) -> None:
+    client = mounted_client(paths, SessionState(60))
+    with target_removal(paths, "web-shop"):
+        page = client.get(f"{PREFIX}/")
+        login = client.get(f"{PREFIX}/login?code=wrong")
+        own_static = client.get(f"{PREFIX}/static/css/base.css")
+        shared_static = client.get("/static/css/base.css")
+    assert page.status_code == 409
+    assert "being removed" in page.text
+    assert login.status_code == 403
+    assert "removed" not in login.text
+    assert own_static.status_code == shared_static.status_code == 200
+
+
+def test_an_answer_s_links_carry_the_prefix_once(paths: Paths) -> None:
+    body = "It is [[project:apps/site]], set up in [the manifest](/source/apps/site/package.json)."
+    claude = FakeAssistant(answers=[[AnswerChunk(body), AnswerChunk(done=True)]])
+    session = SessionState(60)
+    client = mounted_client(paths, session, assistant_for=lambda: claude)
+    headers = {"origin": ORIGIN, TOKEN_HEADER: session.token}
+    response = client.post(f"{PREFIX}/bridge/questions", json={"question": "What is it?"}, headers=headers)
+    done = json.loads(response.text.splitlines()[-1])
+    listed = client.get(f"{PREFIX}/bridge/answers", headers={TOKEN_HEADER: session.token}).json()["answers"]
+    for html in (done["html"], listed[0]["html"]):
+        assert f'href="{PREFIX}/facts/project%3Aapps%2Fsite"' in html
+        assert f'href="{PREFIX}/source/apps/site/package.json"' in html
+        assert html.count(PREFIX) == 2

@@ -11,8 +11,9 @@
 - The worker that runs D2's WebAssembly build alone gets another Content-Security-Policy: its layout evaluates
   JavaScript, so it may, but it can import nothing but Go's loader and the ELK layout, reach nothing but its wasm
   file, and has no DOM (ADRs 0016, 0018).
-- The team page mounts each target's page under `/repos/<target>/` (design section 24.7). A path there is checked as
-  the same path at `/` would be, but `/static/` is matched only at the root, where the shared static files are.
+- The team page mounts each target's page under `/repos/<target>/` (design section 24.7). A path under a mounted
+  target's prefix is checked as the same path at `/` would be; any other path, including one under a name nothing
+  mounts, is checked as it is. `/static/` is matched only at the root, where the shared static files are.
 Sessions live in memory and end with the process.
 """
 
@@ -22,13 +23,12 @@ import hmac
 import re
 import secrets
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Collection
 from http.cookies import SimpleCookie
 
 from starlette.responses import PlainTextResponse, RedirectResponse, Response
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
-from codetrail.config import TARGET_NAME
 from codetrail.web.links import site_path
 
 SESSION_COOKIE = "codetrail_session"
@@ -49,13 +49,13 @@ READ_METHODS = {"GET", "HEAD"}
 OPEN_PATHS = ("/login", "/static/")
 # Reads that return JSON for the page's script also need the token, as defence in depth (design 16.3).
 TOKEN_READS = ("/search/results", "/bridge/answers")
-TARGET_PREFIX = re.compile(rf"/repos/{TARGET_NAME.pattern}(?=/|$)")
+TARGET_PREFIX = re.compile(r"/repos/([^/]+)(?=/|\Z)")
 
 
-def route_path(path: str) -> str:
-    """The path without a leading `/repos/<target>`, the prefix the team page mounts a target's page at."""
+def route_path(path: str, mounted_targets: Collection[str]) -> str:
+    """The path without a leading `/repos/<target>`, if the server mounts that target's page there."""
     prefix = TARGET_PREFIX.match(path)
-    return path[prefix.end() :] if prefix else path
+    return path[prefix.end() :] if prefix and prefix.group(1) in mounted_targets else path
 
 
 class SessionState:
@@ -106,10 +106,15 @@ def login_response(session: SessionState, code: str) -> Response:
 
 
 class SecurityMiddleware:
-    def __init__(self, app: ASGIApp, session: SessionState, port: int) -> None:
+    def __init__(
+        self, app: ASGIApp, session: SessionState, port: int, *, mounted_targets: Collection[str] = frozenset()
+    ) -> None:
+        """`mounted_targets` names the targets whose pages `app` mounts under `/repos/<target>/`: none for one target's
+        page. It's kept, not copied, and read on each request, so a target mounted while the server runs counts."""
         self.app = app
         self.session = session
         self.hosts = {f"127.0.0.1:{port}", f"localhost:{port}"}
+        self.mounted_targets = mounted_targets
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] == "lifespan":
@@ -154,7 +159,7 @@ class SecurityMiddleware:
         # another site, or a server on another 127.0.0.1 port (same-site), can't time or drive it (ASVS 3.5.8).
         if headers.get("sec-fetch-site", "same-origin") not in ("same-origin", "none"):
             return PlainTextResponse("This request didn't come from Codetrail's page.", 403)
-        route = route_path(path)
+        route = route_path(path, self.mounted_targets)
         if route == "/login":
             return None
         cookies = SimpleCookie(headers.get("cookie", ""))
