@@ -1,6 +1,6 @@
 # 0020. Reach GitHub, Azure DevOps and GitLab through the reader's own command-line programs, and never hold a token
 
-- Status: proposed
+- Status: accepted (by the founder, 10 November 2026)
 - Date: 2026-11-10
 - Deciders: KoGy
 - Proposed by: Claude Code (Claude Opus 5.5), in the design session of 2026-11-10 on teams across hosting services
@@ -59,8 +59,8 @@ It wins on the first three drivers, where B and C fail, and on experience, where
 - Revisit if a service's program stops lending git its sign-in, or stops listing repositories as JSON; or if readers need a host the programs don't support.
 
 ## Changes required
-- [ ] AGENTS.md, non-negotiable 4: name the hosting services, reached only through the reader's own programs and git, read only.
-- [ ] `docs/design/brainstorm-decisions.md`: decision 16 approved.
-- [ ] `docs/design/2026-10-05-codetrail-design.md`: section 24 approved; section 1's "Not goals" unchanged (still no hosted or multi-user service).
-- [ ] `docs/security/review-checklist.md`: the hosting programs' environment and read-only commands, remote transports, the team routes.
-- [ ] `docs/adr/README.md`: this ADR's status in the index.
+- [x] AGENTS.md, non-negotiable 4: name the hosting services, reached only through the reader's own programs and git, read only.
+- [x] `docs/design/brainstorm-decisions.md`: decision 16 approved.
+- [x] `docs/design/2026-10-05-codetrail-design.md`: section 24 approved; section 1's "Not goals" unchanged (still no hosted or multi-user service).
+- [ ] `docs/security/review-checklist.md`: the hosting programs' environment and read-only commands, remote transports, the team routes (Phase 21).
+- [x] `docs/adr/README.md`: this ADR's status in the index.
