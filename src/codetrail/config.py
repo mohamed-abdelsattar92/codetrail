@@ -19,7 +19,13 @@ from urllib.parse import urlsplit
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, ValidationInfo, field_validator, model_validator
 
 from codetrail.errors import CodetrailError
-from codetrail.hosting.names import Service, check_clone_url, require_safe_id, validate_source
+from codetrail.hosting.names import (
+    Service,
+    check_clone_url,
+    require_safe_id,
+    validate_repository_name,
+    validate_source,
+)
 
 TARGET_NAME = re.compile(r"[a-z0-9][a-z0-9-]{0,62}")
 TEAM_NAME = re.compile(r"[a-z0-9][a-z0-9-]{0,29}")
@@ -398,13 +404,23 @@ class TargetAssistantSettings(Settings):
 
 
 class RemoteSettings(Settings):
-    """A repository fetched from a hosting service (design section 24.4)."""
+    """A repository fetched from a hosting service (design section 24.4). Its names are checked against the
+    service's patterns whenever they are read, so a hand-edited file can't bring others to the page or to git."""
 
     service: Service
     source: str
     id: str
     name: str
     url: str
+
+    @model_validator(mode="after")
+    def names_are_the_services(self) -> RemoteSettings:
+        try:
+            validate_source(self.service, self.source)
+            validate_repository_name(self.service, self.name)
+        except CodetrailError as error:
+            raise ValueError(str(error)) from error
+        return self
 
     @field_validator("url")
     @classmethod

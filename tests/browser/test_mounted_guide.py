@@ -22,7 +22,8 @@ def test_a_mounted_guide_remembers_under_its_prefix(page: Page, site: Site, erro
     page.keyboard.press("\\")
     page.locator("[data-theme-toggle]").click()
 
-    assert stored(page) == {"/repos/shopcodetrail.sidebar": "hidden", "/repos/shopcodetrail.theme": "light"}
+    # The theme is the reader's choice for every page; the sidebar's state is this guide's own.
+    assert stored(page) == {"/repos/shopcodetrail.sidebar": "hidden", "codetrail.theme": "light"}
     page.reload()  # applied before the page script runs, from the prefixed keys
     expect(page.locator("html")).to_have_attribute("data-sidebar", "hidden")
     expect(page.locator("html")).to_have_attribute("data-theme", "light")
@@ -39,3 +40,17 @@ def test_the_palette_opens_a_page_under_the_prefix(page: Page, site: Site, error
     page.keyboard.press("Enter")
     expect(page).to_have_url(f"{site.url}/pages/concepts/ledger")
     assert errors == []
+
+
+def test_the_theme_chosen_on_one_guide_applies_to_another(page: Page, site: Site) -> None:
+    page.set_viewport_size({"width": 1280, "height": 800})
+    site.sign_in(page)
+    page.keyboard.press("\\")
+    page.locator("[data-theme-toggle]").click()
+    expect(page.locator("html")).to_have_attribute("data-theme", "light")
+
+    page.goto(site.url.replace("/repos/shop", "/repos/other") + "/")
+    ready(page)
+
+    expect(page.locator("html")).to_have_attribute("data-theme", "light")
+    expect(page.locator("html")).not_to_have_attribute("data-sidebar", "hidden")

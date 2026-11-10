@@ -39,11 +39,17 @@ export function usedText(labels, usage) {
 
 // Session and local storage can be missing or refuse (private windows, blocked site data); the page works without.
 // Every guide on the team's server shares one origin, so each keeps what it remembers under its prefix; at `/` the
-// keys are as they always were.
+// keys are as they always were. The theme is the reader's choice for every page, so its key is shared.
+const SHARED_KEYS = ["codetrail.theme"];
+
+function storageKey(key) {
+  return SHARED_KEYS.includes(key) ? key : base + key;
+}
+
 export function remember(storage, key, value) {
   try {
-    if (value === null) window[storage].removeItem(base + key);
-    else window[storage].setItem(base + key, value);
+    if (value === null) window[storage].removeItem(storageKey(key));
+    else window[storage].setItem(storageKey(key), value);
   } catch {
     // nothing to do: the choice just isn't remembered
   }
@@ -51,7 +57,7 @@ export function remember(storage, key, value) {
 
 export function recall(storage, key) {
   try {
-    return window[storage].getItem(base + key);
+    return window[storage].getItem(storageKey(key));
   } catch {
     return null;
   }

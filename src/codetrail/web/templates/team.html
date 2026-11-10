@@ -38,9 +38,12 @@
   <ul class="list spaced">
     {% for row in rows %}
     <li>
-      <a class="grow" href="/repos/{{ row.target }}/"><bdi>{{ row.repository }}</bdi></a>
+      {% if row.served %}<a class="grow" href="/repos/{{ row.target }}/"><bdi>{{ row.repository }}</bdi></a>{% else %}<span class="grow"><bdi>{{ row.repository }}</bdi></span>{% endif %}
       <span class="faint" dir="ltr">{{ row.branch }}</span>
-      {% if row.reason %}
+      {% if not row.served %}
+        <span class="chip">{{ _("Not served") }}</span>
+        <span class="stat-note">{{ row.reason }}</span>
+      {% elif row.reason %}
         <span class="chip">{{ _("Couldn't be reached") }}</span>
         <span class="stat-note">{{ row.reason }}</span>
       {% elif row.signal.updating %}
@@ -69,7 +72,7 @@
   <p class="muted">{{ _("These aren't refreshed any more; their guides stay until you remove them.") }}</p>
   <ul class="list">
     {% for row in stopped %}
-    <li><a class="grow" href="/repos/{{ row.target }}/"><bdi>{{ row.repository }}</bdi></a>
+    <li>{% if row.served %}<a class="grow" href="/repos/{{ row.target }}/"><bdi>{{ row.repository }}</bdi></a>{% else %}<span class="grow"><bdi>{{ row.repository }}</bdi></span>{% endif %}
       <span class="faint" dir="ltr">{{ row.branch }}</span></li>
     {% endfor %}
   </ul>

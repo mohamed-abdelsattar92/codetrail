@@ -136,9 +136,12 @@ def site(tmp_path: Path, request: pytest.FixtureRequest) -> Iterator[Site]:
         prefix = "/repos/shop"
         guide, _stop = create_target_app(paths, "shop", session, settings, locales, updater=updater,
                                          assistant_for=lambda: claude)  # fmt: skip
+        write_target(paths, "other", target, "develop")  # a second guide on the same origin, never updated
+        other, _stop_other = create_target_app(paths, "other", session, settings, locales)
         static = StaticFiles(directory=str(files("codetrail.web").joinpath("static")))
-        routes = [Mount(prefix, app=guide), Mount("/static", app=static)]
-        app = SecurityMiddleware(Starlette(routes=routes), session=session, port=port, mounted_targets={"shop"})
+        routes = [Mount(prefix, app=guide), Mount("/repos/other", app=other), Mount("/static", app=static)]
+        mounted = {"shop", "other"}
+        app = SecurityMiddleware(Starlette(routes=routes), session=session, port=port, mounted_targets=mounted)
     else:
         app = create_app(paths, "shop", session, settings, locales, updater=updater, assistant_for=lambda: claude)
     server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning", access_log=False))

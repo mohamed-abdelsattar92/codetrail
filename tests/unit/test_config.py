@@ -551,3 +551,31 @@ def test_a_team_source_and_a_target_team_are_validated() -> None:
     assert TargetConfig(remote=REMOTE, branch="main", team="acme").team == "acme"  # type: ignore[arg-type]
     with pytest.raises(ValidationError):
         TargetConfig(remote=REMOTE, branch="main", team="Not A Team")  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"name": "<script>alert(1)</script>"},
+        {"name": ".."},
+        {"source": "-acme"},
+        {"source": "acme org"},
+        {"service": "azure_devops", "source": "contoso", "url": "https://dev.azure.com/contoso/Platform/_git/web-shop"},
+    ],
+)
+def test_a_remote_s_names_are_validated_before_they_are_stored(changes: dict[str, str]) -> None:
+    with pytest.raises(ValidationError):
+        RemoteSettings.model_validate({**REMOTE, **changes})
+
+
+def test_a_remote_with_an_awkward_azure_name_loads() -> None:
+    remote = RemoteSettings.model_validate(
+        {
+            **REMOTE,
+            "service": "azure_devops",
+            "source": "contoso/Platform",
+            "name": "Payments API",
+            "url": "https://dev.azure.com/contoso/Platform/_git/Payments%20API",
+        }
+    )
+    assert (remote.source, remote.name) == ("contoso/Platform", "Payments API")

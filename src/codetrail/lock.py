@@ -87,7 +87,10 @@ def target_in_use(paths: Paths, name: str) -> Iterator[None]:
 @contextmanager
 def target_removal(paths: Paths, name: str) -> Iterator[None]:
     """Held alone by `codetrail target remove` until the target's settings file is gone."""
-    busy = f"Target {name!r} is in use: stop `codetrail serve` for it, or wait for its update to finish."
+    busy = (
+        f"Target {name!r} is in use: stop the Codetrail server serving it (`codetrail serve` or "
+        "`codetrail team serve`), or wait for its update to finish."
+    )
     with _target_lock(paths, name, fcntl.LOCK_EX, busy):
         yield
 

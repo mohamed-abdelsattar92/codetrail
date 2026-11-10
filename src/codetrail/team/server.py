@@ -3,7 +3,8 @@
 The plain team page at `/` lists each repository the team follows with its free "you're behind" signal, and each
 repository's own page is mounted under `/repos/<target>/`. One security middleware wraps it all, so the token,
 `Origin`, session and `Sec-Fetch-Site` rules apply under a prefix as at `/`. The server holds the team's in-use lock,
-and every served target's, for as long as it runs.
+and every served target's, for as long as it runs. The sources are listed once, at the start; a page view changes
+no settings.
 """
 
 from __future__ import annotations
@@ -27,7 +28,7 @@ from fastapi.responses import HTMLResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.types import ASGIApp
 
-from codetrail.config import GlobalConfig, Paths, TargetConfig, TeamConfig, load_global, load_team
+from codetrail.config import GlobalConfig, Paths, TeamConfig, load_global, load_team
 from codetrail.errors import CodetrailError
 from codetrail.hosting import HostingService
 from codetrail.hosting.names import Service
@@ -55,7 +56,8 @@ class Row:
     repository: str  # the name the service gives it
     branch: str
     signal: Signal | None = None
-    reason: str = ""  # why its signal couldn't be read
+    reason: str = ""  # why its signal couldn't be read, or why it isn't served
+    served: bool = True  # its guide is mounted
 
 
 class TimedCache[Value]:
@@ -86,15 +88,21 @@ def create_team_app(
     session: SessionState,
     settings: GlobalConfig,
     services: Mapping[Service, HostingService],
-    hold: Callable[[str], None],
+    hold: Callable[[str], Callable[[], None]],
     locales: Path | None = None,
+    *,
+    synced: TeamSync | None = None,
 ) -> ASGIApp:
     """The team page, `/login` and the shared static files at the root, and each followed target's page under
     `/repos/<target>/`, all inside one security middleware.
 
     `hold(target)` takes the target's in-use lock before its page is mounted, at the start and whenever the team
-    page finds a newly followed target; a target whose lock can't be taken isn't served."""
+    page finds a followed target it doesn't serve yet, and returns the lock's release. A target whose lock can't be
+    taken isn't served, and its row says why. `synced` is the sources' listing taken at the start: the archived and
+    gone repositories, and the sources that couldn't be listed. `services` is kept for the add-repositories screen."""
+    synced = synced or TeamSync()
     mounted: set[str] = set()  # the security middleware reads it on each request
+    refused: dict[str, str] = {}  # target: why its lock couldn't be taken
     stops: list[Callable[[], None]] = []
     mount_lock = threading.Lock()
     languages = installed_languages(locales)
@@ -102,7 +110,6 @@ def create_team_app(
     _ = language.translations.gettext
     environment = template_environment(str(files("codetrail.web").joinpath("templates")), language)
     signals: TimedCache[tuple[Signal | None, str]] = TimedCache(settings.signal.cache_seconds)
-    syncs: TimedCache[TeamSync] = TimedCache(settings.signal.cache_seconds)
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
@@ -123,30 +130,29 @@ def create_team_app(
             if target in mounted:
                 return
             try:
-                hold(target)
-            except CodetrailError as error:  # being removed, say: it isn't served
+                release = hold(target)
+            except CodetrailError as error:  # being removed, say: it isn't served, and its row says why
                 logger.warning("Not serving target %r: %s", target, error)
+                refused[target] = str(error)
                 return
-            target_app, stop = create_target_app(paths, target, session, settings, locales)
+            refused.pop(target, None)
+            try:
+                target_app, stop = create_target_app(paths, target, session, settings, locales)
+            except BaseException:
+                release()  # nothing is served, so nothing stays held
+                raise
             stops.append(stop)
             mounted.add(target)
             app.mount(f"/repos/{target}", target_app)
 
-    def followed(team: TeamConfig) -> dict[str, TargetConfig]:
+    def followed(team: TeamConfig) -> dict[str, tuple[str, str]]:
+        """Each followed target's repository name, as the service gives it, and branch."""
         return {
-            target: config
+            target: (config.remote.name, config.branch)
             for target, config in sorted(team_targets(paths, name).items())
             if config.remote is not None
             and follows(team, config.remote.service, config.remote.source, config.remote.id)
         }
-
-    def sync(team: TeamConfig) -> TeamSync:
-        """Lists each source again: newly active repositories become targets, and gone ones are reported."""
-        try:
-            return sync_team(paths, name, services, datetime.now(UTC))
-        except CodetrailError as error:
-            logger.warning("Couldn't list team %r's sources: %s", name, error)
-            return TeamSync(unreachable=[f"{source.service}:{source.source}" for source in team.sources])
 
     def read_signal(target: str) -> tuple[Signal | None, str]:
         try:
@@ -157,10 +163,11 @@ def create_team_app(
             logger.warning("Couldn't read target %r's signal: %s", target, type(error).__name__)
             return None, _("Couldn't read this repository (%(error)s).") % {"error": type(error).__name__}
 
-    def row(target: str, config: TargetConfig) -> Row:
-        assert config.remote is not None  # only followed targets have rows
+    def row(target: str, repository: str, branch: str) -> Row:
+        if target in refused:
+            return Row(target, repository, branch, reason=refused[target], served=False)
         signal, reason = signals.get(target, lambda: read_signal(target))
-        return Row(target, config.remote.name, config.branch, signal, reason)
+        return Row(target, repository, branch, signal, reason)
 
     @app.get("/login")
     def login(code: str = "", next_path: Annotated[str, Query(alias="next")] = "/") -> Response:
@@ -172,16 +179,16 @@ def create_team_app(
             team = load_team(paths, name)
         except CodetrailError as error:
             return PlainTextResponse(str(error), 500)
-        synced = syncs.get("", lambda: sync(team))
+        # A followed target this server doesn't hold yet (another command wrote it) is held and mounted: in memory
+        # only. Nothing here writes settings or lists the sources.
         targets = followed(team)
         for target in targets:
             mount(target)
-        served = {target: config for target, config in targets.items() if target in mounted}
-        current = [target for target in served if target not in synced.stopped]
+        current = [target for target in targets if target not in synced.stopped]
         with ThreadPoolExecutor(max_workers=settings.hosting.concurrency) as pool:
-            rows = list(pool.map(lambda target: row(target, served[target]), current))
-        stopped = [Row(target, config.remote.name, config.branch) for target, config in served.items()
-                   if target in synced.stopped and config.remote is not None]  # fmt: skip
+            rows = list(pool.map(lambda target: row(target, *targets[target]), current))
+        stopped = [Row(target, *targets[target], served=target in mounted) for target in targets
+                   if target in synced.stopped]  # fmt: skip
         html = environment.get_template("team.html").render(
             language=language, team=name, sources=team.sources, unreachable=set(synced.unreachable),
             service_names=SERVICE_NAMES, rows=rows, stopped=stopped,
@@ -194,18 +201,34 @@ def create_team_app(
     return SecurityMiddleware(app, session=session, port=settings.server.port, mounted_targets=mounted)
 
 
+def list_sources(paths: Paths, name: str, services: Mapping[Service, HostingService]) -> TeamSync:
+    """Lists each source once: newly active repositories become targets, and the archived and gone are reported.
+    If the team can't be synced at all, every source counts as not listed."""
+    try:
+        return sync_team(paths, name, services, datetime.now(UTC))
+    except CodetrailError as error:
+        logger.warning("Couldn't list team %r's sources: %s", name, error)
+        return TeamSync(unreachable=[f"{source.service}:{source.source}" for source in load_team(paths, name).sources])
+
+
 def serve_team(paths: Paths, name: str, open_browser: bool, start_path: str = "/") -> None:
-    """Serves the team on 127.0.0.1, holding its in-use lock and each served target's until it stops, so neither
-    `team remove` nor `target remove` runs under it. The sign-in link leads to `start_path`."""
+    """Lists the team's sources once, then serves the team on 127.0.0.1, holding its in-use lock and each served
+    target's until it stops, so neither `team remove` nor `target remove` runs under it. The sign-in link leads to
+    `start_path`."""
     with ExitStack() as held:
         held.enter_context(team_in_use(paths, name))
         settings = load_global(paths)
+        services = services_for(settings)
+        synced = list_sources(paths, name, services)
         session = SessionState(settings.server.login_code_ttl_seconds, session_minutes=settings.server.session_minutes)
 
-        def hold(target: str) -> None:
-            held.enter_context(target_in_use(paths, target))
+        def hold(target: str) -> Callable[[], None]:
+            lock = ExitStack()  # its own stack, so a page that fails to mount can release it at once
+            lock.enter_context(target_in_use(paths, target))
+            held.push(lock)
+            return lock.close
 
-        app = create_team_app(paths, name, session, settings, services_for(settings), hold)
+        app = create_team_app(paths, name, session, settings, services, hold, synced=synced)
         port = settings.server.port
         url = f"http://{HOST}:{port}/login?code={session.issue_login_code()}"
         if start_path != "/":

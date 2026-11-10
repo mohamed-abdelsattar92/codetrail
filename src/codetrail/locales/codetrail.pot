@@ -1045,6 +1045,9 @@ msgstr ""
 msgid "Not read yet"
 msgstr ""
 
+msgid "Not served"
+msgstr ""
+
 msgid "Not updated yet"
 msgstr ""
 

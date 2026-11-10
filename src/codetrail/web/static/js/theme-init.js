@@ -10,12 +10,13 @@
   ];
   var sections = ["paths", "areas", "concepts", "answers", "more"];
   // The keys carry the page's prefix, as api.js keeps them: empty at `/`, `/repos/<target>` on the team's server.
+  // The theme's key is shared by every page.
   var base = (document.querySelector('meta[name="codetrail-base"]') || { content: "" }).content;
   function stored(key) {
     return window.localStorage.getItem(base + key);
   }
   try {
-    var theme = stored("codetrail.theme");
+    var theme = window.localStorage.getItem("codetrail.theme");
     if (theme === "light" || theme === "dark") root.setAttribute("data-theme", theme);
     for (var index = 0; index < widths.length; index += 1) {
       var width = Number(stored(widths[index][0]));

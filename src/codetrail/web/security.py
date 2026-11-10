@@ -100,7 +100,11 @@ def _equal(given: str, expected: str) -> bool:
 def login_response(session: SessionState, code: str, next_path: str = "/") -> Response:
     """Signs in and leads to `next_path`, one of the page's own paths that the caller checked."""
     if not session.redeem(code):
-        return PlainTextResponse("This sign-in link has expired or was already used. Run codetrail serve again.", 403)
+        return PlainTextResponse(
+            "This sign-in link has expired or was already used. Start the server again (`codetrail serve` or "
+            "`codetrail team serve`) for a new one.",
+            403,
+        )
     response = RedirectResponse(site_path(next_path), status_code=303)
     response.set_cookie(SESSION_COOKIE, session.session_id, httponly=True, samesite="strict", path="/")
     return response

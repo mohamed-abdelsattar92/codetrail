@@ -53,7 +53,9 @@ def test_commands_can_use_a_target_together(paths: Paths, target: str) -> None:
 def test_a_target_in_use_is_not_removed(paths: Paths, target: str) -> None:
     with (
         target_in_use(paths, target),
-        pytest.raises(TargetBusy, match="in use: stop `codetrail serve` for it"),
+        pytest.raises(
+            TargetBusy, match=r"in use: stop the Codetrail server serving it \(`codetrail serve` or `codetrail te"
+        ),
         target_removal(paths, target),
     ):
         pass

@@ -6,6 +6,7 @@ import time
 from collections.abc import Callable, Iterator
 from contextlib import ExitStack
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -17,11 +18,12 @@ from codetrail.errors import CodetrailError
 from codetrail.hosting import HostingService, HostingStatus, Source
 from codetrail.hosting.fake import FakeHosting
 from codetrail.hosting.names import Service
-from codetrail.lock import target_lock
+from codetrail.lock import TargetBusy, target_lock
 from codetrail.remove import remove_target, remove_team
 from codetrail.repo.signal import Signal, behind
 from codetrail.team.server import create_team_app, serve_team
-from codetrail.team.settings import save_selection, write_team
+from codetrail.team.settings import existing_target_names, save_selection, write_team
+from codetrail.team.sync import sync_team
 from codetrail.update import run_update
 from codetrail.web.app import create_target_app
 from codetrail.web.security import TOKEN_HEADER, SessionState
@@ -43,11 +45,21 @@ class Team:
     url: str
     services: dict[Service, HostingService]
     held: list[str] = field(default_factory=list)
+    released: list[str] = field(default_factory=list)
+    refused: dict[str, str] = field(default_factory=dict)  # target: why its lock can't be taken
+
+    def hold(self, target: str) -> Callable[[], None]:
+        """Records the target as held, as serve_team's lock would be, and returns its release."""
+        if target in self.refused:
+            raise TargetBusy(self.refused[target])
+        self.held.append(target)
+        return lambda: self.released.append(target)
 
 
 def listing(*identifiers: str) -> dict[Service, HostingService]:
+    """The fake service lists these ids; R_4 is a new repository with no push time, so it counts as active."""
     status = HostingStatus("github", installed=True, signed_in=True, account="reader", fix=None)
-    listed = [repository(identifier) for identifier in identifiers]
+    listed = [repository(identifier, days_since_push=None if identifier == "R_4" else 1) for identifier in identifiers]
     return {"github": FakeHosting("github", [status], [Source("github", "acme-org", None)], {"acme-org": listed}, {})}
 
 
@@ -76,10 +88,15 @@ def team(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Team]:
         yield team
 
 
+def app_for(team: Team, session: SessionState) -> object:
+    """The team's app as serve_team builds it, after listing the sources once."""
+    synced = sync_team(team.paths, "acme", team.services, datetime.now(UTC)) if team.services else None
+    return create_team_app(team.paths, "acme", session, SETTINGS, team.services, team.hold, synced=synced)
+
+
 def client_for(team: Team, session: SessionState | None = None) -> TestClient:
     session = session or SessionState(60)
-    app = create_team_app(team.paths, "acme", session, SETTINGS, team.services, team.held.append)
-    client = TestClient(app, base_url=ORIGIN, follow_redirects=False)
+    client = TestClient(app_for(team, session), base_url=ORIGIN, follow_redirects=False)  # type: ignore[arg-type]
     assert client.get(f"/login?code={session.issue_login_code()}").status_code == 303
     return client
 
@@ -135,8 +152,24 @@ def test_one_unreachable_repository_does_not_block_the_page(team: Team, monkeypa
     assert "If it needs your sign-in, run: gh auth setup-git" in row(repositories, "acme-payments-api")
 
 
+def test_a_page_view_writes_nothing(team: Team) -> None:
+    session = SessionState(60)
+    synced = sync_team(team.paths, "acme", team.services, datetime.now(UTC))  # at the start
+    services = listing("R_1", "R_2", "R_4")  # then a new repository becomes active
+    app = create_team_app(team.paths, "acme", session, SETTINGS, services, team.hold, synced=synced)
+    client = TestClient(app, base_url=ORIGIN, follow_redirects=False)
+    assert client.get(f"/login?code={session.issue_login_code()}").status_code == 303
+    before = existing_target_names(team.paths)
+
+    assert client.get("/").status_code == 200
+
+    assert existing_target_names(team.paths) == before
+    service = services["github"]
+    assert isinstance(service, FakeHosting) and service.calls == []
+
+
 def test_a_source_that_cannot_be_listed_says_so(team: Team) -> None:
-    team.services = {}  # no adapter: the source can't be listed, and nothing counts as gone
+    team.services = {"gitlab": listing()["github"]}  # no adapter for GitHub: the source can't be listed
 
     page = client_for(team).get("/").text
 
@@ -189,9 +222,8 @@ def test_stopping_the_team_server_stops_each_guide_s_update(team: Team, monkeypa
     monkeypatch.setattr("codetrail.team.server.create_target_app", functools.partial(create_target_app,
                                                                                       updater=updater))  # fmt: skip
     session = SessionState(60)
-    app = create_team_app(team.paths, "acme", session, SETTINGS, team.services, team.held.append)
     prefix = "/repos/acme-web-shop"
-    with TestClient(app, base_url=ORIGIN, follow_redirects=False) as client:  # leaving it stops the server
+    with TestClient(app_for(team, session), base_url=ORIGIN, follow_redirects=False) as client:  # type: ignore[arg-type]  # leaving it stops the server
         assert client.get(f"/login?code={session.issue_login_code()}").status_code == 303
         started = client.post(f"{prefix}/update", headers={"origin": ORIGIN, TOKEN_HEADER: session.token})
         assert started.status_code == 202
@@ -219,8 +251,7 @@ def test_stopping_the_team_server_stops_each_guide_s_update(team: Team, monkeypa
 )
 def test_login_next_is_limited_to_known_paths(team: Team, asked: str, location: str) -> None:
     session = SessionState(60)
-    app = create_team_app(team.paths, "acme", session, SETTINGS, team.services, team.held.append)
-    client = TestClient(app, base_url=ORIGIN, follow_redirects=False)
+    client = TestClient(app_for(team, session), base_url=ORIGIN, follow_redirects=False)  # type: ignore[arg-type]
 
     response = client.get("/login", params={"code": session.issue_login_code(), "next": asked})
 
@@ -228,8 +259,51 @@ def test_login_next_is_limited_to_known_paths(team: Team, asked: str, location: 
     assert response.headers["location"] == location
 
 
-def test_team_page_escapes_names_from_the_service(team: Team) -> None:
-    add_target(team, "acme-script", "R_9", "<script>alert(1)</script>")
+def test_a_used_sign_in_link_names_both_servers(team: Team) -> None:
+    session = SessionState(60)
+    client = TestClient(app_for(team, session), base_url=ORIGIN, follow_redirects=False)  # type: ignore[arg-type]
+    code = session.issue_login_code()
+    assert client.get(f"/login?code={code}").status_code == 303
+
+    refused = client.get(f"/login?code={code}")
+
+    assert refused.status_code == 403
+    assert "codetrail serve" in refused.text and "codetrail team serve" in refused.text
+
+
+def test_a_target_being_removed_shows_why(team: Team) -> None:
+    team.refused["acme-payments-api"] = "Target 'acme-payments-api' is being removed."
+    client = client_for(team)
+
+    page = client.get("/").text
+
+    refused = re.search(r'<li>\s*<span class="grow"><bdi>payments-api</bdi>.*?</li>', page, re.DOTALL)
+    assert refused is not None and "is being removed" in refused.group(0)
+    assert 'href="/repos/acme-payments-api/"' not in page
+    assert client.get("/repos/acme-payments-api/").status_code == 404
+    assert "1 merge landed" in row(section(page, "repositories-title"), "acme-web-shop")
+
+
+def test_a_page_that_fails_to_build_releases_its_target(team: Team, monkeypatch: pytest.MonkeyPatch) -> None:
+    def failing(paths: Paths, name: str, *arguments: object, **keywords: object) -> object:
+        if name == "acme-payments-api":
+            raise RuntimeError("broken")
+        return create_target_app(paths, name, *arguments, **keywords)  # type: ignore[arg-type]
+
+    monkeypatch.setattr("codetrail.team.server.create_target_app", failing)
+
+    with pytest.raises(RuntimeError):
+        app_for(team, SessionState(60))
+
+    assert "acme-payments-api" in team.held and team.released == ["acme-payments-api"]
+
+
+def test_team_page_escapes_text_it_did_not_write(team: Team, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Names are validated before they are stored, so the hostile text comes in through an unreachable target's reason.
+    def hostile(paths: Paths, name: str) -> Signal:
+        raise CodetrailError("git couldn't fetch <script>alert(1)</script>")
+
+    monkeypatch.setattr("codetrail.team.server.behind", hostile)
 
     page = client_for(team).get("/").text
 
@@ -256,6 +330,7 @@ def test_serving_holds_every_target(
                 refusals.append(str(error))
 
     monkeypatch.setattr("codetrail.team.server.uvicorn.run", run)
+    monkeypatch.setattr("codetrail.team.server.services_for", lambda settings: team.services)
 
     serve_team(team.paths, "acme", open_browser=False, start_path="/team/add")
 
@@ -264,3 +339,31 @@ def test_serving_holds_every_target(
     printed = capsys.readouterr().out
     assert re.search(r"http://127\.0\.0\.1:\d+/login\?code=[\w-]+&next=/team/add", printed), printed
     assert remove_target(team.paths, "acme-web-shop", lambda found: True)  # the server stopped: it can go
+
+
+def test_serving_lists_the_sources_once_at_start(
+    team: Team, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    team.services = listing("R_1", "R_2", "R_4")  # R_4 is new and active; inventory (R_3) has gone
+    service = team.services["github"]
+    assert isinstance(service, FakeHosting)
+    pages: list[str] = []
+
+    def run(app: object, *_arguments: object, **_keywords: object) -> None:
+        code = re.search(r"/login\?code=([\w-]+)", capsys.readouterr().out)
+        assert code is not None
+        client = TestClient(app, base_url=ORIGIN, follow_redirects=False)  # type: ignore[arg-type]
+        assert client.get(f"/login?code={code.group(1)}").status_code == 303
+        pages.extend(client.get("/").text for _ in range(2))
+
+    monkeypatch.setattr("codetrail.team.server.uvicorn.run", run)
+    monkeypatch.setattr("codetrail.team.server.services_for", lambda settings: team.services)
+    monkeypatch.setattr("codetrail.team.server.behind", lambda paths, name: Signal(updating=True))  # no fetch
+
+    serve_team(team.paths, "acme", open_browser=False)
+
+    assert "acme-repo-r-4" in existing_target_names(team.paths)  # written before serving
+    assert service.calls == [("repositories", "acme-org")]  # once, not per page
+    for page in pages:
+        assert ">repo-R_4<" in row(section(page, "repositories-title"), "acme-repo-r-4")
+        assert ">inventory<" in row(section(page, "stopped-title"), "acme-inventory")

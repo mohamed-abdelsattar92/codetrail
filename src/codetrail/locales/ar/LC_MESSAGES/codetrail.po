@@ -1254,6 +1254,9 @@ msgstr "غير مذكورة في أي مستند"
 msgid "Not read yet"
 msgstr "لم تُقرأ بعد"
 
+msgid "Not served"
+msgstr "لا يُعرض"
+
 msgid "Not updated yet"
 msgstr "لم يُحدَّث بعد"
 
