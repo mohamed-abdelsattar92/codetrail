@@ -18,7 +18,15 @@ from codetrail.agents.protocol import serve_stdio
 from codetrail.agents.tools import AgentTools
 from codetrail.assistant.estimate import UpdateEstimate, describe, tokens_text
 from codetrail.assistant.status import provider_status
-from codetrail.config import PROVIDERS, Paths, load_global, load_target, validate_target_name, write_target
+from codetrail.config import (
+    PROVIDERS,
+    Paths,
+    load_global,
+    load_target,
+    local_repository,
+    validate_target_name,
+    write_target,
+)
 from codetrail.database import connect
 from codetrail.errors import CodetrailError
 from codetrail.facts import FactDiff
@@ -130,8 +138,8 @@ def connect_agents(paths: Paths, name: str) -> int:
 def serve_agent_tools(paths: Paths, name: str) -> int:
     """Runs the tool server until the agent closes standard input (design section 23.5)."""
     target = load_target(paths, name)
-    tools = AgentTools(paths, name, load_global(paths).agents, str(target.repository))
-    serve_stdio(tools, server_instructions(name, str(target.repository)), sys.stdin.buffer, sys.stdout.buffer)
+    tools = AgentTools(paths, name, load_global(paths).agents, str(local_repository(target)))
+    serve_stdio(tools, server_instructions(name, str(local_repository(target))), sys.stdin.buffer, sys.stdout.buffer)
     return 0
 
 

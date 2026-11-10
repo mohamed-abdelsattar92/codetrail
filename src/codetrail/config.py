@@ -19,8 +19,11 @@ from urllib.parse import urlsplit
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
 
 from codetrail.errors import CodetrailError
+from codetrail.hosting.names import Service, check_clone_url
 
 TARGET_NAME = re.compile(r"[a-z0-9][a-z0-9-]{0,62}")
+TEAM_NAME = re.compile(r"[a-z0-9][a-z0-9-]{0,29}")
+RESERVED_TARGET_NAMES = {"teams"}  # a team's data lives in <data>/teams/<team>
 
 
 @dataclass(frozen=True)
@@ -57,6 +60,12 @@ class Paths:
 
     def target_state(self, name: str) -> Path:
         return self.state_dir / name
+
+    def team_file(self, name: str) -> Path:
+        return self.config_dir / "teams" / f"{name}.toml"
+
+    def team_data(self, name: str) -> Path:
+        return self.data_dir / "teams" / name
 
 
 class Settings(BaseModel):
@@ -208,6 +217,22 @@ class MetricsSettings(Settings):
         return {name.lower(): language for name, language in languages.items()}
 
 
+class HostingSettings(Settings):
+    """The hosting services' programs and the limits on what they return (design section 24.3)."""
+
+    gh: str = "gh"
+    az: str = "az"
+    glab: str = "glab"
+    timeout_seconds: int = Field(default=60, ge=5, le=600)  # each program run
+    max_output_bytes: int = Field(default=10_000_000, ge=100_000, le=100_000_000)  # of one program's output
+    max_repositories_per_source: int = Field(default=1000, ge=1, le=10_000)
+    concurrency: int = Field(default=4, ge=1, le=16)  # program runs at once
+
+
+class TeamSettings(Settings):
+    active_days: int = Field(default=90, ge=1, le=3650)  # a source's repositories pushed to within this are followed
+
+
 class ProvidersSettings(Settings):
     claude_code: ClaudeCodeSettings = ClaudeCodeSettings()
     codex: CodexSettings = CodexSettings()
@@ -269,6 +294,8 @@ class GlobalConfig(Settings):
     diagrams: DiagramSettings = DiagramSettings()
     agents: AgentSettings = AgentSettings()
     metrics: MetricsSettings = MetricsSettings()
+    hosting: HostingSettings = HostingSettings()
+    team: TeamSettings = TeamSettings()
 
 
 class AdrSettings(Settings):
@@ -370,8 +397,42 @@ class TargetAssistantSettings(Settings):
     allow_codex: bool = False
 
 
+class RemoteSettings(Settings):
+    """A repository fetched from a hosting service (design section 24.4)."""
+
+    service: Service
+    source: str
+    id: str
+    name: str
+    url: str
+
+    @model_validator(mode="after")
+    def host_is_the_services(self) -> RemoteSettings:
+        # The checked URL (Azure DevOps's user name dropped) replaces the written one.
+        try:
+            object.__setattr__(self, "url", check_clone_url(self.service, self.url))
+        except CodetrailError as error:
+            raise ValueError(str(error)) from error
+        return self
+
+
+class TeamSource(Settings):
+    service: Service
+    source: str
+    follow: Literal["all", "chosen"] = "all"
+    clone_over: Literal["https", "ssh"] = "https"
+    left_out: list[str] = []
+    chosen: list[str] = []
+
+
+class TeamConfig(Settings):
+    sources: list[TeamSource] = []
+
+
 class TargetConfig(Settings):
-    repository: Path
+    repository: Path | None = None
+    remote: RemoteSettings | None = None
+    team: str | None = None
     branch: str
     extractors: list[Literal["python", "adr", "openapi", "terraform", "swift", "typescript", "github_actions"]] = [
         "python",
@@ -390,6 +451,17 @@ class TargetConfig(Settings):
     metrics: TargetMetricsSettings = TargetMetricsSettings()
 
     @model_validator(mode="after")
+    def one_location(self) -> TargetConfig:
+        if (self.repository is None) == (self.remote is None):
+            raise ValueError("set exactly one of repository and remote.")
+        return self
+
+    @property
+    def location(self) -> str:
+        """The repository's path, or the remote's URL."""
+        return str(self.repository) if self.remote is None else self.remote.url
+
+    @model_validator(mode="after")
     def codex_needs_consent(self) -> TargetConfig:
         if self.models.uses("codex") and not self.assistant.allow_codex:
             raise ValueError(
@@ -400,15 +472,33 @@ class TargetConfig(Settings):
 
     @field_validator("repository")
     @classmethod
-    def expand_home(cls, repository: Path) -> Path:
-        return repository.expanduser()
+    def expand_home(cls, repository: Path | None) -> Path | None:
+        return repository.expanduser() if repository else None
+
+
+def local_repository(target: TargetConfig) -> Path:
+    """The checkout of a local target; a remote target has none (Phase 21 Task 5 replaces this)."""
+    if target.repository is None:
+        raise CodetrailError("This target is remote, and remote targets are not supported yet.")
+    return target.repository
 
 
 def validate_target_name(name: str) -> str:
+    if name in RESERVED_TARGET_NAMES:
+        raise CodetrailError(f"{name!r} is reserved: a team's data lives in a folder of that name.")
     if not TARGET_NAME.fullmatch(name):
         raise CodetrailError(
             f"{name!r} isn't a valid target name: use lower-case letters, digits and hyphens, starting with a letter "
             "or digit, at most 63 characters."
+        )
+    return name
+
+
+def validate_team_name(name: str) -> str:
+    if not TEAM_NAME.fullmatch(name):
+        raise CodetrailError(
+            f"{name!r} isn't a valid team name: use lower-case letters, digits and hyphens, starting with a letter "
+            "or digit, at most 30 characters."
         )
     return name
 
@@ -425,6 +515,13 @@ def load_target(paths: Paths, name: str) -> TargetConfig:
     if not file.exists():
         raise CodetrailError(f"No target named {name!r}. Add it with: codetrail target add {name} <path>")
     return _validate(TargetConfig, _read_toml(file), file)
+
+
+def load_team(paths: Paths, name: str) -> TeamConfig:
+    file = paths.team_file(validate_team_name(name))
+    if not file.exists():
+        raise CodetrailError(f"No team named {name!r}.")
+    return _validate(TeamConfig, _read_toml(file), file)
 
 
 def check_containment(paths: Paths, repository: Path) -> None:
@@ -449,6 +546,30 @@ def write_target(paths: Paths, name: str, repository: Path, branch: str) -> Path
         f"# Codetrail target {name!r}, written by `codetrail target add`.\n"
         f"repository = {json.dumps(str(repository))}\n"
         f"branch = {json.dumps(branch)}\n"
+    )
+    file.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with file.open("x", encoding="utf-8") as handle:
+            handle.write(text)
+    except FileExistsError as error:
+        raise CodetrailError(f"A target named {name!r} already exists: {file}") from error
+    return file
+
+
+def write_remote_target(paths: Paths, name: str, remote: RemoteSettings, branch: str, team: str) -> Path:
+    """Writes a team's new remote target and returns its path. There is no checkout to check."""
+    file = paths.target_file(validate_target_name(name))
+    validate_branch_name(branch)
+    text = (
+        f"# Codetrail target {name!r}, written for team {team!r}.\n"
+        f"team = {json.dumps(validate_team_name(team))}\n"
+        f"branch = {json.dumps(branch)}\n"
+        "\n[remote]\n"
+        f"service = {json.dumps(remote.service)}\n"
+        f"source = {json.dumps(remote.source)}\n"
+        f"id = {json.dumps(remote.id)}\n"
+        f"name = {json.dumps(remote.name)}\n"
+        f"url = {json.dumps(remote.url)}\n"
     )
     file.parent.mkdir(parents=True, exist_ok=True)
     try:
