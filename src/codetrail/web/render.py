@@ -2,7 +2,8 @@
 
 Markdown is rendered by markdown-it-py with raw HTML disabled and its link validation on (no `javascript:`,
 `vbscript:`, `file:` or `data:` links). Rationale blocks become labelled boxes, `[[fact]]` links point at the fact's
-view, and diagram placeholders are replaced by diagrams drawn from facts.
+view, and diagram placeholders are replaced by diagrams drawn from facts. Links to the page's own routes get its
+prefix (section 24.7).
 """
 
 from __future__ import annotations
@@ -27,6 +28,7 @@ from codetrail.web.diagrams import (
     resources_diagram,
     system_diagram,
 )
+from codetrail.web.links import site_path
 
 FACT_LINK = re.compile(r"\[\[([a-z_]+:[^\]\s]+)\]\]")
 MARKDOWN = MarkdownIt("commonmark", {"html": False, "linkify": False}).enable("table")
@@ -44,8 +46,18 @@ def _aligned_cell(
     return renderer.renderToken(tokens, index, options, env)
 
 
+def _local_link(renderer: RendererHTML, tokens: Sequence[Token], index: int, options: OptionsDict, env: EnvType) -> str:
+    """A link to one of the page's routes, such as a path's steps or a fact, under the page's prefix."""
+    token = tokens[index]
+    href = token.attrGet("href")
+    if isinstance(href, str) and href.startswith("/"):
+        token.attrSet("href", site_path(href))
+    return renderer.renderToken(tokens, index, options, env)
+
+
 for cell in ("th_open", "td_open"):
     MARKDOWN.add_render_rule(cell, _aligned_cell)
+MARKDOWN.add_render_rule("link_open", _local_link)
 
 
 @dataclass(frozen=True)
@@ -105,7 +117,7 @@ def render_body(body: str, store: FactStore, max_nodes: int) -> list[Segment]:
 
 def _link(citation: str | None) -> str | None:
     match = FILE_CITATION.match(citation or "")
-    return f"/source/{quote(match.group('path'))}#L{match.group('start')}" if match else None
+    return site_path(f"/source/{quote(match.group('path'))}#L{match.group('start')}") if match else None
 
 
 def _diagram(arguments: str, store: FactStore, max_nodes: int) -> Diagram | None:

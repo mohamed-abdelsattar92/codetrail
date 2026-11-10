@@ -65,6 +65,7 @@ from codetrail.web.documentation import (
     segments,
 )
 from codetrail.web.i18n import Language, installed_languages
+from codetrail.web.links import BasePathMiddleware, site_path
 from codetrail.web.navigation import (
     PINNABLE,
     Navigation,
@@ -119,8 +120,9 @@ class TargetInUseMiddleware:
         self.name = name
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http" or scope["path"].startswith(OPEN_PATHS):  # no session, and no target data
-            await self.app(scope, receive, send)
+        # Compared as routed: a mounted page sees its full path, and its prefix as the root path.
+        if scope["type"] != "http" or scope["path"].removeprefix(scope.get("root_path", "")).startswith(OPEN_PATHS):
+            await self.app(scope, receive, send)  # no session, and no target data
             return
         held = ExitStack()
         try:
@@ -144,8 +146,24 @@ def create_app(
     updater: Callable[[Callable[[UpdateEstimate], bool], Progress], object] | None = None,
     assistant_for: Callable[[], Assistant] | None = None,
 ) -> ASGIApp:
-    """The page, wrapped in the security middleware outside everything, so every response passes through it.
+    """The target's page at `/`, wrapped in the security middleware outside everything, so every response passes
+    through it."""
+    target_app = create_target_app(paths, name, session, settings, locales, updater, assistant_for)
+    return SecurityMiddleware(target_app, session=session, port=settings.server.port)
 
+
+def create_target_app(
+    paths: Paths,
+    name: str,
+    session: SessionState,
+    settings: GlobalConfig,
+    locales: Path | None = None,
+    updater: Callable[[Callable[[UpdateEstimate], bool], Progress], object] | None = None,
+    assistant_for: Callable[[], Assistant] | None = None,
+) -> ASGIApp:
+    """The target's page without the security middleware, to serve at `/` or mount under `/repos/<target>/`.
+
+    Whoever serves it wraps it, once, in the security middleware. Every link it builds goes through `site_path`.
     `updater` runs one update; the Update button runs it in a background thread (tests pass a fake one).
     """
     stopping = threading.Event()
@@ -461,7 +479,7 @@ def create_app(
     def search_json(q: str = "") -> Response:
         results, available = search_results(q)
         payload = [
-            {"title": result.document.title, "kind": result.document.kind, "link": result.document.link,
+            {"title": result.document.title, "kind": result.document.kind, "link": site_path(result.document.link),
              "snippet": [[text, matched] for text, matched in result.snippet]}
             for result in results
         ]  # fmt: skip
@@ -707,7 +725,7 @@ def create_app(
         )
     )
     app.mount("/static", StaticFiles(directory=str(files("codetrail.web").joinpath("static"))), name="static")
-    return SecurityMiddleware(TargetInUseMiddleware(app, paths, name), session=session, port=settings.server.port)
+    return BasePathMiddleware(TargetInUseMiddleware(app, paths, name))
 
 
 def day_text(seconds: int) -> str:
@@ -731,6 +749,7 @@ def _environment(templates: str, language: Language) -> Environment:
     environment.filters["number"] = lambda value: f"{value:,}"
     environment.filters["day"] = day_text
     environment.filters["initials"] = initials
+    environment.globals["site_path"] = site_path
     return environment
 
 

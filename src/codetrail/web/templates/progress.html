@@ -17,14 +17,14 @@
 {% for path, learned, total, steps in paths_steps %}
 <section aria-labelledby="path-{{ loop.index }}">
   <div class="section-head">
-    <h2 id="path-{{ loop.index }}" lang="en" dir="ltr"><a href="/pages/{{ path.id }}">{{ path.title }}</a></h2>
+    <h2 id="path-{{ loop.index }}" lang="en" dir="ltr"><a href="{{ site_path('/pages/') }}{{ path.id }}">{{ path.title }}</a></h2>
     <span class="faint">{% trans learned=learned, total=total %}{{ learned }} of {{ total }} learned{% endtrans %}</span>
   </div>
   <progress class="bar" max="{{ total or 1 }}" value="{{ learned }}" aria-labelledby="path-{{ loop.index }}"></progress>
   <ol class="list spaced" lang="en" dir="ltr">
     {% for step in steps %}
     {% set state = nav.statuses.get(step.id, "unread") %}
-    <li><a class="grow" href="/pages/{{ step.id }}?path={{ path.id }}">{{ step.title }}</a>
+    <li><a class="grow" href="{{ site_path('/pages/') }}{{ step.id }}?path={{ path.id }}">{{ step.title }}</a>
       <span class="pill pill-{{ state }}" lang="{{ language.code }}" dir="{{ language.direction }}">{% if state == "learned" %}{{ icon("check") }} {{ _("Learned") }}{% elif state == "stale" %}{{ _("Changed since you learned it") }}{% elif state == "read" %}{{ _("Read") }}{% else %}{{ _("Not read yet") }}{% endif %}</span></li>
     {% endfor %}
   </ol>
@@ -36,7 +36,7 @@
   <ul class="list" lang="en" dir="ltr">
     {% for page in unpathed %}
     {% set state = nav.statuses.get(page.id, "unread") %}
-    <li><a class="grow" href="/pages/{{ page.id }}">{{ page.title }}</a>
+    <li><a class="grow" href="{{ site_path('/pages/') }}{{ page.id }}">{{ page.title }}</a>
       <span class="pill pill-{{ state }}" lang="{{ language.code }}" dir="{{ language.direction }}">{% if state == "learned" %}{{ icon("check") }} {{ _("Learned") }}{% elif state == "stale" %}{{ _("Changed since you learned it") }}{% elif state == "read" %}{{ _("Read") }}{% else %}{{ _("Not read yet") }}{% endif %}</span></li>
     {% endfor %}
   </ul>

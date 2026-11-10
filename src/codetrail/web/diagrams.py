@@ -17,6 +17,7 @@ from urllib.parse import quote
 
 from codetrail.facts import Entity, EntityKind, RelationKind
 from codetrail.facts.store import FactStore
+from codetrail.web.links import site_path
 
 
 def d2_label(text: str, fallback: str = "?") -> str:
@@ -98,7 +99,7 @@ def imports_diagram(store: FactStore, scope: str, max_nodes: int) -> Diagram:
     if len(modules) <= max_nodes:
         group = {module_id: module_id for module_id in modules}
         labels = {module_id: str(entity.attributes.get("name", module_id)) for module_id, entity in modules.items()}
-        links = {module_id: f"/facts/{quote(module_id, safe='')}" for module_id in modules}
+        links = {module_id: _fact_link(module_id) for module_id in modules}
         return _render(group, labels, links, Counter(edges), rolled_up=False, counted=False)
     paths = {module_id: PurePosixPath(_location(module_id)).parent for module_id in modules}
     depth = max(len(path.parts) for path in paths.values())
@@ -106,7 +107,7 @@ def imports_diagram(store: FactStore, scope: str, max_nodes: int) -> Diagram:
         depth -= 1
     group = {module_id: str(_truncate(path, depth)) for module_id, path in paths.items()}
     labels = {folder: f"{folder}/" for folder in group.values()}
-    links = {folder: f"/areas/{quote(folder)}" for folder in group.values()}
+    links = {folder: site_path(f"/areas/{quote(folder)}") for folder in group.values()}
     folder_edges = Counter((group[source], group[target]) for source, target in edges if group[source] != group[target])
     return _render(group, labels, links, folder_edges, rolled_up=True, counted=True)
 
@@ -125,7 +126,7 @@ def dependencies_diagram(store: FactStore, project_id: str) -> Diagram:
     lines += [_node(ids[key], label, key) for key, label in sorted(labels.items())]
     for relation in relations:
         lines.append(_edge(ids[project_id], ids[relation.target_id], str(relation.attributes.get("group") or "")))
-    nodes = [DiagramNode(ids[key], label, f"/facts/{quote(key, safe='')}") for key, label in sorted(labels.items())]
+    nodes = [DiagramNode(ids[key], label, _fact_link(key)) for key, label in sorted(labels.items())]
     return Diagram("\n".join(lines) + "\n", nodes)
 
 
@@ -146,7 +147,7 @@ def resources_diagram(store: FactStore, scope: str, max_nodes: int) -> Diagram:
     for relation in store.relations(RelationKind.REFERENCES) + store.relations(RelationKind.CONTAINS):
         if relation.source_id in nodes and relation.target_id in nodes:
             edges[(relation.source_id, relation.target_id)] += 1
-    return _render({key: key for key in nodes}, labels, {key: f"/facts/{quote(key, safe='')}" for key in nodes}, edges,
+    return _render({key: key for key in nodes}, labels, {key: _fact_link(key) for key in nodes}, edges,
                    rolled_up=len(nodes) < len(modules) + len(resources), counted=False)  # fmt: skip
 
 
@@ -202,7 +203,7 @@ def system_diagram(store: FactStore, focus: str | None, max_nodes: int) -> Diagr
     group = {key: key for key in shown}
     labels = {key: str(parts[key].attributes.get("name") or "") for key in shown}
     kinds = {key: str(parts[key].attributes.get("kind", "library")) for key in shown}
-    links = {key: f"/facts/{quote(key, safe='')}" for key in shown}
+    links = {key: _fact_link(key) for key in shown}
     rolled_up = False
     for level in ("libraries", "parts"):
         if len(set(group.values())) <= max_nodes:
@@ -222,7 +223,7 @@ def system_diagram(store: FactStore, focus: str | None, max_nodes: int) -> Diagr
             noun = "libraries" if level == "libraries" else "parts"
             labels[folder_key] = f"{folder}/ ({len(keys)} {noun})"
             kinds[folder_key] = "library"
-            links[folder_key] = f"/areas/{quote(folder)}"
+            links[folder_key] = site_path(f"/areas/{quote(folder)}")
             for key in keys:
                 group[key] = folder_key
     sizes = Counter(group.values())
@@ -231,7 +232,7 @@ def system_diagram(store: FactStore, focus: str | None, max_nodes: int) -> Diagr
         folded = [key for key in shown if group[key] not in kept]
         labels["group:other"] = f"other parts ({len(folded)})"
         kinds["group:other"] = "library"
-        links["group:other"] = "/system"
+        links["group:other"] = site_path("/system")
         for key in folded:
             group[key] = "group:other"
     counted: Counter[tuple[str, str]] = Counter()
@@ -322,6 +323,10 @@ def system_parts(store: FactStore) -> list[tuple[str, list[SystemPart]]]:
     return [(kind, grouped[kind]) for kind in PART_KINDS if kind in grouped]
 
 
+def _fact_link(fact_id: str) -> str:
+    return site_path(f"/facts/{quote(fact_id, safe='')}")
+
+
 def _within(folder: str, scope: str) -> bool:
     return folder == scope or folder.startswith(scope + "/")
 
@@ -334,7 +339,7 @@ def _source_link(cited: str) -> str | None:
     path, _, line = cited.partition("#L")
     if not path or not LISTABLE.fullmatch(path):
         return None
-    return f"/source/{path}#L{line}" if line.isdigit() else f"/source/{path}"
+    return site_path(f"/source/{path}#L{line}") if line.isdigit() else site_path(f"/source/{path}")
 
 
 MAX_AVAILABLE = 15  # of each kind, so the list stays a short part of a question's prompt

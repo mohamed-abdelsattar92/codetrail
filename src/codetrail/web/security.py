@@ -11,12 +11,15 @@
 - The worker that runs D2's WebAssembly build alone gets another Content-Security-Policy: its layout evaluates
   JavaScript, so it may, but it can import nothing but Go's loader and the ELK layout, reach nothing but its wasm
   file, and has no DOM (ADRs 0016, 0018).
+- The team page mounts each target's page under `/repos/<target>/` (design section 24.7). A path there is checked as
+  the same path at `/` would be, but `/static/` is matched only at the root, where the shared static files are.
 Sessions live in memory and end with the process.
 """
 
 from __future__ import annotations
 
 import hmac
+import re
 import secrets
 import time
 from collections.abc import Callable
@@ -24,6 +27,9 @@ from http.cookies import SimpleCookie
 
 from starlette.responses import PlainTextResponse, RedirectResponse, Response
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
+
+from codetrail.config import TARGET_NAME
+from codetrail.web.links import site_path
 
 SESSION_COOKIE = "codetrail_session"
 TOKEN_HEADER = "x-codetrail-token"  # noqa: S105 - a header name, not a secret
@@ -43,6 +49,13 @@ READ_METHODS = {"GET", "HEAD"}
 OPEN_PATHS = ("/login", "/static/")
 # Reads that return JSON for the page's script also need the token, as defence in depth (design 16.3).
 TOKEN_READS = ("/search/results", "/bridge/answers")
+TARGET_PREFIX = re.compile(rf"/repos/{TARGET_NAME.pattern}(?=/|$)")
+
+
+def route_path(path: str) -> str:
+    """The path without a leading `/repos/<target>`, the prefix the team page mounts a target's page at."""
+    prefix = TARGET_PREFIX.match(path)
+    return path[prefix.end() :] if prefix else path
 
 
 class SessionState:
@@ -87,7 +100,7 @@ def _equal(given: str, expected: str) -> bool:
 def login_response(session: SessionState, code: str) -> Response:
     if not session.redeem(code):
         return PlainTextResponse("This sign-in link has expired or was already used. Run codetrail serve again.", 403)
-    response = RedirectResponse("/", status_code=303)
+    response = RedirectResponse(site_path("/"), status_code=303)
     response.set_cookie(SESSION_COOKIE, session.session_id, httponly=True, samesite="strict", path="/")
     return response
 
@@ -135,19 +148,20 @@ class SecurityMiddleware:
         if host not in self.hosts:
             return PlainTextResponse("This page is only served at 127.0.0.1 or localhost.", 400)
         path = scope["path"]
-        if path.startswith("/static/"):
+        if path.startswith("/static/"):  # at the root only: under a prefix, it's a target's page like any other
             return None
         # Browsers say where a request came from. Only the page itself or the address bar may reach Codetrail, so
         # another site, or a server on another 127.0.0.1 port (same-site), can't time or drive it (ASVS 3.5.8).
         if headers.get("sec-fetch-site", "same-origin") not in ("same-origin", "none"):
             return PlainTextResponse("This request didn't come from Codetrail's page.", 403)
-        if path == "/login":
+        route = route_path(path)
+        if route == "/login":
             return None
         cookies = SimpleCookie(headers.get("cookie", ""))
         cookie = cookies[SESSION_COOKIE].value if SESSION_COOKIE in cookies else None
         if not self.session.is_session(cookie):
             return PlainTextResponse("Sign in with the link codetrail serve printed.", 403)
-        if path in TOKEN_READS and not self.session.is_token(headers.get(TOKEN_HEADER)):
+        if route in TOKEN_READS and not self.session.is_token(headers.get(TOKEN_HEADER)):
             return PlainTextResponse("This request didn't come from Codetrail's page.", 403)
         writes = scope["method"] not in READ_METHODS
         if writes and (

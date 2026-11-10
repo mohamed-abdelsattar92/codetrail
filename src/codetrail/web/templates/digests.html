@@ -9,7 +9,7 @@
 {% if digests %}
 <ul class="list" lang="en" dir="ltr">
   {% for digest in digests %}
-  <li><a class="grow" href="/pages/{{ digest.id }}">{{ digest.title }}</a>
+  <li><a class="grow" href="{{ site_path('/pages/') }}{{ digest.id }}">{{ digest.title }}</a>
     {% if digest.id in unread %}<span class="pill pill-read" lang="{{ language.code }}" dir="{{ language.direction }}">{{ _("unread") }}</span>{% endif %}
     <span class="faint">{{ (digest.meta.get("written_at") if digest.meta.get("written_at") is string else "")[:10] }}</span></li>
   {% endfor %}

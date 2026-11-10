@@ -6,7 +6,7 @@
 <div class="wide">
 <header class="page-head">
   <h1>{{ _("Search") }}</h1>
-  <form class="search-box full" action="/search" method="get" role="search">
+  <form class="search-box full" action="{{ site_path('/search') }}" method="get" role="search">
     {{ icon("search") }}
     <input type="search" name="q" value="{{ query }}" maxlength="1000" aria-label="{{ _('Search the guide') }}">
     <button type="submit" class="button small">{{ _("Search") }}</button>
@@ -21,7 +21,7 @@
 <ol class="results" lang="en" dir="ltr">
   {% for result in results %}
   <li>
-    <a href="{{ result.document.link }}">{{ result.document.title }}</a> <span class="kind" lang="{{ language.code }}" dir="{{ language.direction }}">{{ kind_name(result.document.kind) }}</span>
+    <a href="{{ site_path(result.document.link) }}">{{ result.document.title }}</a> <span class="kind" lang="{{ language.code }}" dir="{{ language.direction }}">{{ kind_name(result.document.kind) }}</span>
     {% if result.snippet %}<p class="snippet">{% for text, matched in result.snippet %}{% if matched %}<mark>{{ text }}</mark>{% else %}{{ text }}{% endif %}{% endfor %}</p>{% endif %}
   </li>
   {% endfor %}
