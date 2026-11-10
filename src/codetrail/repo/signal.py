@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from codetrail.config import Paths, check_containment, load_target
+from codetrail.config import Paths, check_containment, load_global, load_target
 from codetrail.database import connect
 from codetrail.facts.store import FactStore
 from codetrail.lock import TargetBusy, target_lock
@@ -39,7 +39,7 @@ def behind(paths: Paths, name: str) -> Signal:
     try:
         with target_lock(paths, name):
             mirror = data / "mirror.git"
-            head = fetch_target(mirror, target)
+            head = fetch_target(mirror, target, stall_seconds=load_global(paths).hosting.timeout_seconds)
             snapshot = _latest_snapshot_commit(paths, name)
             if snapshot is None:
                 return Signal(head=head)

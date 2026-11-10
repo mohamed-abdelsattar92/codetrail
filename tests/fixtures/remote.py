@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import functools
+import socket
 import threading
 from collections.abc import Callable, Iterator
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -69,11 +71,12 @@ def serving_repository(repository: Path, folder: Path) -> Iterator[str]:
         yield f"{base_url}/served.git"
 
 
-def allow_http_remotes(monkeypatch: pytest.MonkeyPatch) -> None:
+def allow_http_remotes(monkeypatch: pytest.MonkeyPatch, folder: Path) -> None:
     """Lets a remote target point at a server on 127.0.0.1: the host check passes and git may use plain http.
 
     Only code can widen the protocols and the hosts, so the tests that need a local server do it by patching.
     """
+    hermetic_home(monkeypatch, folder / "home")
     monkeypatch.setattr("codetrail.config.check_clone_url", lambda service, url: url)
     monkeypatch.setattr("codetrail.repo.remote.check_clone_url", lambda service, url: url)
     monkeypatch.setattr(
@@ -85,3 +88,29 @@ def allow_http_remotes(monkeypatch: pytest.MonkeyPatch) -> None:
 def write_served_target(paths: Paths, name: str, url: str, branch: str = "develop") -> None:
     remote = RemoteSettings(service="github", source="acme-org", id="R_1", name="web-shop", url=url)
     write_remote_target(paths, name, remote, branch, "acme")
+
+
+def hermetic_home(monkeypatch: pytest.MonkeyPatch, folder: Path) -> Path:
+    """Points HOME at an empty folder, so the developer's git configuration and credential helpers aren't read."""
+    folder.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setenv("HOME", str(folder))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(folder / ".config"))
+    return folder
+
+
+@contextmanager
+def stalling_server() -> Iterator[str]:
+    """Accepts connections (the kernel does, from its backlog) and never answers; yields the base URL."""
+    with socket.socket() as listener:
+        listener.bind((HOST, 0))
+        listener.listen(5)
+        yield f"http://{HOST}:{listener.getsockname()[1]}"
+
+
+def within[Result](seconds: float, function: Callable[[], Result]) -> Result:
+    """The function's result; a call still running after `seconds` fails the test instead of hanging it."""
+    executor = ThreadPoolExecutor(max_workers=1)
+    try:
+        return executor.submit(function).result(timeout=seconds)
+    finally:
+        executor.shutdown(wait=False, cancel_futures=True)

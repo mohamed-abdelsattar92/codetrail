@@ -64,7 +64,7 @@ def test_reports_an_update_in_progress_without_fetching(paths: Paths, checkout: 
 
 def test_the_signal_fetches_a_remote_target(paths: Paths, checkout: Path, tmp_path: Path,
                                             monkeypatch: pytest.MonkeyPatch) -> None:  # fmt: skip
-    allow_http_remotes(monkeypatch)
+    allow_http_remotes(monkeypatch, tmp_path)
     with serving_repository(checkout, tmp_path / "served") as url:
         write_served_target(paths, "remote", url)
         run_update(paths, "remote", facts_only=True)

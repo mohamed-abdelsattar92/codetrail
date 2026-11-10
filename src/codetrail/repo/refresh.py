@@ -37,9 +37,10 @@ def refresh_while_locked(paths: Paths, name: str) -> SourceManifest:
     target = load_target(paths, name)
     if target.repository is not None:
         check_containment(paths, target.repository)
-    scanner = SecretScanner(load_global(paths).tools)
+    settings = load_global(paths)
+    scanner = SecretScanner(settings.tools)
     data = paths.target_data(name)
     mirror = data / "mirror.git"
-    commit = fetch_target(mirror, target)
+    commit = fetch_target(mirror, target, stall_seconds=settings.hosting.timeout_seconds)
     rules = ExclusionRules(ignore_lines(paths, name, read_file_at(mirror, commit, TARGET_IGNORE_FILE)))
     return build_source(mirror, commit, rules, scanner, data)

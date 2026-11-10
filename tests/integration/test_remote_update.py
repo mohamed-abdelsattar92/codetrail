@@ -48,7 +48,7 @@ def write_page(request: PageRequest) -> PageDraft:
 
 def test_a_remote_target_updates_with_the_fake_assistant(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     # A server on 127.0.0.1 has no service host and speaks plain http, so the test widens both, as only code can.
-    allow_http_remotes(monkeypatch)
+    allow_http_remotes(monkeypatch, tmp_path)
     paths = Paths(config_dir=tmp_path / "config", data_dir=tmp_path / "data", state_dir=tmp_path / "state")
     remote = make_repository(tmp_path / "remote", [FILES])
     with serving_repository(remote, tmp_path / "served") as url:
