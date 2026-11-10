@@ -11,6 +11,7 @@ from urllib.parse import urlsplit
 from codetrail.errors import CodetrailError
 
 Service = Literal["github", "azure_devops", "gitlab"]
+SERVICE_NAMES: dict[Service, str] = {"github": "GitHub", "azure_devops": "Azure DevOps", "gitlab": "GitLab"}
 
 
 @dataclass(frozen=True)

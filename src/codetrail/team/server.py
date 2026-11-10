@@ -31,12 +31,14 @@ from starlette.types import ASGIApp
 from codetrail.config import GlobalConfig, Paths, TeamConfig, load_global, load_team
 from codetrail.errors import CodetrailError
 from codetrail.hosting import HostingService
-from codetrail.hosting.names import Service
+from codetrail.hosting.names import SERVICE_NAMES, Service
 from codetrail.hosting.services import services_for
 from codetrail.lock import target_in_use, team_in_use
 from codetrail.repo.signal import Signal, behind
 from codetrail.server import HOST
 from codetrail.team.follow import follows
+from codetrail.team.refresh import TeamRefreshJob
+from codetrail.team.routes import team_router
 from codetrail.team.settings import team_targets
 from codetrail.team.sync import TeamSync, sync_team
 from codetrail.web.app import create_target_app, template_environment
@@ -44,7 +46,6 @@ from codetrail.web.i18n import installed_languages
 from codetrail.web.security import SecurityMiddleware, SessionState, login_response
 
 LOGIN_NEXT = ("/", "/team/add")  # where the sign-in link may lead; anything else leads to the team page
-SERVICE_NAMES: dict[Service, str] = {"github": "GitHub", "azure_devops": "Azure DevOps", "gitlab": "GitLab"}
 logger = logging.getLogger(__name__)
 
 
@@ -99,8 +100,9 @@ def create_team_app(
     `hold(target)` takes the target's in-use lock before its page is mounted, at the start and whenever the team
     page finds a followed target it doesn't serve yet, and returns the lock's release. A target whose lock can't be
     taken isn't served, and its row says why. `synced` is the sources' listing taken at the start: the archived and
-    gone repositories, and the sources that couldn't be listed. `services` is kept for the add-repositories screen."""
-    synced = synced or TeamSync()
+    gone repositories, and the sources that couldn't be listed; a save on the add-repositories screen replaces it.
+    `services` are what that screen lists, and its saves sync."""
+    listing = synced or TeamSync()
     mounted: set[str] = set()  # the security middleware reads it on each request
     refused: dict[str, str] = {}  # target: why its lock couldn't be taken
     stops: list[Callable[[], None]] = []
@@ -110,12 +112,14 @@ def create_team_app(
     _ = language.translations.gettext
     environment = template_environment(str(files("codetrail.web").joinpath("templates")), language)
     signals: TimedCache[tuple[Signal | None, str]] = TimedCache(settings.signal.cache_seconds)
+    refresh = TeamRefreshJob(paths, settings.hosting.concurrency, _, settings.server.update_log_lines)
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         try:
             yield
         finally:  # a mount doesn't run its page's lifespan, so each page's update is stopped here
+            refresh.stop()
             with mount_lock:
                 stopping = list(stops)
             for stop in stopping:
@@ -184,17 +188,24 @@ def create_team_app(
         targets = followed(team)
         for target in targets:
             mount(target)
-        current = [target for target in targets if target not in synced.stopped]
+        current = [target for target in targets if target not in listing.stopped]
         with ThreadPoolExecutor(max_workers=settings.hosting.concurrency) as pool:
             rows = list(pool.map(lambda target: row(target, *targets[target]), current))
         stopped = [Row(target, *targets[target], served=target in mounted) for target in targets
-                   if target in synced.stopped]  # fmt: skip
+                   if target in listing.stopped]  # fmt: skip
         html = environment.get_template("team.html").render(
-            language=language, team=name, sources=team.sources, unreachable=set(synced.unreachable),
+            language=language, team=name, sources=team.sources, unreachable=set(listing.unreachable),
             service_names=SERVICE_NAMES, rows=rows, stopped=stopped,
         )  # fmt: skip
         return HTMLResponse(html)
 
+    def record_sync(result: TeamSync) -> None:
+        nonlocal listing
+        listing = result
+
+    app.include_router(
+        team_router(paths, name, settings, services, session, language, environment, mount, refresh, record_sync)
+    )
     app.mount("/static", StaticFiles(directory=str(files("codetrail.web").joinpath("static"))), name="static")
     for target in followed(load_team(paths, name)):
         mount(target)

@@ -1,0 +1,86 @@
+<!doctype html>
+{# The add-repositories screen (design section 24.6, option A). The page calls no service: its script asks the JSON
+   reads, and sets every value a service returns as text, never as markup. #}
+<html lang="{{ language.code }}" dir="{{ language.direction }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="codetrail-token" content="{{ token }}">
+  <meta name="codetrail-base" content="">
+  <meta name="color-scheme" content="light dark">
+  <title>{{ _("Add repositories") }} · {{ team }} · Codetrail</title>
+  <link rel="icon" href="/static/brand/favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="/static/vendor/inter/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/static/css/tokens.css">
+  <link rel="stylesheet" href="/static/css/base.css">
+  <link rel="stylesheet" href="/static/css/layout.css">
+  <link rel="stylesheet" href="/static/css/components.css">
+  <link rel="stylesheet" href="/static/css/content.css">
+  <script src="/static/js/theme-init.js"></script>
+  <script type="module" src="/static/js/team_add.js"></script>
+</head>
+<body>
+<main id="content" class="content">
+<div class="wide team-add" data-team-add>
+<header class="page-head">
+  <p class="card-label">{{ _("Team") }} · {{ team }}</p>
+  <h1>{{ _("Add repositories") }}</h1>
+  <p><a href="/">{{ _("Back to the team page") }}</a></p>
+</header>
+
+<section aria-labelledby="services-title">
+  <h2 id="services-title">{{ _("Services") }}</h2>
+  <ul class="service-chips" data-services aria-live="polite"></ul>
+</section>
+
+<section aria-labelledby="source-title">
+  <h2 id="source-title">{{ _("Source") }}</h2>
+  <div class="team-fields">
+    <label class="field" for="source-picker"><span>{{ _("Source") }}</span>
+      <select id="source-picker" data-source-picker disabled></select></label>
+    <form class="field" data-organization-form>
+      <label for="azure-organization">{{ _("Azure DevOps organization") }}</label>
+      <span class="field-row">
+        <input id="azure-organization" name="organization" autocomplete="off" spellcheck="false" maxlength="50"
+               aria-describedby="azure-organization-help" data-organization>
+        <button type="submit" class="button small">{{ _("List its projects") }}</button>
+      </span>
+      <span id="azure-organization-help" class="faint">{{ _("Azure DevOps can't list your organizations, so name one.") }}</span>
+    </form>
+  </div>
+  <p class="muted" data-source-state role="status"></p>
+</section>
+
+<section aria-labelledby="list-title" data-list hidden>
+  <h2 id="list-title">{{ _("Repositories") }}</h2>
+  <label class="switch">
+    <input type="checkbox" role="switch" data-follow-all checked aria-describedby="follow-all-help">
+    <span data-follow-label>{{ _("Follow the whole source") }}</span>
+  </label>
+  <p id="follow-all-help" class="faint">{{ _("Repositories that become active later are followed too. Archived, empty and disabled ones never are. Unticking one leaves it out.") }}</p>
+  <div class="team-filters">
+    <label class="field" for="repository-filter"><span>{{ _("Filter") }}</span>
+      <input id="repository-filter" type="search" autocomplete="off" data-filter></label>
+    <label class="check-field"><input type="checkbox" data-active-only checked>
+      {% trans count=active_days %}Active in the last {{ count }} day{% pluralize %}Active in the last {{ count }} days{% endtrans %}</label>
+    <label class="check-field"><input type="checkbox" data-show-archived> {{ _("Show archived") }}</label>
+  </div>
+  <ul class="list repository-rows" data-rows aria-labelledby="list-title"></ul>
+  <p class="muted" data-no-match hidden></p>
+  <p class="team-save">
+    <button type="button" class="button primary" data-save></button>
+    <span class="muted" data-save-state role="status"></span>
+  </p>
+</section>
+
+<section aria-labelledby="refresh-title" data-refresh hidden>
+  <h2 id="refresh-title">{{ _("Getting the repositories ready") }}</h2>
+  <ol class="update-log team-refresh-log" data-refresh-log></ol>
+  <p class="muted" data-refresh-state role="status"></p>
+  <p><a class="button" href="/">{{ _("Go to the team page") }}</a></p>
+</section>
+</div>
+</main>
+<script type="application/json" data-team-add-labels>{{ labels }}</script>
+</body>
+</html>

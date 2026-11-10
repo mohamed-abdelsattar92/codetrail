@@ -48,7 +48,14 @@ SECURITY_HEADERS = [
 READ_METHODS = {"GET", "HEAD"}
 OPEN_PATHS = ("/login", "/static/")
 # Reads that return JSON for the page's script also need the token, as defence in depth (design 16.3).
-TOKEN_READS = ("/search/results", "/bridge/answers")
+TOKEN_READS = (
+    "/search/results",
+    "/bridge/answers",
+    "/team/hosting/sources",  # the team server's add-repositories screen (design 24.6)
+    "/team/hosting/repositories",
+    "/team/hosting/branches",
+    "/team/refresh/status",
+)
 TARGET_PREFIX = re.compile(r"/repos/([^/]+)(?=/|\Z)")
 
 

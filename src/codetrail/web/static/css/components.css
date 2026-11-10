@@ -2252,3 +2252,156 @@ details.more > summary {
   color: var(--text-muted);
   cursor: pointer;
 }
+
+/* The team's add-repositories screen (design section 24.6, option A): the services' chips, the source picker, the
+   "Follow the whole source" switch above the list, and each repository's row with its branch. */
+.team-add {
+  margin-inline: auto;
+  padding-inline: var(--space-4);
+}
+
+.team-add section {
+  margin-block-start: var(--space-8);
+}
+
+.service-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.service-chip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--card);
+  font-size: 0.9rem;
+}
+
+.service-chip.signed-in strong::before {
+  content: "● ";
+  color: var(--learned);
+}
+
+.service-chip.signed-out strong::before {
+  content: "○ ";
+  color: var(--text-faint);
+}
+
+.team-fields,
+.team-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: var(--space-3) var(--space-6);
+}
+
+.team-filters {
+  margin-block: var(--space-4);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: 0.9rem;
+}
+
+.field-row {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.field input,
+.field select,
+.branch-picker {
+  min-block-size: 36px;
+  padding-inline: var(--space-3);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  background: var(--raised);
+}
+
+.field select {
+  min-inline-size: 16rem;
+}
+
+.check-field {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-block-size: 36px;
+  font-size: 0.9rem;
+}
+
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.switch input {
+  appearance: none;
+  position: relative;
+  inline-size: 40px;
+  block-size: 22px;
+  margin: 0;
+  border-radius: 999px;
+  background: var(--line-strong);
+  cursor: pointer;
+  transition: background var(--duration) var(--ease);
+}
+
+.switch input::after {
+  content: "";
+  position: absolute;
+  inset-block-start: 3px;
+  inset-inline-start: 3px;
+  inline-size: 16px;
+  block-size: 16px;
+  border-radius: 50%;
+  background: var(--raised);
+  transition: inset-inline-start var(--duration) var(--ease);
+}
+
+.switch input:checked {
+  background: var(--accent);
+}
+
+.switch input:checked::after {
+  inset-inline-start: 21px;
+}
+
+.repository-row .repository-name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 500;
+}
+
+.branch-picker {
+  min-block-size: 30px;
+  max-inline-size: 14rem;
+  font-size: 0.85rem;
+}
+
+.team-save {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-block-start: var(--space-4);
+}
+
+.team-refresh-log {
+  padding-inline: 0;
+}

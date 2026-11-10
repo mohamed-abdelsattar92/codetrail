@@ -40,18 +40,26 @@ def test_the_installed_version_is_the_one_the_code_reports() -> None:
     assert version("codetrail-cli") == __version__  # pyproject.toml and __init__.py move together
 
 
-def test_team_add_writes_the_team_and_names_the_next_command(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+@pytest.mark.parametrize(("arguments", "open_browser"), [([], True), (["--no-browser"], False)])
+def test_team_add_writes_the_team_and_opens_its_add_screen(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, arguments: list[str], open_browser: bool
 ) -> None:
     monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
     monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    served: list[tuple[str, bool, str]] = []
 
-    assert main(["team", "add", "acme"]) == 0
+    def serve(paths: Paths, name: str, open_browser: bool, start_path: str = "/") -> None:
+        assert paths.team_file(name).is_file()  # written before it's served
+        served.append((name, open_browser, start_path))
 
-    assert (tmp_path / "config" / "codetrail" / "teams" / "acme.toml").is_file()
-    assert "codetrail team serve acme" in capsys.readouterr().out
+    monkeypatch.setattr("codetrail.cli.serve_team", serve)
+
+    assert main(["team", "add", "acme", *arguments]) == 0
+
+    assert served == [("acme", open_browser, "/team/add")]
     assert main(["team", "add", "acme"]) == 1
     assert main(["team", "add", "Not A Team"]) == 1
+    assert len(served) == 1
 
 
 def test_team_list_prints_sources_and_counts(

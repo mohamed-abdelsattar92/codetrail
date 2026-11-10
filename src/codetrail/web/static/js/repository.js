@@ -2,6 +2,7 @@
 // area-by-month grid's read-out, drawn from the page's JSON block. Text from the repository (paths, tag names and
 // notes, package names) is only ever set with textContent or setAttribute, never parsed as markup.
 import { sitePath } from "./api.js";
+import { Labels } from "./labels.js";
 
 const SVG = "http://www.w3.org/2000/svg";
 const DAY = 86400000;
@@ -38,40 +39,6 @@ const highestOf = (numbers, floor = 1) => numbers.reduce((highest, value) => Mat
 function rampStep(count, highest) {
   if (count <= 0 || highest <= 0) return 0;
   return Math.min(4, 1 + Math.floor((count * 4 - 1) / highest));
-}
-
-class Labels {
-  constructor(data) {
-    this.labels = data.labels;
-    this.rules = new Intl.PluralRules(data.lang);
-    this.numbers = new Intl.NumberFormat(`${data.lang}-u-nu-latn`);
-  }
-
-  number(value) {
-    return this.numbers.format(value);
-  }
-
-  fill(template, values) {
-    return template.replace(/\{(\w+)\}/g, (match, key) => (key in values ? String(values[key]) : match));
-  }
-
-  // The catalog's phrase for a sample number in the same plural category as the value.
-  count(key, value, extra = {}) {
-    const forms = this.labels[key];
-    const category = this.rules.select(value);
-    const samples = Object.keys(forms).map(Number).sort((a, b) => a - b);
-    const sample = samples.find((number) => this.rules.select(number) === category) ?? samples[samples.length - 1];
-    return this.fill(forms[String(sample)], { count: this.number(value), ...extra });
-  }
-
-  text(key, values = {}) {
-    return this.fill(this.labels[key], values);
-  }
-
-  month(time) {
-    const date = new Date(time);
-    return `${this.labels.months[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
-  }
 }
 
 // Commits per day, week (from Monday) and month, each period with its start time.
