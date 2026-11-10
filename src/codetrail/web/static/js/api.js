@@ -38,10 +38,12 @@ export function usedText(labels, usage) {
 }
 
 // Session and local storage can be missing or refuse (private windows, blocked site data); the page works without.
+// Every guide on the team's server shares one origin, so each keeps what it remembers under its prefix; at `/` the
+// keys are as they always were.
 export function remember(storage, key, value) {
   try {
-    if (value === null) window[storage].removeItem(key);
-    else window[storage].setItem(key, value);
+    if (value === null) window[storage].removeItem(base + key);
+    else window[storage].setItem(base + key, value);
   } catch {
     // nothing to do: the choice just isn't remembered
   }
@@ -49,7 +51,7 @@ export function remember(storage, key, value) {
 
 export function recall(storage, key) {
   try {
-    return window[storage].getItem(key);
+    return window[storage].getItem(base + key);
   } catch {
     return null;
   }

@@ -76,7 +76,7 @@ def mounted_client(
 ) -> TestClient:
     """The target's page under its prefix and the shared static files at the root, behind one security middleware."""
     static = StaticFiles(directory=str(files("codetrail.web").joinpath("static")))
-    target = create_target_app(paths, "web-shop", session, GlobalConfig(), assistant_for=assistant_for)
+    target, _stop = create_target_app(paths, "web-shop", session, GlobalConfig(), assistant_for=assistant_for)
     app = Starlette(routes=[Mount(PREFIX, app=target), Mount("/static", app=static)])
     secured = SecurityMiddleware(app, session=session, port=8765, mounted_targets={"web-shop"})
     client = TestClient(secured, base_url=ORIGIN, follow_redirects=False)

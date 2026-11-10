@@ -491,6 +491,9 @@ msgstr "الإجراءات"
 msgid "Activity, day by day"
 msgstr "النشاط يومًا بيوم"
 
+msgid "Add repositories"
+msgstr "أضف مستودعات"
+
 msgid "Age"
 msgstr "العمر"
 
@@ -559,6 +562,9 @@ msgstr "أبريل"
 
 msgid "Architecture decisions"
 msgstr "القرارات المعمارية"
+
+msgid "Archived, or no longer in their source"
+msgstr "مؤرشفة، أو لم تعد في مصدرها"
 
 msgid "Area"
 msgstr "منطقة"
@@ -676,6 +682,9 @@ msgstr "تحقّق من إجابتي"
 msgid "Check your understanding"
 msgstr "اختبر فهمك"
 
+msgid "Chosen repositories"
+msgstr "مستودعات مختارة"
+
 msgid "Close"
 msgstr "إغلاق"
 
@@ -772,8 +781,15 @@ msgstr "العقود"
 msgid "Cost each"
 msgstr "تكلفة كل استدعاء"
 
+msgid "Couldn't be reached"
+msgstr "تعذّر الوصول إليه"
+
 msgid "Couldn't check for new commits just now."
 msgstr "تعذّر التحقق من commits جديدة الآن."
+
+#, python-format
+msgid "Couldn't read this repository (%(error)s)."
+msgstr "تعذّرت قراءة هذا المستودع (%(error)s)."
 
 msgid "Couldn’t save the answer."
 msgstr "تعذّر حفظ الإجابة."
@@ -841,6 +857,9 @@ msgstr "العربية"
 
 msgid "Enlarge the diagram"
 msgstr "كبّر المخطط"
+
+msgid "Every active repository"
+msgstr "كل مستودع نشط"
 
 #, python-format
 msgid "Every file of code changed in the last %(days)s days."
@@ -1198,6 +1217,9 @@ msgstr "لا إصدارات في هذه الفترة."
 msgid "No releases: the branch has no tags."
 msgstr "لا إصدارات: لا tags على الـ branch."
 
+msgid "No repositories yet. Add repositories to follow them here."
+msgstr "لا مستودعات بعد. أضف مستودعات لتتابعها هنا."
+
 msgid ""
 "No shortcut spends anything: questions are sent by their Send button, and"
 " updates start only when you choose Go ahead."
@@ -1231,6 +1253,9 @@ msgstr "غير مذكورة في أي مستند"
 
 msgid "Not read yet"
 msgstr "لم تُقرأ بعد"
+
+msgid "Not updated yet"
+msgstr "لم يُحدَّث بعد"
 
 msgid "Not yet"
 msgstr "لم تنجح بعد"
@@ -1456,6 +1481,9 @@ msgstr "الإصدار"
 msgid "Releases"
 msgstr "الإصدارات"
 
+msgid "Repositories"
+msgstr "المستودعات"
+
 msgid "Repository"
 msgstr "المستودع"
 
@@ -1650,6 +1678,9 @@ msgstr "بدّل المظهر"
 msgid "System"
 msgstr "النظام"
 
+msgid "Team"
+msgstr "الفريق"
+
 msgid "Tests"
 msgstr "الاختبارات"
 
@@ -1833,6 +1864,9 @@ msgstr "المظهر: حسب النظام (التبديل إلى الفاتح)"
 msgid "There's nothing here. It may be excluded, or not in the guide yet."
 msgstr "لا شيء هنا. ربما استُثني، أو لم يدخل الدليل بعد."
 
+msgid "These aren't refreshed any more; their guides stay until you remove them."
+msgstr "لم تعد تُحدَّث؛ تبقى أدلتها حتى تزيلها."
+
 msgid "This file isn't text, or is too large to show."
 msgstr "هذا الملف ليس نصيًا، أو أكبر من أن يُعرض."
 
@@ -1926,6 +1960,9 @@ msgstr "حدّث الدليل…"
 
 msgid "Updated."
 msgstr "حُدّث."
+
+msgid "Updating"
+msgstr "يُحدَّث"
 
 msgid "Updating the guide"
 msgstr "يُحدَّث الدليل"
@@ -2104,6 +2141,9 @@ msgstr "تغيّرت"
 
 msgid "commits"
 msgstr "commits"
+
+msgid "couldn't be listed just now"
+msgstr "تعذّر عرض قائمته الآن"
 
 msgid "default model"
 msgstr "النموذج الافتراضي"

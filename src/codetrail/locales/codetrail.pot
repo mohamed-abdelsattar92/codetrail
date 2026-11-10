@@ -312,6 +312,9 @@ msgstr ""
 msgid "Activity, day by day"
 msgstr ""
 
+msgid "Add repositories"
+msgstr ""
+
 msgid "Age"
 msgstr ""
 
@@ -373,6 +376,9 @@ msgid "Apr"
 msgstr ""
 
 msgid "Architecture decisions"
+msgstr ""
+
+msgid "Archived, or no longer in their source"
 msgstr ""
 
 msgid "Area"
@@ -485,6 +491,9 @@ msgstr ""
 msgid "Check your understanding"
 msgstr ""
 
+msgid "Chosen repositories"
+msgstr ""
+
 msgid "Close"
 msgstr ""
 
@@ -573,7 +582,14 @@ msgstr ""
 msgid "Cost each"
 msgstr ""
 
+msgid "Couldn't be reached"
+msgstr ""
+
 msgid "Couldn't check for new commits just now."
+msgstr ""
+
+#, python-format
+msgid "Couldn't read this repository (%(error)s)."
 msgstr ""
 
 msgid "Couldn’t save the answer."
@@ -641,6 +657,9 @@ msgid "English"
 msgstr ""
 
 msgid "Enlarge the diagram"
+msgstr ""
+
+msgid "Every active repository"
 msgstr ""
 
 #, python-format
@@ -991,6 +1010,9 @@ msgstr ""
 msgid "No releases: the branch has no tags."
 msgstr ""
 
+msgid "No repositories yet. Add repositories to follow them here."
+msgstr ""
+
 msgid ""
 "No shortcut spends anything: questions are sent by their Send button, and"
 " updates start only when you choose Go ahead."
@@ -1021,6 +1043,9 @@ msgid "Not mentioned in any document"
 msgstr ""
 
 msgid "Not read yet"
+msgstr ""
+
+msgid "Not updated yet"
 msgstr ""
 
 msgid "Not yet"
@@ -1212,6 +1237,9 @@ msgstr ""
 msgid "Releases"
 msgstr ""
 
+msgid "Repositories"
+msgstr ""
+
 msgid "Repository"
 msgstr ""
 
@@ -1398,6 +1426,9 @@ msgstr ""
 msgid "System"
 msgstr ""
 
+msgid "Team"
+msgstr ""
+
 msgid "Tests"
 msgstr ""
 
@@ -1568,6 +1599,9 @@ msgstr ""
 msgid "There's nothing here. It may be excluded, or not in the guide yet."
 msgstr ""
 
+msgid "These aren't refreshed any more; their guides stay until you remove them."
+msgstr ""
+
 msgid "This file isn't text, or is too large to show."
 msgstr ""
 
@@ -1652,6 +1686,9 @@ msgid "Update the guide…"
 msgstr ""
 
 msgid "Updated."
+msgstr ""
+
+msgid "Updating"
 msgstr ""
 
 msgid "Updating the guide"
@@ -1820,6 +1857,9 @@ msgid "changed"
 msgstr ""
 
 msgid "commits"
+msgstr ""
+
+msgid "couldn't be listed just now"
 msgstr ""
 
 msgid "default model"

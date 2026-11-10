@@ -90,3 +90,19 @@ def test_team_remove_asks_and_deletes(
 
     assert not Paths.from_environment().team_file("acme").exists()
     assert "Removed team 'acme'" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(("arguments", "open_browser"), [([], True), (["--no-browser"], False)])
+def test_team_serve_serves_the_team(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, arguments: list[str], open_browser: bool
+) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    served: list[tuple[str, bool]] = []
+    monkeypatch.setattr(
+        "codetrail.cli.serve_team", lambda paths, name, open_browser: served.append((name, open_browser))
+    )
+
+    assert main(["team", "serve", "acme", *arguments]) == 0
+
+    assert served == [("acme", open_browser)]

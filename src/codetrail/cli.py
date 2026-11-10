@@ -41,6 +41,7 @@ from codetrail.repo.mirror import check_branch
 from codetrail.repo.refresh import refresh_source
 from codetrail.repo.rules import Reason
 from codetrail.server import serve
+from codetrail.team.server import serve_team
 from codetrail.team.settings import team_names, team_target_names, write_team
 from codetrail.update import run_update
 from codetrail.web.documentation import COUNTS, age, build_tiles, percent_of
@@ -70,6 +71,9 @@ def build_parser() -> argparse.ArgumentParser:
     team_add = team_commands.add_parser("add", help="write a new team's settings")
     team_add.add_argument("name", help="a short name: lower-case letters, digits and hyphens")
     team_commands.add_parser("list", help="show each team with its sources and target count")
+    team_serve = team_commands.add_parser("serve", help="serve the team's page and every guide it follows on 127.0.0.1")
+    team_serve.add_argument("name")
+    team_serve.add_argument("--no-browser", action="store_true", help="print the sign-in link without opening it")
     team_remove = team_commands.add_parser(
         "remove", help="delete a team and every target it created; nothing on the service is touched"
     )
@@ -202,6 +206,9 @@ def team_command(paths: Paths, arguments: argparse.Namespace) -> int:
         return 0
     if arguments.team_command == "list":
         return list_teams(paths)
+    if arguments.team_command == "serve":
+        serve_team(paths, arguments.name, open_browser=not arguments.no_browser)
+        return 0
     return _remove(
         f"team {arguments.name!r}",
         "Nothing on the hosting services is touched.",

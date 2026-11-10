@@ -148,8 +148,8 @@ def create_app(
 ) -> ASGIApp:
     """The target's page at `/`, wrapped in the security middleware outside everything, so every response passes
     through it."""
-    target_app = create_target_app(paths, name, session, settings, locales, updater, assistant_for)
-    return SecurityMiddleware(target_app, session=session, port=settings.server.port)
+    target_app, _stop = create_target_app(paths, name, session, settings, locales, updater, assistant_for)
+    return SecurityMiddleware(target_app, session=session, port=settings.server.port)  # its lifespan stops the update
 
 
 def create_target_app(
@@ -160,11 +160,13 @@ def create_target_app(
     locales: Path | None = None,
     updater: Callable[[Callable[[UpdateEstimate], bool], Progress], object] | None = None,
     assistant_for: Callable[[], Assistant] | None = None,
-) -> ASGIApp:
-    """The target's page without the security middleware, to serve at `/` or mount under `/repos/<target>/`.
+) -> tuple[ASGIApp, Callable[[], None]]:
+    """The target's page without the security middleware, to serve at `/` or mount under `/repos/<target>/`, and
+    the function that stops its update.
 
     Whoever serves it wraps it, once, in the security middleware. Every link it builds goes through `site_path`.
-    `updater` runs one update; the Update button runs it in a background thread (tests pass a fake one).
+    `updater` runs one update; the Update button runs it in a background thread (tests pass a fake one). Served at
+    `/`, the page's lifespan stops the update; a mount doesn't run it, so whoever mounts the page calls the stop.
     """
     stopping = threading.Event()
     job = UpdateJob(
@@ -203,7 +205,7 @@ def create_target_app(
 
     languages = installed_languages(locales)
     templates = str(files("codetrail.web").joinpath("templates"))
-    environments = {code: _environment(templates, language) for code, language in languages.items()}
+    environments = {code: template_environment(templates, language) for code, language in languages.items()}
     signal_cache: dict[str, tuple[float, Signal | None]] = {}
     index_lock = threading.Lock()
     index_built: dict[str, object] = {"key": None, "index": None}
@@ -725,7 +727,7 @@ def create_target_app(
         )
     )
     app.mount("/static", StaticFiles(directory=str(files("codetrail.web").joinpath("static"))), name="static")
-    return BasePathMiddleware(TargetInUseMiddleware(app, paths, name))
+    return BasePathMiddleware(TargetInUseMiddleware(app, paths, name)), job.stop
 
 
 def day_text(seconds: int) -> str:
@@ -736,7 +738,7 @@ def day_text(seconds: int) -> str:
         return "—"
 
 
-def _environment(templates: str, language: Language) -> Environment:
+def template_environment(templates: str, language: Language) -> Environment:
     environment = Environment(
         loader=FileSystemLoader(templates),
         autoescape=select_autoescape(["html"], default=True),
