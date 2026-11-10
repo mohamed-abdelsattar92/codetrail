@@ -136,7 +136,11 @@ def _codex(settings: GlobalConfig, environ: Mapping[str, str]) -> ProviderStatus
             return ProviderStatus("codex", False, fix=INSTALL["codex"], warning=CODEX_WARNING)
         try:
             code, output = runner.run_command(
-                [program, "login", "status"], Path(folder), environment, CHECK_TIMEOUT_SECONDS
+                [program, "login", "status"],
+                Path(folder),
+                environment,
+                CHECK_TIMEOUT_SECONDS,
+                include_stderr=True,
             )
         except AssistantError:
             code, output = 1, ""
