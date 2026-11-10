@@ -243,7 +243,9 @@ If your team keeps its repositories on GitHub, Azure DevOps or GitLab, Codetrail
    **Follow the whole source** is on by default. It follows the repositories pushed to in the last 90 days, so an organization of 600 repositories with 40 active ones gets 40. Untick a row to leave that repository out. Turn the switch off to pick repositories by hand. Archived, empty and disabled repositories are never followed. Azure DevOps reports no push time, so a whole Azure DevOps project follows all its enabled, non-empty repositories.
 
    **Add** then clones each repository, extracts its facts and builds the "you're behind" signal. This costs nothing. No guide is written yet.
-4. **Serve it.**
+
+   `codetrail team add` serves the team just as `codetrail team serve` does, and keeps serving it once the screen is done: the team page is at the same address, at `/`. Stop it with Ctrl-C.
+4. **Serve it again later.** For every run after the first:
 
    ```bash
    codetrail team serve acme
@@ -251,12 +253,12 @@ If your team keeps its repositories on GitHub, Azure DevOps or GitLab, Codetrail
 
    The team page lists each repository with its "you're behind" signal, how many merges landed since its guide was updated, and a link to its guide. Each guide opens under `/repos/<name>/`, with all the pages of section 7, and one sign-in covers the team. **Add repositories** on the page opens the screen again. `codetrail serve <name>` still serves one repository at a time.
 
-   `team serve` lists your sources once when it starts. A page view changes nothing. Restart it to see repositories added or archived on the service.
+   `team serve` lists your sources once when it starts, and gives each newly active repository the same free first refresh **Add** does. A page view writes no settings and lists no source: it may start serving a repository another command added, and it fetches each repository that already has a copy to read its signal, but it never clones one. Restart `team serve` to see repositories added or archived on the service.
 5. **Update a guide.** Each repository is a normal target named `acme-<repository>`. Run `codetrail update acme-web-shop` as in section 6, or use **Update the guide** on that repository's pages. The estimate comes first, as always. Catching up on all the repositories at once, with one estimate, arrives in a later version.
 
 `codetrail team list` shows each team with its sources and how many repositories it follows. `codetrail team remove acme` lists what it will delete (the team's settings and every target it created), asks first, and touches nothing on the service. It refuses while the team is served.
 
-To leave a repository out, untick it on the add-repositories screen. That stops following it but keeps its data. To delete its data, run `codetrail target remove acme-web-shop`.
+To leave a repository out, untick it on the add-repositories screen. That stops following it but keeps its data. To delete its data, stop `codetrail team serve` first (the running server holds every repository's lock, so the removal would be refused), then run `codetrail target remove acme-web-shop`.
 
 A followed repository's branch is its default branch, and it can't be changed on the screen. A source's `clone_over` setting (`"https"` by default, or `"ssh"`) is in the team's file.
 

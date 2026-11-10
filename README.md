@@ -274,7 +274,7 @@ The interface is English first and switches language from the page; it ships in 
 
 The latest release is Codetrail 1.4.1 ([release notes](docs/releases/v1.4.1.md), [changelog](CHANGELOG.md)); 1.0.0 was the first public release. Phases 0 to 15 and 17 to 20 of the [design](docs/design/2026-10-05-codetrail-design.md) are built, tested and released; Phase 21 (teams from hosting services) is built and not yet released; Phase 22 and Phase 16 are planned. Codetrail is on PyPI as `codetrail-cli` ([ADR 0019](docs/adr/0019-publish-to-pypi-as-codetrail-cli.md)).
 
-![The design's phases: 0 to 15 and 17 to 20 built, 16 planned](docs/diagrams/phases.svg)
+![The design's phases: 0 to 15 and 17 to 20 built, 21 built and not yet released, 22 and 16 planned](docs/diagrams/phases.svg)
 
 | Phase | What you can do | Status |
 |---|---|---|
@@ -299,6 +299,7 @@ The latest release is Codetrail 1.4.1 ([release notes](docs/releases/v1.4.1.md),
 | 19. The sidebar | Hide the sidebar and peek at it from the window's edge, fold its sections, and pin pages as tiles at the top; the page sits in a card inside a tinted frame | Done |
 | 20. Context for coding agents | A map and a brief per page for coding agents, exported on every update and served by `codetrail mcp` to Claude Code and Codex; `codetrail agents` prints how to connect them | Done |
 | 21. Teams from hosting services | Follow a team's repositories from GitHub, Azure DevOps or GitLab with `codetrail team add`, `list`, `serve` and `remove`; a plain team page shows each one's "you're behind" signal and its guide under one sign-in | Built, unreleased |
+| 22. Catching up across a team | Catch up on all of a team's repositories at once, with one estimate, from the team page or `codetrail team update`; highlights in digests and an overview on the team page | Planned |
 | 16. Decision inventory | An opt-in paid pass that lists the decisions in the code and looks for a documented "why" for each ([design section 18.8](docs/design/2026-10-05-codetrail-design.md#188-delivery-and-later-work)) | Planned |
 
 Codex and local models are tested against stand-ins and Codetrail's own tests; Claude Code is also tested live. Codex's provider decision is [ADR 0006](docs/adr/0006-assistant-providers-and-subscriptions.md).
