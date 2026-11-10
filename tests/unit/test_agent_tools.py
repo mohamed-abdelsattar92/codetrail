@@ -186,3 +186,10 @@ def test_the_tool_descriptions_name_the_target_and_its_repository(tools: AgentTo
     assert [tool["name"] for tool in definitions] == [tool["name"] for tool in TOOLS]
     for tool in definitions:
         assert "t, the repository at /work/t" in str(tool["description"]) and "only" in str(tool["description"])
+
+
+def test_an_ssh_remote_reaches_the_tool_descriptions_without_an_at_sign(paths: Paths) -> None:
+    tools = AgentTools(paths, "t", AgentSettings(), "git@github.com:acme-org/web-shop.git")
+    for tool in tools.definitions():
+        description = str(tool["description"])
+        assert "@" not in description and "github.com:acme-org/web-shop.git" in description
