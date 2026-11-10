@@ -77,16 +77,19 @@ def run_command(
     environment: Mapping[str, str],
     timeout_seconds: float,
     stdin: str = "",
+    *,
+    include_stderr: bool = False,
     error_output: list[str] | None = None,
 ) -> tuple[int, str]:
-    """Runs a short command (a sign-in check) and returns its exit code and output. With `error_output`, the
-    command's error output is appended to it."""
+    """Runs a short command (a sign-in check) and returns its exit code and output. With `include_stderr`, the
+    error output is part of the output (Codex's sign-in check writes there); with `error_output`, the error output
+    is appended to that list instead."""
     try:
         process = subprocess.Popen(  # noqa: S603  # the command is a resolved provider program and fixed arguments
             list(command),
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
+            stderr=subprocess.STDOUT if include_stderr else subprocess.PIPE,
             text=True,
             cwd=cwd,
             env=dict(environment),
@@ -107,7 +110,7 @@ def run_command(
                 f"{Path(command[0]).name} didn't answer within {timeout_seconds:g} seconds."
             ) from error
     if error_output is not None:
-        error_output.append(stderr)
+        error_output.append(stderr or "")
     return process.returncode, stdout
 
 
