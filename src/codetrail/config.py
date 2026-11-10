@@ -16,10 +16,10 @@ from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import urlsplit
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, ValidationInfo, field_validator, model_validator
 
 from codetrail.errors import CodetrailError
-from codetrail.hosting.names import Service, check_clone_url
+from codetrail.hosting.names import Service, check_clone_url, validate_source
 
 TARGET_NAME = re.compile(r"[a-z0-9][a-z0-9-]{0,62}")
 TEAM_NAME = re.compile(r"[a-z0-9][a-z0-9-]{0,29}")
@@ -406,14 +406,16 @@ class RemoteSettings(Settings):
     name: str
     url: str
 
-    @model_validator(mode="after")
-    def host_is_the_services(self) -> RemoteSettings:
+    @field_validator("url")
+    @classmethod
+    def host_is_the_services(cls, url: str, info: ValidationInfo) -> str:
         # The checked URL (Azure DevOps's user name dropped) replaces the written one.
+        if "service" not in info.data:  # the service itself was refused
+            return url
         try:
-            object.__setattr__(self, "url", check_clone_url(self.service, self.url))
+            return check_clone_url(info.data["service"], url)
         except CodetrailError as error:
             raise ValueError(str(error)) from error
-        return self
 
 
 class TeamSource(Settings):
@@ -423,6 +425,14 @@ class TeamSource(Settings):
     clone_over: Literal["https", "ssh"] = "https"
     left_out: list[str] = []
     chosen: list[str] = []
+
+    @model_validator(mode="after")
+    def source_is_valid_for_the_service(self) -> TeamSource:
+        try:
+            validate_source(self.service, self.source)
+        except CodetrailError as error:
+            raise ValueError(str(error)) from error
+        return self
 
 
 class TeamConfig(Settings):
@@ -469,6 +479,16 @@ class TargetConfig(Settings):
                 "this target, set [assistant] allow_codex = true."
             )
         return self
+
+    @field_validator("team")
+    @classmethod
+    def team_is_valid(cls, team: str | None) -> str | None:
+        if team is not None:
+            try:
+                validate_team_name(team)
+            except CodetrailError as error:
+                raise ValueError(str(error)) from error
+        return team
 
     @field_validator("repository")
     @classmethod

@@ -72,9 +72,15 @@ async def run_program(
 
 
 def run_command(
-    command: Sequence[str], cwd: Path, environment: Mapping[str, str], timeout_seconds: float, stdin: str = ""
+    command: Sequence[str],
+    cwd: Path,
+    environment: Mapping[str, str],
+    timeout_seconds: float,
+    stdin: str = "",
+    error_output: list[str] | None = None,
 ) -> tuple[int, str]:
-    """Runs a short command (a sign-in check) and returns its exit code and output."""
+    """Runs a short command (a sign-in check) and returns its exit code and output. With `error_output`, the
+    command's error output is appended to it."""
     try:
         process = subprocess.Popen(  # noqa: S603  # the command is a resolved provider program and fixed arguments
             list(command),
@@ -90,7 +96,7 @@ def run_command(
         raise AssistantError(f"{Path(command[0]).name} couldn't start ({type(error).__name__}).") from error
     with process:
         try:
-            stdout, _stderr = process.communicate(stdin, timeout=timeout_seconds)
+            stdout, stderr = process.communicate(stdin, timeout=timeout_seconds)
         except BaseException as error:
             with suppress(ProcessLookupError, PermissionError):
                 os.killpg(process.pid, signal.SIGKILL)
@@ -100,6 +106,8 @@ def run_command(
             raise AssistantError(
                 f"{Path(command[0]).name} didn't answer within {timeout_seconds:g} seconds."
             ) from error
+    if error_output is not None:
+        error_output.append(stderr)
     return process.returncode, stdout
 
 

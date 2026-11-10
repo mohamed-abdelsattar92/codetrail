@@ -12,6 +12,7 @@ from codetrail.config import (
     Paths,
     RemoteSettings,
     TargetConfig,
+    TeamSource,
     check_containment,
     load_global,
     load_target,
@@ -396,6 +397,10 @@ def test_a_target_has_a_repository_or_a_remote_not_both(tmp_path: Path) -> None:
         ("github", "http://github.com/acme-org/web-shop.git"),
         ("github", "https://user@github.com/acme-org/web-shop.git"),
         ("github", "https://github.com:8443/acme-org/web-shop.git"),
+        ("github", "https://github.com.evil.example/acme-org/web-shop.git"),
+        ("github", "https://github.com/acme-org/web-shop.git#fragment"),
+        ("github", "git@github.com:-oProxyCommand=x"),
+        ("azure_devops", "https://a:b@dev.azure.com/a/p/_git/r"),
         ("github", "git://github.com/acme-org/web-shop.git"),
         ("github", "file:///tmp/repo"),
         ("github", "git@example.com:acme-org/web-shop.git"),
@@ -530,3 +535,26 @@ def test_target_names_from_awkward_repository_names() -> None:
     assert clash_of_long.endswith("-rkgdoe")
     assert len(clash_of_long) <= 63
     assert clash_of_long != long_name
+
+
+def test_the_model_stores_the_normalized_azure_url() -> None:
+    remote = RemoteSettings.model_validate(
+        {
+            **REMOTE,
+            "service": "azure_devops",
+            "source": "contoso/Platform",
+            "url": "https://contoso@dev.azure.com/contoso/Platform/_git/web-shop",
+        }
+    )
+    assert remote.url == "https://dev.azure.com/contoso/Platform/_git/web-shop"
+
+
+def test_a_team_source_and_a_target_team_are_validated() -> None:
+    assert TeamSource(service="github", source="acme-org").source == "acme-org"
+    with pytest.raises(ValidationError):
+        TeamSource(service="github", source="../x")
+    with pytest.raises(ValidationError):
+        TeamSource(service="azure_devops", source="contoso")
+    assert TargetConfig(remote=REMOTE, branch="main", team="acme").team == "acme"  # type: ignore[arg-type]
+    with pytest.raises(ValidationError):
+        TargetConfig(remote=REMOTE, branch="main", team="Not A Team")  # type: ignore[arg-type]

@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-REAL_PROGRAMS = {"claude", "codex"}
+REAL_PROGRAMS = {"claude", "codex", "gh", "az", "glab"}
 
 
 @pytest.fixture
