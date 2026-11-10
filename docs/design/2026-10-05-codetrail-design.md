@@ -1304,7 +1304,43 @@ A `HostedRepository` carries the service's stable id, its name, default branch, 
 | `azure_devops` | `az` with the `azure-devops` extension | `az account show` |
 | `gitlab` | `glab` | `glab auth status` |
 
-The exact commands that list sources, repositories and branches, and the JSON fields they return, are settled by the spike that opens Phase 21, against the programs installed here, as the Phase 4 spike settled Claude Code's.
+The exact commands that list sources, repositories and branches, and the JSON fields they return, were settled by the spike that opened Phase 21, as the Phase 4 spike settled Claude Code's.
+
+**Settled by the Phase 21 spike, 10 November 2026.** GitHub was run against `gh` 2.101.0, read-only. Azure DevOps and GitLab are **from documentation, not yet run**: `az` and `glab` weren't installed. Their adapters are checked against the real programs by the opt-in live tests, and the first run may change a field name here. Fixtures for all three are in `tests/fixtures/hosting/`. Every command is a fixed argument list; `<...>` is a validated name passed as its own argument.
+
+| | GitHub (`gh`, run) | Azure DevOps (`az`, from documentation) | GitLab (`glab`, from documentation) |
+|---|---|---|---|
+| status | `gh auth status --json hosts` | `az account show -o json` | `glab auth status --output json` (a `--hostname` is added for a non-default host) |
+| signed in | exit 0 either way; signed in when `hosts["github.com"]` holds an entry with `state` `success` and `active` true; `{"hosts":{}}` is signed out (plain `gh auth status` exits 1 when signed out) | exit 0 with a subscription; a non-zero exit when signed out. `AZURE_DEVOPS_EXT_PAT` also signs `az devops` in, and is never passed | exit code when signed out is not documented, so a non-zero exit or no signed-in host is signed out |
+| account name | `login` of the active entry | `user.name` | not documented for the JSON form; the first run settles it, and until then the name is left empty |
+| sources | the account's own login, then `gh api --method GET user/orgs --paginate`: `login` | `az devops project list --organization https://dev.azure.com/<org> -o json`: `value[].name` (organisations aren't listable; the reader names them, and a source is `<org>/<project>`) | `glab api --method GET "groups?min_access_level=10" --paginate`: `full_path` (also `id`, `name`, `web_url`) |
+| source name | login | `<org>/<project>` | `full_path` |
+| source repository count | not returned; unknown until `repositories()` | not returned; unknown until `repositories()` | not returned; unknown until `repositories()` |
+| repositories | `gh repo list <owner> --json id,name,defaultBranchRef,isArchived,isEmpty,isFork,isTemplate,pushedAt,diskUsage,url,sshUrl --limit <max>` | `az repos list --organization https://dev.azure.com/<org> --project <project> -o json` | `glab api --method GET "groups/<id>/projects?include_subgroups=true&archived=false" --paginate` |
+| branches | `gh api --method GET repos/<owner>/<repo>/branches --paginate --jq '.[].name'` (full JSON: `name`, `commit.sha`, `protected`) | `az repos ref list --organization https://dev.azure.com/<org> --project <project> --repository <id> --filter heads/ -o json`: `name`, with `refs/heads/` removed | `glab api --method GET "projects/<id>/repository/branches" --paginate`: `name` (also `default`) |
+
+| `HostedRepository` | GitHub | Azure DevOps | GitLab |
+|---|---|---|---|
+| service id | `id` (a string such as `R_kgDO…`) | `id` (a UUID) | `id` (an integer, stored as text) |
+| name | `name` | `name` (may hold spaces and `#`) | `name` (may hold spaces and `#`) |
+| default branch | `defaultBranchRef.name` | `defaultBranch`, `refs/heads/` removed | `default_branch` |
+| archived | `isArchived` | not a concept; always false | `archived` |
+| disabled | not in `gh repo list`; false | `isDisabled` | `repository_access_level` is `disabled`; false otherwise |
+| empty | `isEmpty`, or no `defaultBranchRef` | no `defaultBranch` key | `empty_repo`, or no `default_branch` |
+| pushed_at | `pushedAt` | not returned by `az repos list`; none; a repository with no date is not active by date, so following a whole Azure DevOps source needs a rule for it (open for the plan) | `last_activity_at` (any activity, not only pushes) |
+| size | `diskUsage` (KB) | `size` (bytes) | none |
+| HTTPS URL | `url` + `.git` | `remoteUrl` | `http_url_to_repo` |
+| SSH URL | `sshUrl` | `sshUrl` | `ssh_url_to_repo` |
+| web URL | `url` | `webUrl` | `web_url` |
+
+Further findings:
+- `gh` has no disabled flag in `gh repo list`; the REST repository has `disabled`, which costs one call per repository, so it isn't read.
+- `gh repo list` returns a repository's forks and templates (`isFork`, `isTemplate`); they count (section 24.5). `--limit` is the repository cap.
+- git has no credential helper set here for `github.com`, and `git ls-remote` of a public repository works without one. A private repository over HTTPS needs one, so the fix text for a signed-in `gh` that git can't use names `gh auth setup-git`, which the reader runs; Codetrail never does.
+- Extra token variables the documentation names, added to the never-passed list: `OAUTH_TOKEN` (`glab`), and, for `glab`'s client certificates, `GLAB_CLIENT_CERT`, `CLIENT_CERT`, `GLAB_CLIENT_KEY`, `CLIENT_KEY`, `GLAB_CLIENT_CERT_PASSWORD`, plus `GITLAB_CLIENT_ID`. `GITLAB_HOST`, which names the instance, isn't a secret but isn't passed either: only `gitlab.com` is supported (section 24.3 transports).
+- The `az` documentation doesn't show the output of `az devops project list`; the `value` list and `continuationToken` are the shape of the REST call it wraps, so the adapter reads `value` and tolerates a bare list.
+- The `glab` documentation doesn't say how `--paginate` combines pages, and `glab api` takes a query string in the path with `--method GET`. The adapter parses one JSON array or several concatenated ones, and the first run settles which.
+- `az` needs the `azure-devops` extension; a missing extension is reported as not installed, with `az extension add --name azure-devops` as the fix for the reader to run.
 
 Every adapter:
 - **Runs its program the way the providers' are run** (sections 15.2 and 15.5): resolved to an absolute path with relative `PATH` entries removed, in its own process group, killed at `hosting.timeout_seconds`, with arguments as a list and never through a shell.
