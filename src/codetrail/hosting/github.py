@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from codetrail.config import HostingSettings
+from codetrail.errors import CodetrailError
 from codetrail.hosting import HostedRepository, HostingError, HostingStatus, Source
 from codetrail.hosting.adapter import (
     branch_names,
@@ -17,6 +19,7 @@ from codetrail.hosting.adapter import (
 from codetrail.hosting.names import Service, validate_repository_name, validate_source
 from codetrail.hosting.run import run_read
 
+logger = logging.getLogger(__name__)
 REPOSITORY_FIELDS = "id,name,defaultBranchRef,isArchived,isEmpty,isFork,isTemplate,pushedAt,diskUsage,url,sshUrl"
 INSTALL = "Install the GitHub CLI from https://cli.github.com"
 
@@ -51,7 +54,13 @@ class GitHub:
             names.append(account)
         organizations = json_records(self._read(["api", "--method", "GET", "user/orgs", "--paginate"]))
         names.extend(record["login"] for record in organizations if isinstance(record.get("login"), str))
-        return [Source("github", validate_source("github", name), None) for name in dict.fromkeys(names)]
+        sources: list[Source] = []
+        for name in dict.fromkeys(names):
+            try:
+                sources.append(Source("github", validate_source("github", name), None))
+            except CodetrailError:
+                logger.warning("Left out a github source whose name failed its checks.")
+        return sources
 
     def repositories(self, source: str) -> list[HostedRepository]:
         validate_source("github", source)

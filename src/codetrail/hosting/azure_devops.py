@@ -14,6 +14,7 @@ from codetrail.hosting.adapter import (
     is_installed,
     json_documents,
     json_records,
+    require_safe_id,
 )
 from codetrail.hosting.names import AZURE_ORGANIZATION, Service, validate_source
 from codetrail.hosting.run import run_read
@@ -110,7 +111,7 @@ class AzureDevOps:
                 "--project",
                 project,
                 "--repository",
-                repository.id,
+                require_safe_id(repository.id),
                 "--filter",
                 "heads/",
                 "-o",

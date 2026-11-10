@@ -80,7 +80,7 @@ class GitLab:
         return build_repositories("gitlab", json_records(output), self._settings.max_repositories_per_source, build)
 
     def branches(self, repository: HostedRepository) -> list[str]:
-        if not repository.id.isdigit():
+        if not (repository.id.isascii() and repository.id.isdigit()):
             raise CodetrailError("A GitLab project id is a number.")
         output = self._read(["api", "--method", "GET", f"projects/{repository.id}/repository/branches", "--paginate"])
         return branch_names([record.get("name") for record in json_records(output)])

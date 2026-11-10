@@ -400,3 +400,91 @@ def test_services_for_builds_one_adapter_per_service() -> None:
     services = services_for(GlobalConfig())
     assert set(services) == {"github", "azure_devops", "gitlab"}
     assert all(service.service == name for name, service in services.items())
+
+
+# Fix round 1: ids, branches, web URLs and the log
+
+
+def test_azure_branches_refuse_an_id_that_could_be_a_flag(tmp_path: Path) -> None:
+    fake = program(tmp_path, "fake-az", "[]")
+    for identifier in ("--help", "-x", "a b", ""):
+        repository = repository_of("azure_devops", "contoso/Platform", identifier)
+        with pytest.raises(CodetrailError, match="id"):
+            AzureDevOps(settings_for("az", fake)).branches(repository)
+    assert not fake.record_file.exists()
+
+
+def test_gitlab_branches_refuse_a_non_ascii_digit_id(tmp_path: Path) -> None:
+    fake = program(tmp_path, "fake-glab", "[]")
+    with pytest.raises(CodetrailError, match="number"):
+        GitLab(settings_for("glab", fake)).branches(repository_of("gitlab", "example-group", "١٢"))
+    assert not fake.record_file.exists()
+
+
+def test_github_sources_skip_an_invalid_login_without_naming_it(tmp_path: Path, caplog: Any) -> None:
+    script = tmp_path / "fake-gh"
+    orgs = json.dumps([{"login": "--secret-org"}, {"login": "acme-org"}])
+    script.write_text(
+        f"#!{sys.executable}\nimport sys\nprint({GITHUB_SIGNED_IN!r} if sys.argv[1] == 'auth' else {orgs!r})\n"
+    )
+    script.chmod(0o755)
+    sources = GitHub(settings_for("gh", str(script))).sources()
+    assert [source.name for source in sources] == ["acme-user", "acme-org"]
+    assert "secret-org" not in caplog.text and caplog.text
+
+
+def mutate(records: list[dict[str, Any]], key: str, value: Any) -> str:
+    records[0][key] = value
+    return json.dumps(records)
+
+
+def github_case(tmp_path: Path, key: str, value: Any) -> list[HostedRepository]:
+    output = mutate(json.loads(fixture("github_repos.json")), key, value)
+    return GitHub(settings_for("gh", program(tmp_path, "fake-gh", output))).repositories("acme-org")
+
+
+def azure_case(tmp_path: Path, key: str, value: Any) -> list[HostedRepository]:
+    output = mutate(azure_repositories(), key, value)
+    return AzureDevOps(settings_for("az", program(tmp_path, "fake-az", output))).repositories("contoso/Platform")
+
+
+def gitlab_case(tmp_path: Path, key: str, value: Any) -> list[HostedRepository]:
+    output = mutate(json.loads(fixture("gitlab_projects.json")), key, value)
+    return GitLab(settings_for("glab", program(tmp_path, "fake-glab", output))).repositories("example-group")
+
+
+BAD_VALUES = [
+    (github_case, "id", "--flag"),
+    (github_case, "defaultBranchRef", {"name": "--upload-pack=x"}),
+    (github_case, "url", "https://evil.example/acme-org/web-shop"),
+    (azure_case, "id", "--flag"),
+    (azure_case, "defaultBranch", "refs/heads/--upload-pack=x"),
+    (azure_case, "webUrl", "https://evil.example/contoso/Platform/_git/x"),
+    (gitlab_case, "id", "-1"),
+    (gitlab_case, "default_branch", "--upload-pack=x"),
+    (gitlab_case, "web_url", "https://evil.example/example-group/web-shop"),
+    (gitlab_case, "web_url", "http://gitlab.com/example-group/web-shop"),
+]
+
+
+@pytest.mark.parametrize(("case", "key", "value"), BAD_VALUES)
+def test_a_repository_with_a_bad_id_branch_or_web_url_is_left_out(
+    tmp_path: Path, caplog: Any, case: Any, key: str, value: Any
+) -> None:
+    found = case(tmp_path, key, value)
+    assert len(found) == 1
+    assert "web-shop" not in caplog.text and "Payments API" not in caplog.text and caplog.text
+
+
+def test_a_long_id_is_cut_in_the_log(tmp_path: Path, caplog: Any) -> None:
+    found = github_case(tmp_path, "id", "-" + "x" * 500)
+    assert len(found) == 1
+    assert "x" * 100 not in caplog.text and "x" * 20 in caplog.text
+
+
+def test_the_repository_limit_is_logged_once_with_the_count_only(tmp_path: Path, caplog: Any) -> None:
+    fake = program(tmp_path, "fake-gh", fixture("github_repos.json"))
+    GitHub(settings_for("gh", fake, max_repositories_per_source=1)).repositories("acme-org")
+    messages = [record.getMessage() for record in caplog.records]
+    assert len(messages) == 1 and "limit" in messages[0] and "1" in messages[0]
+    assert "web-shop" not in caplog.text and "acme-org" not in caplog.text
