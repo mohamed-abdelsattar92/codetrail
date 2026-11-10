@@ -1,6 +1,6 @@
 // The command palette (design section 16.3): search the guide and run a few actions, all from the keyboard.
 // Results are drawn with textContent and <mark> elements only; nothing from the server is parsed as markup.
-import { getJSON } from "./api.js";
+import { getJSON, sitePath } from "./api.js";
 import { openAsk } from "./ask.js";
 import { cycleTheme } from "./theme.js";
 import { startUpdate } from "./update.js";
@@ -115,12 +115,12 @@ function actions(query) {
   if (query) {
     option(label("actionAsk", query), null, () => openAsk(query));
     option(label("actionAll", query), null, () => {
-      window.location.href = `/search?q=${encodeURIComponent(query)}`;
+      window.location.href = sitePath(`/search?q=${encodeURIComponent(query)}`);
     });
   }
   option(label("actionUpdate"), null, () => startUpdate());
   option(label("actionProgress"), null, () => {
-    window.location.href = "/progress";
+    window.location.href = sitePath("/progress");
   });
   option(label("actionTheme"), null, () => cycleTheme());
 }

@@ -1,9 +1,16 @@
 // Talking to Codetrail's server: every write and every JSON read carries the session's token (design 7.4 and 16.3).
 
 const token = document.querySelector('meta[name="codetrail-token"]')?.content ?? "";
+// The prefix the page is served under: empty at `/`, `/repos/<target>` on the team page (design section 24.7).
+const base = document.querySelector('meta[name="codetrail-base"]')?.content ?? "";
+
+// One of the page's own routes, under its prefix. The shared static files stay at the root and never go through it.
+export function sitePath(path) {
+  return base + path;
+}
 
 export async function post(url, data) {
-  return fetch(url, {
+  return fetch(sitePath(url), {
     method: "POST",
     headers: { "X-Codetrail-Token": token, "Content-Type": "application/json" },
     body: JSON.stringify(data),
@@ -12,7 +19,7 @@ export async function post(url, data) {
 }
 
 export async function getJSON(url, options = {}) {
-  const response = await fetch(url, {
+  const response = await fetch(sitePath(url), {
     headers: { "X-Codetrail-Token": token, Accept: "application/json" },
     credentials: "same-origin",
     cache: "no-store",

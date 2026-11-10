@@ -1,6 +1,8 @@
 // The Repository page's charts (design section 20): the timeline, the day-by-day calendar, the change heat map and the
 // area-by-month grid's read-out, drawn from the page's JSON block. Text from the repository (paths, tag names and
 // notes, package names) is only ever set with textContent or setAttribute, never parsed as markup.
+import { sitePath } from "./api.js";
+
 const SVG = "http://www.w3.org/2000/svg";
 const DAY = 86400000;
 const PLOT_HEIGHT = 180;
@@ -27,7 +29,7 @@ function element(tag, className, text) {
 
 const dayOf = (iso) => Date.parse(`${iso}T00:00:00Z`);
 const isoOf = (time) => new Date(time).toISOString().slice(0, 10);
-const sourceHref = (path) => `/source/${path.split("/").map(encodeURIComponent).join("/")}`;
+const sourceHref = (path) => sitePath(`/source/${path.split("/").map(encodeURIComponent).join("/")}`);
 
 // The highest of many numbers, without spreading them into arguments (a long history has too many).
 const highestOf = (numbers, floor = 1) => numbers.reduce((highest, value) => Math.max(highest, value), floor);
