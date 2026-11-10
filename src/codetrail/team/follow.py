@@ -13,17 +13,21 @@ def followed(
 ) -> list[HostedRepository]:
     """The listed repositories the team follows; `already` holds the ids it follows now.
 
-    `chosen` follows exactly the chosen ones. `all` follows the active ones, and keeps one that has gone quiet.
-    A repository that is archived, disabled, empty or left out is never followed. One whose service reports no push
-    time (Azure DevOps) counts as active."""
-    if source.follow == "chosen":
-        return [repository for repository in listed if repository.id in source.chosen]
-    earliest = now - timedelta(days=active_days)
-    return [
+    Archived, disabled and empty repositories are never followed. `chosen` follows the chosen ones; `all` follows
+    the active ones and keeps one that has gone quiet. A repository whose service reports no push time (Azure DevOps)
+    counts as active."""
+    usable = [
         repository
         for repository in listed
         if not (repository.archived or repository.disabled or repository.default_branch is None)
-        and repository.id not in source.left_out
+    ]
+    if source.follow == "chosen":
+        return [repository for repository in usable if repository.id in source.chosen]
+    earliest = now - timedelta(days=active_days)
+    return [
+        repository
+        for repository in usable
+        if repository.id not in source.left_out
         and (repository.id in already or repository.pushed_at is None or repository.pushed_at >= earliest)
     ]
 

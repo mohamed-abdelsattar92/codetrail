@@ -9,7 +9,7 @@ from codetrail.errors import CodetrailError
 from codetrail.hosting import HostedRepository, HostingStatus, Source
 from codetrail.hosting.fake import FakeHosting
 from codetrail.lock import team_removal
-from codetrail.team.settings import save_selection, team_targets, write_team
+from codetrail.team.settings import save_selection, team_target_names, team_targets, write_team
 from codetrail.team.sync import sync_team
 from tests.unit.test_team_follow import NOW, repository
 
@@ -116,3 +116,26 @@ def test_team_targets_are_those_of_the_team(paths: Paths) -> None:
     paths.target_file("local").write_text('repository = "/somewhere"\nbranch = "main"\n')
 
     assert list(team_targets(paths, "acme")) == ["acme-repo-a1"]
+
+
+def test_a_service_that_is_missing_makes_its_source_unreachable(paths: Paths) -> None:
+    team_following(paths)
+
+    assert sync_team(paths, "acme", {}, NOW).unreachable == ["github:acme-org"]
+
+
+def test_a_team_file_with_characters_outside_the_bmp_round_trips(paths: Paths) -> None:
+    write_team(paths, "acme")
+    selection = TeamSource(service="azure_devops", source="contoso/Platform 🚀", left_out=["a1"])
+
+    save_selection(paths, "acme", selection)
+
+    assert load_team(paths, "acme").sources == [selection]
+
+
+def test_names_that_are_not_target_names_are_skipped(paths: Paths) -> None:
+    team_following(paths)
+    paths.target_file("x").parent.mkdir(parents=True, exist_ok=True)
+    (paths.target_file("x").parent / "Not A Name.toml").write_text('team = "acme"\nbranch = "main"\n')
+
+    assert team_target_names(paths, "acme") == []

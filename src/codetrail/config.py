@@ -19,7 +19,7 @@ from urllib.parse import urlsplit
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, ValidationInfo, field_validator, model_validator
 
 from codetrail.errors import CodetrailError
-from codetrail.hosting.names import Service, check_clone_url, validate_source
+from codetrail.hosting.names import Service, check_clone_url, require_safe_id, validate_source
 
 TARGET_NAME = re.compile(r"[a-z0-9][a-z0-9-]{0,62}")
 TEAM_NAME = re.compile(r"[a-z0-9][a-z0-9-]{0,29}")
@@ -426,6 +426,16 @@ class TeamSource(Settings):
     left_out: list[str] = []
     chosen: list[str] = []
 
+    @field_validator("left_out", "chosen")
+    @classmethod
+    def ids_are_safe(cls, identifiers: list[str]) -> list[str]:
+        for identifier in identifiers:
+            try:
+                require_safe_id(identifier)
+            except CodetrailError as error:
+                raise ValueError(str(error)) from error
+        return identifiers
+
     @model_validator(mode="after")
     def source_is_valid_for_the_service(self) -> TeamSource:
         try:
@@ -548,17 +558,22 @@ def check_containment(paths: Paths, repository: Path) -> None:
             )
 
 
+def toml_string(value: str) -> str:
+    """A TOML basic string. Characters stay as they are (JSON's surrogate pairs aren't valid TOML), and the controls
+    JSON leaves alone, DEL, are escaped."""
+    return json.dumps(value, ensure_ascii=False).replace("\x7f", "\\u007f")
+
+
 def write_target(paths: Paths, name: str, repository: Path, branch: str) -> Path:
     """Writes a new target's configuration file and returns its path."""
     file = paths.target_file(validate_target_name(name))
     repository = repository.expanduser().resolve()
     check_containment(paths, repository)
     validate_branch_name(branch)
-    # json.dumps with ASCII escapes writes a valid TOML basic string for any text.
     text = (
         f"# Codetrail target {name!r}, written by `codetrail target add`.\n"
-        f"repository = {json.dumps(str(repository))}\n"
-        f"branch = {json.dumps(branch)}\n"
+        f"repository = {toml_string(str(repository))}\n"
+        f"branch = {toml_string(branch)}\n"
     )
     file.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -575,14 +590,14 @@ def write_remote_target(paths: Paths, name: str, remote: RemoteSettings, branch:
     validate_branch_name(branch)
     text = (
         f"# Codetrail target {name!r}, written for team {team!r}.\n"
-        f"team = {json.dumps(validate_team_name(team))}\n"
-        f"branch = {json.dumps(branch)}\n"
+        f"team = {toml_string(validate_team_name(team))}\n"
+        f"branch = {toml_string(branch)}\n"
         "\n[remote]\n"
-        f"service = {json.dumps(remote.service)}\n"
-        f"source = {json.dumps(remote.source)}\n"
-        f"id = {json.dumps(remote.id)}\n"
-        f"name = {json.dumps(remote.name)}\n"
-        f"url = {json.dumps(remote.url)}\n"
+        f"service = {toml_string(remote.service)}\n"
+        f"source = {toml_string(remote.source)}\n"
+        f"id = {toml_string(remote.id)}\n"
+        f"name = {toml_string(remote.name)}\n"
+        f"url = {toml_string(remote.url)}\n"
     )
     file.parent.mkdir(parents=True, exist_ok=True)
     try:

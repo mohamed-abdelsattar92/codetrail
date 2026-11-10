@@ -2,15 +2,24 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import os
 import tempfile
 import tomllib
 from pathlib import Path
 
-from codetrail.config import Paths, TargetConfig, TeamSource, load_target, load_team, validate_team_name
+from codetrail.config import (
+    TARGET_NAME,
+    Paths,
+    TargetConfig,
+    TeamSource,
+    load_target,
+    load_team,
+    toml_string,
+    validate_team_name,
+)
 from codetrail.errors import CodetrailError
+from codetrail.lock import team_in_use
 
 logger = logging.getLogger(__name__)
 
@@ -30,6 +39,11 @@ def write_team(paths: Paths, name: str) -> Path:
 def save_selection(paths: Paths, name: str, selection: TeamSource) -> None:
     """Replaces the team's entry for the selection's service and source, or adds it."""
     file = paths.team_file(validate_team_name(name))
+    with team_in_use(paths, name):  # the lock also holds across the rename below
+        _write_sources(paths, name, file, selection)
+
+
+def _write_sources(paths: Paths, name: str, file: Path, selection: TeamSource) -> None:
     sources = [
         entry
         for entry in load_team(paths, name).sources
@@ -50,21 +64,23 @@ def save_selection(paths: Paths, name: str, selection: TeamSource) -> None:
 
 def _source_text(source: TeamSource) -> str:
     def array(values: list[str]) -> str:
-        return "[" + ", ".join(json.dumps(value) for value in values) + "]"
+        return "[" + ", ".join(toml_string(value) for value in values) + "]"
 
     return (
         "\n[[sources]]\n"
-        f"service = {json.dumps(source.service)}\n"
-        f"source = {json.dumps(source.source)}\n"
-        f"follow = {json.dumps(source.follow)}\n"
-        f"clone_over = {json.dumps(source.clone_over)}\n"
+        f"service = {toml_string(source.service)}\n"
+        f"source = {toml_string(source.source)}\n"
+        f"follow = {toml_string(source.follow)}\n"
+        f"clone_over = {toml_string(source.clone_over)}\n"
         f"left_out = {array(source.left_out)}\n"
         f"chosen = {array(source.chosen)}\n"
     )
 
 
 def existing_target_names(paths: Paths) -> list[str]:
-    return sorted(file.stem for file in paths.target_file("x").parent.glob("*.toml"))
+    return sorted(
+        file.stem for file in paths.target_file("x").parent.glob("*.toml") if TARGET_NAME.fullmatch(file.stem)
+    )
 
 
 def team_target_names(paths: Paths, name: str) -> list[str]:

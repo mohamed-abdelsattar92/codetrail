@@ -28,8 +28,8 @@ def remove_target(paths: Paths, name: str, confirm: Callable[[list[Path]], bool]
     team = _following_team(paths, settings_data)
     if team is not None:
         raise CodetrailError(
-            f"Target {name!r} is followed by team {team!r}, which would add it back. "
-            f"Leave its repository out of the team first."
+            f"{name} is followed by team {team}: leave it out on the team page (Add repositories), "
+            "then run codetrail target remove again."
         )
     locations = _target_locations(paths, name, settings_data)
     if not confirm([location for location in locations if _exists(location)]):

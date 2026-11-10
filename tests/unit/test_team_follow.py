@@ -85,3 +85,25 @@ def test_chosen_follows_exactly_the_chosen() -> None:
     source = follow_all(follow="chosen", chosen=["b", "gone"])
 
     assert ids(followed(source, listed, set(), NOW, 90)) == ["b"]
+
+
+def test_chosen_never_follows_archived_disabled_or_empty() -> None:
+    listed = [
+        repository("archived", archived=True),
+        repository("disabled", disabled=True),
+        repository("empty", default_branch=None),
+        repository("fine"),
+    ]
+    source = follow_all(follow="chosen", chosen=["archived", "disabled", "empty", "fine"])
+
+    assert ids(followed(source, listed, set(), NOW, 90)) == ["fine"]
+
+
+def test_ids_that_could_be_flags_are_refused() -> None:
+    import pytest
+    from pydantic import ValidationError
+
+    with pytest.raises(ValidationError):
+        follow_all(left_out=["-x"])
+    with pytest.raises(ValidationError):
+        follow_all(follow="chosen", chosen=["a b"])

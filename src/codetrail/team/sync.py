@@ -46,6 +46,8 @@ def sync_team(
         for selection in team.sources:
             label = f"{selection.service}:{selection.source}"
             try:
+                if selection.service not in services:
+                    raise CodetrailError(f"No hosting service for {selection.service}.")
                 listed = services[selection.service].repositories(selection.source)
             except CodetrailError:
                 logger.warning("Couldn't list the source %s.", label)

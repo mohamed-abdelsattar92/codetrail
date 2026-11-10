@@ -117,3 +117,14 @@ def check_clone_url(service: Service, url: str) -> str:
         f"{url!r} isn't a clone URL for {service}: use https://{hosts.https}/... or git@{hosts.ssh}:..., "
         "with no user, password or port."
     )
+
+
+# A service's own id (a node id, a UUID or a number) is passed to its program as an argument, so it can't lead with `-`.
+SAFE_ID_CHARACTERS = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-=")
+
+
+def require_safe_id(identifier: str) -> str:
+    """The id, or an error when it could be read as a flag or holds anything but letters, digits, `_`, `-` and `=`."""
+    if not identifier or identifier[0] == "-" or not set(identifier) <= SAFE_ID_CHARACTERS:
+        raise CodetrailError("A repository id isn't acceptable.")
+    return identifier

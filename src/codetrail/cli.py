@@ -219,9 +219,9 @@ def list_teams(paths: Paths) -> int:
                 f"{source.service}:{source.source} ({source.follow})" for source in load_team(paths, name).sources
             ]
         except CodetrailError:
-            print(f"{name}: its settings don't load - {targets}")
+            print(f"{printable(name)}: its settings don't load - {targets}")
             continue
-        print(f"{name}: {', '.join(sources) or 'no sources'} - {targets}")
+        print(f"{printable(name)}: {printable(', '.join(sources)) or 'no sources'} - {targets}")
     return 0
 
 

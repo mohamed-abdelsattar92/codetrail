@@ -14,9 +14,8 @@ from codetrail.hosting.adapter import (
     is_installed,
     json_documents,
     json_records,
-    require_safe_id,
 )
-from codetrail.hosting.names import AZURE_ORGANIZATION, Service, validate_source
+from codetrail.hosting.names import AZURE_ORGANIZATION, Service, require_safe_id, validate_source
 from codetrail.hosting.run import run_read
 
 BRANCH_PREFIX = "refs/heads/"

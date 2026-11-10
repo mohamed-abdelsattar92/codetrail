@@ -166,7 +166,7 @@ def test_team_remove_lists_asks_and_removes_everything(paths: Paths, tmp_path: P
     write_team(paths, "acme")
     save_selection(paths, "acme", TeamSource(service="github", source="acme-org"))
     sync_team(paths, "acme", {"github": fake_service([repository("a1")])}, NOW)
-    paths.team_data("acme").mkdir(parents=True)
+    paths.team_data("acme").mkdir(parents=True, exist_ok=True)
     (paths.team_data("acme") / "team.db").write_text("")
     target_data = paths.target_data("acme-repo-a1")
     target_data.mkdir(parents=True)
@@ -208,7 +208,7 @@ def test_target_remove_refuses_while_the_team_follows_it(paths: Paths) -> None:
     save_selection(paths, "acme", TeamSource(service="github", source="acme-org"))
     sync_team(paths, "acme", {"github": fake_service([repository("a1")])}, NOW)
 
-    with pytest.raises(CodetrailError, match="team 'acme'"):
+    with pytest.raises(CodetrailError, match="team acme"):
         remove_target(paths, "acme-repo-a1", lambda found: True)
 
     assert paths.target_file("acme-repo-a1").exists()
@@ -232,3 +232,53 @@ def test_target_remove_works_when_the_team_is_gone(paths: Paths) -> None:
     paths.team_file("acme").unlink()
 
     assert remove_target(paths, "acme-repo-a1", lambda found: True)
+
+
+def test_a_save_while_the_team_is_in_use_does_not_let_it_be_removed(paths: Paths) -> None:
+    write_team(paths, "acme")
+    with team_in_use(paths, "acme"):
+        save_selection(paths, "acme", TeamSource(service="github", source="acme-org"))
+        with pytest.raises(CodetrailError, match="in use"):
+            remove_team(paths, "acme", lambda found: True)
+    assert paths.team_file("acme").exists()
+
+
+def test_the_refusal_says_how_to_get_out(paths: Paths) -> None:
+    write_team(paths, "acme")
+    save_selection(paths, "acme", TeamSource(service="github", source="acme-org"))
+    sync_team(paths, "acme", {"github": fake_service([repository("a1")])}, NOW)
+
+    with pytest.raises(CodetrailError) as refusal:
+        remove_target(paths, "acme-repo-a1", lambda found: True)
+
+    assert str(refusal.value) == (
+        "acme-repo-a1 is followed by team acme: leave it out on the team page (Add repositories), "
+        "then run codetrail target remove again."
+    )
+
+
+def test_another_teams_target_survives_remove_team(paths: Paths, tmp_path: Path) -> None:
+    for team in ("acme", "acme-2"):
+        write_team(paths, team)
+        save_selection(paths, team, TeamSource(service="github", source="acme-org"))
+        sync_team(paths, team, {"github": fake_service([repository("a1")])}, NOW)
+
+    assert remove_team(paths, "acme", lambda found: True)
+
+    assert paths.target_file("acme-2-repo-a1").exists()
+    assert paths.team_file("acme-2").exists()
+    assert not paths.target_file("acme-repo-a1").exists()
+
+
+def test_a_symlinked_team_data_folder_is_unlinked_not_followed(paths: Paths, tmp_path: Path) -> None:
+    write_team(paths, "acme")
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    (elsewhere / "keep.txt").write_text("keep")
+    paths.team_data("acme").parent.mkdir(parents=True)
+    paths.team_data("acme").symlink_to(elsewhere, target_is_directory=True)
+
+    assert remove_team(paths, "acme", lambda found: True)
+
+    assert not paths.team_data("acme").is_symlink()
+    assert (elsewhere / "keep.txt").read_text() == "keep"
