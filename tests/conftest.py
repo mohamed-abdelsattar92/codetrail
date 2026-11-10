@@ -16,7 +16,10 @@ def anyio_backend() -> str:
 
 @pytest.fixture(autouse=True)
 def no_real_providers(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    """Only tests marked `live` may run the real `claude` or `codex`; elsewhere it fails at once, costing nothing."""
+    """Only tests marked `live` may run a real provider or hosting program (claude, codex, gh, az, glab).
+
+    Elsewhere it fails at once, costing nothing.
+    """
     if request.node.get_closest_marker("live") is None:
         from codetrail.assistant import runner
 
@@ -24,7 +27,7 @@ def no_real_providers(request: pytest.FixtureRequest, monkeypatch: pytest.Monkey
 
         def refuse(command: Any) -> None:
             if Path(str(command[0])).name in REAL_PROGRAMS:
-                raise AssertionError("A test tried to run a real provider; use a fake program or mark it live.")
+                raise AssertionError("A test tried to run a real program; use a fake or mark it live.")
 
         async def program(command: Any, *arguments: Any, **keywords: Any) -> AsyncIterator[str]:
             refuse(command)

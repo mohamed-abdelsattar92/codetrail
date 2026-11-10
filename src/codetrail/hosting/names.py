@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass
 from typing import Literal, get_args
 from urllib.parse import urlsplit
@@ -43,7 +44,8 @@ def _azure_name(name: str) -> bool:
     return (
         1 <= len(name) <= 64
         and not AZURE_FORBIDDEN.search(name)
-        and name[0] not in "._"
+        and name[0] not in "._-"
+        and not any(unicodedata.category(character) in ("Cc", "Cf") for character in name)
         and not name.endswith(".")
         and name == name.strip()
     )

@@ -14,7 +14,14 @@ ACCEPTED_SOURCES = {
 }
 REFUSED_SOURCES = {
     "github": ["..", "-acme", "acme\n"],
-    "azure_devops": ["contoso/..", "-contoso/Platform", "contoso/Plat\x07form", "contoso", "contoso/Platform/x"],
+    "azure_devops": [
+        "contoso/..",
+        "-contoso/Platform",
+        "contoso/Plat\x07form",
+        "contoso/-x",
+        "contoso",
+        "contoso/Platform/x",
+    ],
     "gitlab": ["example-group/../x", "-example", "example\x00group"],
 }
 ACCEPTED_REPOSITORIES = {
@@ -24,7 +31,7 @@ ACCEPTED_REPOSITORIES = {
 }
 REFUSED_REPOSITORIES = {
     "github": ["..", "-web-shop", "web\nshop"],
-    "azure_devops": [".hidden", "-x;", "web\x1fshop", "a#b", "ends."],
+    "azure_devops": [".hidden", "-web-shop", "web\u202eshop", "web\x1fshop", "a#b", "ends."],
     "gitlab": ["..", "-web-shop", "web\x00shop"],
 }
 

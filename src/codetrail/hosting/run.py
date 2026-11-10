@@ -64,8 +64,16 @@ READS: dict[Service, tuple[tuple[str, ...], ...]] = {
     ),
 }
 
-# After `api --method GET`, nothing may change the method or send a body.
-API_WRITE_FLAGS = ("--method", "--field", "--raw-field", "--input", "-X", "-f", "-F")
+# Status commands take no further arguments (`--show-token`, `-t` would print the token).
+EXACT_READS = {
+    ("auth", "status", "--json", "hosts"),
+    ("account", "show", "-o", "json"),
+    ("auth", "status", "--output", "json"),
+}
+
+# After `api --method GET` only these flags pass: a bundled short flag such as `-iXPOST` could change the method.
+API_FLAGS = ("--paginate",)
+API_FLAGS_WITH_VALUE = ("--jq",)
 
 
 def hosting_environment(environ: Mapping[str, str]) -> dict[str, str]:
@@ -78,9 +86,24 @@ def hosting_environment(environ: Mapping[str, str]) -> dict[str, str]:
 def is_read(service: Service, arguments: Sequence[str]) -> bool:
     for prefix in READS[service]:
         if tuple(arguments[: len(prefix)]) == prefix:
-            rest = arguments[len(prefix) :]
-            return prefix[0] != "api" or not any(argument.startswith(API_WRITE_FLAGS) for argument in rest)
+            if prefix in EXACT_READS:
+                return len(arguments) == len(prefix)
+            return prefix[0] != "api" or _only_allowed_api_flags(arguments[len(prefix) :])
     return False
+
+
+def _only_allowed_api_flags(rest: Sequence[str]) -> bool:
+    position = 0
+    while position < len(rest):
+        argument = rest[position]
+        if argument in API_FLAGS_WITH_VALUE:
+            position += 1  # its one value
+            if position >= len(rest):
+                return False
+        elif argument.startswith("-") and argument not in API_FLAGS:
+            return False
+        position += 1
+    return True
 
 
 def run_read(
@@ -106,7 +129,7 @@ def run_read(
         raise HostingError(str(error)) from error
     if code != 0:
         last = next((line for line in reversed("".join(errors).splitlines()) if line.strip()), "")
-        raise HostingError(f"{name} stopped with exit code {code}: {last.strip()[:300]}")
+        raise HostingError(f"{name} stopped with exit code {code}: {last.strip()[: runner.ERROR_LINE_CHARS]}")
     if len(output.encode("utf-8")) > settings.max_output_bytes:
         raise HostingError(f"{name} returned more than {settings.max_output_bytes} bytes, so it isn't used.")
     return output

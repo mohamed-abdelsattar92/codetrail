@@ -7,7 +7,7 @@ import pytest
 
 from codetrail.config import HostingSettings
 from codetrail.hosting import HostingError
-from codetrail.hosting.run import READS, TOKEN_VARIABLES, hosting_environment, is_read, run_read
+from codetrail.hosting.run import ENVIRONMENT_NAMES, READS, TOKEN_VARIABLES, hosting_environment, is_read, run_read
 from tests.fixtures.programs import make_program
 
 # The reviewer's checklist: every command prefix an adapter may run, written by hand. READS must hold nothing else.
@@ -42,6 +42,7 @@ def test_token_variables_never_reach_the_program() -> None:
     }
     environment = hosting_environment(environ)
     assert not TOKEN_VARIABLES & environment.keys()
+    assert environment.keys() <= ENVIRONMENT_NAMES | {"PATH", "LC_ALL"}
     assert "AWS_SECRET_ACCESS_KEY" not in environment
     assert environment["HTTPS_PROXY"] == "http://proxy.example:3128"
     assert environment["SSL_CERT_FILE"] == "/etc/ssl/corp.pem"
@@ -70,10 +71,25 @@ def test_a_command_outside_the_read_list_is_refused_before_it_runs(tmp_path: Pat
         ["api", "--method", "GET", "x", "-X", "DELETE"],
         ["api", "--method", "GET", "x", "-fname=y"],
         ["api", "--method", "GET", "x", "--input", "file"],
+        ["api", "--method", "GET", "x", "-iXPOST"],
+        ["api", "--method", "GET", "x", "-iX", "POST"],
+        ["api", "--method", "GET", "x", "--method=POST"],
+        ["api", "--method", "GET", "x", "--method", "POST"],
+        ["api", "--method", "GET", "x", "-X", "POST"],
+        ["api", "--method", "GET", "x", "-H", "X-HTTP-Method-Override:POST"],
+        ["auth", "status", "--json", "hosts", "--show-token"],
         [],
     ):
         with pytest.raises(HostingError, match="isn't a read"):
             run_read("github", str(program.path), arguments, SETTINGS)
+    for arguments in (
+        ["api", "--method", "GET", "x", "--field", "a=b"],
+        ["api", "--method", "GET", "x", "-iFa=b"],
+        ["auth", "status", "--output", "json", "-t"],
+        ["auth", "status", "--output", "json", "--hostname", "x"],
+    ):
+        with pytest.raises(HostingError, match="isn't a read"):
+            run_read("gitlab", str(program.path), arguments, SETTINGS)
     assert not program.record_file.exists()
 
 
@@ -89,6 +105,7 @@ def test_is_read_matches_by_prefix() -> None:
     assert is_read("github", ["repo", "list", "acme-org", "--json", "id", "--limit", "5"])
     assert is_read("gitlab", ["api", "--method", "GET", "groups/12/projects?include_subgroups=true", "--paginate"])
     assert not is_read("gitlab", ["repo", "list"])
+    assert is_read("github", ["api", "--method", "GET", "repos/a/b/branches", "--paginate", "--jq", ".[].name"])
 
 
 def test_a_read_runs_from_the_root_with_the_allowlisted_environment(tmp_path: Path) -> None:
