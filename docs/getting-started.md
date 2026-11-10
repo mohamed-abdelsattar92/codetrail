@@ -221,11 +221,50 @@ Without the tool server, an agent can still read the map at the start of every t
 
 Run `codetrail update shop` whenever the repository has moved on; the page's home says how far behind the guide is. Each update rewrites only the pages whose facts changed, learned pages first, and writes a digest of what changed and why.
 
+## Following your team's repositories
+
+If your team keeps its repositories on GitHub, Azure DevOps or GitLab, Codetrail can follow several of them at once, each with its own guide, behind one sign-in. Codetrail reads the service through the service's own program and your own git sign-in. It never reads, stores or passes a token, and it only reads from the service.
+
+1. **Install the program and sign in.** For GitHub, install `gh` and run `gh auth login`. For Azure DevOps, install `az` and its extension (`az extension add --name azure-devops`), then run `az login`. For GitLab, install `glab` and run `glab auth login`. Only `gitlab.com` is supported.
+2. **Let git use that sign-in.** Codetrail clones with your git, so git has to be able to read the repositories without asking. Run the command for your service yourself; Codetrail never does:
+   - GitHub: `gh auth setup-git`.
+   - GitLab: `glab auth login`, which offers to set up git.
+   - Azure DevOps: install Git Credential Manager, or use an SSH key.
+
+   If git can't fetch, the update fails and prints the command to run.
+3. **Add the team.**
+
+   ```bash
+   codetrail team add acme
+   ```
+
+   This writes `~/.config/codetrail/teams/acme.toml` and opens the add-repositories screen. Pick a source: a GitHub organization or your own account, an Azure DevOps project, or a GitLab group. For Azure DevOps you type the organization, since `az` can't list them. Each service shows whether its program is installed and signed in, and the command to run if not.
+
+   **Follow the whole source** is on by default. It follows the repositories pushed to in the last 90 days, so an organization of 600 repositories with 40 active ones gets 40. Untick a row to leave that repository out. Turn the switch off to pick repositories by hand. Archived, empty and disabled repositories are never followed. Azure DevOps reports no push time, so a whole Azure DevOps project follows all its enabled, non-empty repositories.
+
+   **Add** then clones each repository, extracts its facts and builds the "you're behind" signal. This costs nothing. No guide is written yet.
+4. **Serve it.**
+
+   ```bash
+   codetrail team serve acme
+   ```
+
+   The team page lists each repository with its "you're behind" signal, how many merges landed since its guide was updated, and a link to its guide. Each guide opens under `/repos/<name>/`, with all the pages of section 7, and one sign-in covers the team. **Add repositories** on the page opens the screen again. `codetrail serve <name>` still serves one repository at a time.
+
+   `team serve` lists your sources once when it starts. A page view changes nothing. Restart it to see repositories added or archived on the service.
+5. **Update a guide.** Each repository is a normal target named `acme-<repository>`. Run `codetrail update acme-web-shop` as in section 6, or use **Update the guide** on that repository's pages. The estimate comes first, as always. Catching up on all the repositories at once, with one estimate, arrives in a later version.
+
+`codetrail team list` shows each team with its sources and how many repositories it follows. `codetrail team remove acme` lists what it will delete (the team's settings and every target it created), asks first, and touches nothing on the service. It refuses while the team is served.
+
+To leave a repository out, untick it on the add-repositories screen. That stops following it but keeps its data. To delete its data, run `codetrail target remove acme-web-shop`.
+
+A followed repository's branch is its default branch, and it can't be changed on the screen. A source's `clone_over` setting (`"https"` by default, or `"ssh"`) is in the team's file.
+
 ## Where things live
 
 | Path | Holds |
 |---|---|
-| `~/.config/codetrail/` | Settings: `config.toml`, and `targets/<name>.toml` and `.ignore` |
+| `~/.config/codetrail/` | Settings: `config.toml`, `targets/<name>.toml` and `.ignore`, and `teams/<name>.toml` |
 | `~/.local/share/codetrail/<name>/` | A private copy of the repository's allowed files, the facts, the guide (its own git repository), and `agents/`, the context for coding agents |
 | `~/.local/state/codetrail/<name>/` | Logs |
 

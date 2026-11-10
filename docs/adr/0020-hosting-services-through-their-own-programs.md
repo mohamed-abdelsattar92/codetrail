@@ -62,5 +62,5 @@ It wins on the first three drivers, where B and C fail, and on experience, where
 - [x] AGENTS.md, non-negotiable 4: name the hosting services, reached only through the reader's own programs and git, read only.
 - [x] `docs/design/brainstorm-decisions.md`: decision 16 approved.
 - [x] `docs/design/2026-10-05-codetrail-design.md`: section 24 approved; section 1's "Not goals" unchanged (still no hosted or multi-user service).
-- [ ] `docs/security/review-checklist.md`: the hosting programs' environment and read-only commands, remote transports, the team routes (Phase 21).
+- [x] `docs/security/review-checklist.md`: the hosting programs' environment and read-only commands, remote transports, the team routes (Phase 21).
 - [x] `docs/adr/README.md`: this ADR's status in the index.

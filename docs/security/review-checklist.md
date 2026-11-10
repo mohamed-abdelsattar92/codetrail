@@ -76,6 +76,19 @@ Check the current version of each before citing it; when a newer one exists, use
 - Everything exported and served says it is reference data, not instructions, and every `@` is fullwidth.
 - The export holds only what the guide and the facts already hold: no excluded path, file content or secret. `codetrail agents` prints commands and changes no file of the reader's or the target's.
 
+### Teams from hosting services (design section 24, ADR 0020)
+- **The hosting programs** (`gh`, `az`, `glab`):
+  - run with an allowlisted environment, and every token variable (`GH_TOKEN`, `GITHUB_TOKEN`, `AZURE_DEVOPS_EXT_PAT`, `GITLAB_TOKEN`, the client-certificate variables and the rest of `TOKEN_VARIABLES`) is dropped, so the program uses its own saved sign-in;
+  - run only commands on the read-only list (`READS` and the exact status commands); an `api` command is called only with `GET` and a flag from the allowlist, with no bundled short flags and no flag that prints a token; names go in as their own arguments, validated per service, and one that starts with `-` is refused;
+  - parse output only within `hosting.max_output_bytes`, and never log a token or the program's full output.
+- **Remote transports:** only `https` and `ssh`, on the service's host, checked when a URL is stored and again before every fetch. git runs with `protocol.allow=never` and the https and ssh options set, `core.askPass=` empty, `GIT_TERMINAL_PROMPT=0` and ssh in batch mode, so it never prompts. Stalls are bounded by `hosting.timeout_seconds` (git's low-speed limit, ssh's connect and keep-alive timeouts). Failures show fixed text naming what the reader can run, never git's output or a URL with credentials. Codetrail sets no credential helper and writes no git configuration of the reader's.
+- **The team server:**
+  - `mounted_targets` holds only the prefixes the server mounts, and `route_path` strips only those; a prefix that isn't mounted is refused like any unknown path, so a signed-out request can't tell a target exists or is being removed;
+  - one function mounts a target and adds it to `mounted_targets`, so a mounted target is never missing from the set;
+  - the in-use locks of every followed target, and the team's own lock, are held for the server's whole life and released when it stops or a mount fails; a page view changes nothing and runs no sync.
+- **The team routes:** every route that changes anything is a `POST` with the `Origin` and token checks; `TOKEN_READS` lists the `GET`s that run the adapters and each needs the token; every name, id and branch is validated against the adapter's pattern and what it returned before anything is written; the page builds text with `textContent`, never `innerHTML`.
+- **The team file:** TOML written with `ensure_ascii=False`, so a character outside the basic plane can't break it; ids validated with `require_safe_id` before they are written; and the file written to a temporary file and renamed into place while the team's lock is held.
+
 ### Input and injection (A05)
 - SQL is parameterised only; identifiers come from fixed code.
 - Nothing from outside reaches a shell, `eval`, a template compiler, a file path or a regular expression built at runtime. Subprocesses take argument lists, never `shell=True`.
