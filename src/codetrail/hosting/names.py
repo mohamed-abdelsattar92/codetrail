@@ -114,9 +114,10 @@ def check_clone_url(service: Service, url: str) -> str:
             organization = parts.path.split("/")[1]
             if service == "azure_devops" and parts.netloc == f"{organization}@{hosts.https}":
                 return f"https://{hosts.https}{parts.path}" + (f"?{parts.query}" if parts.query else "")
+    # The URL isn't repeated: it may carry a password or token.
     raise CodetrailError(
-        f"{url!r} isn't a clone URL for {service}: use https://{hosts.https}/... or git@{hosts.ssh}:..., "
-        "with no user, password or port."
+        f"That isn't a clone URL for {SERVICE_NAMES[service]}: use https on {hosts.https} (https://{hosts.https}/...) "
+        f"or git@{hosts.ssh}:..., with no user, password or port."
     )
 
 

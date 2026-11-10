@@ -4,7 +4,13 @@ import pytest
 
 from codetrail.errors import CodetrailError
 from codetrail.hosting import HostedRepository
-from codetrail.hosting.names import Service, check_clone_url, validate_repository_name, validate_source
+from codetrail.hosting.names import (
+    SERVICE_NAMES,
+    Service,
+    check_clone_url,
+    validate_repository_name,
+    validate_source,
+)
 
 SERVICES: list[Service] = ["github", "azure_devops", "gitlab"]
 ACCEPTED_SOURCES = {
@@ -91,3 +97,20 @@ def test_a_repository_gives_the_clone_url_the_reader_chose() -> None:
     )
     assert repository.clone_url("https") == repository.https_url
     assert repository.clone_url("ssh") == repository.ssh_url
+
+
+@pytest.mark.parametrize(
+    ("service", "url", "shape"),
+    [
+        ("github", "https://reader:secret@github.com/acme-org/web-shop.git", "git@github.com:"),
+        ("azure_devops", "https://contoso:secret@dev.azure.com/contoso/Platform/_git/r", "git@ssh.dev.azure.com:"),
+        ("gitlab", "https://reader:secret@gitlab.example/example-group/web-shop.git", "https://gitlab.com/"),
+    ],
+)
+def test_a_refused_clone_url_is_not_echoed(service: Service, url: str, shape: str) -> None:
+    # The URL may carry a password or token, and the message reaches the terminal and the page.
+    with pytest.raises(CodetrailError) as raised:
+        check_clone_url(service, url)
+    message = str(raised.value)
+    assert "secret" not in message and "reader" not in message
+    assert SERVICE_NAMES[service] in message and shape in message

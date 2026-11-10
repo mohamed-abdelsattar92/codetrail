@@ -579,3 +579,11 @@ def test_a_remote_with_an_awkward_azure_name_loads() -> None:
         }
     )
     assert (remote.source, remote.name) == ("contoso/Platform", "Payments API")
+
+
+def test_a_refused_remote_url_is_not_echoed_in_the_settings_error() -> None:
+    url = "https://reader:secret@github.com/acme-org/web-shop.git"
+    with pytest.raises(ValidationError) as raised:
+        RemoteSettings.model_validate({**REMOTE, "url": url})
+    messages = " ".join(issue["msg"] for issue in raised.value.errors())  # what the settings' error names
+    assert "clone URL" in messages and "secret" not in messages

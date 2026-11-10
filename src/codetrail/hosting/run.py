@@ -75,6 +75,11 @@ EXACT_READS = {
 API_FLAGS = ("--paginate",)
 API_FLAGS_WITH_VALUE = ("--jq",)
 
+# After an `az` read's prefix only the flags the adapter passes, each with exactly one value: `--debug` would write
+# the requests to standard error, and `--query` or another flag would change what the read returns.
+AZURE_FLAGS = ("--organization", "--project", "--repository", "--filter")
+AZURE_OUTPUT_FLAGS = ("-o", "--output")  # and only as `json`
+
 
 def hosting_environment(environ: Mapping[str, str]) -> dict[str, str]:
     environment = {name: environ[name] for name in ENVIRONMENT_NAMES - TOKEN_VARIABLES if name in environ}
@@ -88,8 +93,21 @@ def is_read(service: Service, arguments: Sequence[str]) -> bool:
         if tuple(arguments[: len(prefix)]) == prefix:
             if prefix in EXACT_READS:
                 return len(arguments) == len(prefix)
+            if service == "azure_devops":
+                return _only_allowed_azure_flags(arguments[len(prefix) :])
             return prefix[0] != "api" or _only_allowed_api_flags(arguments[len(prefix) :])
     return False
+
+
+def _only_allowed_azure_flags(rest: Sequence[str]) -> bool:
+    if len(rest) % 2:
+        return False
+    for flag, value in zip(rest[::2], rest[1::2], strict=True):
+        if value.startswith("-"):  # a flag where its value should be
+            return False
+        if flag not in AZURE_FLAGS and not (flag in AZURE_OUTPUT_FLAGS and value == "json"):
+            return False
+    return True
 
 
 def _only_allowed_api_flags(rest: Sequence[str]) -> bool:

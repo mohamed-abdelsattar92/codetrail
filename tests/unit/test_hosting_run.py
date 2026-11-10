@@ -152,3 +152,42 @@ def test_azure_names_with_spaces_are_one_argument(tmp_path: Path) -> None:
     arguments = ["repos", "list", "--organization", "https://dev.azure.com/contoso", "--project", "Payments API #2"]
     output = run_read("azure_devops", str(script), arguments, SETTINGS, {"PATH": "/usr/bin:/bin"})
     assert json.loads(output)[0] == "Payments API #2"
+
+
+ORGANIZATION = "https://dev.azure.com/contoso"
+
+
+@pytest.mark.parametrize(
+    "arguments",
+    [
+        ["devops", "project", "list", "--organization", ORGANIZATION, "-o", "json", "--debug"],
+        ["devops", "project", "list", "--organization", ORGANIZATION, "--verbose", "-o", "json"],
+        ["repos", "list", "--organization", ORGANIZATION, "--project", "Platform", "--query", "[].id"],
+        ["repos", "list", "--organization", ORGANIZATION, "--project", "Platform", "-ojson"],
+        ["repos", "list", "--organization", ORGANIZATION, "--project=Platform"],
+        ["repos", "list", "--organization", ORGANIZATION, "--subscription", "x"],
+        ["repos", "list", "--organization", ORGANIZATION, "-o", "table"],
+        ["repos", "list", "--organization", ORGANIZATION, "--project"],
+        ["repos", "list", "--organization", "--debug"],
+        ["repos", "list", "--organization", ORGANIZATION, "Platform"],
+        ["repos", "ref", "list", "--repository", "R_1", "--filter", "heads/", "--output", "yaml"],
+    ],
+)
+def test_azure_reads_take_only_the_adapter_s_flags(tmp_path: Path, arguments: list[str]) -> None:
+    program = make_program(tmp_path, "fake-az", ["[]"])
+    with pytest.raises(HostingError, match="isn't a read"):
+        run_read("azure_devops", str(program.path), arguments, SETTINGS)
+    assert not program.record_file.exists()
+
+
+def test_the_azure_adapter_s_reads_pass() -> None:
+    assert is_read("azure_devops", ["account", "show", "-o", "json"])
+    assert is_read("azure_devops", ["devops", "project", "list", "--organization", ORGANIZATION, "-o", "json"])
+    assert is_read(
+        "azure_devops", ["repos", "list", "--organization", ORGANIZATION, "--project", "Payments API #2", "-o", "json"]
+    )
+    assert is_read(
+        "azure_devops",
+        ["repos", "ref", "list", "--organization", ORGANIZATION, "--project", "Platform", "--repository", "R_1",
+         "--filter", "heads/", "--output", "json"],
+    )  # fmt: skip
