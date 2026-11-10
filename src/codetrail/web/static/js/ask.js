@@ -1,6 +1,6 @@
 // The Ask panel (design section 16.4): this session's answers, a question about the page being read, and saving
 // answers to the guide. A question is sent only by the Send button, which shows its estimate; nothing else spends.
-import { getJSON, post, recall, remember, usedText } from "./api.js";
+import { getJSON, post, recall, remember, sitePath, usedText } from "./api.js";
 import { drawDiagramsIn } from "./diagram.js";
 import { hideUpdatePanel } from "./update.js";
 
@@ -48,7 +48,7 @@ function addSaveButton(actions, answerId, question) {
       return;
     }
     const link = document.createElement("a");
-    link.href = `/pages/${result.page_id}`;
+    link.href = sitePath(`/pages/${result.page_id}`);
     link.textContent = panel.dataset.labelSaved;
     button.replaceWith(link);
     addToSidebar(result.page_id, question);
@@ -63,7 +63,7 @@ function addToSidebar(pageId, question) {
   const entry = document.createElement("li");
   const link = document.createElement("a");
   link.className = "nav-link";
-  link.href = `/pages/${pageId}`;
+  link.href = sitePath(`/pages/${pageId}`);
   const label = document.createElement("span");
   label.className = "label";
   label.textContent = question;

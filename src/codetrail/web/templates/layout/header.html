@@ -4,10 +4,10 @@
           aria-label="{{ _('Hide the sidebar') }}" data-label-hide="{{ _('Hide the sidebar') }}"
           data-label-show="{{ _('Show the sidebar') }}">{{ icon("sidebar") }}</button>
   <button type="button" class="icon-button menu-button" data-menu aria-controls="sidebar" aria-expanded="false" aria-label="{{ _('Menu') }}">{{ icon("menu") }}</button>
-  <a class="brand" href="/"><img src="/static/brand/mark.svg" alt="" width="24" height="24"><span>codetrail</span></a>
+  <a class="brand" href="{{ site_path('/') }}"><img src="/static/brand/mark.svg" alt="" width="24" height="24"><span>codetrail</span></a>
   <span class="target" lang="en" dir="ltr">{{ target }}{% if nav.branch or nav.commit %}<span class="target-meta">{{ nav.branch }}{% if nav.commit %} · {{ nav.commit[:7] }}{% endif %}</span>{% endif %}</span>
   <div class="topbar-search">
-    <form class="search-box" action="/search" method="get" role="search" data-search-form>
+    <form class="search-box" action="{{ site_path('/search') }}" method="get" role="search" data-search-form>
       {{ icon("search") }}
       <input type="search" name="q" placeholder="{{ _('Search or ask…') }}" aria-label="{{ _('Search the guide') }}" autocomplete="off" maxlength="1000">
       <kbd class="search-hint" aria-hidden="true">⌘K</kbd>

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import subprocess
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from contextlib import suppress
 from pathlib import Path
 
@@ -21,19 +21,24 @@ def run_git(
     work_tree: Path | None = None,
     input: bytes | None = None,
     allowed_exit_codes: Sequence[int] = (0,),
+    environment: Mapping[str, str] | None = None,
 ) -> bytes:
-    """Runs git and returns its standard output; any other exit code raises a CodetrailError with git's message."""
+    """Runs git and returns its standard output; any other exit code raises a CodetrailError with git's message.
+
+    `environment` replaces git's whole environment (a remote target's, which never carries a token); None keeps the
+    process's own without its GIT_ variables."""
     command = ["git"]
     if git_dir is not None:
         command.append(f"--git-dir={git_dir}")
     if work_tree is not None:
         command.append(f"--work-tree={work_tree}")
     command.extend(arguments)
-    environment = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
-    environment["GIT_TERMINAL_PROMPT"] = "0"
-    # Run from the file system's root and stop repository discovery there: git never finds a repository (a
-    # target's, or another user's in a shared temporary folder) from where it runs.
-    environment["GIT_CEILING_DIRECTORIES"] = "/"
+    if environment is None:
+        environment = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+        environment["GIT_TERMINAL_PROMPT"] = "0"
+        # Run from the file system's root and stop repository discovery there: git never finds a repository (a
+        # target's, or another user's in a shared temporary folder) from where it runs.
+        environment["GIT_CEILING_DIRECTORIES"] = "/"
     with subprocess.Popen(  # noqa: S603
         command, stdin=subprocess.PIPE if input is not None else None, stdout=subprocess.PIPE,
         stderr=subprocess.PIPE, env=environment, cwd="/",

@@ -12,14 +12,14 @@
 <nav class="sidebar" id="sidebar" aria-label="{{ _('Guide') }}" data-max-pins="{{ max_pins }}"
      data-label-unpin="{{ _('Unpin %(title)s', title='{title}') }}" data-label-full="{{ _('Unpin a page first') }}">
   <ul class="pins" data-pins aria-label="{{ _('Pinned pages') }}"{% if not nav.pins %} hidden{% endif %}>
-    {% for page in nav.pins %}<li class="pin-item"><a class="pin" href="/pages/{{ page.id }}" {% if active == page.id %}aria-current="page" {% endif %}title="{{ page.title }}" aria-label="{{ page.title }}" {% if page.kind == "answer" %}dir="auto"{% else %}lang="en" dir="ltr"{% endif %}>{{ page.title|initials }}</a><button type="button" class="pin-remove" data-unpin="{{ page.id }}" aria-label="{{ _('Unpin %(title)s', title=page.title) }}" hidden>{{ icon("close") }}</button></li>{% endfor %}
+    {% for page in nav.pins %}<li class="pin-item"><a class="pin" href="{{ site_path('/pages/') }}{{ page.id }}" {% if active == page.id %}aria-current="page" {% endif %}title="{{ page.title }}" aria-label="{{ page.title }}" {% if page.kind == "answer" %}dir="auto"{% else %}lang="en" dir="ltr"{% endif %}>{{ page.title|initials }}</a><button type="button" class="pin-remove" data-unpin="{{ page.id }}" aria-label="{{ _('Unpin %(title)s', title=page.title) }}" hidden>{{ icon("close") }}</button></li>{% endfor %}
   </ul>
   <template data-pin-template><li class="pin-item"><a class="pin"></a><button type="button" class="pin-remove">{{ icon("close") }}</button></li></template>
 
   <ul class="nav-list">
-    <li><a class="nav-link" href="/" {% if active == "home" %}aria-current="page"{% endif %}>{{ icon("home") }}<span class="label">{{ _("Home") }}</span></a></li>
-    <li><a class="nav-link" href="/progress" {% if active == "progress" %}aria-current="page"{% endif %}>{{ icon("progress") }}<span class="label">{{ _("Progress") }}</span></a></li>
-    {% if has_system %}<li><a class="nav-link" href="/system" {% if active == "system" %}aria-current="page"{% endif %}>{{ icon("system") }}<span class="label">{{ _("System") }}</span></a></li>{% endif %}
+    <li><a class="nav-link" href="{{ site_path('/') }}" {% if active == "home" %}aria-current="page"{% endif %}>{{ icon("home") }}<span class="label">{{ _("Home") }}</span></a></li>
+    <li><a class="nav-link" href="{{ site_path('/progress') }}" {% if active == "progress" %}aria-current="page"{% endif %}>{{ icon("progress") }}<span class="label">{{ _("Progress") }}</span></a></li>
+    {% if has_system %}<li><a class="nav-link" href="{{ site_path('/system') }}" {% if active == "system" %}aria-current="page"{% endif %}>{{ icon("system") }}<span class="label">{{ _("System") }}</span></a></li>{% endif %}
   </ul>
 
   {% if nav.paths %}
@@ -27,7 +27,7 @@
   {{ fold("paths", _("Paths"), nav.paths|length) }}
   <ul class="nav-list" id="nav-paths" lang="en" dir="ltr">
     {% for path, learned, total in nav.paths %}
-    <li class="nav-row"><a class="nav-link nav-path" href="/pages/{{ path.id }}" {% if active == path.id %}aria-current="page"{% endif %}>
+    <li class="nav-row"><a class="nav-link nav-path" href="{{ site_path('/pages/') }}{{ path.id }}" {% if active == path.id %}aria-current="page"{% endif %}>
       <span class="label">{{ path.title }}<progress class="bar" max="{{ total or 1 }}" value="{{ learned }}" aria-hidden="true"></progress></span>
       <span class="count">{{ learned }}/{{ total }}</span></a>{{ pin(path) }}</li>
     {% endfor %}
@@ -41,7 +41,7 @@
   {{ fold(name, heading, pages|length) }}
   <ul class="nav-list" id="nav-{{ name }}" lang="en" dir="ltr">
     {% for page in pages %}
-    <li class="nav-row"><a class="nav-link" href="/pages/{{ page.id }}" {% if active == page.id %}aria-current="page"{% endif %}><span class="label">{{ page.title }}</span>{% if nav.statuses.get(page.id) == "learned" %}<span class="check" title="{{ _('Learned') }}">{{ icon("check") }}</span>{% elif nav.statuses.get(page.id) == "stale" %}<span class="dot" title="{{ _('Changed since you learned it') }}"></span>{% endif %}</a>{{ pin(page) }}</li>
+    <li class="nav-row"><a class="nav-link" href="{{ site_path('/pages/') }}{{ page.id }}" {% if active == page.id %}aria-current="page"{% endif %}><span class="label">{{ page.title }}</span>{% if nav.statuses.get(page.id) == "learned" %}<span class="check" title="{{ _('Learned') }}">{{ icon("check") }}</span>{% elif nav.statuses.get(page.id) == "stale" %}<span class="dot" title="{{ _('Changed since you learned it') }}"></span>{% endif %}</a>{{ pin(page) }}</li>
     {% endfor %}
   </ul>
   </div>
@@ -52,12 +52,12 @@
   {{ fold("answers", _("Saved answers"), nav.answer_count) }}
   <ul class="nav-list" id="nav-answers" data-nav-answers>
     {% for answer in nav.answers %}
-    <li class="nav-row"><a class="nav-link" href="/pages/{{ answer.id }}" {% if active == answer.id %}aria-current="page"{% endif %}><span class="label" dir="auto">{{ answer.title }}</span></a>{{ pin(answer) }}</li>
+    <li class="nav-row"><a class="nav-link" href="{{ site_path('/pages/') }}{{ answer.id }}" {% if active == answer.id %}aria-current="page"{% endif %}><span class="label" dir="auto">{{ answer.title }}</span></a>{{ pin(answer) }}</li>
     {% else %}
     <li class="nav-empty" data-nav-empty>{{ _("Answers you save appear here.") }}</li>
     {% endfor %}
     {% if nav.answer_count %}
-    <li><a class="nav-link" href="/answers" {% if active == "answers" %}aria-current="page"{% endif %}><span class="label">{{ _("All saved answers") }}</span><span class="count">{{ nav.answer_count }}</span></a></li>
+    <li><a class="nav-link" href="{{ site_path('/answers') }}" {% if active == "answers" %}aria-current="page"{% endif %}><span class="label">{{ _("All saved answers") }}</span><span class="count">{{ nav.answer_count }}</span></a></li>
     {% endif %}
   </ul>
   </div>
@@ -65,10 +65,10 @@
   <div class="nav-section" data-section="more">
   {{ fold("more", _("More")) }}
   <ul class="nav-list" id="nav-more">
-    <li><a class="nav-link" href="/digests" {% if active == "digests" %}aria-current="page"{% endif %}>{{ icon("digest") }}<span class="label">{{ _("Digests") }}</span>{% if nav.unread_digests %}<span class="dot" title="{{ _('Unread') }}"></span>{% endif %}</a></li>
-    <li><a class="nav-link" href="/decisions" {% if active == "decisions" %}aria-current="page"{% endif %}>{{ icon("decision") }}<span class="label">{{ _("Decisions") }}</span></a></li>
-    <li><a class="nav-link" href="/documentation" {% if active == "documentation" %}aria-current="page"{% endif %}>{{ icon("metrics") }}<span class="label">{{ _("Documentation") }}</span></a></li>
-    <li><a class="nav-link" href="/repository" {% if active == "repository" %}aria-current="page"{% endif %}>{{ icon("repository") }}<span class="label">{{ _("Repository") }}</span></a></li>
+    <li><a class="nav-link" href="{{ site_path('/digests') }}" {% if active == "digests" %}aria-current="page"{% endif %}>{{ icon("digest") }}<span class="label">{{ _("Digests") }}</span>{% if nav.unread_digests %}<span class="dot" title="{{ _('Unread') }}"></span>{% endif %}</a></li>
+    <li><a class="nav-link" href="{{ site_path('/decisions') }}" {% if active == "decisions" %}aria-current="page"{% endif %}>{{ icon("decision") }}<span class="label">{{ _("Decisions") }}</span></a></li>
+    <li><a class="nav-link" href="{{ site_path('/documentation') }}" {% if active == "documentation" %}aria-current="page"{% endif %}>{{ icon("metrics") }}<span class="label">{{ _("Documentation") }}</span></a></li>
+    <li><a class="nav-link" href="{{ site_path('/repository') }}" {% if active == "repository" %}aria-current="page"{% endif %}>{{ icon("repository") }}<span class="label">{{ _("Repository") }}</span></a></li>
   </ul>
   </div>
 </nav>

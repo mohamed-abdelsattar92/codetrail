@@ -20,6 +20,7 @@ from codetrail.metrics.churn import Churn, HotSpot, folder_of
 from codetrail.metrics.repository import RepositoryReport
 from codetrail.metrics.size import LanguageSize
 from codetrail.web.i18n import Language
+from codetrail.web.links import site_path
 
 PLACEHOLDER = re.compile(r"%\((\w+)\)s")
 LISTED_FILES = 5  # files a tile's panel lists
@@ -137,15 +138,15 @@ def _heat(churn: Churn) -> dict[str, Any]:
 
     largest_areas = sorted(churn.areas, key=lambda spot: (-spot.lines, spot.page.title))[: churn.tile_cap]
     areas = [
-        {"name": spot.page.title, "path": spot.page.id, "href": "/pages/" + quote(spot.page.id), "lines": spot.lines,
-         "commits": spot.commits, "documented": spot.documented, "inferred": spot.inferred,
+        {"name": spot.page.title, "path": spot.page.id, "href": site_path("/pages/" + quote(spot.page.id)),
+         "lines": spot.lines, "commits": spot.commits, "documented": spot.documented, "inferred": spot.inferred,
          "mostlyInferred": spot.inferred > spot.documented * 2, "files": _top(churn.files, in_scope(spot.scope))}
         for spot in largest_areas
     ]  # fmt: skip
     folders = [{"name": tile.name, "path": tile.path, "href": None, "lines": tile.lines, "commits": tile.commits,
                 "files": _top(churn.files, in_folder(tile.path))} for tile in churn.folder_tiles]  # fmt: skip
-    files = [{"name": tile.name, "path": tile.path, "href": "/source/" + quote(tile.path), "lines": tile.lines,
-              "commits": tile.commits} for tile in churn.file_tiles]  # fmt: skip
+    files = [{"name": tile.name, "path": tile.path, "href": site_path("/source/" + quote(tile.path)),
+              "lines": tile.lines, "commits": tile.commits} for tile in churn.file_tiles]  # fmt: skip
     # A tile with no lines of code has no size to draw: it is left out and counted, like the tiles past the cap.
     levels: dict[str, list[dict[str, Any]]] = {"areas": areas, "folders": folders, "files": files}
     left_out = dict(churn.left_out)

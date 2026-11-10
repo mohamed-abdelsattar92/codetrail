@@ -9,13 +9,14 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from codetrail.config import Paths, check_containment, load_target
+from codetrail.config import Paths, check_containment, load_global, load_target
 from codetrail.database import connect
 from codetrail.facts.store import FactStore
 from codetrail.lock import TargetBusy, target_lock
 from codetrail.repo.history import changed_paths, commit_count, merges_between
-from codetrail.repo.mirror import read_file_at, refresh_mirror
+from codetrail.repo.mirror import read_file_at
 from codetrail.repo.refresh import TARGET_IGNORE_FILE, ignore_lines
+from codetrail.repo.remote import fetch_target
 from codetrail.repo.rules import ExclusionRules
 from codetrail.repo.source import SourceManifest
 
@@ -32,12 +33,13 @@ class Signal:
 
 def behind(paths: Paths, name: str) -> Signal:
     target = load_target(paths, name)
-    check_containment(paths, target.repository)
+    if target.repository is not None:
+        check_containment(paths, target.repository)
     data = paths.target_data(name)
     try:
         with target_lock(paths, name):
             mirror = data / "mirror.git"
-            head = refresh_mirror(mirror, target.repository, target.branch)
+            head = fetch_target(mirror, target, stall_seconds=load_global(paths).hosting.timeout_seconds)
             snapshot = _latest_snapshot_commit(paths, name)
             if snapshot is None:
                 return Signal(head=head)

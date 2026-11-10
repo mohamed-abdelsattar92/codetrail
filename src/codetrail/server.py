@@ -26,7 +26,8 @@ class Server:
 
 def prepare_server(paths: Paths, name: str) -> Server:
     target = load_target(paths, name)
-    check_containment(paths, target.repository)
+    if target.repository is not None:
+        check_containment(paths, target.repository)
     settings = load_global(paths)
     session = SessionState(settings.server.login_code_ttl_seconds, session_minutes=settings.server.session_minutes)
     app = create_app(paths, name, session, settings)

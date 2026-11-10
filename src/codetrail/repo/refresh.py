@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from codetrail.config import Paths, check_containment, load_global, load_target
 from codetrail.lock import target_in_use, target_lock
-from codetrail.repo.mirror import read_file_at, refresh_mirror
+from codetrail.repo.mirror import read_file_at
+from codetrail.repo.remote import fetch_target
 from codetrail.repo.rules import ExclusionRules
 from codetrail.repo.secrets import SecretScanner
 from codetrail.repo.source import SourceManifest, build_source
@@ -24,7 +25,9 @@ def ignore_lines(paths: Paths, name: str, target_file: bytes | None) -> list[str
 def refresh_source(paths: Paths, name: str) -> SourceManifest:
     """Refreshes the target's sources under its lock, after checking no folder would be made inside the target."""
     with target_in_use(paths, name):
-        check_containment(paths, load_target(paths, name).repository)
+        target = load_target(paths, name)
+        if target.repository is not None:
+            check_containment(paths, target.repository)
         with target_lock(paths, name):
             return refresh_while_locked(paths, name)
 
@@ -32,10 +35,12 @@ def refresh_source(paths: Paths, name: str) -> SourceManifest:
 def refresh_while_locked(paths: Paths, name: str) -> SourceManifest:
     """Refreshes the target's sources; the caller holds the target's lock."""
     target = load_target(paths, name)
-    check_containment(paths, target.repository)
-    scanner = SecretScanner(load_global(paths).tools)
+    if target.repository is not None:
+        check_containment(paths, target.repository)
+    settings = load_global(paths)
+    scanner = SecretScanner(settings.tools)
     data = paths.target_data(name)
     mirror = data / "mirror.git"
-    commit = refresh_mirror(mirror, target.repository, target.branch)
+    commit = fetch_target(mirror, target, stall_seconds=settings.hosting.timeout_seconds)
     rules = ExclusionRules(ignore_lines(paths, name, read_file_at(mirror, commit, TARGET_IGNORE_FILE)))
     return build_source(mirror, commit, rules, scanner, data)

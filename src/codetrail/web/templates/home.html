@@ -29,10 +29,10 @@
 <section class="card rail-card" aria-labelledby="changed-title">
   <p class="card-label" id="changed-title">{{ _("What changed") }}</p>
   {% if unread_digests %}
-    <a class="stat-link" href="/pages/{{ unread_digests[0].id }}" lang="en" dir="ltr">{{ unread_digests[0].title }}</a>
+    <a class="stat-link" href="{{ site_path('/pages/') }}{{ unread_digests[0].id }}" lang="en" dir="ltr">{{ unread_digests[0].title }}</a>
     <p class="stat-note">{% trans count=unread_digests|length %}{{ count }} unread digest{% pluralize %}{{ count }} unread digests{% endtrans %}</p>
   {% elif latest_digest %}
-    <a class="stat-link" href="/pages/{{ latest_digest.id }}" lang="en" dir="ltr">{{ latest_digest.title }}</a>
+    <a class="stat-link" href="{{ site_path('/pages/') }}{{ latest_digest.id }}" lang="en" dir="ltr">{{ latest_digest.title }}</a>
     <p class="stat-note">{{ _("You're caught up.") }}</p>
   {% else %}
     <p class="stat-note">{{ _("No digest yet.") }}</p>
@@ -46,7 +46,7 @@
   <div>
     <p class="card-label" id="system-title">{{ _("Your system") }}</p>
     <p class="metric-figure">{% trans count=system.parts %}{{ count }} part{% pluralize %}{{ count }} parts{% endtrans %} · {% trans count=system.connections %}{{ count }} connection{% pluralize %}{{ count }} connections{% endtrans %}{{ _(", drawn from the code") }}</p>
-    <a class="stat-note" href="/system">{{ _("See how it fits together") }}</a>
+    <a class="stat-note" href="{{ site_path('/system') }}">{{ _("See how it fits together") }}</a>
   </div>
 </section>
 {% endif %}
@@ -64,7 +64,7 @@
     {% else %}
     <p class="stat-note">{{ _("How well the repository explains itself: rationale, commits, decisions and documents.") }}</p>
     {% endif %}
-    <a class="stat-note" href="/documentation">{{ _("See what's documented") }}</a>
+    <a class="stat-note" href="{{ site_path('/documentation') }}">{{ _("See what's documented") }}</a>
   </div>
 </section>
 {% endif %}
@@ -77,7 +77,7 @@
     <p class="card-label" id="repository-title">{{ _("Repository") }}</p>
     {% if repository.commits is not none %}<p class="metric-figure">{% trans count=repository.commits, commits=repository.commits|number %}{{ commits }} commit{% pluralize %}{{ commits }} commits{% endtrans %}</p>{% endif %}
     <p class="stat-note">{% if repository.first %}{% trans date=repository.first.isoformat() %}Started on {{ date }}{% endtrans %}{% if repository.code_lines is not none %} · {% endif %}{% endif %}{% if repository.code_lines is not none %}{% trans count=repository.code_lines, lines=repository.code_lines|number %}{{ lines }} line of code{% pluralize %}{{ lines }} lines of code{% endtrans %}{% endif %}</p>
-    <a class="stat-note" href="/repository">{{ _("See the repository's statistics") }}</a>
+    <a class="stat-note" href="{{ site_path('/repository') }}">{{ _("See the repository's statistics") }}</a>
   </div>
 </section>
 {% endif %}
@@ -88,7 +88,7 @@
   {% if areas %}
   <ul class="folder-chips" lang="en" dir="ltr">
     {% for area, files in areas %}
-    <li><a class="folder-chip" href="/areas/{{ area|urlencode }}">{{ icon("folder") }} {{ area }}/ <span class="faint">{{ files }}</span></a></li>
+    <li><a class="folder-chip" href="{{ site_path('/areas/') }}{{ area|urlencode }}">{{ icon("folder") }} {{ area }}/ <span class="faint">{{ files }}</span></a></li>
     {% endfor %}
   </ul>
   {% else %}
@@ -126,7 +126,7 @@
     <p class="card-title" lang="en" dir="ltr">{{ step.title }}</p>
     <p class="faint">{% trans learned=steps_learned, total=steps_total %}{{ learned }} of {{ total }} learned{% endtrans %}</p>
   </div>
-  <a class="button primary" href="/pages/{{ step.id }}?path={{ path.id }}">{{ _("Continue") }} {{ icon("arrow") }}</a>
+  <a class="button primary" href="{{ site_path('/pages/') }}{{ step.id }}?path={{ path.id }}">{{ _("Continue") }} {{ icon("arrow") }}</a>
 </section>
 {% elif nav.paths %}
 <section class="card card-accent">
@@ -138,12 +138,12 @@
 <section class="card home-paths" aria-labelledby="paths-title">
   <div class="section-head">
     <h2 id="paths-title">{{ _("Paths") }}</h2>
-    <a href="/progress">{% trans learned=learned, total=guide_pages|length %}{{ learned }} of {{ total }} learned{% endtrans %}</a>
+    <a href="{{ site_path('/progress') }}">{% trans learned=learned, total=guide_pages|length %}{{ learned }} of {{ total }} learned{% endtrans %}</a>
   </div>
   {% if nav.paths %}
   <ul class="path-rows" lang="en" dir="ltr">
     {% for path, steps_learned, steps_total in nav.paths %}
-    <li><a href="/pages/{{ path.id }}">{{ path.title }}</a><progress class="bar" max="{{ steps_total or 1 }}" value="{{ steps_learned }}" aria-hidden="true"></progress><span class="faint">{{ steps_learned }}/{{ steps_total }}</span></li>
+    <li><a href="{{ site_path('/pages/') }}{{ path.id }}">{{ path.title }}</a><progress class="bar" max="{{ steps_total or 1 }}" value="{{ steps_learned }}" aria-hidden="true"></progress><span class="faint">{{ steps_learned }}/{{ steps_total }}</span></li>
     {% endfor %}
   </ul>
   {% endif %}
@@ -153,7 +153,7 @@
 <section>
   <h2>{{ _("Changed since you learned them") }}</h2>
   <ul class="list" lang="en" dir="ltr">
-    {% for page in stale_pages %}<li><a class="grow" href="/pages/{{ page.id }}">{{ page.title }}</a><span class="pill pill-stale">{{ _("changed") }}</span></li>{% endfor %}
+    {% for page in stale_pages %}<li><a class="grow" href="{{ site_path('/pages/') }}{{ page.id }}">{{ page.title }}</a><span class="pill pill-stale">{{ _("changed") }}</span></li>{% endfor %}
   </ul>
 </section>
 {% endif %}
@@ -163,7 +163,7 @@
   <ul class="grid area-grid" lang="en" dir="ltr">
     {% for area in nav.areas %}
     {% set state = nav.statuses.get(area.id, "unread") %}
-    <li><a class="tile area-tile" data-status="{{ state }}" href="/pages/{{ area.id }}"><span class="tile-title">{{ area.title }}</span>
+    <li><a class="tile area-tile" data-status="{{ state }}" href="{{ site_path('/pages/') }}{{ area.id }}"><span class="tile-title">{{ area.title }}</span>
       {% if state == "learned" %}<span class="pill pill-learned">{{ _("Learned") }}</span>{% elif state == "stale" %}<span class="pill pill-stale">{{ _("Changed") }}</span>{% elif state == "read" %}<span class="pill pill-read">{{ _("Read") }}</span>{% else %}<span class="pill">{{ _("Not read yet") }}</span>{% endif %}</a></li>
     {% endfor %}
   </ul>
@@ -179,10 +179,10 @@
 {{ repository_card() }}
 {% if guide_pages %}
 <section class="card rail-card" aria-labelledby="answers-title">
-  <div class="section-head"><p class="card-label" id="answers-title">{{ _("Your saved answers") }}</p>{% if nav.answer_count %}<a class="stat-note" href="/answers">{{ _("All saved answers") }}</a>{% endif %}</div>
+  <div class="section-head"><p class="card-label" id="answers-title">{{ _("Your saved answers") }}</p>{% if nav.answer_count %}<a class="stat-note" href="{{ site_path('/answers') }}">{{ _("All saved answers") }}</a>{% endif %}</div>
   {% if nav.answers %}
   <ul class="rail-list">
-    {% for answer in nav.answers %}<li><a href="/pages/{{ answer.id }}" dir="auto">{{ answer.title }}</a></li>{% endfor %}
+    {% for answer in nav.answers %}<li><a href="{{ site_path('/pages/') }}{{ answer.id }}" dir="auto">{{ answer.title }}</a></li>{% endfor %}
   </ul>
   {% else %}
   <p class="stat-note">{{ _("Ask a question from any page (press A) and save the answers worth keeping. They'll be here.") }}</p>

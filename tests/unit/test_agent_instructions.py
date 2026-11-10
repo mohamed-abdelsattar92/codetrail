@@ -18,3 +18,10 @@ def test_the_setup_registers_the_server_for_both_agents() -> None:
     assert "codex mcp add codetrail-shop -- '/opt/py thon/bin/python3' -I -m codetrail mcp shop" in text
     assert "@/data/shop/agents/map.md" in text
     assert "never" in text.lower() and "committed" in text
+
+
+def test_an_ssh_remote_reaches_the_agent_without_an_at_sign() -> None:
+    # An `@` could read as a mention or a file reference to the agent.
+    text = server_instructions("acme-web-shop", "git@github.com:acme-org/web-shop.git")
+    assert "@" not in text
+    assert "github.com:acme-org/web-shop.git" in text

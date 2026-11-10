@@ -1,11 +1,14 @@
 """The command line exists and reports its version."""
 
 import signal
+from pathlib import Path
 
 import pytest
 
 from codetrail import __version__, cli
 from codetrail.cli import main, stop_on_signal
+from codetrail.config import Paths, RemoteSettings, TeamSource, write_remote_target
+from codetrail.team.settings import save_selection, write_team
 
 
 def test_version_prints_and_exits_zero(capsys: pytest.CaptureFixture[str]) -> None:
@@ -35,3 +38,79 @@ def test_the_installed_version_is_the_one_the_code_reports() -> None:
     from importlib.metadata import version
 
     assert version("codetrail-cli") == __version__  # pyproject.toml and __init__.py move together
+
+
+@pytest.mark.parametrize(("arguments", "open_browser"), [([], True), (["--no-browser"], False)])
+def test_team_add_writes_the_team_and_opens_its_add_screen(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, arguments: list[str], open_browser: bool
+) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    served: list[tuple[str, bool, str]] = []
+
+    def serve(paths: Paths, name: str, open_browser: bool, start_path: str = "/") -> None:
+        assert paths.team_file(name).is_file()  # written before it's served
+        served.append((name, open_browser, start_path))
+
+    monkeypatch.setattr("codetrail.cli.serve_team", serve)
+
+    assert main(["team", "add", "acme", *arguments]) == 0
+
+    assert served == [("acme", open_browser, "/team/add")]
+    assert main(["team", "add", "acme"]) == 1
+    assert main(["team", "add", "Not A Team"]) == 1
+    assert len(served) == 1
+
+
+def test_team_list_prints_sources_and_counts(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    paths = Paths.from_environment()
+    write_team(paths, "acme")
+    save_selection(paths, "acme", TeamSource(service="github", source="acme-org"))
+    save_selection(paths, "acme", TeamSource(service="gitlab", source="example-group", follow="chosen", chosen=["1"]))
+    remote = RemoteSettings(
+        service="github", source="acme-org", id="a1", name="web-shop", url="https://github.com/acme-org/web-shop.git"
+    )
+    write_remote_target(paths, "acme-web-shop", remote, "main", "acme")
+    write_team(paths, "empty")
+    capsys.readouterr()
+
+    assert main(["team", "list"]) == 0
+
+    lines = capsys.readouterr().out.splitlines()
+    assert lines[0] == "acme: github:acme-org (all), gitlab:example-group (chosen) - 1 target"
+    assert lines[1] == "empty: no sources - 0 targets"
+
+
+def test_team_remove_asks_and_deletes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    write_team(Paths.from_environment(), "acme")
+
+    assert main(["team", "remove", "acme"]) == 2  # no terminal to ask in
+    assert Paths.from_environment().team_file("acme").exists()
+    assert main(["team", "remove", "acme", "--yes"]) == 0
+
+    assert not Paths.from_environment().team_file("acme").exists()
+    assert "Removed team 'acme'" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(("arguments", "open_browser"), [([], True), (["--no-browser"], False)])
+def test_team_serve_serves_the_team(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, arguments: list[str], open_browser: bool
+) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    served: list[tuple[str, bool]] = []
+    monkeypatch.setattr(
+        "codetrail.cli.serve_team", lambda paths, name, open_browser: served.append((name, open_browser))
+    )
+
+    assert main(["team", "serve", "acme", *arguments]) == 0
+
+    assert served == [("acme", open_browser)]

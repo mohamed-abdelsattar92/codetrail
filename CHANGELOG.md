@@ -4,6 +4,9 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+### Added
+- Teams from hosting services: `codetrail team add`, `list`, `serve` and `remove` follow the repositories of a GitHub organization, an Azure DevOps project or a GitLab group. Codetrail reads the service through `gh`, `az` or `glab` and clones with your own git sign-in, over https or ssh; it never holds a token and never writes to the service. `codetrail team serve` shows each repository's "you're behind" signal and its guide under one sign-in. Catching up on all of them with one estimate comes in a later version ([ADR 0020](docs/adr/0020-hosting-services-through-their-own-programs.md)).
+
 ### Changed
 - The README and the getting-started guide install Codetrail from PyPI: `uv tool install codetrail-cli`.
 - The README, the PyPI page and the banner used as GitHub's social preview present Codetrail as your onboarding guide to any codebase, whether you're new to it or coming back to it after months away, and the PyPI page lists keywords so searches for onboarding find it.

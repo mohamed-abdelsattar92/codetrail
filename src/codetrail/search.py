@@ -40,7 +40,7 @@ class Document:
     title: str
     headings: str
     text: str
-    link: str
+    link: str  # the route at the page's root; the index is kept across requests, so the page adds its prefix
 
 
 @dataclass(frozen=True)

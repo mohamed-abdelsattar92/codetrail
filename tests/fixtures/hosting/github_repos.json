@@ -1,0 +1,28 @@
+[
+  {
+    "id": "R_kgDOAAAAAQ",
+    "name": "web-shop",
+    "defaultBranchRef": {"name": "main"},
+    "isArchived": false,
+    "isEmpty": false,
+    "isFork": false,
+    "isTemplate": false,
+    "pushedAt": "2026-11-02T09:15:00Z",
+    "diskUsage": 5120,
+    "url": "https://github.com/acme-org/web-shop",
+    "sshUrl": "git@github.com:acme-org/web-shop.git"
+  },
+  {
+    "id": "R_kgDOAAAAAg",
+    "name": "payments-api",
+    "defaultBranchRef": {"name": "master"},
+    "isArchived": true,
+    "isEmpty": false,
+    "isFork": true,
+    "isTemplate": false,
+    "pushedAt": "2025-01-20T16:40:00Z",
+    "diskUsage": 830,
+    "url": "https://github.com/acme-org/payments-api",
+    "sshUrl": "git@github.com:acme-org/payments-api.git"
+  }
+]

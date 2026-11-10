@@ -8,6 +8,7 @@ from codetrail.config import Paths, write_target
 from codetrail.lock import target_lock
 from codetrail.repo.signal import behind
 from codetrail.update import run_update
+from tests.fixtures.remote import allow_http_remotes, publish, serving_repository, write_served_target
 from tests.fixtures.repos import Commit, add_commit, git, make_repository, snapshot_tree
 
 
@@ -59,3 +60,16 @@ def test_reports_an_update_in_progress_without_fetching(paths: Paths, checkout: 
     with target_lock(paths, "t"):
         signal = behind(paths, "t")
     assert signal.updating
+
+
+def test_the_signal_fetches_a_remote_target(paths: Paths, checkout: Path, tmp_path: Path,
+                                            monkeypatch: pytest.MonkeyPatch) -> None:  # fmt: skip
+    allow_http_remotes(monkeypatch, tmp_path)
+    with serving_repository(checkout, tmp_path / "served") as url:
+        write_served_target(paths, "remote", url)
+        run_update(paths, "remote", facts_only=True)
+        merge_feature(checkout, "one", {"services/api/orders.py": "y = 2\n"})
+        publish(checkout, tmp_path / "served")
+        signal = behind(paths, "remote")
+    assert (signal.merges, signal.commits, signal.areas) == (1, 2, ["services"])
+    assert signal.head == git(checkout, "rev-parse", "HEAD")

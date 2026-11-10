@@ -1,0 +1,22 @@
+[
+  {
+    "name": "main",
+    "merged": false,
+    "protected": true,
+    "default": true,
+    "commit": {
+      "id": "0123456789abcdef0123456789abcdef01234567",
+      "committed_date": "2026-11-03T12:00:00.000+00:00"
+    }
+  },
+  {
+    "name": "feature/checkout",
+    "merged": false,
+    "protected": false,
+    "default": false,
+    "commit": {
+      "id": "89abcdef0123456789abcdef0123456789abcdef",
+      "committed_date": "2026-10-28T09:00:00.000+00:00"
+    }
+  }
+]

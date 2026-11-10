@@ -327,3 +327,12 @@ def test_a_learned_page_shows_a_bare_tick_while_the_guide_keeps_its_check_cards(
     question = page.locator(".checks .check").first
     expect(question).to_have_css("border-block-start-width", "1px")
     expect(question).not_to_have_css("padding-inline-start", "0px")
+
+
+def test_the_page_at_the_root_keeps_its_storage_keys(page: Page, site: Site) -> None:
+    # A guide mounted under /repos/<target>/ keeps its keys under that prefix; at `/` they stay as they were.
+    wide(page)
+    site.sign_in(page)
+    hide(page)
+    stored = page.evaluate("Object.fromEntries(Object.entries(window.localStorage))")
+    assert stored == {"codetrail.sidebar": "hidden"}

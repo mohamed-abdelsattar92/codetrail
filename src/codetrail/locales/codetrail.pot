@@ -266,6 +266,22 @@ msgstr ""
 msgid "%(reason)s The facts were refreshed; the guide wasn't updated."
 msgstr ""
 
+#, python-format
+msgid "%(size)s KB"
+msgstr ""
+
+#, python-format
+msgid "%(size)s MB"
+msgstr ""
+
+#, python-format
+msgid "%(target)s couldn't be refreshed: %(reason)s"
+msgstr ""
+
+#, python-format
+msgid "%(target)s is ready."
+msgstr ""
+
 msgid ", drawn from the code"
 msgstr ""
 
@@ -276,6 +292,12 @@ msgid "2 years"
 msgstr ""
 
 msgid "90 days"
+msgstr ""
+
+msgid "A branch name can't start with “-”."
+msgstr ""
+
+msgid "A chosen branch isn't in its repository."
 msgstr ""
 
 msgid ""
@@ -297,6 +319,10 @@ msgid ""
 "ones no page cites."
 msgstr ""
 
+#, python-format
+msgid "A selection can name at most %(count)s repositories."
+msgstr ""
+
 msgid "ADRs"
 msgstr ""
 
@@ -309,7 +335,22 @@ msgstr ""
 msgid "Actions"
 msgstr ""
 
+#, python-format
+msgid "Active in the last %(count)s day"
+msgid_plural "Active in the last %(count)s days"
+msgstr[0] ""
+msgstr[1] ""
+
 msgid "Activity, day by day"
+msgstr ""
+
+#, python-format
+msgid "Add %(count)s repository"
+msgid_plural "Add %(count)s repositories"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "Add repositories"
 msgstr ""
 
 msgid "Age"
@@ -352,6 +393,9 @@ msgstr ""
 msgid "Another question is still being answered."
 msgstr ""
 
+msgid "Another save is in progress."
+msgstr ""
+
 #, python-format
 msgid "Answers are limited to %(count)s characters."
 msgstr ""
@@ -373,6 +417,12 @@ msgid "Apr"
 msgstr ""
 
 msgid "Architecture decisions"
+msgstr ""
+
+msgid "Archived"
+msgstr ""
+
+msgid "Archived, or no longer in their source"
 msgstr ""
 
 msgid "Area"
@@ -434,13 +484,26 @@ msgctxt "month"
 msgid "Aug"
 msgstr ""
 
+msgid "Azure DevOps can't list your organizations, so name one."
+msgstr ""
+
+msgid "Azure DevOps organization"
+msgstr ""
+
 msgid "Back to the start"
+msgstr ""
+
+msgid "Back to the team page"
 msgstr ""
 
 msgid "Before the update"
 msgstr ""
 
 msgid "Body without a why"
+msgstr ""
+
+#, python-format
+msgid "Branch of %(name)s"
 msgstr ""
 
 msgid "Breadcrumbs"
@@ -483,6 +546,16 @@ msgid "Check my answer"
 msgstr ""
 
 msgid "Check your understanding"
+msgstr ""
+
+msgid "Choose a source"
+msgstr ""
+
+msgid "Chosen repositories"
+msgstr ""
+
+#, python-format
+msgid "Cloning %(target)s and reading its facts…"
 msgstr ""
 
 msgid "Close"
@@ -573,7 +646,24 @@ msgstr ""
 msgid "Cost each"
 msgstr ""
 
+msgid "Couldn't be reached"
+msgstr ""
+
 msgid "Couldn't check for new commits just now."
+msgstr ""
+
+msgid "Couldn't list them just now."
+msgstr ""
+
+#, python-format
+msgid "Couldn't read this repository (%(error)s)."
+msgstr ""
+
+#, python-format
+msgid "Couldn't refresh this repository (%(error)s)."
+msgstr ""
+
+msgid "Couldn't save the selection."
 msgstr ""
 
 msgid "Couldn’t save the answer."
@@ -622,6 +712,9 @@ msgstr ""
 msgid "Documents"
 msgstr ""
 
+msgid "Done. Their first guides wait for the next catch-up's estimate."
+msgstr ""
+
 msgid "Drag to resize; double-click to reset"
 msgstr ""
 
@@ -641,6 +734,9 @@ msgid "English"
 msgstr ""
 
 msgid "Enlarge the diagram"
+msgstr ""
+
+msgid "Every active repository"
 msgstr ""
 
 #, python-format
@@ -707,6 +803,9 @@ msgid ""
 "again at the next update."
 msgstr ""
 
+msgid "Filter"
+msgstr ""
+
 msgid "First commit"
 msgstr ""
 
@@ -718,6 +817,18 @@ msgid "Folder"
 msgstr ""
 
 msgid "Folders"
+msgstr ""
+
+msgid "Follow the whole source"
+msgstr ""
+
+#, python-format
+msgid "Follow the whole source (%(count)s repository left out)"
+msgid_plural "Follow the whole source (%(count)s repositories left out)"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "Followed once it's active"
 msgstr ""
 
 msgid "For example: how does a request reach the database?"
@@ -738,6 +849,12 @@ msgstr ""
 
 #, python-format
 msgid "From %(start)s to %(end)s"
+msgstr ""
+
+msgid "Getting the new repositories ready (free)…"
+msgstr ""
+
+msgid "Getting the repositories ready"
 msgstr ""
 
 msgid "Go ahead"
@@ -762,6 +879,9 @@ msgid "Go to saved answers"
 msgstr ""
 
 msgid "Go to the repository"
+msgstr ""
+
+msgid "Go to the team page"
 msgstr ""
 
 msgid "Go to your progress"
@@ -818,6 +938,9 @@ msgid "Inferred: worth documenting"
 msgstr ""
 
 msgid "Infrastructure"
+msgstr ""
+
+msgid "Its sources couldn't be listed just now."
 msgstr ""
 
 msgctxt "month"
@@ -877,6 +1000,12 @@ msgid "Library"
 msgstr ""
 
 msgid "Lines"
+msgstr ""
+
+msgid "List its projects"
+msgstr ""
+
+msgid "Listing…"
 msgstr ""
 
 msgid "Longest quiet stretch"
@@ -977,6 +1106,9 @@ msgstr ""
 msgid "No file in it changed in the commits read."
 msgstr ""
 
+msgid "No longer in the source"
+msgstr ""
+
 msgid "No pages yet"
 msgstr ""
 
@@ -991,9 +1123,20 @@ msgstr ""
 msgid "No releases: the branch has no tags."
 msgstr ""
 
+msgid "No repositories yet. Add repositories to follow them here."
+msgstr ""
+
+msgid "No repository matches."
+msgstr ""
+
 msgid ""
 "No shortcut spends anything: questions are sent by their Send button, and"
 " updates start only when you choose Go ahead."
+msgstr ""
+
+msgid ""
+"No source to show yet: sign in to a service, or name an Azure DevOps "
+"organization."
 msgstr ""
 
 #, python-format
@@ -1017,10 +1160,19 @@ msgstr ""
 msgid "Not found"
 msgstr ""
 
+msgid "Not installed."
+msgstr ""
+
 msgid "Not mentioned in any document"
 msgstr ""
 
 msgid "Not read yet"
+msgstr ""
+
+msgid "Not served"
+msgstr ""
+
+msgid "Not updated yet"
 msgstr ""
 
 msgid "Not yet"
@@ -1185,6 +1337,15 @@ msgid "Provider and model"
 msgstr ""
 
 #, python-format
+msgid "Pushed %(count)s day ago"
+msgid_plural "Pushed %(count)s days ago"
+msgstr[0] ""
+msgstr[1] ""
+
+msgid "Pushed today"
+msgstr ""
+
+#, python-format
 msgid "Questions are limited to %(count)s characters."
 msgstr ""
 
@@ -1210,6 +1371,14 @@ msgid "Release"
 msgstr ""
 
 msgid "Releases"
+msgstr ""
+
+msgid "Repositories"
+msgstr ""
+
+msgid ""
+"Repositories that become active later are followed too. Archived, empty "
+"and disabled ones never are. Unticking one leaves it out."
 msgstr ""
 
 msgid "Repository"
@@ -1264,6 +1433,9 @@ msgstr ""
 msgid "Saturday"
 msgstr ""
 
+msgid "Save"
+msgstr ""
+
 msgid "Save to guide"
 msgstr ""
 
@@ -1284,6 +1456,17 @@ msgstr[0] ""
 msgstr[1] ""
 
 msgid "Saved · open it"
+msgstr ""
+
+msgid ""
+"Saved, but the server is stopping: the new repositories get ready at the "
+"next catch-up."
+msgstr ""
+
+msgid "Saved. There's no new repository to get ready."
+msgstr ""
+
+msgid "Saving…"
 msgstr ""
 
 msgid "Scopes"
@@ -1351,6 +1534,9 @@ msgstr ""
 msgid "Show"
 msgstr ""
 
+msgid "Show archived"
+msgstr ""
+
 msgid "Show the sidebar"
 msgstr ""
 
@@ -1360,6 +1546,16 @@ msgstr ""
 msgid "Show these shortcuts"
 msgstr ""
 
+msgid "Signed in"
+msgstr ""
+
+#, python-format
+msgid "Signed in as %(account)s"
+msgstr ""
+
+msgid "Signed out. To sign in, run:"
+msgstr ""
+
 msgid "Since the last update"
 msgstr ""
 
@@ -1367,6 +1563,9 @@ msgid "Skip to content"
 msgstr ""
 
 msgid "Skipped, since they failed last time and nothing in them changed:"
+msgstr ""
+
+msgid "Some of those repositories aren't in the source."
 msgstr ""
 
 msgid "Source"
@@ -1398,6 +1597,9 @@ msgstr ""
 msgid "System"
 msgstr ""
 
+msgid "Team"
+msgstr ""
+
 msgid "Tests"
 msgstr ""
 
@@ -1413,7 +1615,16 @@ msgstr ""
 msgid "That estimate isn't waiting any more; start the update again."
 msgstr ""
 
+msgid "That isn't an Azure DevOps organization's name."
+msgstr ""
+
 msgid "That page doesn't exist."
+msgstr ""
+
+msgid "That repository isn't in the source."
+msgstr ""
+
+msgid "That service isn't available."
 msgstr ""
 
 msgid "The answer couldn’t be graded."
@@ -1509,6 +1720,9 @@ msgstr ""
 msgid "The releases couldn't be read just now; the log says why."
 msgstr ""
 
+msgid "The repositories added last are still being refreshed."
+msgstr ""
+
 msgid "The repository"
 msgstr ""
 
@@ -1566,6 +1780,9 @@ msgid "Theme: system (switch to light)"
 msgstr ""
 
 msgid "There's nothing here. It may be excluded, or not in the guide yet."
+msgstr ""
+
+msgid "These aren't refreshed any more; their guides stay until you remove them."
 msgstr ""
 
 msgid "This file isn't text, or is too large to show."
@@ -1652,6 +1869,9 @@ msgid "Update the guide…"
 msgstr ""
 
 msgid "Updated."
+msgstr ""
+
+msgid "Updating"
 msgstr ""
 
 msgid "Updating the guide"
@@ -1820,6 +2040,9 @@ msgid "changed"
 msgstr ""
 
 msgid "commits"
+msgstr ""
+
+msgid "couldn't be listed just now"
 msgstr ""
 
 msgid "default model"

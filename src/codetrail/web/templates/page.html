@@ -6,9 +6,9 @@
 <div class="reading">
 <nav aria-label="{{ _('Breadcrumbs') }}">
   <ol class="breadcrumbs">
-    <li><a href="/">{{ _("Home") }}</a></li>
-    {% if in_path %}<li><a href="/pages/{{ in_path.id }}" lang="en" dir="ltr">{{ in_path.title }}</a></li>{% endif %}
-    <li>{% if page.kind == "area" %}{{ _("Area") }}{% elif page.kind == "concept" %}{{ _("Concept") }}{% elif page.kind == "path" %}{{ _("Path") }}{% elif page.kind == "digest" %}{{ _("Digest") }}{% elif page.kind == "answer" %}<a href="/answers">{{ _("Saved answers") }}</a>{% endif %}</li>
+    <li><a href="{{ site_path('/') }}">{{ _("Home") }}</a></li>
+    {% if in_path %}<li><a href="{{ site_path('/pages/') }}{{ in_path.id }}" lang="en" dir="ltr">{{ in_path.title }}</a></li>{% endif %}
+    <li>{% if page.kind == "area" %}{{ _("Area") }}{% elif page.kind == "concept" %}{{ _("Concept") }}{% elif page.kind == "path" %}{{ _("Path") }}{% elif page.kind == "digest" %}{{ _("Digest") }}{% elif page.kind == "answer" %}<a href="{{ site_path('/answers') }}">{{ _("Saved answers") }}</a>{% endif %}</li>
   </ol>
 </nav>
 <article class="guide-page" lang="en" dir="ltr">
@@ -60,7 +60,7 @@
   <h2 lang="{{ language.code }}" dir="{{ language.direction }}">{{ _("Steps") }}</h2>
   <ol class="list" lang="en" dir="ltr">
     {% for step in steps %}
-    <li><a class="grow" href="/pages/{{ step }}?path={{ page.id }}">{{ titles.get(step, step) }}</a>{% if nav.statuses.get(step) == "learned" %}<span class="pill pill-learned">{{ icon("check") }}</span>{% endif %}</li>
+    <li><a class="grow" href="{{ site_path('/pages/') }}{{ step }}?path={{ page.id }}">{{ titles.get(step, step) }}</a>{% if nav.statuses.get(step) == "learned" %}<span class="pill pill-learned">{{ icon("check") }}</span>{% endif %}</li>
     {% endfor %}
   </ol>
   {% endif %}
@@ -85,8 +85,8 @@
 {% endif %}
 {% if previous or following %}
 <nav class="pager" aria-label="{{ _('In this path') }}">
-  {% if previous %}<a class="previous" href="/pages/{{ previous.id }}?path={{ in_path.id }}" data-pager-previous><small>{{ _("Previous") }} <kbd>[</kbd></small><span lang="en" dir="ltr">{{ previous.title }}</span></a>{% endif %}
-  {% if following %}<a class="next" href="/pages/{{ following.id }}?path={{ in_path.id }}" data-pager-next><small>{{ _("Next") }} <kbd>]</kbd></small><span lang="en" dir="ltr">{{ following.title }}</span></a>{% endif %}
+  {% if previous %}<a class="previous" href="{{ site_path('/pages/') }}{{ previous.id }}?path={{ in_path.id }}" data-pager-previous><small>{{ _("Previous") }} <kbd>[</kbd></small><span lang="en" dir="ltr">{{ previous.title }}</span></a>{% endif %}
+  {% if following %}<a class="next" href="{{ site_path('/pages/') }}{{ following.id }}?path={{ in_path.id }}" data-pager-next><small>{{ _("Next") }} <kbd>]</kbd></small><span lang="en" dir="ltr">{{ following.title }}</span></a>{% endif %}
 </nav>
 {% endif %}
 </div>

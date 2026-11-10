@@ -39,3 +39,13 @@ def test_sign_in_and_static_files_never_touch_the_target(paths: Paths) -> None:
         login = client.get("/login?code=wrong")
     assert login.status_code == 403
     assert "removed" not in login.text
+
+
+def test_sign_in_under_a_prefix_never_touches_the_target(paths: Paths) -> None:
+    """`codetrail serve` mounts nothing, so `/repos/<name>/login` is a page like any other: refused before the lock."""
+    client = TestClient(create_app(paths, "t", SessionState(60), GlobalConfig()), base_url=ORIGIN)
+    with target_removal(paths, "t"):
+        for path in ("/repos/t/login?code=wrong", "/repos/x/login?code=wrong"):
+            response = client.get(path)
+            assert response.status_code == 403, path
+            assert "removed" not in response.text

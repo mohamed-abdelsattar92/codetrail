@@ -37,6 +37,7 @@ Codetrail is one uv project with one package, `src/codetrail/`, and tests in `te
 | `codetrail serve <target>` | Serves the page and the bridge on `127.0.0.1` and opens the browser |
 | `codetrail agents <target>` | Rebuilds the context for coding agents and prints how to connect them (section 23.4) |
 | `codetrail mcp <target>` | The tool server coding agents start over standard input and output (section 23.5) |
+| `codetrail team add\|list\|serve\|update\|remove <name>` | Follows a team's repositories from GitHub, Azure DevOps or GitLab, serves the team page and catches up on them all (section 24) |
 
 During development it runs as `uv run codetrail` behind `just` recipes. For daily use the founder installs it with `uv tool install --editable .` from this repository; later releases install from a tag. Nothing is installed into or written to a target.
 
@@ -59,6 +60,8 @@ One module per part of the system. Every other module reads the target only thro
 | `learn` | Progress, check attempts, staleness and settings in SQLite | `facts`, `guide` |
 | `agents` | The map, the briefs' export and the tool server for coding agents (section 23) | `guide`, `facts`, `system`, `repo` (the signal) |
 | `metrics` | Documentation metrics, repository statistics and their trend, from the guide, the facts, the history and the tags (sections 18 and 19) | `guide`, `facts`, `repo`, `generate` (its rationale and scope rules) |
+| `hosting` | The interface Codetrail needs from a hosting service; the `github`, `azure_devops` and `gitlab` adapters; the fake (section 24.3) | the services' programs (`gh`, `az`, `glab`) |
+| `team` | Teams and their settings, following sources, the catch-up across targets and the overview (section 24) | `hosting`, `repo`, `generate`, `assistant`, `guide` |
 
 ### 2.3 Where things live
 Codetrail follows the XDG base directories, on macOS too; configuration can move any of them.
@@ -74,6 +77,8 @@ Codetrail follows the XDG base directories, on macOS too; configuration can move
 | `~/.local/share/codetrail/<name>/agents/` | The map and briefs for coding agents, rebuilt after every update (section 23.4) |
 | `~/.local/share/codetrail/<name>/codetrail.db` | Facts, learning state and the metrics' trend (SQLite) |
 | `~/.local/state/codetrail/<name>/codetrail.log` | The log |
+| `~/.config/codetrail/teams/<team>.toml` | A team's sources and settings (section 24.5) |
+| `~/.local/share/codetrail/teams/<team>/` | A team's overviews (their own git repository) and `team.db` (section 24.5) |
 
 The guide's location can be configured, but never inside the target.
 
@@ -122,7 +127,7 @@ test_globs = ["test/**", "tests/**", "**/test_*.py", "**/*_test.*", "**/*.test.*
 commit_type_pattern = '^(?P<type>[A-Za-z]+)(?:\((?P<scope>[^()\r\n]*)\))?!?:[ \t]'
 ```
 
-Unknown keys are refused. Model names and every limit live here or in the global file, never in code.
+Unknown keys are refused. Model names and every limit live here or in the global file, never in code. A target that a team created from a hosting service has `remote` in place of `repository` (section 24.4).
 
 ### 3.2 Mirror and materialized sources
 - `mirror.git` is a bare clone of the founder's checkout, made with `--no-local` over the `file://` transport and refreshed by fetching the configured branch the same way. Only git's `upload-pack` reads the checkout: no command runs inside it, and no file of it is hardlinked (a plain local clone would hardlink its objects). A `git worktree` is not used, because it writes metadata into the target's `.git`. A test snapshots every file under a checkout, `.git` included (size, times, inode, link count, hash), and proves it unchanged.
@@ -605,6 +610,8 @@ Each phase is usable on its own, has its own implementation plan, and ends with 
 | 18. The Documentation page's charts | The overview column, folding sections with a chart each, and filter chips (section 21) | How well a repository explains itself at a glance, and what to fix first | Phase 17 |
 | 19. The sidebar | Hiding and peeking, the frame and card, folding sections and pinned tiles (section 22) | A sidebar that gets out of the way, with the pages you use most at the top | Phase 11 |
 | 20. Context for coding agents | The map, briefs in the page call, the `agents/` export, `codetrail agents` and the `codetrail mcp` tool server (section 23) | Coding agents start a task from Codetrail's understanding of the repository instead of rediscovering it | ADR 0017 |
+| 21. Teams from hosting services | The spike, the `hosting` interface with the `github`, `azure_devops` and `gitlab` adapters and the fake, remote targets, teams, `codetrail team serve` with the team's server and a plain team page, the add-repositories screen, `codetrail team add`, `list` and `remove` (section 24) | A whole organization's repositories, or a chosen set, followed from GitHub, Azure DevOps or GitLab, each with its own guide | ADR 0020 |
+| 22. Catching up across a team (designed) | The team page's cards, the catch-up with one estimate, highlights in digests, the overview across repositories (section 24) | One page each morning: what the team merged everywhere since you last looked, and why | Phase 21 |
 | 16. Decision inventory (planned) | An opt-in paid pass listing the decisions in the code and their documented "why" (section 18.8) | The share of the repository's decisions that are documented, beyond what the guide wrote about | Phase 13 |
 
 ## 14. Answers to the brainstorm's open questions
@@ -1254,3 +1261,234 @@ Phase 20, with its own implementation plan (ADR 0017 accepted on 22 October 2026
 - **Codetrail's own answering assistant** gets the map in its prompt (section 7.3), so it reaches the right files with fewer tool calls; its estimate grows by the map's size.
 - **Measuring the savings:** comparing the tokens and tool calls an agent spends getting started with and without the map.
 - **Saved answers** as briefs an agent can ask for by question.
+
+## 24. Teams: catching up on every repository a team works in
+
+Approved by the founder on 10 November 2026, in the design session of that day. A tech lead looks after several repositories that their team merges into every day, usually hosted on GitHub, Azure DevOps or GitLab. Today Codetrail follows one local checkout at a time. This section lets a reader follow a team's repositories straight from the hosting service, and catch up on all of them from one page: what merged since they last looked, why, and how the changes across repositories connect (decision 16). It builds on what a target already does: each followed repository is an ordinary target, with its full guide and its digests.
+
+Calling a hosting service is new: until now the assistant providers were the only services Codetrail called (AGENTS.md, non-negotiable 4). Codetrail calls each service through the reader's own command-line program, which holds the reader's sign-in, so Codetrail never sees a token ([ADR 0020](../adr/0020-hosting-services-through-their-own-programs.md), accepted on 10 November 2026).
+
+### 24.1 What it's for, and what it isn't
+- **For:** a tech lead opens one page in the morning. Without spending anything, it shows every repository with new merges since they last caught up, and which areas they touched. They press **Catch up**, approve one estimate, and read a short overview across the team, then one card per repository with the what and the why.
+- **Success:**
+  1. Following a whole organization, or a chosen set of its repositories, takes one screen. Each repository's branch defaults to the service's default branch and can be changed.
+  2. The team page shows, for every repository, the merges and areas touched since its last update without calling an assistant.
+  3. One estimate covers the whole catch-up, with each repository's calls on its own line and the overview, and nothing paid runs until the reader confirms it.
+  4. Every claim in the overview traces to a digest; a documented mark keeps the verified source it had in the digest.
+  5. Codetrail never reads, stores or passes a token for a hosting service. Tests prove that the environment given to the hosting programs and to git holds none.
+  6. Codetrail never writes to a hosting service. Every command an adapter can build is a read, and a test lists them all.
+- **Not, for now:** open pull requests and branches other than each repository's chosen one (section 24.14); issues, work items, boards and pipelines; statistics per person; updates on a schedule (decision 6 stands: catching up is on demand); sharing the page with the team, or hosting it; notifications and webhooks; services other than the three.
+- **Failure even if it works:** a page that counts or ranks people (who merged is context on a card, never a score); an overview that says something no digest supports; one click spending more than the reader expected; a team that starts following a new repository whose first guide is paid without the reader seeing it in the estimate.
+
+### 24.2 Words
+- A **hosting service** is GitHub (`github.com`), Azure DevOps (`dev.azure.com`) or GitLab (`gitlab.com`). Enterprise and self-managed hosts are later work.
+- A **source** is one place on a service that holds repositories: a GitHub organization or user, an Azure DevOps organization and project, or a GitLab group.
+- A **team** is a name, one or more sources, and for each source either "follow the whole source" or a chosen list of its repositories. Every followed repository is a target (section 3), created and named by the team.
+
+### 24.3 Hosting adapters
+Each service sits behind one interface shaped by what Codetrail needs, with one adapter per service and a fake for tests (non-negotiable 5); nothing outside an adapter knows which service it is.
+
+```python
+class HostingService(Protocol):
+    def status(self) -> HostingStatus: ...                            # installed, signed in, the account's name
+    def sources(self) -> list[Source]: ...                            # what the sign-in can see
+    def repositories(self, source: Source) -> list[HostedRepository]: ...
+    def branches(self, repository: HostedRepository) -> list[str]: ...
+```
+
+A `HostedRepository` carries the service's stable id, its name, default branch, whether it is archived, when it was last pushed to, its size when the service reports one, its clone URLs (HTTPS and SSH) and its web URL.
+
+| Service | Program | Sign-in check |
+|---|---|---|
+| `github` | `gh` | `gh auth status` |
+| `azure_devops` | `az` with the `azure-devops` extension | `az account show` |
+| `gitlab` | `glab` | `glab auth status` |
+
+The exact commands that list sources, repositories and branches, and the JSON fields they return, were settled by the spike that opened Phase 21, as the Phase 4 spike settled Claude Code's.
+
+**Settled by the Phase 21 spike, 10 November 2026.** GitHub was run against `gh` 2.101.0, read-only. Azure DevOps and GitLab are **from documentation, not yet run**: `az` and `glab` weren't installed. Their adapters are checked against the real programs by the opt-in live tests, and the first run may change a field name here. Fixtures for all three are in `tests/fixtures/hosting/`. Every command is a fixed argument list; `<...>` is a validated name passed as its own argument.
+
+| | GitHub (`gh`, run) | Azure DevOps (`az`, from documentation) | GitLab (`glab`, from documentation) |
+|---|---|---|---|
+| status | `gh auth status --json hosts` | `az account show -o json` | `glab auth status --output json` (a `--hostname` is added for a non-default host) |
+| signed in | exit 0 either way; signed in when `hosts["github.com"]` holds an entry with `state` `success` and `active` true; `{"hosts":{}}` is signed out (plain `gh auth status` exits 1 when signed out) | exit 0 with a subscription; a non-zero exit when signed out. `AZURE_DEVOPS_EXT_PAT` also signs `az devops` in, and is never passed | exit code when signed out is not documented, so a non-zero exit or no signed-in host is signed out |
+| account name | `login` of the active entry | `user.name` | not documented for the JSON form; the first run settles it, and until then the name is left empty |
+| sources | the account's own login, then `gh api --method GET user/orgs --paginate`: `login` | `az devops project list --organization https://dev.azure.com/<org> -o json`: `value[].name` (organisations aren't listable; the reader names them, and a source is `<org>/<project>`) | `glab api --method GET "groups?min_access_level=10" --paginate`: `full_path` (also `id`, `name`, `web_url`) |
+| source name | login | `<org>/<project>` | `full_path` |
+| source repository count | not returned; unknown until `repositories()` | not returned; unknown until `repositories()` | not returned; unknown until `repositories()` |
+| repositories | `gh repo list <owner> --json id,name,defaultBranchRef,isArchived,isEmpty,isFork,isTemplate,pushedAt,diskUsage,url,sshUrl --limit <max>` | `az repos list --organization https://dev.azure.com/<org> --project <project> -o json` | `glab api --method GET "groups/<id>/projects?include_subgroups=true&archived=false" --paginate` |
+| branches | `gh api --method GET repos/<owner>/<repo>/branches --paginate --jq '.[].name'` (full JSON: `name`, `commit.sha`, `protected`) | `az repos ref list --organization https://dev.azure.com/<org> --project <project> --repository <id> --filter heads/ -o json`: `name`, with `refs/heads/` removed | `glab api --method GET "projects/<id>/repository/branches" --paginate`: `name` (also `default`) |
+
+| `HostedRepository` | GitHub | Azure DevOps | GitLab |
+|---|---|---|---|
+| service id | `id` (a string such as `R_kgDO…`) | `id` (a UUID) | `id` (an integer, stored as text) |
+| name | `name` | `name` (may hold spaces and `#`) | `name` (may hold spaces and `#`) |
+| default branch | `defaultBranchRef.name` | `defaultBranch`, `refs/heads/` removed | `default_branch` |
+| archived | `isArchived` | not a concept; always false | `archived` |
+| disabled | not in `gh repo list`; false | `isDisabled` | `repository_access_level` is `disabled`; false otherwise |
+| empty | `isEmpty`, or no `defaultBranchRef` | no `defaultBranch` key | `empty_repo`, or no `default_branch` |
+| pushed_at | `pushedAt` | not returned by `az repos list`; none. A repository whose service reports no push time counts as active, so a whole Azure DevOps project follows its enabled, non-empty repositories | `last_activity_at` (any activity, not only pushes) |
+| size | `diskUsage` (KB) | `size` (bytes) | none |
+| HTTPS URL | `url` + `.git` | `remoteUrl` | `http_url_to_repo` |
+| SSH URL | `sshUrl` | `sshUrl` | `ssh_url_to_repo` |
+| web URL | `url` | `webUrl` | `web_url` |
+
+Further findings:
+- `gh` has no disabled flag in `gh repo list`; the REST repository has `disabled`, which costs one call per repository, so it isn't read.
+- `gh repo list` returns a repository's forks and templates (`isFork`, `isTemplate`); they count (section 24.5). `--limit` is the repository cap.
+- git has no credential helper set here for `github.com`, and `git ls-remote` of a public repository works without one. A private repository over HTTPS needs one, so the fix text for a signed-in `gh` that git can't use names `gh auth setup-git`, which the reader runs; Codetrail never does.
+- Extra token variables the documentation names, added to the never-passed list: `OAUTH_TOKEN` (`glab`), and, for `glab`'s client certificates, `GLAB_CLIENT_CERT`, `CLIENT_CERT`, `GLAB_CLIENT_KEY`, `CLIENT_KEY`, `GLAB_CLIENT_CERT_PASSWORD`, plus `GITLAB_CLIENT_ID`. `GITLAB_HOST`, which names the instance, isn't a secret but isn't passed either: only `gitlab.com` is supported (section 24.3 transports).
+- The `az` documentation doesn't show the output of `az devops project list`; the `value` list and `continuationToken` are the shape of the REST call it wraps, so the adapter reads `value` and tolerates a bare list.
+- The `glab` documentation doesn't say how `--paginate` combines pages, and `glab api` takes a query string in the path with `--method GET`. The adapter parses one JSON array or several concatenated ones, and the first run settles which.
+- `az` needs the `azure-devops` extension; a missing extension is reported as not installed, with `az extension add --name azure-devops` as the fix for the reader to run.
+
+Every adapter:
+- **Runs its program the way the providers' are run** (sections 15.2 and 15.5): resolved to an absolute path with relative `PATH` entries removed, in its own process group, killed at `hosting.timeout_seconds`, with arguments as a list and never through a shell.
+- **Passes an allowlisted environment:** `PATH`, `HOME`, `USER`, `LOGNAME`, `LANG`, `LC_*`, `TMPDIR`, `TERM`, the network variables a corporate network needs (`HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`, `NO_PROXY` in either case, `SSL_CERT_FILE`, `SSL_CERT_DIR`, `REQUESTS_CA_BUNDLE`), and the program's own configuration folder variable when set (`GH_CONFIG_DIR`, `AZURE_CONFIG_DIR`, `GLAB_CONFIG_DIR`). Token variables (`GH_TOKEN`, `GITHUB_TOKEN`, `GH_ENTERPRISE_TOKEN`, `AZURE_DEVOPS_EXT_PAT`, `GITLAB_TOKEN`, `GITLAB_ACCESS_TOKEN` and the credentials of the same kind that the spike found, listed under "Further findings") never reach it, so the program uses its own saved sign-in. A reader signed in only through a variable is told to sign in with the program.
+- **Only reads.** Its commands are a fixed list in code; a generic API command (`gh api`, `glab api`), if the spike needs one, is called only with `GET` and a path built from validated names. A test builds every command an adapter can run and checks each against the read-only list.
+- **Validates what goes in and what comes out.** A source or repository name the reader picks is checked against that service's pattern and passed as its own argument. The program's output is parsed as JSON within `hosting.max_output_bytes`, at most `hosting.max_repositories_per_source` repositories are read from a source, and a clone URL must use `https` or `ssh` on that service's host.
+- **Keeps only what it needs** of `status`: whether the program is installed and signed in, and the account's name.
+
+The add-repositories screen shows each service's status (section 24.6); a service whose program is missing or signed out is shown with the command to run.
+
+### 24.4 Repositories from a service
+A target created by a team has `remote` in place of `repository` (exactly one of the two is allowed):
+
+```toml
+remote = { service = "github", source = "acme-org", id = "R_kgDOExample", name = "web-shop", url = "https://github.com/acme-org/web-shop.git" }
+branch = "main"
+team = "acme"
+```
+
+- **The mirror is a bare clone of the remote URL**, fetching the configured branch and its tags as before (sections 3.2 and 19.2). Materialization, the three exclusion layers and the scans (sections 3.3 to 3.6) are unchanged: only the transport differs. The rule against reading the reader's checkout has nothing to guard here, since there is none.
+- **Which URL:** each source has `clone_over = "https"` (the default) or `"ssh"`, and a target stores the matching URL from its `HostedRepository`.
+- **git uses the reader's own git sign-in.** Codetrail sets no credential helper, writes no git configuration of the reader's and passes no token. For a remote target, git gets the hosting programs' allowlist (section 24.3) plus `SSH_AUTH_SOCK` and `GIT_SSL_CAINFO`, so an ssh-agent and a corporate certificate keep working, and no token variable; a local target's git environment is unchanged (section 3.2). git runs with `GIT_TERMINAL_PROMPT=0`, `core.askPass=` empty and SSH in batch mode, so it never asks, and a stall is bounded by `hosting.timeout_seconds` through git's low-speed limit and ssh's connect and keep-alive timeouts. When it can't fetch, the refresh fails and names what the reader can run themselves: `gh auth setup-git`, `glab auth login` (which offers to set up git), or Git Credential Manager or an SSH key for Azure DevOps. The Phase 21 spike checks each of these.
+- **Only `https` and `ssh`.** git runs with `-c protocol.allow=never -c protocol.https.allow=always -c protocol.ssh.allow=always`, the URL's host must be the service's, and no configuration of a team or target can widen that. A URL from a service is checked before it is stored and again before every fetch.
+- **The free signal fetches over the network** (section 8.5), `hosting.concurrency` repositories at a time, and its result is cached for `signal.cache_seconds` as before. A repository that can't be reached shows the reason on its card; the others carry on.
+- **Removing a repository from a team** unticks it in the team's list (section 24.6) and records it as left out: it stops being refreshed and its card moves to the bottom line. The page never deletes data. `codetrail target remove` refuses on a target its team still follows, naming the team, since following a whole source would add it back; once the repository is left out, `target remove` deletes its data as for any target, and the page's line for it shows that command.
+- Local targets (`codetrail target add <name> <path>`) are unchanged.
+
+### 24.5 Teams
+`codetrail team add <name>` writes `~/.config/codetrail/teams/<name>.toml` and opens the team page on its add-repositories screen. The file:
+
+```toml
+[[sources]]
+service = "github"
+source = "acme-org"
+follow = "all"                 # or "chosen"
+clone_over = "https"           # or "ssh"
+left_out = ["R_kgDOExample2"]  # the services' stable ids, unticked while following all
+# chosen = ["R_kgDOExample"]   # with follow = "chosen"
+
+[models]
+overview = "claude-sonnet-5-5"
+
+[catch_up]
+max_budget_usd = 20.0
+concurrency = 2
+```
+
+- **Target names** are `<team>-<repository>`, lower-cased, with characters outside the target-name pattern replaced by `-`; a clash gets the start of the service's id. The page shows the repository's own name.
+- **Repositories are matched by the service's stable id,** so a renamed repository keeps its target, its guide and its learning; the name shown follows the service.
+- **Following a whole source follows its active repositories:** those pushed to within `team.active_days` (90 by default), so an organization of 600 repositories with 40 active ones gets 40 targets, not 600. The free part of every catch-up reads the source's list again. On Azure DevOps, which reports no push time and no archived flag, a whole project follows every enabled, non-empty repository in it. A repository that becomes active (a new one, or a quiet one someone pushed to again) and isn't left out becomes a target with the service's default branch, and its first guide is its own line in that catch-up's estimate, which the reader can untick (section 24.8). A followed repository that goes quiet stays followed: it costs nothing while nothing merges. Archived, empty (no default branch) and disabled repositories are never followed; forks and templates count like any other repository. An archived repository, or one that left the source, stops being refreshed, its card says so, and its data stays until the reader removes it (section 24.4).
+- **Commands:** `codetrail team add <name>`; `codetrail team list`; `codetrail team serve <name>`, which serves the team page (section 24.7); `codetrail team update <name> [--yes]`, the catch-up from the terminal with the same estimate and question as `codetrail update` (section 15.4); and `codetrail team remove <name> [--yes]`, which lists the team's settings and every target it created, asks, and deletes them, never touching anything on the service.
+- A team's catch-ups, overviews and read marks live in `~/.local/share/codetrail/teams/<name>/`: `overviews/`, a git repository like a guide, and `team.db` (SQLite).
+
+### 24.6 Adding repositories
+The add-repositories screen (`GET /team/add`, and from the team page's **Add repositories** button at any time):
+
+1. **Services:** one chip per service with its status from `status()`: signed in as whom, signed out (with the command to run), or not installed.
+2. **Source:** a picker of the sources the signed-in services can see. Azure DevOps organizations can't be listed by `az`, so the reader types the organization and the picker lists its projects. A source's repository count is shown only when the service reports one.
+3. **"Follow the whole source"**, a switch above the list, on by default. On, every active repository is ticked (section 24.5), and repositories that become active later are followed too; archived, empty and disabled ones stay out. Unticking a row while it's on leaves that repository out and keeps following the rest, and the switch's label says how many are left out. Turned off, the list becomes a hand-picked selection, starting from what was ticked.
+4. **The list:** a filter field; an "active in the last `team.active_days` days" filter on by default; "show archived". Each row has its checkbox, its name, when it was last pushed to, its size when the service reports one, and its branch, which defaults to the default branch. The branch picker lists the repository's branches when opened, from `branches()`. A repository the team already follows keeps its branch, which the screen doesn't change, since changing it means rebuilding the mirror and guide; `clone_over` isn't on the screen either, and stays `https` unless the reader edits the team's file.
+5. **Add N repositories:** writes the team's and the targets' settings, then starts the free part at once (cloning, materializing, scanning and facts), shown step by step in the update panel (section 15.4), and returns to the team page. Nothing paid runs: the first guides wait for the next catch-up's estimate.
+
+Routes, all under section 7.4's rules: `GET /team/add`; `GET /team/hosting/sources` and `GET /team/hosting/repositories?service=&source=`, which run the adapters; and `POST /team/repositories`, which takes the whole selection as JSON and validates every name, id and branch against what the adapter returned. The service calls run in a worker thread, one per request, bounded by `hosting.timeout_seconds`.
+
+### 24.7 The team page
+`codetrail team serve <name>` serves the team page at `/` and each target's guide under `/repos/<target>/`, listing the team's sources once when it starts and giving the targets that listing adds their free first refresh (section 24.6); a page view writes no settings, lists no source and never clones (a target waiting for its first refresh, or with no mirror yet, is shown without a fetch), and a restart lists the sources again, with the routes of sections 7 and 16 to 23 unchanged inside that prefix: one server, one login, one session and one token for the whole team. As `serve` does for its target (section 10), it holds the shared in-use lock of every target the team follows for as long as it runs, taking a new target's when it is added, and each request under a prefix also takes that target's lock. So `target remove` and `team remove` refuse while the team is served. `codetrail serve <target>` keeps serving one target at `/`. The theme is one stored key shared across the guides, a reader preference; other stored keys are kept per guide.
+
+The page, top to bottom:
+- **The header line:** "Since you last caught up", with the time the last catch-up finished, how many of the team's repositories have new merges, and the **Catch up** button.
+- **"Across the team",** the latest overview (section 24.9), until the reader marks it read.
+- **One card per repository with something new, busiest first:** its name, branch and merge count; the areas touched, from the free signal; the digest's highlights, each with its documented or inferred mark and source; who merged, as git records the authors' names; a link to the digest; and how many guide pages changed. A repository whose new merges aren't caught up yet shows the free part only, with a dashed edge: "Not caught up yet: 2 merges touched Networking." A repository that couldn't be reached shows why.
+- **One line for the rest:** "Nothing new: docs-site, inventory-service", then archived repositories and those that left their source.
+
+A card shows the repository's unread digests (section 8.3), so a digest read on the repository's own guide counts as read here, and marking it read on the card marks it there.
+
+**Highlights.** The digest schema (section 6.6) gains `highlights`: up to `team.highlights_per_digest` one-line items in page syntax, each a rationale block or a plain line, written in the same digest call, as briefs are written in the page call (section 23.3), and validated with the digest. They are written for every target, in a team or not, since a target doesn't know who reads it; the digest estimate grows by their size. A digest from before this phase has none, and its card shows the digest's first paragraph instead.
+
+### 24.8 Catching up
+**Catch up** on the page, or `codetrail team update <name>`:
+1. **The free part, for every repository,** `catch_up.concurrency` at a time: the source lists are read again (section 24.5), new repositories are cloned, and every target's sources and facts are refreshed, as the start of `codetrail update` does (section 15.4).
+2. **One estimate** for the whole catch-up: each target's update estimate (plan, pages and digest, section 15.4) on its own line with a checkbox, ticked by default, a new repository's first guide marked as such (an unticked first guide is offered again at every catch-up until it runs or the repository is left out; `team update --yes` runs it, within the team's budget, as `codetrail update --yes` runs a first update); the overview, when at least two ticked repositories have new commits; the total, expected and at most; the sign-in in use and the latest plan usage. The reader can untick any repository: it keeps its free part, and its card says it wasn't caught up. Confirming sends the estimate's id with the ticked targets.
+3. **The paid part:** each ticked target's update runs as it does today, with its own lock, its own budget and its own all-or-nothing commit (section 6.8), `catch_up.concurrency` targets at a time, and the whole catch-up stops starting new calls at `catch_up.max_budget_usd`. The update panel shows every step, prefixed by the repository's name. A target that fails (busy with its own update, its sign-in lost, its budget spent) doesn't stop the others; its card says why.
+4. **The overview** (section 24.9), from the digests this catch-up wrote.
+
+One catch-up runs per team at a time (a team lock), and the page's cooldown and estimate rules (sections 7.4 and 15.4) apply to it as to one target's update.
+
+### 24.9 The overview
+- One call of a new kind, `overview`, with the team's model, and no tools at all, as for grading. It receives the digests this catch-up wrote, each with its repository's name and its id, and returns at most `team.max_overview_words` words in page syntax.
+- **Grounded in the digests.** A documented block in the overview must copy a documented block of one of those digests exactly, its citation and its quote, so it carries a source the digest's validation already checked. Anything else is an inferred block or a plain line, and the overview's inferred blocks are where it connects repositories. A link to a repository's digest must name one of the digests it was given.
+- **Validated** like a page (section 6.5) for these rules, the word limit and the secret scan, with the same single retry. If it fails twice, the team page shows the cards without an overview and says so.
+- **Skipped** when fewer than two repositories have new digests, since there is nothing to connect; the estimate leaves it out.
+- Stored as `overviews/<date>-<time>.md` in the team's folder and committed there; marked read in `team.db`, which also records each catch-up (when it started and finished, which targets were ticked, and its overview). English, like digests (decision 7).
+
+### 24.10 Configuration
+In the global file:
+
+```toml
+[hosting]
+timeout_seconds = 60                  # 5 to 600
+max_output_bytes = 10_000_000         # 100_000 to 100_000_000
+max_repositories_per_source = 1000    # 1 to 10000
+concurrency = 4                       # 1 to 16
+
+[team]
+active_days = 90                      # 1 to 3650
+highlights_per_digest = 3             # 0 to 10
+max_overview_words = 250              # 50 to 1000
+```
+
+Each team's file holds its sources, `[models] overview`, `catch_up.max_budget_usd` and `catch_up.concurrency` (section 24.5). The starting estimate for `overview` joins `[estimates]`.
+
+### 24.11 Security
+- **Who can reach it:** the new routes follow section 7.4 unchanged (`127.0.0.1`, `Host`, `Origin`, the token, `Sec-Fetch-Site`, the session). `POST /team/repositories` changes configuration and starts free work (network, disk and time). A local server holding the session cookie (section 7.4) could make the reader follow repositories their own sign-in can already read, but it can't make paid work run without an estimate id, which it can't read.
+- **Tokens:** never read, stored or passed (section 24.3); git uses the reader's own sign-in (section 24.4). Codetrail's logs, settings and database hold no token, and a test runs the adapters with token variables set and checks none reaches the program.
+- **Writing to a service:** impossible by construction; the list of commands is read-only and tested (section 24.3).
+- **Transport:** `https` and `ssh` only, on the service's host; git never prompts (section 24.4).
+- **Text from a service is untrusted:** repository, source and branch names are validated against each service's pattern before they are stored or passed as arguments, autoescaped on the page, and every `@` in them is neutralized before a prompt (section 7.4). Commit messages are scanned as before (section 3.6).
+- **Every followed repository is untrusted content,** as a target is today: the exclusion layers and the scans run per target, and Codex stays off for team-created targets unless the reader opts each one in (section 15.5).
+- **The overview's prompt** holds only digests, which were validated and scanned; the call has no tools, and its output is validated (section 24.9).
+- **Cost:** one estimate before the paid part, with every repository's first guide on its own line; the team's budget on top of each target's; the cooldown and one catch-up per team at a time.
+- **People:** authors' names appear as git records them, locally only. Nothing counts, compares or charts people.
+
+### 24.12 Testing
+- **Unit:** target names from repository names, with clashes; each service's name and URL validation; the read-only list of commands; the environment without token variables; the output size and repository limits; following a whole source (new, archived, left out, removed, renamed by id); the estimate's lines, unticking and the team budget; the overview's validation (a documented block not copied from a digest, a link to a digest it wasn't given, the word limit); highlights' validation; the configuration refusing values outside their ranges.
+- **Integration:** a remote mirror fetched over a transport the tests serve locally, with the transport allowlist refusing `file`, `ext` and the others; the secret-filter fixtures pushed to a remote and never reaching `source/`; a catch-up where one target fails and the others commit.
+- **Page:** the add-repositories screen and the team page against the fake hosting service, in the browser tests (section 16.7), including the switch, leaving one out, and a catch-up with a repository unticked.
+- **Live** (`just test-live`): the installed `gh`, `az` and `glab`, when signed in, answer `status`, `sources` and `repositories`.
+
+### 24.13 Delivery
+Two phases, each with its own implementation plan once ADR 0020 is accepted:
+- **Phase 21, teams from hosting services:** the spike (each program's commands and fields, and how each lends git its sign-in); the `hosting` interface, its three adapters and the fake; remote targets; teams and their settings; `codetrail team serve` with the team's server (one login and session, the `/repos/<target>/` prefix, the locks of section 24.7), the add-repositories screen, and a plain team page listing each repository with its free signal and a link to its guide; `codetrail team add`, `list` and `remove`.
+- **Phase 22, catching up across a team:** the team page's header, cards and overview; `codetrail team update` and the catch-up from the page; highlights in digests; the overview.
+
+The getting-started guide gains "Following your team's repositories", and the README's current state, `CHANGELOG.md` and the security checklist (the hosting programs, remote transports, the team routes) change with each phase.
+
+### 24.14 Later work
+- **Open pull requests,** with their own security questions: a pull request from a fork or a stranger is untrusted text going to the assistant, its diff hasn't passed the exclusion rules or gitleaks, and its title, description and reviews need the same scanning as commit messages.
+- Branches other than each repository's chosen one.
+- Enterprise and self-managed hosts, and other services, one adapter each.
+- Choosing repositories from the command line (`--all`, `--repo`), for scripting.
+
+### 24.15 Calls made in writing this section
+The founder decided: following teams through `gh`, `az` and `glab`; adding repositories with one list and a "follow the whole source" switch; the team page with an overview above one card per repository; catching up on demand; a full guide for every followed repository; merged work only; following only active repositories. These were the design session's calls, for the founder to check:
+- Highlights written in the digest call, for every target, and an overview skipped when fewer than two repositories have new digests.
+- The overview call has no tools and may only copy documented blocks from the digests.
+- `clone_over` per source, HTTPS by default; git for remote targets gets the hosting programs' allowlist plus `SSH_AUTH_SOCK` and `GIT_SSL_CAINFO`; local targets are unchanged.
+- The page never deletes a repository's data; `codetrail target remove` does, once the team leaves it out.
+- `team serve` holds every followed target's in-use lock while it runs, and arrives in Phase 21 with the add-repositories screen.
+- First guides are ticked by default in the estimate, offered again when unticked, and run by `team update --yes` within the team's budget.
+- Forks and templates count like any other repository; a followed repository that goes quiet stays followed.
+- Target names `<team>-<repository>`, matched to the service by stable id.

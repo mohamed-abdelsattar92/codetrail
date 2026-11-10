@@ -9,15 +9,21 @@
     ["codetrail.panel-width", "--panel-width", 320, 720],
   ];
   var sections = ["paths", "areas", "concepts", "answers", "more"];
+  // The keys carry the page's prefix, as api.js keeps them: empty at `/`, `/repos/<target>` on the team's server.
+  // The theme's key is shared by every page.
+  var base = (document.querySelector('meta[name="codetrail-base"]') || { content: "" }).content;
+  function stored(key) {
+    return window.localStorage.getItem(base + key);
+  }
   try {
     var theme = window.localStorage.getItem("codetrail.theme");
     if (theme === "light" || theme === "dark") root.setAttribute("data-theme", theme);
     for (var index = 0; index < widths.length; index += 1) {
-      var width = Number(window.localStorage.getItem(widths[index][0]));
+      var width = Number(stored(widths[index][0]));
       if (width >= widths[index][2] && width <= widths[index][3]) root.style.setProperty(widths[index][1], width + "px");
     }
-    if (window.localStorage.getItem("codetrail.sidebar") === "hidden") root.setAttribute("data-sidebar", "hidden");
-    var folded = (window.localStorage.getItem("codetrail.sidebar-folded") || "").split(" ").filter(function (name) {
+    if (stored("codetrail.sidebar") === "hidden") root.setAttribute("data-sidebar", "hidden");
+    var folded = (stored("codetrail.sidebar-folded") || "").split(" ").filter(function (name) {
       return sections.indexOf(name) >= 0;
     });
     if (folded.length) root.setAttribute("data-folded", folded.join(" "));

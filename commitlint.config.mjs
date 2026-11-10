@@ -4,7 +4,7 @@
 const TYPES = ["feat", "fix", "refactor", "perf", "test", "docs", "build", "ci", "chore", "revert"];
 const SCOPES = [
   "config", "repo", "extract", "facts", "claude", "generate", "guide", "web", "bridge", "learn", "metrics",
-  "tools", "docs", "adr", "ci", "deps",
+  "tools", "docs", "adr", "ci", "deps", "hosting", "team",
 ];
 const SECTIONS = ["What", "Why", "Alternatives considered", "Risks", "Agent and model"];
 

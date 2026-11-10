@@ -6,7 +6,7 @@ from hardlinking the target's object files.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -36,6 +36,19 @@ def check_branch(repository: Path, branch: str) -> None:
 
 
 def refresh_mirror(mirror: Path, repository: Path, branch: str) -> str:
+    """Clones or fetches a local target's branch into the mirror over file://; see `refresh_mirror_from`."""
+    check_branch(repository, branch)
+    return refresh_mirror_from(mirror, repository_url(repository), branch)
+
+
+def refresh_mirror_from(
+    mirror: Path,
+    url: str,
+    branch: str,
+    *,
+    git_options: Sequence[str] = (),
+    environment: Mapping[str, str] | None = None,
+) -> str:
     """Clones or fetches the branch into the mirror, with the tags that point into it, and returns its head commit.
 
     The branch is fetched without tags; then the mirror's tags that the target no longer has, or that point elsewhere
@@ -43,12 +56,11 @@ def refresh_mirror(mirror: Path, repository: Path, branch: str) -> str:
     on objects the mirror holds, so no other branch's commits come in (design section 19.2). Its errors are replaced,
     since they name tags.
     """
-    check_branch(repository, branch)
-    url = repository_url(repository)
     if not (mirror / "HEAD").exists():
         mirror.parent.mkdir(parents=True, exist_ok=True)
         run_git(
             [
+                *git_options,
                 "clone",
                 "--quiet",
                 "--bare",
@@ -60,23 +72,27 @@ def refresh_mirror(mirror: Path, repository: Path, branch: str) -> str:
                 "--",
                 url,
                 str(mirror),
-            ]
+            ],
+            environment=environment,
         )
     refspec = f"+refs/heads/{branch}:refs/heads/{branch}"
-    run_git(["fetch", "--quiet", "--no-tags", "--prune", "--", url, refspec], git_dir=mirror)
-    _drop_stale_tags(mirror, url)
+    run_git([*git_options, "fetch", "--quiet", "--no-tags", "--prune", "--", url, refspec], git_dir=mirror,
+            environment=environment)  # fmt: skip
+    _drop_stale_tags(mirror, url, git_options, environment)
     try:
         # Fetching the branch again, now up to date, brings only the tags git's auto-follow takes.
-        run_git(["fetch", "--quiet", "--", url, refspec], git_dir=mirror)
+        run_git([*git_options, "fetch", "--quiet", "--", url, refspec], git_dir=mirror, environment=environment)
     except CodetrailError:
         # git's message names the tag it couldn't write, which no scan has passed yet; the update's error shows it.
         raise CodetrailError("git couldn't fetch the branch's tags into the mirror.") from None
     return head_commit(mirror, branch)
 
 
-def _drop_stale_tags(mirror: Path, url: str) -> None:
+def _drop_stale_tags(mirror: Path, url: str, git_options: Sequence[str], environment: Mapping[str, str] | None) -> None:
     """Deletes the mirror's tags that the target no longer has or that point elsewhere now; touches only refs/tags/."""
-    listed = run_git(["ls-remote", "--tags", "--", url]).decode("utf-8", "surrogateescape")
+    listed = run_git([*git_options, "ls-remote", "--tags", "--", url], environment=environment).decode(
+        "utf-8", "surrogateescape"
+    )
     remote = {}
     for line in listed.splitlines():
         sha, _, ref = line.partition("\t")

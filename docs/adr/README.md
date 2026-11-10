@@ -43,3 +43,4 @@ Everything smaller is explained in the commit body, not in an ADR.
 | [0017](0017-tool-server-for-coding-agents.md) | Serve coding agents through a Model Context Protocol tool server over standard input and output, written with the standard library | accepted | 2026-10-22 |
 | [0018](0018-lay-out-diagrams-with-elk.md) | Lay out the page's diagrams with ELK, and vendor D2's ELK build | proposed | 2026-10-22 |
 | [0019](0019-publish-to-pypi-as-codetrail-cli.md) | Publish each release to PyPI as codetrail-cli, by trusted publishing from GitHub Actions | proposed | 2026-10-27 |
+| [0020](0020-hosting-services-through-their-own-programs.md) | Reach GitHub, Azure DevOps and GitLab through the reader's own command-line programs, and never hold a token | accepted | 2026-11-10 |

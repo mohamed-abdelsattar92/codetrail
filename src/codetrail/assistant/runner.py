@@ -79,8 +79,11 @@ def run_command(
     stdin: str = "",
     *,
     include_stderr: bool = False,
+    error_output: list[str] | None = None,
 ) -> tuple[int, str]:
-    """Runs a short command, optionally including stderr for programs such as Codex's sign-in check."""
+    """Runs a short command (a sign-in check) and returns its exit code and output. With `include_stderr`, the
+    error output is part of the output (Codex's sign-in check writes there); with `error_output`, the error output
+    is appended to that list instead."""
     try:
         process = subprocess.Popen(  # noqa: S603  # the command is a resolved provider program and fixed arguments
             list(command),
@@ -96,7 +99,7 @@ def run_command(
         raise AssistantError(f"{Path(command[0]).name} couldn't start ({type(error).__name__}).") from error
     with process:
         try:
-            stdout, _stderr = process.communicate(stdin, timeout=timeout_seconds)
+            stdout, stderr = process.communicate(stdin, timeout=timeout_seconds)
         except BaseException as error:
             with suppress(ProcessLookupError, PermissionError):
                 os.killpg(process.pid, signal.SIGKILL)
@@ -106,6 +109,8 @@ def run_command(
             raise AssistantError(
                 f"{Path(command[0]).name} didn't answer within {timeout_seconds:g} seconds."
             ) from error
+    if error_output is not None:
+        error_output.append(stderr or "")
     return process.returncode, stdout
 
 

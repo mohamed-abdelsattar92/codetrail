@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="{{ language.code }}" dir="{{ language.direction }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>{{ team }} · Codetrail</title>
+  <link rel="icon" href="/static/brand/favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="/static/vendor/inter/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/static/css/tokens.css">
+  <link rel="stylesheet" href="/static/css/base.css">
+  <link rel="stylesheet" href="/static/css/layout.css">
+  <link rel="stylesheet" href="/static/css/components.css">
+  <link rel="stylesheet" href="/static/css/content.css">
+  <script src="/static/js/theme-init.js"></script>
+</head>
+<body>
+<main id="content" class="content">
+<div class="wide">
+<header class="page-head">
+  <p class="card-label">{{ _("Team") }}</p>
+  <h1>{{ team }}</h1>
+  {% if sources %}
+  <ul class="list">
+    {% for source in sources %}
+    <li><span class="grow">{{ service_names[source.service] }} · <bdi>{{ source.source }}</bdi></span>
+      <span class="faint">{% if source.follow == "all" %}{{ _("Every active repository") }}{% else %}{{ _("Chosen repositories") }}{% endif %}</span>
+      {% if source.service ~ ":" ~ source.source in unreachable %}<span class="chip">{{ _("couldn't be listed just now") }}</span>{% endif %}</li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  <p><a class="button primary" href="/team/add">{{ _("Add repositories") }}</a></p>
+</header>
+
+<section aria-labelledby="repositories-title">
+  <h2 id="repositories-title">{{ _("Repositories") }}</h2>
+  {% if rows %}
+  <ul class="list spaced">
+    {% for row in rows %}
+    <li>
+      {% if row.served %}<a class="grow" href="/repos/{{ row.target }}/"><bdi>{{ row.repository }}</bdi></a>{% else %}<span class="grow"><bdi>{{ row.repository }}</bdi></span>{% endif %}
+      <span class="faint" dir="ltr">{{ row.branch }}</span>
+      {% if not row.served %}
+        <span class="chip">{{ _("Not served") }}</span>
+        <span class="stat-note">{{ row.reason }}</span>
+      {% elif row.reason %}
+        <span class="chip">{{ _("Couldn't be reached") }}</span>
+        <span class="stat-note">{{ row.reason }}</span>
+      {% elif row.signal.updating %}
+        <span class="chip">{{ _("Updating") }}</span>
+      {% elif row.signal.updated_commit is none %}
+        <span class="chip">{{ _("Not updated yet") }}</span>
+      {% elif row.signal.commits == 0 %}
+        <span class="chip chip-ok">{{ _("Up to date") }}</span>
+      {% else %}
+        <span class="chip chip-behind">{% trans count=row.signal.commits %}{{ count }} commit behind{% pluralize %}{{ count }} commits behind{% endtrans %}</span>
+        <span class="stat-note">{% trans count=row.signal.merges %}{{ count }} merge landed{% pluralize %}{{ count }} merges landed{% endtrans %}{% if row.signal.areas %} · <span lang="en" dir="ltr">{{ row.signal.areas[:3] | join(", ") }}</span>{% endif %}</span>
+      {% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <div class="empty">
+    <p>{{ _("No repositories yet. Add repositories to follow them here.") }}</p>
+  </div>
+  {% endif %}
+</section>
+
+{% if stopped %}
+<section aria-labelledby="stopped-title">
+  <h2 id="stopped-title">{{ _("Archived, or no longer in their source") }}</h2>
+  <p class="muted">{{ _("These aren't refreshed any more; their guides stay until you remove them.") }}</p>
+  <ul class="list">
+    {% for row in stopped %}
+    <li>{% if row.served %}<a class="grow" href="/repos/{{ row.target }}/"><bdi>{{ row.repository }}</bdi></a>{% else %}<span class="grow"><bdi>{{ row.repository }}</bdi></span>{% endif %}
+      <span class="faint" dir="ltr">{{ row.branch }}</span></li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}
+</div>
+</main>
+</body>
+</html>

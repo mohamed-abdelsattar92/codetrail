@@ -37,13 +37,13 @@
 {%- endmacro %}
 {% macro page_bar(row, widest) -%}
 {% set documented = row.documented / widest * 100 %}
-<li><a class="hbar-label" href="/pages/{{ row.page.id }}" lang="en" dir="ltr">{{ row.page.title }}</a><svg class="hbar-track" viewBox="0 0 100 12" preserveAspectRatio="none" role="img" aria-label="{% trans documented=row.documented, inferred=row.inferred %}{{ documented }} documented, {{ inferred }} inferred{% endtrans %}"><rect class="tone-documented" x="0" y="0" height="12" width="{{ documented|round(1) }}"/><rect class="tone-inferred" x="{{ documented|round(1) }}" y="0" height="12" width="{{ (row.inferred / widest * 100)|round(1) }}"/></svg><span class="hbar-value">{{ row.documented }} / {{ row.inferred }}</span></li>
+<li><a class="hbar-label" href="{{ site_path('/pages/') }}{{ row.page.id }}" lang="en" dir="ltr">{{ row.page.title }}</a><svg class="hbar-track" viewBox="0 0 100 12" preserveAspectRatio="none" role="img" aria-label="{% trans documented=row.documented, inferred=row.inferred %}{{ documented }} documented, {{ inferred }} inferred{% endtrans %}"><rect class="tone-documented" x="0" y="0" height="12" width="{{ documented|round(1) }}"/><rect class="tone-inferred" x="{{ documented|round(1) }}" y="0" height="12" width="{{ (row.inferred / widest * 100)|round(1) }}"/></svg><span class="hbar-value">{{ row.documented }} / {{ row.inferred }}</span></li>
 {%- endmacro %}
 {% macro fact_link(entity) -%}
-<a class="grow" href="/facts/{{ entity.id|urlencode|replace("/", "%2F") }}">{{ entity.id }}</a>
+<a class="grow" href="{{ site_path('/facts/') }}{{ entity.id|urlencode|replace("/", "%2F") }}">{{ entity.id }}</a>
 {%- endmacro %}
 {% macro decision_link(decision) -%}
-<a class="grow" href="/facts/{{ decision.id|urlencode|replace("/", "%2F") }}">{{ decision.attributes.get("number", "") }} · {{ decision.attributes.get("title", "") }}</a>{% if decision.attributes.get("date") %}<span class="faint">{{ decision.attributes.date }}</span>{% endif %}
+<a class="grow" href="{{ site_path('/facts/') }}{{ decision.id|urlencode|replace("/", "%2F") }}">{{ decision.attributes.get("number", "") }} · {{ decision.attributes.get("title", "") }}</a>{% if decision.attributes.get("date") %}<span class="faint">{{ decision.attributes.date }}</span>{% endif %}
 {%- endmacro %}
 {% macro share(value) -%}
 {% if value.denominator %}{% trans numerator=value.numerator, denominator=value.denominator %}{{ numerator }} of {{ denominator }}{% endtrans %}{% else %}{{ _("nothing to measure yet") }}{% endif %}
@@ -126,7 +126,7 @@
   {% endif %}
   {% if rationale.inferred_blocks %}
   <h3>{{ _("Inferred: worth documenting") }}</h3>
-  {% call(block) listing(rationale.inferred_blocks) %}<a class="grow" href="/pages/{{ block.page.id }}">{{ block.first_line }}</a><span class="faint">{{ block.page.title }}</span>{% endcall %}
+  {% call(block) listing(rationale.inferred_blocks) %}<a class="grow" href="{{ site_path('/pages/') }}{{ block.page.id }}">{{ block.first_line }}</a><span class="faint">{{ block.page.title }}</span>{% endcall %}
   {% endif %}
   {% endif %}
   </div>

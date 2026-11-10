@@ -436,6 +436,22 @@ msgstr "%(percent)s%% من أسطر الكود اختبارات"
 msgid "%(reason)s The facts were refreshed; the guide wasn't updated."
 msgstr "%(reason)s حُدّثت الحقائق، ولم يُحدَّث الدليل."
 
+#, python-format
+msgid "%(size)s KB"
+msgstr "%(size)s KB"
+
+#, python-format
+msgid "%(size)s MB"
+msgstr "%(size)s MB"
+
+#, python-format
+msgid "%(target)s couldn't be refreshed: %(reason)s"
+msgstr "تعذّر تحديث %(target)s: %(reason)s"
+
+#, python-format
+msgid "%(target)s is ready."
+msgstr "%(target)s جاهز."
+
 msgid ", drawn from the code"
 msgstr "، مرسومة من الكود"
 
@@ -447,6 +463,12 @@ msgstr "سنتان"
 
 msgid "90 days"
 msgstr "90 يومًا"
+
+msgid "A branch name can't start with “-”."
+msgstr "لا يمكن أن يبدأ اسم الـ branch بـ «-»."
+
+msgid "A chosen branch isn't in its repository."
+msgstr "أحد الـ branches المختارة غير موجود في مستودعه."
 
 msgid ""
 "A package counts when a document names it as a whole word, a project when"
@@ -476,6 +498,10 @@ msgstr ""
 "تستشهد به. تستحق نظرة: سجلات ADR المقترحة بلا تاريخ، والمقبولة التي لا "
 "تستشهد بها أي صفحة."
 
+#, python-format
+msgid "A selection can name at most %(count)s repositories."
+msgstr "يمكن أن يضم الاختيار %(count)s مستودعًا على الأكثر."
+
 msgid "ADRs"
 msgstr "سجلات ADR"
 
@@ -488,8 +514,31 @@ msgstr "مقبولة، لكن لا تستشهد بها أي صفحة"
 msgid "Actions"
 msgstr "الإجراءات"
 
+#, python-format
+msgid "Active in the last %(count)s day"
+msgid_plural "Active in the last %(count)s days"
+msgstr[0] "النشطة خلال آخر %(count)s يوم"
+msgstr[1] "النشطة خلال آخر يوم (%(count)s)"
+msgstr[2] "النشطة خلال آخر يومين (%(count)s)"
+msgstr[3] "النشطة خلال آخر %(count)s أيام"
+msgstr[4] "النشطة خلال آخر %(count)s يوم"
+msgstr[5] "النشطة خلال آخر %(count)s يومًا"
+
 msgid "Activity, day by day"
 msgstr "النشاط يومًا بيوم"
+
+#, python-format
+msgid "Add %(count)s repository"
+msgid_plural "Add %(count)s repositories"
+msgstr[0] "أضف %(count)s مستودع"
+msgstr[1] "أضف مستودعًا واحدًا (%(count)s)"
+msgstr[2] "أضف مستودعين (%(count)s)"
+msgstr[3] "أضف %(count)s مستودعات"
+msgstr[4] "أضف %(count)s مستودع"
+msgstr[5] "أضف %(count)s مستودعًا"
+
+msgid "Add repositories"
+msgstr "أضف مستودعات"
 
 msgid "Age"
 msgstr "العمر"
@@ -535,6 +584,9 @@ msgstr "تُقيَّم إجابة أخرى الآن."
 msgid "Another question is still being answered."
 msgstr "لا يزال سؤال آخر قيد الإجابة."
 
+msgid "Another save is in progress."
+msgstr "هناك حفظ آخر قيد التنفيذ."
+
 #, python-format
 msgid "Answers are limited to %(count)s characters."
 msgstr "الحد الأقصى لطول الإجابة: %(count)s حرف."
@@ -559,6 +611,12 @@ msgstr "أبريل"
 
 msgid "Architecture decisions"
 msgstr "القرارات المعمارية"
+
+msgid "Archived"
+msgstr "مؤرشف"
+
+msgid "Archived, or no longer in their source"
+msgstr "مؤرشفة، أو لم تعد في مصدرها"
 
 msgid "Area"
 msgstr "منطقة"
@@ -625,14 +683,27 @@ msgctxt "month"
 msgid "Aug"
 msgstr "أغسطس"
 
+msgid "Azure DevOps can't list your organizations, so name one."
+msgstr "لا يستطيع Azure DevOps سرد مؤسساتك، فاكتب اسم إحداها."
+
+msgid "Azure DevOps organization"
+msgstr "مؤسسة Azure DevOps"
+
 msgid "Back to the start"
 msgstr "العودة إلى البداية"
+
+msgid "Back to the team page"
+msgstr "العودة إلى صفحة الفريق"
 
 msgid "Before the update"
 msgstr "قبل التحديث"
 
 msgid "Body without a why"
 msgstr "متن دون سبب"
+
+#, python-format
+msgid "Branch of %(name)s"
+msgstr "الـ branch الخاص بـ %(name)s"
 
 msgid "Breadcrumbs"
 msgstr "مسار التنقل"
@@ -675,6 +746,16 @@ msgstr "تحقّق من إجابتي"
 
 msgid "Check your understanding"
 msgstr "اختبر فهمك"
+
+msgid "Choose a source"
+msgstr "اختر مصدرًا"
+
+msgid "Chosen repositories"
+msgstr "مستودعات مختارة"
+
+#, python-format
+msgid "Cloning %(target)s and reading its facts…"
+msgstr "جارٍ استنساخ %(target)s وقراءة حقائقه…"
 
 msgid "Close"
 msgstr "إغلاق"
@@ -772,8 +853,25 @@ msgstr "العقود"
 msgid "Cost each"
 msgstr "تكلفة كل استدعاء"
 
+msgid "Couldn't be reached"
+msgstr "تعذّر الوصول إليه"
+
 msgid "Couldn't check for new commits just now."
 msgstr "تعذّر التحقق من commits جديدة الآن."
+
+msgid "Couldn't list them just now."
+msgstr "تعذّر سردها الآن."
+
+#, python-format
+msgid "Couldn't read this repository (%(error)s)."
+msgstr "تعذّرت قراءة هذا المستودع (%(error)s)."
+
+#, python-format
+msgid "Couldn't refresh this repository (%(error)s)."
+msgstr "تعذّر تحديث هذا المستودع (%(error)s)."
+
+msgid "Couldn't save the selection."
+msgstr "تعذّر حفظ الاختيار."
 
 msgid "Couldn’t save the answer."
 msgstr "تعذّر حفظ الإجابة."
@@ -821,6 +919,9 @@ msgstr "المبرّرات الموثّقة"
 msgid "Documents"
 msgstr "المستندات"
 
+msgid "Done. Their first guides wait for the next catch-up's estimate."
+msgstr "تم. تنتظر أدلتها الأولى تقدير اللحاق التالي."
+
 msgid "Drag to resize; double-click to reset"
 msgstr "اسحب لتغيير الحجم، وانقر مرتين للاستعادة"
 
@@ -841,6 +942,9 @@ msgstr "العربية"
 
 msgid "Enlarge the diagram"
 msgstr "كبّر المخطط"
+
+msgid "Every active repository"
+msgstr "كل مستودع نشط"
 
 #, python-format
 msgid "Every file of code changed in the last %(days)s days."
@@ -912,6 +1016,9 @@ msgid ""
 "again at the next update."
 msgstr "تغيّرت منذئذٍ ملفات كُتبت منها هذه الصفحة. ستُراجَع في التحديث القادم."
 
+msgid "Filter"
+msgstr "تصفية"
+
 msgid "First commit"
 msgstr "أول commit"
 
@@ -924,6 +1031,22 @@ msgstr "المجلد"
 
 msgid "Folders"
 msgstr "المجلدات"
+
+msgid "Follow the whole source"
+msgstr "تابِع المصدر كاملًا"
+
+#, python-format
+msgid "Follow the whole source (%(count)s repository left out)"
+msgid_plural "Follow the whole source (%(count)s repositories left out)"
+msgstr[0] "تابِع المصدر كاملًا (%(count)s مستودع مستبعد)"
+msgstr[1] "تابِع المصدر كاملًا (مستودع واحد مستبعد: %(count)s)"
+msgstr[2] "تابِع المصدر كاملًا (مستودعان مستبعدان: %(count)s)"
+msgstr[3] "تابِع المصدر كاملًا (%(count)s مستودعات مستبعدة)"
+msgstr[4] "تابِع المصدر كاملًا (%(count)s مستودع مستبعد)"
+msgstr[5] "تابِع المصدر كاملًا (%(count)s مستودعًا مستبعدًا)"
+
+msgid "Followed once it's active"
+msgstr "يُتابَع حين ينشط"
 
 msgid "For example: how does a request reach the database?"
 msgstr "مثلًا: كيف يصل الطلب إلى قاعدة البيانات؟"
@@ -944,6 +1067,12 @@ msgstr "الجمعة"
 #, python-format
 msgid "From %(start)s to %(end)s"
 msgstr "من %(start)s إلى %(end)s"
+
+msgid "Getting the new repositories ready (free)…"
+msgstr "جارٍ تجهيز المستودعات الجديدة (مجانًا)…"
+
+msgid "Getting the repositories ready"
+msgstr "تجهيز المستودعات"
 
 msgid "Go ahead"
 msgstr "ابدأ"
@@ -968,6 +1097,9 @@ msgstr "اذهب إلى الإجابات المحفوظة"
 
 msgid "Go to the repository"
 msgstr "اذهب إلى المستودع"
+
+msgid "Go to the team page"
+msgstr "انتقل إلى صفحة الفريق"
 
 msgid "Go to your progress"
 msgstr "اذهب إلى تقدّمك"
@@ -1027,6 +1159,9 @@ msgstr "مُستنتَجة: تستحق التوثيق"
 msgid "Infrastructure"
 msgstr "البنية التحتية"
 
+msgid "Its sources couldn't be listed just now."
+msgstr "تعذّر سرد مصادرها الآن."
+
 msgctxt "month"
 msgid "Jan"
 msgstr "يناير"
@@ -1085,6 +1220,12 @@ msgstr "مكتبة"
 
 msgid "Lines"
 msgstr "الأسطر"
+
+msgid "List its projects"
+msgstr "اسرد مشاريعها"
+
+msgid "Listing…"
+msgstr "جارٍ السرد…"
 
 msgid "Longest quiet stretch"
 msgstr "أطول فترة هدوء"
@@ -1184,6 +1325,9 @@ msgstr "لا حقائق بعد"
 msgid "No file in it changed in the commits read."
 msgstr "لم يتغيّر أي ملف فيه في الـ commits المقروءة."
 
+msgid "No longer in the source"
+msgstr "لم يعد في المصدر"
+
 msgid "No pages yet"
 msgstr "لا صفحات بعد"
 
@@ -1198,12 +1342,25 @@ msgstr "لا إصدارات في هذه الفترة."
 msgid "No releases: the branch has no tags."
 msgstr "لا إصدارات: لا tags على الـ branch."
 
+msgid "No repositories yet. Add repositories to follow them here."
+msgstr "لا مستودعات بعد. أضف مستودعات لتتابعها هنا."
+
+msgid "No repository matches."
+msgstr "لا يوجد مستودع مطابق."
+
 msgid ""
 "No shortcut spends anything: questions are sent by their Send button, and"
 " updates start only when you choose Go ahead."
 msgstr ""
 "لا يُنفق أي اختصار شيئًا: تُرسَل الأسئلة بزر «أرسل»، ولا تبدأ التحديثات "
 "إلا حين تختار «ابدأ»."
+
+msgid ""
+"No source to show yet: sign in to a service, or name an Azure DevOps "
+"organization."
+msgstr ""
+"لا يوجد مصدر لعرضه بعد: سجّل الدخول إلى خدمة، أو اكتب اسم مؤسسة Azure "
+"DevOps."
 
 #, python-format
 msgid ""
@@ -1226,11 +1383,20 @@ msgstr "لا تشرحها أي صفحة"
 msgid "Not found"
 msgstr "غير موجود"
 
+msgid "Not installed."
+msgstr "غير مثبّت."
+
 msgid "Not mentioned in any document"
 msgstr "غير مذكورة في أي مستند"
 
 msgid "Not read yet"
 msgstr "لم تُقرأ بعد"
+
+msgid "Not served"
+msgstr "لا يُعرض"
+
+msgid "Not updated yet"
+msgstr "لم يُحدَّث بعد"
 
 msgid "Not yet"
 msgstr "لم تنجح بعد"
@@ -1426,6 +1592,19 @@ msgid "Provider and model"
 msgstr "المزوّد والنموذج"
 
 #, python-format
+msgid "Pushed %(count)s day ago"
+msgid_plural "Pushed %(count)s days ago"
+msgstr[0] "دُفع إليه قبل %(count)s يوم"
+msgstr[1] "دُفع إليه قبل يوم (%(count)s)"
+msgstr[2] "دُفع إليه قبل يومين (%(count)s)"
+msgstr[3] "دُفع إليه قبل %(count)s أيام"
+msgstr[4] "دُفع إليه قبل %(count)s يوم"
+msgstr[5] "دُفع إليه قبل %(count)s يومًا"
+
+msgid "Pushed today"
+msgstr "دُفع إليه اليوم"
+
+#, python-format
 msgid "Questions are limited to %(count)s characters."
 msgstr "الحد الأقصى لطول السؤال: %(count)s حرف."
 
@@ -1455,6 +1634,16 @@ msgstr "الإصدار"
 
 msgid "Releases"
 msgstr "الإصدارات"
+
+msgid "Repositories"
+msgstr "المستودعات"
+
+msgid ""
+"Repositories that become active later are followed too. Archived, empty "
+"and disabled ones never are. Unticking one leaves it out."
+msgstr ""
+"تُتابَع المستودعات التي تنشط لاحقًا أيضًا. أما المؤرشفة والفارغة "
+"والمعطّلة فلا تُتابَع أبدًا. إلغاء تحديد مستودع يستبعده."
 
 msgid "Repository"
 msgstr "المستودع"
@@ -1512,6 +1701,9 @@ msgstr "السبت"
 msgid "Saturday"
 msgstr "السبت"
 
+msgid "Save"
+msgstr "احفظ"
+
 msgid "Save to guide"
 msgstr "احفظ في الدليل"
 
@@ -1537,6 +1729,17 @@ msgstr[5] "حُفظت %(count)s صفحة في الدليل."
 
 msgid "Saved · open it"
 msgstr "حُفظت · افتحها"
+
+msgid ""
+"Saved, but the server is stopping: the new repositories get ready at the "
+"next catch-up."
+msgstr "تم الحفظ، لكن الخادم يتوقف: ستُجهَّز المستودعات الجديدة في اللحاق التالي."
+
+msgid "Saved. There's no new repository to get ready."
+msgstr "تم الحفظ. لا يوجد مستودع جديد لتجهيزه."
+
+msgid "Saving…"
+msgstr "جارٍ الحفظ…"
 
 msgid "Scopes"
 msgstr "النطاقات"
@@ -1603,6 +1806,9 @@ msgstr "الخدمات"
 msgid "Show"
 msgstr "عرض"
 
+msgid "Show archived"
+msgstr "اعرض المؤرشفة"
+
 msgid "Show the sidebar"
 msgstr "إظهار الشريط الجانبي"
 
@@ -1612,6 +1818,16 @@ msgstr "إظهار الشريط الجانبي لحظة"
 msgid "Show these shortcuts"
 msgstr "اعرض هذه الاختصارات"
 
+msgid "Signed in"
+msgstr "مسجّل الدخول"
+
+#, python-format
+msgid "Signed in as %(account)s"
+msgstr "مسجّل الدخول باسم %(account)s"
+
+msgid "Signed out. To sign in, run:"
+msgstr "غير مسجّل الدخول. لتسجيل الدخول، شغّل:"
+
 msgid "Since the last update"
 msgstr "منذ التحديث السابق"
 
@@ -1620,6 +1836,9 @@ msgstr "انتقل إلى المحتوى"
 
 msgid "Skipped, since they failed last time and nothing in them changed:"
 msgstr "تُخطّيت، لأنها فشلت في المرة السابقة ولم يتغيّر فيها شيء:"
+
+msgid "Some of those repositories aren't in the source."
+msgstr "بعض هذه المستودعات ليست في المصدر."
 
 msgid "Source"
 msgstr "المصدر"
@@ -1650,6 +1869,9 @@ msgstr "بدّل المظهر"
 msgid "System"
 msgstr "النظام"
 
+msgid "Team"
+msgstr "الفريق"
+
 msgid "Tests"
 msgstr "الاختبارات"
 
@@ -1665,8 +1887,17 @@ msgstr "لم يعد هذا التقدير بانتظار ردّك."
 msgid "That estimate isn't waiting any more; start the update again."
 msgstr "لم يعد هذا التقدير بانتظار ردّك؛ ابدأ التحديث من جديد."
 
+msgid "That isn't an Azure DevOps organization's name."
+msgstr "هذا ليس اسم مؤسسة في Azure DevOps."
+
 msgid "That page doesn't exist."
 msgstr "هذه الصفحة غير موجودة."
+
+msgid "That repository isn't in the source."
+msgstr "هذا المستودع ليس في المصدر."
+
+msgid "That service isn't available."
+msgstr "هذه الخدمة غير متاحة."
 
 msgid "The answer couldn’t be graded."
 msgstr "تعذّر تقييم الإجابة."
@@ -1772,6 +2003,9 @@ msgstr "الأجزاء في هذا المجلد والأجزاء المرتبط�
 msgid "The releases couldn't be read just now; the log says why."
 msgstr "تعذّرت قراءة الإصدارات الآن؛ السجل يذكر السبب."
 
+msgid "The repositories added last are still being refreshed."
+msgstr "ما زالت المستودعات المضافة أخيرًا قيد التحديث."
+
 msgid "The repository"
 msgstr "المستودع"
 
@@ -1832,6 +2066,9 @@ msgstr "المظهر: حسب النظام (التبديل إلى الفاتح)"
 
 msgid "There's nothing here. It may be excluded, or not in the guide yet."
 msgstr "لا شيء هنا. ربما استُثني، أو لم يدخل الدليل بعد."
+
+msgid "These aren't refreshed any more; their guides stay until you remove them."
+msgstr "لم تعد تُحدَّث؛ تبقى أدلتها حتى تزيلها."
 
 msgid "This file isn't text, or is too large to show."
 msgstr "هذا الملف ليس نصيًا، أو أكبر من أن يُعرض."
@@ -1926,6 +2163,9 @@ msgstr "حدّث الدليل…"
 
 msgid "Updated."
 msgstr "حُدّث."
+
+msgid "Updating"
+msgstr "يُحدَّث"
 
 msgid "Updating the guide"
 msgstr "يُحدَّث الدليل"
@@ -2105,6 +2345,9 @@ msgstr "تغيّرت"
 msgid "commits"
 msgstr "commits"
 
+msgid "couldn't be listed just now"
+msgstr "تعذّر عرض قائمته الآن"
+
 msgid "default model"
 msgstr "النموذج الافتراضي"
 
@@ -2234,3 +2477,4 @@ msgstr "تنتظر «%(title)s» التحديث القادم: نفدت المي�
 #, python-format
 msgid "“%(title)s” wasn’t written: %(reason)s"
 msgstr "لم تُكتب «%(title)s»: %(reason)s"
+
