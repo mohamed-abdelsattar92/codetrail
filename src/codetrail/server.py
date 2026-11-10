@@ -8,7 +8,7 @@ from dataclasses import dataclass
 import uvicorn
 from starlette.types import ASGIApp
 
-from codetrail.config import Paths, check_containment, load_global, load_target, local_repository
+from codetrail.config import Paths, check_containment, load_global, load_target
 from codetrail.lock import target_in_use
 from codetrail.web.app import create_app
 from codetrail.web.security import SessionState
@@ -26,7 +26,8 @@ class Server:
 
 def prepare_server(paths: Paths, name: str) -> Server:
     target = load_target(paths, name)
-    check_containment(paths, local_repository(target))
+    if target.repository is not None:
+        check_containment(paths, target.repository)
     settings = load_global(paths)
     session = SessionState(settings.server.login_code_ttl_seconds, session_minutes=settings.server.session_minutes)
     app = create_app(paths, name, session, settings)

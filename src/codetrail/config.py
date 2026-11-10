@@ -496,13 +496,6 @@ class TargetConfig(Settings):
         return repository.expanduser() if repository else None
 
 
-def local_repository(target: TargetConfig) -> Path:
-    """The checkout of a local target; a remote target has none (Phase 21 Task 5 replaces this)."""
-    if target.repository is None:
-        raise CodetrailError("This target is remote, and remote targets are not supported yet.")
-    return target.repository
-
-
 def validate_target_name(name: str) -> str:
     if name in RESERVED_TARGET_NAMES:
         raise CodetrailError(f"{name!r} is reserved: a team's data lives in a folder of that name.")

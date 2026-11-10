@@ -29,7 +29,6 @@ from codetrail.config import (
     check_containment,
     load_global,
     load_target,
-    local_repository,
     model_choice,
 )
 from codetrail.database import connect
@@ -192,7 +191,8 @@ def run_update(
     writing. Pages that failed validation wait until their facts change, unless `retry_failed`."""
     with target_in_use(paths, name):  # so the target isn't removed during the update
         target = load_target(paths, name)
-        check_containment(paths, local_repository(target))  # before the lock creates the data folder
+        if target.repository is not None:  # before the lock creates the data folder
+            check_containment(paths, target.repository)
         settings = load_global(paths)
         sign_ins: dict[str, str] = {}
         if claude is None and not facts_only:  # before any work: the providers this update uses must be ready

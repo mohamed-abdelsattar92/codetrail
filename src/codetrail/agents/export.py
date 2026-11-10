@@ -16,7 +16,7 @@ from typing import Any
 
 from codetrail.agents.convert import derived_brief, to_agent_markdown
 from codetrail.assistant.prompts import neutralize
-from codetrail.config import GlobalConfig, Paths, TargetConfig, load_global, load_target, local_repository
+from codetrail.config import GlobalConfig, Paths, TargetConfig, load_global, load_target
 from codetrail.database import connect
 from codetrail.errors import CodetrailError
 from codetrail.facts import EntityKind, RelationKind
@@ -96,7 +96,7 @@ def build_export(
     ]
     header = [
         f"# Map of {name} ({NOTE})",
-        f"Repository: {local_repository(target)} · branch {target.branch} · facts at {commit[:12]} "
+        f"Repository: {target.location} · branch {target.branch} · facts at {commit[:12]} "
         f"({snapshot.taken_at[:10] if snapshot else ''}) · {sum(page.stale for page in pages)} pages possibly stale",
         f"To see what changed since: git diff --name-only {commit}",
     ]
@@ -108,7 +108,7 @@ def build_export(
     ]
     map_text = neutralize(_fit(header, sections, settings.agents.max_map_words))
     taken_at = snapshot.taken_at if snapshot else ""
-    return AgentExport(name, str(local_repository(target)), target.branch, commit, taken_at, map_text,
+    return AgentExport(name, target.location, target.branch, commit, taken_at, map_text,
                        pages + exported_digests, [item.commit for item in store.snapshots()])  # fmt: skip
 
 

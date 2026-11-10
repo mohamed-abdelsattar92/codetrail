@@ -23,7 +23,6 @@ from codetrail.config import (
     Paths,
     load_global,
     load_target,
-    local_repository,
     validate_target_name,
     write_target,
 )
@@ -138,8 +137,8 @@ def connect_agents(paths: Paths, name: str) -> int:
 def serve_agent_tools(paths: Paths, name: str) -> int:
     """Runs the tool server until the agent closes standard input (design section 23.5)."""
     target = load_target(paths, name)
-    tools = AgentTools(paths, name, load_global(paths).agents, str(local_repository(target)))
-    serve_stdio(tools, server_instructions(name, str(local_repository(target))), sys.stdin.buffer, sys.stdout.buffer)
+    tools = AgentTools(paths, name, load_global(paths).agents, target.location)
+    serve_stdio(tools, server_instructions(name, target.location), sys.stdin.buffer, sys.stdout.buffer)
     return 0
 
 

@@ -17,7 +17,6 @@ from codetrail.config import (
     load_global,
     load_target,
     load_team,
-    local_repository,
     model_choice,
     validate_target_name,
     validate_team_name,
@@ -148,7 +147,7 @@ def test_containment_is_checked_again_after_the_target_was_added(paths: Paths, t
     write_target(paths, "shop", tmp_path / "repo", "develop")
     moved = Paths(config_dir=paths.config_dir, data_dir=tmp_path / "repo" / ".cache", state_dir=paths.state_dir)
     with pytest.raises(CodetrailError, match="inside"):
-        check_containment(moved, local_repository(load_target(paths, "shop")))
+        check_containment(moved, tmp_path / "repo")
 
 
 def test_control_characters_survive_the_toml_round_trip(paths: Paths, tmp_path: Path) -> None:
@@ -442,12 +441,6 @@ def test_clone_urls_on_the_services_hosts_are_accepted(service: str, url: str, a
 def test_location_is_the_path_or_the_url(tmp_path: Path) -> None:
     assert TargetConfig(repository=tmp_path, branch="main").location == str(tmp_path)
     assert TargetConfig(remote=REMOTE, branch="main").location == REMOTE["url"]  # type: ignore[arg-type]
-
-
-def test_a_remote_target_has_no_local_repository(tmp_path: Path) -> None:
-    assert local_repository(TargetConfig(repository=tmp_path, branch="main")) == tmp_path
-    with pytest.raises(CodetrailError, match="remote targets are not supported yet"):
-        local_repository(TargetConfig(remote=REMOTE, branch="main"))  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize(
