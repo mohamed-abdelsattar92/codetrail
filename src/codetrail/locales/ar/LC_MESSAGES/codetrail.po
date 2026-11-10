@@ -584,6 +584,9 @@ msgstr "تُقيَّم إجابة أخرى الآن."
 msgid "Another question is still being answered."
 msgstr "لا يزال سؤال آخر قيد الإجابة."
 
+msgid "Another save is in progress."
+msgstr "هناك حفظ آخر قيد التنفيذ."
+
 #, python-format
 msgid "Answers are limited to %(count)s characters."
 msgstr "الحد الأقصى لطول الإجابة: %(count)s حرف."
@@ -1156,6 +1159,9 @@ msgstr "مُستنتَجة: تستحق التوثيق"
 msgid "Infrastructure"
 msgstr "البنية التحتية"
 
+msgid "Its sources couldn't be listed just now."
+msgstr "تعذّر سرد مصادرها الآن."
+
 msgctxt "month"
 msgid "Jan"
 msgstr "يناير"
@@ -1695,6 +1701,9 @@ msgstr "السبت"
 msgid "Saturday"
 msgstr "السبت"
 
+msgid "Save"
+msgstr "احفظ"
+
 msgid "Save to guide"
 msgstr "احفظ في الدليل"
 
@@ -1720,6 +1729,11 @@ msgstr[5] "حُفظت %(count)s صفحة في الدليل."
 
 msgid "Saved · open it"
 msgstr "حُفظت · افتحها"
+
+msgid ""
+"Saved, but the server is stopping: the new repositories get ready at the "
+"next catch-up."
+msgstr "تم الحفظ، لكن الخادم يتوقف: ستُجهَّز المستودعات الجديدة في اللحاق التالي."
 
 msgid "Saved. There's no new repository to get ready."
 msgstr "تم الحفظ. لا يوجد مستودع جديد لتجهيزه."

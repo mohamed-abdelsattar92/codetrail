@@ -105,6 +105,8 @@ def team_router(
             return JSONResponse(read())
         except Refused as refusal:
             return JSONResponse({"error": str(refusal)}, refusal.status)
+        except CodetrailError as error:  # the team's settings don't load, say: the screen shows why
+            return JSONResponse({"error": str(error)}, 500)
 
     def team_repositories(service: Service, source: str) -> dict[str, tuple[str, str]]:
         """The team's targets in that source, by the service's id: each one's repository name and branch."""
@@ -131,13 +133,14 @@ def team_router(
             sources: list[dict[str, object]] = []
             for service, adapter in services.items():
                 status = adapter.status()
-                statuses.append(asdict(status))
-                if not status.signed_in:
-                    continue
-                try:  # Azure DevOps lists the named organization's projects; the others ignore it
-                    sources.extend(asdict(found) for found in adapter.sources(organization))
-                except CodetrailError as error:
-                    logger.warning("Couldn't list the %s sources: %s", service, error)
+                failed = False
+                if status.signed_in:
+                    try:  # Azure DevOps lists the named organization's projects; the others ignore it
+                        sources.extend(asdict(found) for found in adapter.sources(organization))
+                    except CodetrailError as error:
+                        logger.warning("Couldn't list the %s sources: %s", service, error)
+                        failed = True
+                statuses.append({**asdict(status), "sources_failed": failed})
             return {"services": statuses, "sources": sources}
 
         return answer(read)
@@ -225,18 +228,27 @@ def team_router(
                 if branch not in found:
                     raise Refused(_("A chosen branch isn't in its repository."))
             branches[identifier] = branch
+        # The screen shows the usable listed repositories and the team's targets; a repository left out earlier that
+        # it didn't show (disabled, empty, or no longer listed) stays left out.
+        shown = {identifier for identifier, repository in repositories.items()
+                 if not repository.disabled and repository.default_branch is not None} | set(targets)  # fmt: skip
+        earlier = next((entry.left_out for entry in load_team(paths, name).sources
+                        if (entry.service, entry.source) == (selection.service, source)), [])  # fmt: skip
+        left_out = list(dict.fromkeys([*selection.left_out, *(found for found in earlier if found not in shown)]))
         team_source = TeamSource(
             service=selection.service, source=source, follow=selection.follow, clone_over=selection.clone_over,
-            left_out=selection.left_out, chosen=selection.chosen,
+            left_out=left_out, chosen=selection.chosen,
         )  # fmt: skip
         return team_source, branches
 
     @router.post("/team/repositories")
     def save_repositories(selection: SourceSelection) -> Response:
         # One save at a time, and none while the last one's repositories are still being refreshed.
-        if refresh.running or not saving.acquire(blocking=False):
-            return JSONResponse({"error": _("The repositories added last are still being refreshed.")}, 409)
+        if not saving.acquire(blocking=False):
+            return JSONResponse({"error": _("Another save is in progress.")}, 409)
         try:
+            if refresh.running:
+                return JSONResponse({"error": _("The repositories added last are still being refreshed.")}, 409)
             team_source, branches = checked(selection)
             save_selection(paths, name, team_source)
             result = sync_team(paths, name, services, datetime.now(UTC), branches=branches)
@@ -326,9 +338,14 @@ def labels(language: Language) -> dict[str, object]:
         "gone": t.gettext("No longer in the source"),
         "branchOf": t.gettext("Branch of %(name)s") % {"name": "{name}"},
         "noMatch": t.gettext("No repository matches."),
+        "save": t.gettext("Save"),
         "saving": t.gettext("Saving…"),
         "saveFailed": t.gettext("Couldn't save the selection."),
         "nothingNew": t.gettext("Saved. There's no new repository to get ready."),
+        "notStarted": t.gettext(
+            "Saved, but the server is stopping: the new repositories get ready at the next catch-up."
+        ),
+        "sourcesFailed": t.gettext("Its sources couldn't be listed just now."),
         "running": t.gettext("Getting the new repositories ready (free)…"),
         "finished": t.gettext("Done. Their first guides wait for the next catch-up's estimate."),
         "started": t.gettext("Cloning %(target)s and reading its facts…") % {"target": "{target}"},

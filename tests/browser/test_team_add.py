@@ -17,7 +17,17 @@ import pytest
 import uvicorn
 from playwright.sync_api import Page, expect
 
-from codetrail.config import GlobalConfig, Paths, TeamSource, load_target, load_team
+from codetrail.config import (
+    GlobalConfig,
+    Paths,
+    RemoteSettings,
+    TeamSource,
+    load_target,
+    load_team,
+    write_remote_target,
+)
+from codetrail.hosting import HostingError, HostingService, Source
+from codetrail.hosting.names import Service
 from codetrail.team.server import create_team_app
 from codetrail.team.settings import existing_target_names, save_selection, write_team
 from codetrail.update import run_update
@@ -29,6 +39,7 @@ from tests.fixtures.remote import allow_http_remotes, serving_repository, write_
 from tests.fixtures.repos import git, make_repository
 
 pytestmark = pytest.mark.browser
+NOTHING_NEW = "Saved. There's no new repository to get ready."
 FINISHED = "Done. Their first guides wait for the next catch-up's estimate."
 REFRESH_SECONDS = 60_000  # a first refresh clones and reads the facts
 
@@ -39,6 +50,7 @@ class TeamSite:
     session: SessionState
     paths: Paths
     repository_url: str
+    services: dict[Service, HostingService]
 
     def sign_in(self, page: Page, path: str = "/team/add") -> None:
         page.goto(f"{self.url}/login?code={self.session.issue_login_code()}&next={path}")
@@ -75,7 +87,7 @@ def team_site(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TeamS
                 break
             time.sleep(0.02)
         assert server.started and thread.is_alive(), "The test server didn't start."  # nothing goes to another one
-        yield TeamSite(f"http://127.0.0.1:{port}", session, paths, repository_url)
+        yield TeamSite(f"http://127.0.0.1:{port}", session, paths, repository_url, services)
         server.should_exit = True
         thread.join(30)
 
@@ -192,3 +204,52 @@ def test_a_mounted_guide_s_links_and_questions_go_under_its_prefix(page: Page, t
     with page.expect_request("**/bridge/questions") as asked:
         page.locator("[data-ask-form] button[type=submit]").click()
     assert urlsplit(asked.value.url).path == "/repos/acme-web-shop/bridge/questions"
+
+
+def test_a_revisit_counts_only_new_repositories(page: Page, team_site: TeamSite, errors: list[str]) -> None:
+    save_selection(team_site.paths, "acme", TeamSource(service="github", source="acme-org"))
+    write_served_target(team_site.paths, "acme-web-shop", team_site.repository_url)  # followed already
+    gone = RemoteSettings(service="github", source="acme-org", id="R_7", name="legacy", url=team_site.repository_url)
+    write_remote_target(team_site.paths, "acme-legacy", gone, "develop", "acme")  # no longer listed
+    team_site.sign_in(page)
+    choose_the_source(page)
+    expect(page.locator("[data-rows] > li")).to_have_count(3)
+    expect(page.locator("[data-repository='R_7']")).to_contain_text("No longer in the source")
+    expect(page.locator("[data-save]")).to_have_text("Add 1 repository")  # payments-api; web-shop is followed
+
+    page.get_by_label("payments-api", exact=True).uncheck()
+    expect(page.locator("[data-save]")).to_have_text("Save")
+    page.get_by_label("legacy", exact=True).uncheck()
+    page.locator("[data-save]").click()
+
+    expect(page.locator("[data-refresh-state]")).to_have_text(NOTHING_NEW)
+    assert load_team(team_site.paths, "acme").sources[0].left_out == ["R_2", "R_7"]
+    assert errors == []
+
+
+def test_a_source_listing_that_fails_says_so(
+    page: Page, team_site: TeamSite, monkeypatch: pytest.MonkeyPatch, errors: list[str]
+) -> None:
+    def failing(organization: str | None = None) -> list[Source]:
+        raise HostingError("gh couldn't list the organizations.")
+
+    monkeypatch.setattr(team_site.services["github"], "sources", failing)
+    team_site.sign_in(page)
+
+    expect(page.locator("[data-services] li").first).to_contain_text("Its sources couldn't be listed just now.")
+    expect(page.locator("[data-source-state]")).to_have_text("Couldn't list them just now.")
+    assert errors == []
+
+
+def test_a_save_while_the_server_stops_says_so(
+    page: Page, team_site: TeamSite, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("codetrail.team.refresh.TeamRefreshJob.start", lambda job, targets: False)
+    team_site.sign_in(page)
+    choose_the_source(page)
+
+    page.locator("[data-save]").click()
+
+    expect(page.locator("[data-refresh-state]")).to_have_text(
+        "Saved, but the server is stopping: the new repositories get ready at the next catch-up."
+    )

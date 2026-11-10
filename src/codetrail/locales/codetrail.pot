@@ -393,6 +393,9 @@ msgstr ""
 msgid "Another question is still being answered."
 msgstr ""
 
+msgid "Another save is in progress."
+msgstr ""
+
 #, python-format
 msgid "Answers are limited to %(count)s characters."
 msgstr ""
@@ -937,6 +940,9 @@ msgstr ""
 msgid "Infrastructure"
 msgstr ""
 
+msgid "Its sources couldn't be listed just now."
+msgstr ""
+
 msgctxt "month"
 msgid "Jan"
 msgstr ""
@@ -1427,6 +1433,9 @@ msgstr ""
 msgid "Saturday"
 msgstr ""
 
+msgid "Save"
+msgstr ""
+
 msgid "Save to guide"
 msgstr ""
 
@@ -1447,6 +1456,11 @@ msgstr[0] ""
 msgstr[1] ""
 
 msgid "Saved · open it"
+msgstr ""
+
+msgid ""
+"Saved, but the server is stopping: the new repositories get ready at the "
+"next catch-up."
 msgstr ""
 
 msgid "Saved. There's no new repository to get ready."

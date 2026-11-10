@@ -25,7 +25,11 @@ export async function getJSON(url, options = {}) {
     cache: "no-store",
     signal: options.signal,
   });
-  if (!response.ok) throw new Error(`${response.status}`);
+  if (!response.ok) {
+    const error = new Error(`${response.status}`);
+    error.body = await response.json().catch(() => null); // a JSON refusal's message, for the script to show
+    throw error;
+  }
   return response.json();
 }
 

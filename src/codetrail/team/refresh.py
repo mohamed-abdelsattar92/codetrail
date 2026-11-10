@@ -73,7 +73,7 @@ class TeamRefreshJob:
         self._report({"step": "started", "target": target})
         try:
             run_update(self._paths, target, facts_only=True)
-        except CodetrailError as error:  # its messages are Codetrail's own, never git's
+        except CodetrailError as error:  # its message, as the page's update shows it (it may quote git's)
             self._report({"step": "failed", "target": target, "message": str(error)})
         except Exception as error:  # one repository mustn't stop the others; details stay out of the screen
             logger.warning("Couldn't refresh target %r: %s", target, type(error).__name__)

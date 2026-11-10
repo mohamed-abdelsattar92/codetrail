@@ -13,13 +13,14 @@ from fastapi.testclient import TestClient
 
 from codetrail.config import Paths, RemoteSettings, TeamSource, load_target, load_team, write_remote_target
 from codetrail.errors import CodetrailError
-from codetrail.hosting import HostedRepository, HostingService, HostingStatus, Source
+from codetrail.hosting import HostedRepository, HostingError, HostingService, HostingStatus, Source
 from codetrail.hosting.fake import FakeHosting
 from codetrail.hosting.names import Service
 from codetrail.remove import remove_target
 from codetrail.team.refresh import TeamRefreshJob
 from codetrail.team.server import create_team_app
 from codetrail.team.settings import existing_target_names, save_selection, write_team
+from codetrail.team.sync import TeamSync
 from codetrail.web.security import TOKEN_HEADER, SessionState
 from tests.api.test_team_server import ORIGIN, SETTINGS, Team, add_target
 from tests.fixtures.remote import allow_http_remotes, serving_repository
@@ -119,10 +120,12 @@ def test_sources_list_each_service_status_and_fix(team: Team, client: TestClient
     listed = client.get("/team/hosting/sources").json()
 
     assert listed["services"] == [
-        {"service": "github", "installed": True, "signed_in": True, "account": "reader", "fix": None},
+        {"service": "github", "installed": True, "signed_in": True, "account": "reader", "fix": None,
+         "sources_failed": False},
         {"service": "azure_devops", "installed": False, "signed_in": False, "account": None,
-         "fix": "brew install azure-cli"},
-        {"service": "gitlab", "installed": True, "signed_in": False, "account": None, "fix": "glab auth login"},
+         "fix": "brew install azure-cli", "sources_failed": False},
+        {"service": "gitlab", "installed": True, "signed_in": False, "account": None, "fix": "glab auth login",
+         "sources_failed": False},
     ]  # fmt: skip
     assert listed["sources"] == [{"service": "github", "name": "acme-org", "repository_count": None}]
     assert ("sources", "") in calls(team, "github")
@@ -325,3 +328,74 @@ def test_stopping_the_server_lets_no_further_refresh_start(team: Team, monkeypat
 
     assert refreshed == ["acme-a"]
     assert not job.start(["acme-d"])  # stopped for good
+
+
+def test_a_source_listing_that_fails_is_reported_per_service(
+    team: Team, client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def failing(organization: str | None = None) -> list[Source]:
+        raise HostingError("gh couldn't list the organizations.")
+
+    monkeypatch.setattr(team.services["github"], "sources", failing)
+
+    listed = client.get("/team/hosting/sources").json()
+
+    assert [status["sources_failed"] for status in listed["services"]] == [True, False, False]
+    assert listed["sources"] == []
+
+
+def test_a_settings_error_comes_back_as_a_message(team: Team, client: TestClient) -> None:
+    team.paths.team_file("acme").write_text("sources = 'not a list'\n")
+
+    response = client.get("/team/hosting/repositories", params={"service": "github", "source": "acme-org"})
+
+    assert response.status_code == 500
+    assert "acme.toml" in response.json()["error"]
+
+
+def test_earlier_left_out_ids_the_screen_does_not_show_are_kept(team: Team, client: TestClient) -> None:
+    frozen = dataclasses.replace(hosted(team.url, "R_3"), id="R_8", name="frozen", disabled=True)
+    service = team.services["github"]
+    assert isinstance(service, FakeHosting)
+    service._repositories["acme-org"].append(frozen)  # disabled: never shown, never followed
+    save_selection(team.paths, "acme", TeamSource(service="github", source="acme-org", left_out=["R_1", "R_8", "R_9"]))
+
+    saved = client.post("/team/repositories", json={**SELECTION, "left_out": ["R_2"], "branches": {}})
+
+    assert saved.status_code == 200, saved.text
+    # R_1 was shown and ticked again; R_8 (disabled) and R_9 (no longer listed) weren't on the screen.
+    assert load_team(team.paths, "acme").sources[0].left_out == ["R_2", "R_8", "R_9"]
+    finished(client)
+
+
+def test_a_save_while_another_is_saving_is_refused(
+    team: Team, client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    entered, release = threading.Event(), threading.Event()
+
+    def slow_sync(*arguments: object, **keywords: object) -> TeamSync:
+        entered.set()
+        release.wait(30)
+        return TeamSync()
+
+    monkeypatch.setattr("codetrail.team.routes.sync_team", slow_sync)
+    first = threading.Thread(target=client.post, args=("/team/repositories",), kwargs={"json": SELECTION})
+    first.start()
+    assert entered.wait(10)
+
+    again = client.post("/team/repositories", json=SELECTION)
+
+    release.set()
+    first.join(10)
+    assert again.status_code == 409
+    assert again.json()["error"] == "Another save is in progress."
+
+
+def test_a_save_while_the_server_stops_says_the_refresh_did_not_start(
+    team: Team, client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("codetrail.team.refresh.TeamRefreshJob.start", lambda job, targets: False)
+
+    saved = client.post("/team/repositories", json=SELECTION)
+
+    assert saved.json() == {"added": ["acme-web-shop"], "refresh": False}

@@ -56,11 +56,12 @@ function showServices(services) {
     }
     chip.append(element("span", "", state));
     if (!status.signed_in && status.fix) chip.append(element(status.installed ? "code" : "span", "faint", status.fix));
+    if (status.sources_failed) chip.append(element("span", "faint", labels.text("sourcesFailed")));
     chips.append(chip);
   }
 }
 
-function showSources(found) {
+function showSources(found, failed) {
   sources = found;
   picker.replaceChildren(element("option", "", labels.text("chooseSource")));
   picker.firstChild.value = "";
@@ -77,7 +78,8 @@ function showSources(found) {
     groups.get(source.service).append(option);
   });
   picker.disabled = found.length === 0;
-  sourceState.textContent = found.length === 0 ? labels.text("noSources") : "";
+  if (found.length === 0) sourceState.textContent = labels.text(failed ? "couldNotList" : "noSources");
+  else sourceState.textContent = "";
 }
 
 async function listSources(organization = "") {
@@ -86,9 +88,9 @@ async function listSources(organization = "") {
   try {
     const result = await getJSON(`/team/hosting/sources${query}`);
     showServices(result.services);
-    showSources(result.sources);
-  } catch {
-    sourceState.textContent = labels.text("couldNotList");
+    showSources(result.sources, result.services.some((status) => status.sources_failed));
+  } catch (error) {
+    sourceState.textContent = error.body?.error ?? labels.text("couldNotList");
   }
 }
 
@@ -203,7 +205,10 @@ function showRows() {
 function summarize() {
   const leftOut = current.rows.filter((row) => !row.archived && current.leftOut.has(row.id)).length;
   followLabel.textContent = current.follow && leftOut ? labels.count("leftOut", leftOut) : labels.text("followAll");
-  saveButton.textContent = labels.count("add", current.rows.filter(willFollow).length);
+  // What saving adds: a repository the team follows already isn't added again, so a revisit that only leaves
+  // some out, or flips the switch, just saves.
+  const added = current.rows.filter((row) => willFollow(row) && !row.followed).length;
+  saveButton.textContent = added ? labels.count("add", added) : labels.text("save");
 }
 
 function query() {
@@ -233,8 +238,8 @@ async function chooseSource() {
     saveState.textContent = "";
     list.hidden = false;
     showRows();
-  } catch {
-    sourceState.textContent = labels.text("couldNotList");
+  } catch (error) {
+    sourceState.textContent = error.body?.error ?? labels.text("couldNotList");
   }
 }
 
@@ -309,7 +314,7 @@ async function save() {
       refreshState.textContent = labels.text("running");
       pollRefresh();
     } else {
-      refreshState.textContent = labels.text("nothingNew");
+      refreshState.textContent = labels.text(result.added.length ? "notStarted" : "nothingNew");
     }
     refreshSection.scrollIntoView({ block: "nearest" });
   } catch {
