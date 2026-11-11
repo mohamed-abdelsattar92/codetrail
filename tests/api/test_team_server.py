@@ -24,6 +24,7 @@ from codetrail.config import (
     write_remote_target,
 )
 from codetrail.errors import CodetrailError
+from codetrail.guide import GuideRepository, Page
 from codetrail.hosting import HostingService, HostingStatus, Source
 from codetrail.hosting.fake import FakeHosting
 from codetrail.hosting.names import Service
@@ -45,6 +46,7 @@ from tests.unit.test_team_follow import repository
 
 ORIGIN = "http://127.0.0.1:8765"
 SETTINGS = GlobalConfig(signal=SignalSettings(cache_seconds=0))  # every page reads the signals again
+WRITTEN = Page("concepts/orders", {"kind": "concept", "title": "Orders"}, "How orders flow.")
 TARGETS = {"acme-web-shop": ("R_1", "web-shop"), "acme-payments-api": ("R_2", "payments-api"),
            "acme-inventory": ("R_3", "inventory")}  # fmt: skip
 
@@ -93,6 +95,7 @@ def team(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Team]:
         for target, (identifier, repository_name) in TARGETS.items():
             add_target(team, target, identifier, repository_name)
         run_update(paths, "acme-web-shop", facts_only=True)
+        GuideRepository(paths.target_data("acme-web-shop") / "guide").write_page(WRITTEN)  # its guide has a page
         merge_feature(checkout, "one", {"services/api/orders.py": "y = 2\n"})
         publish(checkout, tmp_path / "served")
         yield team
@@ -510,3 +513,43 @@ def test_the_team_s_language_can_be_switched(team: Team, tmp_path: Path) -> None
 
     assert '<html lang="ar" dir="rtl">' in client.get("/").text
     assert '<html lang="ar" dir="rtl">' in client.get("/team/add").text
+
+
+def test_a_target_with_facts_and_no_guide_says_so(team: Team) -> None:
+    run_update(team.paths, "acme-payments-api", facts_only=True)  # its facts, and no page yet
+    client = client_for(team)
+
+    payments = row(section(client.get("/").text, "repositories-title"), "acme-payments-api")
+
+    assert "No guide yet" in payments and "Up to date" not in payments
+    assert re.search(r'<a class="stat-note" href="/repos/acme-payments-api/">Write its guide</a>', payments)
+    for home in (client.get("/repos/acme-payments-api/").text, unmounted_home(team, "acme-payments-api")):
+        update_card = home[home.index('id="update-title"') : home.index("</section>", home.index('id="update-title"'))]
+        assert "No guide yet" in update_card and "Up to date" not in update_card
+        assert "The guide matches the branch." not in update_card
+
+
+def unmounted_home(team: Team, target: str) -> str:
+    """The target's home as `codetrail serve` shows it, at `/`."""
+    session = SessionState(60)
+    client = TestClient(create_app(team.paths, target, session, SETTINGS), base_url=ORIGIN)
+    assert client.get(f"/login?code={session.issue_login_code()}", follow_redirects=False).status_code == 303
+    page: str = client.get("/").text
+    return page
+
+
+@pytest.mark.parametrize(
+    ("selection", "line"),
+    [
+        (TeamSource(service="github", source="acme-org"), "Every active repository<"),
+        (
+            TeamSource(service="github", source="acme-org", left_out=["R_9", "R_8"]),
+            "Every active repository, 2 left out<",
+        ),
+        (TeamSource(service="github", source="acme-org", follow="chosen", chosen=["R_1"]), "Chosen repositories<"),
+    ],
+)
+def test_each_source_says_how_it_is_followed(team: Team, selection: TeamSource, line: str) -> None:
+    save_selection(team.paths, "acme", selection)
+
+    assert line in client_for(team).get("/").text

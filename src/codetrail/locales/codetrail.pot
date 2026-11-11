@@ -282,6 +282,12 @@ msgstr ""
 msgid "%(size)s MB"
 msgstr ""
 
+#, python-format
+msgid ", %(count)s left out"
+msgid_plural ", %(count)s left out"
+msgstr[0] ""
+msgstr[1] ""
+
 msgid ", drawn from the code"
 msgstr ""
 
@@ -1108,6 +1114,9 @@ msgstr ""
 msgid "No file in it changed in the commits read."
 msgstr ""
 
+msgid "No guide yet"
+msgstr ""
+
 msgid "No longer in the source"
 msgstr ""
 
@@ -1873,6 +1882,9 @@ msgid ""
 "from it."
 msgstr ""
 
+msgid "Update the guide to write it; you'll see the estimate first."
+msgstr ""
+
 msgid "Update the guide…"
 msgstr ""
 
@@ -1967,6 +1979,9 @@ msgid "Without a why"
 msgstr ""
 
 msgid "Worth a look"
+msgstr ""
+
+msgid "Write its guide"
 msgstr ""
 
 msgid "Writing the digest…"

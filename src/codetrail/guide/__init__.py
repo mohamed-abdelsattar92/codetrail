@@ -8,6 +8,7 @@ if anything fails, the uncommitted changes are discarded (design section 6.8). F
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -38,6 +39,14 @@ class Page:
     @property
     def title(self) -> str:
         return str(self.meta.get("title", self.id))
+
+
+GUIDE_KINDS = ("area", "concept")  # the pages that teach the repository; paths, digests and answers build on them
+
+
+def guide_pages(pages: Iterable[Page]) -> list[Page]:
+    """The pages that teach the repository. A guide with none has no guide yet, whatever its facts say."""
+    return [page for page in pages if page.kind in GUIDE_KINDS]
 
 
 def validate_page_id(page_id: str) -> str:

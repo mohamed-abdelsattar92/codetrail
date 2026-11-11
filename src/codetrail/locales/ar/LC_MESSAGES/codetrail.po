@@ -452,6 +452,16 @@ msgstr "%(size)s KB"
 msgid "%(size)s MB"
 msgstr "%(size)s MB"
 
+#, python-format
+msgid ", %(count)s left out"
+msgid_plural ", %(count)s left out"
+msgstr[0] "، %(count)s مستودع مستبعد"
+msgstr[1] "، مستودع واحد مستبعد: %(count)s"
+msgstr[2] "، مستودعان مستبعدان: %(count)s"
+msgstr[3] "، %(count)s مستودعات مستبعدة"
+msgstr[4] "، %(count)s مستودع مستبعد"
+msgstr[5] "، %(count)s مستودعًا مستبعدًا"
+
 msgid ", drawn from the code"
 msgstr "، مرسومة من الكود"
 
@@ -1327,6 +1337,9 @@ msgstr "لا حقائق بعد"
 msgid "No file in it changed in the commits read."
 msgstr "لم يتغيّر أي ملف فيه في الـ commits المقروءة."
 
+msgid "No guide yet"
+msgstr "لا دليل بعد"
+
 msgid "No longer in the source"
 msgstr "لم يعد في المصدر"
 
@@ -2168,6 +2181,9 @@ msgid ""
 "from it."
 msgstr "حدّث الدليل مرة واحدة: قراءة الكود مجانية، ومنها تأتي الإحصاءات."
 
+msgid "Update the guide to write it; you'll see the estimate first."
+msgstr "حدّث الدليل لكتابته؛ سترى التقدير أولًا."
+
 msgid "Update the guide…"
 msgstr "حدّث الدليل…"
 
@@ -2269,6 +2285,9 @@ msgstr "دون سبب"
 
 msgid "Worth a look"
 msgstr "تستحق نظرة"
+
+msgid "Write its guide"
+msgstr "اكتب دليله"
 
 msgid "Writing the digest…"
 msgstr "يُكتب الملخص…"

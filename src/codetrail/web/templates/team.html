@@ -11,7 +11,7 @@
   <ul class="list">
     {% for source in sources %}
     <li><span class="grow">{{ service_names[source.service] }} · <bdi>{{ source.source }}</bdi></span>
-      <span class="faint">{% if source.follow == "all" %}{{ _("Every active repository") }}{% else %}{{ _("Chosen repositories") }}{% endif %}</span>
+      <span class="faint">{% if source.follow == "all" %}{{ _("Every active repository") }}{% else %}{{ _("Chosen repositories") }}{% endif %}{% if source.left_out %}{% trans count=source.left_out|length %}, {{ count }} left out{% pluralize %}, {{ count }} left out{% endtrans %}{% endif %}</span>
       {% if source.service ~ ":" ~ source.source in unreachable %}<span class="chip">{{ _("couldn't be listed just now") }}</span>{% endif %}</li>
     {% endfor %}
   </ul>
@@ -37,6 +37,9 @@
         <span class="chip">{{ _("Updating") }}</span>
       {% elif row.signal.updated_commit is none %}
         <span class="chip">{{ _("Not updated yet") }}</span>
+      {% elif not row.has_guide %}
+        <span class="chip">{{ _("No guide yet") }}</span>
+        <a class="stat-note" href="/repos/{{ row.target }}/">{{ _("Write its guide") }}</a>
       {% elif row.signal.commits == 0 %}
         <span class="chip chip-ok">{{ _("Up to date") }}</span>
       {% else %}

@@ -30,6 +30,7 @@ from starlette.types import ASGIApp
 
 from codetrail.config import GlobalConfig, Paths, TeamConfig, load_global, load_team
 from codetrail.errors import CodetrailError
+from codetrail.guide import GuideRepository, guide_pages
 from codetrail.hosting import HostingService
 from codetrail.hosting.names import SERVICE_NAMES, Service
 from codetrail.hosting.services import services_for
@@ -59,6 +60,7 @@ class Row:
     signal: Signal | None = None
     reason: str = ""  # why its signal couldn't be read, or why it isn't served
     served: bool = True  # its guide is mounted
+    has_guide: bool = False  # its guide has pages: until then, its signal measures only the facts
 
 
 class TimedCache[Value]:
@@ -184,7 +186,8 @@ def create_team_app(
         if not (paths.target_data(target) / "mirror.git" / "HEAD").exists():
             return Row(target, repository, branch, Signal())  # not updated yet
         signal, reason = signals.get(target, lambda: read_signal(target))
-        return Row(target, repository, branch, signal, reason)
+        written = guide_pages(GuideRepository(paths.target_data(target) / "guide").pages())
+        return Row(target, repository, branch, signal, reason, has_guide=bool(written))
 
     def render(template: str, active: str, **context: Any) -> HTMLResponse:
         """A team page in the guides' shell: its sidebar lists each followed repository the server serves."""
