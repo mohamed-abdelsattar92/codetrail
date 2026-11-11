@@ -18,6 +18,8 @@ from codetrail.assistant import (
     DigestDraft,
     DigestRequest,
     GradeRequest,
+    OverviewDraft,
+    OverviewRequest,
     PageDraft,
     PageRequest,
     PlanDraft,
@@ -25,7 +27,7 @@ from codetrail.assistant import (
     QuestionRequest,
     Verdict,
 )
-from codetrail.config import GlobalConfig, TargetConfig, model_choice
+from codetrail.config import GenerationSettings, GlobalConfig, TargetConfig, model_choice
 
 KINDS: Final = ("plan", "write", "digest", "answer", "grade")
 
@@ -48,6 +50,12 @@ class RoutedAssistant:
 
     async def grade(self, request: GradeRequest) -> Verdict:
         return await self.routes["grade"].grade(request)
+
+    async def write_overview(self, request: OverviewRequest) -> OverviewDraft:
+        route = self.routes.get("overview")
+        if route is None:
+            raise AssistantError("No assistant is set up for the team's overview.")
+        return await route.write_overview(request)
 
 
 def build_assistant(
@@ -84,3 +92,29 @@ def build_assistant(
         else:
             adapters[provider] = LocalAssistant(source_root, models, settings.providers.local, target.generation)
     return RoutedAssistant({kind: adapters[provider] for kind, (provider, _model) in choices.items()})
+
+
+def build_overview_assistant(
+    workspace: Path, settings: GlobalConfig, model: str, environ: Mapping[str, str] = os.environ
+) -> Assistant:
+    """The adapter for a team's overview (design section 24.9): `model` is `[models] overview`, and `workspace` an
+    empty folder the caller made, since the call has no tools and reads nothing."""
+    from codetrail.assistant.claude_code import ClaudeCodeAssistant
+    from codetrail.assistant.local import LocalAssistant
+
+    provider, name = model_choice(model)
+    models, limits = {"overview": name}, GenerationSettings()
+    if provider == "claude_code":
+        return ClaudeCodeAssistant(
+            workspace,
+            models,
+            settings.providers.claude_code,
+            limits,
+            settings.assistant.retry_attempts,
+            (settings.bridge.max_turns, settings.bridge.max_budget_usd),
+            settings.learn.max_budget_usd,
+            environ,
+        )
+    if provider == "local":
+        return LocalAssistant(workspace, models, settings.providers.local, limits)
+    raise AssistantError("The team's overview can't use Codex.")

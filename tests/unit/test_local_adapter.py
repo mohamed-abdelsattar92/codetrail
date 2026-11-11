@@ -8,9 +8,9 @@ from typing import Any
 import httpx
 import pytest
 
-from codetrail.assistant import AssistantError, GradeRequest, PageRequest, QuestionRequest
+from codetrail.assistant import AssistantError, GradeRequest, OverviewRequest, PageRequest, QuestionRequest
 from codetrail.assistant.local import LocalAssistant
-from codetrail.assistant.prompts import FULLWIDTH_AT
+from codetrail.assistant.prompts import FULLWIDTH_AT, OVERVIEW_RULES
 from codetrail.config import GenerationSettings, LocalSettings
 
 PAGE = {"body": "A page.", "checks": [], "brief": "B"}
@@ -110,6 +110,16 @@ async def test_grading_offers_no_tools(source: Path) -> None:
     endpoint = Endpoint([reply(json.dumps({"verdict": "pass", "missed": [], "feedback": "Good."}))])
     verdict = await adapter(source, endpoint).grade(GradeRequest("Why?", [], "Page", "Body", "Because.", "en"))
     assert verdict.verdict == "pass" and "tools" not in endpoint.requests[0]
+
+
+@pytest.mark.anyio
+async def test_overview_offers_no_tools(source: Path) -> None:
+    endpoint = Endpoint([reply(json.dumps({"body": "Across the team."}))])
+    draft = await adapter(source, endpoint).write_overview(OverviewRequest("platform", [], 250))
+    request = endpoint.requests[0]
+    assert "tools" not in request and request["messages"][0]["content"].startswith(OVERVIEW_RULES)
+    assert "read, grep and glob" not in request["messages"][0]["content"]
+    assert draft.body == "Across the team." and draft.cost_usd == 0.0 and draft.usage.provider == "local"
 
 
 @pytest.mark.anyio

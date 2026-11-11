@@ -7,7 +7,7 @@ import httpx
 import pytest
 
 from codetrail.assistant import AssistantError
-from codetrail.assistant.status import provider_status, require_ready
+from codetrail.assistant.status import provider_status, require_provider_ready, require_ready
 from codetrail.config import ClaudeCodeSettings, CodexSettings, GlobalConfig, ProvidersSettings, TargetConfig
 from tests.fixtures.programs import make_program
 
@@ -135,3 +135,11 @@ def test_require_ready_checks_only_the_providers_the_calls_use(tmp_path: Path) -
     ]
     with pytest.raises(AssistantError, match="Install Claude Code"):
         require_ready(target, settings(), ENVIRON)
+
+
+def test_require_provider_ready_checks_one_provider(tmp_path: Path) -> None:
+    program = make_program(tmp_path, "fake-claude", [json.dumps(SUBSCRIBED)])
+    status = require_provider_ready("claude_code", settings(claude=program.path), ENVIRON)
+    assert status.ready and status.method == "Claude subscription (max)"
+    with pytest.raises(AssistantError, match=r"claude_code isn't ready\. Install Claude Code"):
+        require_provider_ready("claude_code", settings(), ENVIRON)

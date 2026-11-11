@@ -63,12 +63,18 @@ def require_ready(
     kinds: Sequence[str] = ("plan", "write", "digest", "answer", "grade"),
 ) -> list[ProviderStatus]:
     """The status of each provider the given kinds of call use; raises with the fix when one isn't ready."""
-    providers = list(dict.fromkeys(model_choice(getattr(target.models, kind))[0] for kind in kinds))
-    statuses = [provider_status(provider, settings, environ) for provider in providers]
-    for status in statuses:
-        if not status.ready:
-            raise AssistantError(f"{status.provider} isn't ready. {status.fix}")
-    return statuses
+    providers = dict.fromkeys(model_choice(getattr(target.models, kind))[0] for kind in kinds)
+    return [require_provider_ready(provider, settings, environ) for provider in providers]
+
+
+def require_provider_ready(
+    provider: str, settings: GlobalConfig, environ: Mapping[str, str] = os.environ
+) -> ProviderStatus:
+    """The provider's status; raises with the fix when it isn't ready."""
+    status = provider_status(provider, settings, environ)
+    if not status.ready:
+        raise AssistantError(f"{status.provider} isn't ready. {status.fix}")
+    return status
 
 
 def _claude_code(settings: GlobalConfig, environ: Mapping[str, str]) -> ProviderStatus:

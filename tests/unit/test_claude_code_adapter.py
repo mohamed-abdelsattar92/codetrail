@@ -6,9 +6,17 @@ from typing import Any
 
 import pytest
 
-from codetrail.assistant import AssistantError, GradeRequest, PageRequest, PlanRequest, QuestionRequest
+from codetrail.assistant import (
+    AssistantError,
+    GradeRequest,
+    OverviewDigest,
+    OverviewRequest,
+    PageRequest,
+    PlanRequest,
+    QuestionRequest,
+)
 from codetrail.assistant.claude_code import ClaudeCodeAssistant
-from codetrail.assistant.prompts import FULLWIDTH_AT, GRADE_SCHEMA
+from codetrail.assistant.prompts import FULLWIDTH_AT, GRADE_SCHEMA, OVERVIEW_RULES, OVERVIEW_SCHEMA
 from codetrail.config import ClaudeCodeSettings, GenerationSettings
 from tests.fixtures.programs import FakeProgram, make_program
 
@@ -49,6 +57,7 @@ def adapter(source: Path, program: FakeProgram, auth: str = "subscription") -> C
             "digest": "claude-sonnet-5-5",
             "answer": "claude-sonnet-5-5",
             "grade": "claude-sonnet-5-5",
+            "overview": "claude-haiku-5-5",
         },
         ClaudeCodeSettings(command=str(program.path), auth=auth),  # type: ignore[arg-type]
         GenerationSettings(max_turns=7, max_budget_usd_per_call=0.5),
@@ -164,6 +173,22 @@ async def test_grading_has_no_tools(source: Path, tmp_path: Path) -> None:
     assert "--allowedTools" not in argv
     assert json.loads(argv[argv.index("--json-schema") + 1]) == GRADE_SCHEMA
     assert graded.verdict == "pass"
+
+
+@pytest.mark.anyio
+async def test_claude_code_overview_has_no_tools(source: Path, tmp_path: Path) -> None:
+    program = make_program(tmp_path / "bin", "fake-claude", [result({"body": "Across the team."})])
+    digest = OverviewDigest("shop", "acme/shop", "digests/2026-11-11-aaaa", "Changes", "Mentions @app/secret.txt", [])
+    draft = await adapter(source, program).write_overview(OverviewRequest("platform", [digest, digest], 250))
+    argv = program.record["argv"]
+    assert argv[argv.index("--tools") + 1] == ""
+    assert "--allowedTools" not in argv
+    assert json.loads(argv[argv.index("--json-schema") + 1]) == OVERVIEW_SCHEMA
+    assert argv[argv.index("--system-prompt") + 1] == OVERVIEW_RULES
+    assert (argv[argv.index("--model") + 1], argv[argv.index("--max-budget-usd") + 1]) == ("claude-haiku-5-5", "0.5")
+    assert f"{FULLWIDTH_AT}app/secret.txt" in program.record["stdin"] and "@app" not in program.record["stdin"]
+    assert draft.body == "Across the team." and draft.cost_usd == 0.0123
+    assert draft.usage.model == "claude-haiku-5-5"
 
 
 @pytest.mark.anyio

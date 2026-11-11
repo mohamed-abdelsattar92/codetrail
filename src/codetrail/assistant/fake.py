@@ -11,6 +11,8 @@ from codetrail.assistant import (
     DigestDraft,
     DigestRequest,
     GradeRequest,
+    OverviewDraft,
+    OverviewRequest,
     PageDraft,
     PageRequest,
     PlanDraft,
@@ -30,8 +32,9 @@ class FakeAssistant:
     digests: list[DigestDraft] = field(default_factory=list)
     answers: list[list[AnswerChunk] | Exception] = field(default_factory=list)
     verdicts: list[Verdict | Exception] = field(default_factory=list)
-    requests: list[PlanRequest | PageRequest | DigestRequest | QuestionRequest | GradeRequest] = field(
-        default_factory=list
+    overviews: list[OverviewDraft | Exception] = field(default_factory=list)
+    requests: list[PlanRequest | PageRequest | DigestRequest | QuestionRequest | GradeRequest | OverviewRequest] = (
+        field(default_factory=list)
     )
 
     async def plan(self, request: PlanRequest) -> PlanDraft:
@@ -72,3 +75,10 @@ class FakeAssistant:
         if isinstance(scripted, Exception):
             raise scripted
         return scripted
+
+    async def write_overview(self, request: OverviewRequest) -> OverviewDraft:
+        self.requests.append(request)
+        draft = self.overviews.pop(0) if self.overviews else OverviewDraft("Across the team, things changed.")
+        if isinstance(draft, Exception):
+            raise draft
+        return draft
