@@ -181,3 +181,13 @@ async def test_a_revision_returns_its_sections(source: Path) -> None:
     endpoint = Endpoint([reply(json.dumps(sections))])
     request = replace(page_request(), current_body="## A\n\nOld.", changes=["added module module:app/b.py"])
     assert (await adapter(source, endpoint).write_page(request)).sections == [{"heading": "## A", "body": "New."}]
+
+
+@pytest.mark.anyio
+async def test_a_digest_returns_its_highlights(source: Path) -> None:
+    from codetrail.assistant import DigestRequest
+
+    digest = {"title": "T", "body": "B", "highlights": ["One.", "Two."]}
+    endpoint = Endpoint([reply(json.dumps(digest))])
+    draft = await adapter(source, endpoint).write_digest(DigestRequest("shop", "", "", max_highlights=2))
+    assert draft.highlights == ["One.", "Two."]

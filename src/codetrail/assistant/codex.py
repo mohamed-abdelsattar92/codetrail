@@ -106,7 +106,9 @@ class CodexAssistant:
         data, outcome, usage = await self._run(
             "digest", GROUND_RULES + "\n" + PAGE_SYNTAX, digest_prompt(request), DIGEST_SCHEMA
         )
-        return DigestDraft(str(data.get("title", "")), str(data.get("body", "")), outcome.files_read, 0.0, usage)
+        highlights = [str(item) for item in data.get("highlights", [])]
+        title, body = str(data.get("title", "")), str(data.get("body", ""))
+        return DigestDraft(title, body, highlights, outcome.files_read, 0.0, usage)
 
     async def grade(self, request: GradeRequest) -> Verdict:
         data, _outcome, usage = await self._run("grade", GRADE_RULES, grade_prompt(request), GRADE_SCHEMA)

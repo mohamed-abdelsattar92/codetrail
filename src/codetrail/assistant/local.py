@@ -96,7 +96,10 @@ class LocalAssistant:
         data, result = await self._structured(
             "digest", GROUND_RULES + "\n" + PAGE_SYNTAX, digest_prompt(request), DIGEST_SCHEMA
         )
-        return DigestDraft(str(data.get("title", "")), str(data.get("body", "")), result.files_read, 0.0, result.usage)
+        highlights = [str(item) for item in data.get("highlights", [])]
+        return DigestDraft(
+            str(data.get("title", "")), str(data.get("body", "")), highlights, result.files_read, 0.0, result.usage
+        )
 
     async def grade(self, request: GradeRequest) -> Verdict:
         data, result = await self._structured("grade", GRADE_RULES, grade_prompt(request), GRADE_SCHEMA, tools=False)

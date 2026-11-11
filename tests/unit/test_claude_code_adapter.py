@@ -217,6 +217,18 @@ def test_the_program_must_resolve_to_an_absolute_path(source: Path) -> None:
 
 
 @pytest.mark.anyio
+async def test_a_digest_returns_its_highlights(source: Path, tmp_path: Path) -> None:
+    from codetrail.assistant import DigestRequest
+
+    digest = {"title": "T", "body": "B", "highlights": ["One.", "Two."]}
+    program = make_program(tmp_path / "bin", "fake-claude", [result(digest)])
+    draft = await adapter(source, program).write_digest(DigestRequest("shop", "", "", max_highlights=2))
+    assert draft.highlights == ["One.", "Two."]
+    argv = program.record["argv"]
+    assert json.loads(argv[argv.index("--json-schema") + 1])["required"] == ["title", "body", "highlights"]
+
+
+@pytest.mark.anyio
 async def test_a_revision_asks_for_sections_and_returns_them(source: Path, tmp_path: Path) -> None:
     from dataclasses import replace
 

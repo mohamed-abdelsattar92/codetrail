@@ -5,12 +5,12 @@ from pathlib import Path
 
 import pytest
 
-from codetrail.assistant import AssistantError, PageDraft, PageRequest, PlanDraft, PlanRequest, Usage
+from codetrail.assistant import AssistantError, DigestDraft, PageDraft, PageRequest, PlanDraft, PlanRequest, Usage
 from codetrail.assistant.fake import FakeAssistant
 from codetrail.config import Paths, write_target
 from codetrail.database import connect
 from codetrail.errors import CodetrailError
-from codetrail.guide import GuideRepository
+from codetrail.guide import GuideRepository, Page
 from codetrail.update import run_update
 from tests.fixtures.repos import Commit, add_commit, make_repository
 
@@ -277,3 +277,22 @@ def test_a_page_without_a_brief_is_retried_with_the_problem(paths: Paths) -> Non
     retry = [item for item in claude.requests if isinstance(item, PageRequest) and item.page_id == "areas/api"][1]
     assert "The brief is missing." in retry.problems
     assert retry.brief_words == 300
+
+
+def update_with_digest(paths: Paths, tmp_path: Path, digest: DigestDraft) -> Page | None:
+    run_update(paths, "t", claude=FakeAssistant(plans=[PLAN], page_writer=good_page))
+    add_commit(tmp_path / "target", {"services/api/app/routes.py": "x = 1\n"}, "feat(api): routes\n\nWhy: need")
+    generation = run_update(paths, "t", claude=FakeAssistant(page_writer=good_page, digests=[digest])).generation
+    assert generation is not None and generation.digest is not None
+    return guide(paths).read_page(generation.digest)
+
+
+def test_digest_stores_highlights(paths: Paths, tmp_path: Path) -> None:
+    page = update_with_digest(paths, tmp_path, DigestDraft("Routes", "Routes added.", highlights=["One.", "Two."]))
+    assert page is not None and page.title == "Routes" and page.meta["highlights"] == ["One.", "Two."]
+
+
+def test_digest_with_bad_highlights_falls_back(paths: Paths, tmp_path: Path) -> None:
+    draft = DigestDraft("Routes", "Routes added.", highlights=[f"Item {number}." for number in range(5)])
+    page = update_with_digest(paths, tmp_path, draft)  # the default maximum is three
+    assert page is not None and "commits since the last update" in page.title and "highlights" not in page.meta

@@ -52,7 +52,13 @@ from codetrail.generate.scope import (
     scope_changes,
     scope_hash,
 )
-from codetrail.generate.validate import FLAGGED_PROBLEM, ValidationContext, validate_brief, validate_page
+from codetrail.generate.validate import (
+    FLAGGED_PROBLEM,
+    ValidationContext,
+    validate_brief,
+    validate_highlights,
+    validate_page,
+)
 from codetrail.guide import GuideRepository, Page
 from codetrail.repo.history import Commit, commits_between, recent_commits
 from codetrail.repo.secrets import SecretScanner
@@ -91,6 +97,7 @@ class GenerationContext:
     failed_pages: FailedPages | None = None  # pages that failed validation, skipped until their scope changes
     retry_failed: bool = False  # try them anyway
     revise_max_changes: int = 0  # an affected page with at most this many changes in its scope is revised (6.3)
+    max_highlights: int = 0  # the highlights a digest carries for the team page (24)
     max_brief_words: int = 300  # the brief for coding agents each page carries (23.3)
 
 
@@ -332,15 +339,19 @@ async def _write_digest(
         context.guide.write_page(Page(page_id, meta, body))
         result.digest = page_id
         return
-    request = DigestRequest(context.target, commits_text(commits), fact_changes_text(context.diff), result.written)
+    request = DigestRequest(context.target, commits_text(commits), fact_changes_text(context.diff), result.written,
+                            context.max_highlights)  # fmt: skip
     try:
         if _budget_spent(context, result):
             raise AssistantError("the update's budget is spent")
         draft = await claude.write_digest(request)
         _spend(context, result, "digest", draft)
-        if validate_page(draft.body, None, validation):
+        if validate_page(draft.body, None, validation) or validate_highlights(
+            draft.highlights, context.max_highlights, validation
+        ):
             raise AssistantError("the digest failed validation")
         meta["title"], body = draft.title, draft.body
+        meta["highlights"] = draft.highlights
     except AssistantError:
         meta["title"] = f"{len(commits)} commits since the last update"
         body = "The assistant's digest couldn't be checked, so here are the commits:\n\n" + "\n".join(

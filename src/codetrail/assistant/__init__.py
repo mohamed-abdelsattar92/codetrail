@@ -97,12 +97,14 @@ class DigestRequest:
     commits: str
     fact_changes: str
     pages_changed: list[str] = field(default_factory=list)
+    max_highlights: int = 0
 
 
 @dataclass(frozen=True)
 class DigestDraft:
     title: str
     body: str
+    highlights: list[str] = field(default_factory=list)
     files_read: list[str] = field(default_factory=list)
     cost_usd: float = 0.0
     usage: Usage = field(default_factory=Usage)

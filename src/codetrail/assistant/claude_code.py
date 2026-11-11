@@ -106,7 +106,9 @@ class ClaudeCodeAssistant:
         data, files, usage = await self._run(
             "digest", digest_prompt(request), DIGEST_SCHEMA, GROUND_RULES + "\n" + PAGE_SYNTAX
         )
-        return DigestDraft(str(data.get("title", "")), str(data.get("body", "")), files, _cost(usage), usage)
+        highlights = [str(item) for item in data.get("highlights", [])]
+        title, body = str(data.get("title", "")), str(data.get("body", ""))
+        return DigestDraft(title, body, highlights, files, _cost(usage), usage)
 
     async def grade(self, request: GradeRequest) -> Verdict:
         """Grades with no tools at all: only the check, the rubric, the page and the answer (design section 8.2)."""
