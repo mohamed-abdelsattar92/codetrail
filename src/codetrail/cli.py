@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import signal
 import sys
+import threading
 import unicodedata
 from collections import Counter
 from collections.abc import Callable
@@ -32,7 +33,8 @@ from codetrail.database import connect
 from codetrail.errors import CodetrailError
 from codetrail.facts import FactDiff
 from codetrail.facts.store import FactStore
-from codetrail.lock import target_in_use
+from codetrail.hosting.services import services_for
+from codetrail.lock import target_in_use, team_in_use
 from codetrail.metrics.history import values_before
 from codetrail.metrics.report import Metric, build_report
 from codetrail.metrics.repository import RepositoryReport, build_repository_report
@@ -41,8 +43,10 @@ from codetrail.repo.mirror import check_branch
 from codetrail.repo.refresh import refresh_source
 from codetrail.repo.rules import Reason
 from codetrail.server import serve
+from codetrail.team.catch_up import CatchUpEstimate, describe_catch_up, run_catch_up
 from codetrail.team.server import serve_team
 from codetrail.team.settings import team_names, team_target_names, write_team
+from codetrail.team.sync import TeamSync, sync_team
 from codetrail.update import run_update
 from codetrail.web.documentation import COUNTS, age, build_tiles, percent_of
 
@@ -75,6 +79,11 @@ def build_parser() -> argparse.ArgumentParser:
     team_serve = team_commands.add_parser("serve", help="serve the team's page and every guide it follows on 127.0.0.1")
     team_serve.add_argument("name")
     team_serve.add_argument("--no-browser", action="store_true", help="print the sign-in link without opening it")
+    team_update_command = team_commands.add_parser(
+        "update", help="catch the whole team up: one estimate, one question, then every followed repository"
+    )
+    team_update_command.add_argument("name")
+    team_update_command.add_argument("--yes", action="store_true", help="go ahead without asking")
     team_remove = team_commands.add_parser(
         "remove", help="delete a team and every target it created; nothing on the service is touched"
     )
@@ -207,6 +216,8 @@ def team_command(paths: Paths, arguments: argparse.Namespace) -> int:
         return 0
     if arguments.team_command == "list":
         return list_teams(paths)
+    if arguments.team_command == "update":
+        return team_update(paths, arguments.name, yes=arguments.yes)
     if arguments.team_command == "serve":
         serve_team(paths, arguments.name, open_browser=not arguments.no_browser)
         return 0
@@ -216,6 +227,48 @@ def team_command(paths: Paths, arguments: argparse.Namespace) -> int:
         arguments.yes,
         lambda confirm: remove_team(paths, arguments.name, confirm),
     )
+
+
+def team_update(paths: Paths, name: str, yes: bool = False) -> int:
+    """Catches the team up from the terminal, with the estimate and question of `codetrail update` (design 24.8)."""
+    no_terminal = False
+    stop = threading.Event()
+
+    def confirm(estimate: CatchUpEstimate) -> list[str] | None:
+        nonlocal no_terminal
+        for line in describe_catch_up(estimate):
+            print(printable(line))
+        answer = ask_to_continue(yes)
+        no_terminal = answer is None
+        return [line.target for line in estimate.lines] if answer else None
+
+    def sync() -> TeamSync:
+        try:
+            return sync_team(paths, name, services_for(load_global(paths)), datetime.now(UTC))
+        except CodetrailError as error:
+            print(f"Couldn't list the team's sources: {printable(str(error))}")
+            return TeamSync()
+
+    def progress(event: dict[str, object]) -> None:
+        if "repository" in event:
+            print(f"{printable(str(event['repository']))}: {event['step']}")
+        elif event["step"] == "overview":
+            print("Writing the team overview.")
+
+    with team_in_use(paths, name):
+        result = run_catch_up(paths, name, confirm, progress, stop, sync)
+    for repository, reason in result.failed:
+        print(f"{printable(repository)}: not updated ({printable(reason)})")
+    if result.declined:
+        print("Nothing was spent." if no_terminal else "Nothing was updated.")
+        return 2 if no_terminal else 0
+    if result.overview is None:
+        print("No overview was written.")
+    elif result.overview.overview_id is None:
+        print(f"No overview was written: {printable(result.overview.problem or 'it had a problem')}")
+    else:
+        print(f"Overview written ({result.overview.overview_id}).")
+    return 0
 
 
 def list_teams(paths: Paths) -> int:
@@ -299,6 +352,16 @@ def show_providers(paths: Paths) -> int:
     return 0
 
 
+def ask_to_continue(yes: bool) -> bool | None:
+    """Asks before paid work; None when there's no terminal to ask in (nothing is spent)."""
+    if yes:
+        return True
+    if not sys.stdin.isatty():
+        print("There's no terminal to ask in, so nothing was spent. Run again with --yes to go ahead.")
+        return None
+    return input("Continue? [y/N] ").strip().lower() in ("y", "yes")
+
+
 def update_target(
     paths: Paths, name: str, facts_only: bool = False, yes: bool = False, retry_failed: bool = False
 ) -> int:
@@ -312,13 +375,9 @@ def update_target(
             return True
         for line in describe(estimate):
             print(printable(line) if line.startswith("  ") or line.startswith("Skipped") else line)
-        if yes:
-            return True
-        if not sys.stdin.isatty():
-            no_terminal = True
-            print("There's no terminal to ask in, so nothing was spent. Run again with --yes to go ahead.")
-            return False
-        return input("Continue? [y/N] ").strip().lower() in ("y", "yes")
+        answer = ask_to_continue(yes)
+        no_terminal = answer is None
+        return bool(answer)
 
     result = run_update(paths, name, facts_only=facts_only, confirm=None if facts_only else confirm,
                         retry_failed=retry_failed)  # fmt: skip

@@ -1,14 +1,20 @@
 """The command line exists and reports its version."""
 
 import signal
+from collections.abc import Collection
 from pathlib import Path
+from typing import Any
 
 import pytest
 
 from codetrail import __version__, cli
+from codetrail.assistant.estimate import CallEstimate, EstimateLine, UpdateEstimate
 from codetrail.cli import main, stop_on_signal
 from codetrail.config import Paths, RemoteSettings, TeamSource, write_remote_target
+from codetrail.lock import team_catch_up_lock
+from codetrail.team.catch_up import CatchUpEstimate, CatchUpLine, CatchUpResult
 from codetrail.team.settings import save_selection, write_team
+from codetrail.team.sync import TeamSync
 
 
 def test_version_prints_and_exits_zero(capsys: pytest.CaptureFixture[str]) -> None:
@@ -114,3 +120,103 @@ def test_team_serve_serves_the_team(
     assert main(["team", "serve", "acme", *arguments]) == 0
 
     assert served == [("acme", open_browser)]
+
+
+def fake_estimate() -> CatchUpEstimate:
+    call = CallEstimate("write", "claude_code", "claude-sonnet-5-5", 1000, 0, 0.5, False)
+    update = UpdateEstimate([EstimateLine(call, 1, 1)], {"claude_code": "Claude subscription"}, [], 5.0, 1_000_000)
+    lines = [
+        CatchUpLine("acme-repo-a", "repo-a", update, True, False, False),
+        CatchUpLine("acme-repo-b", "repo-b", update, False, False, False),
+    ]
+    return CatchUpEstimate(lines, None, [("repo-c", "refused")], 20.0, {}, [])
+
+
+def fake_catch_up(monkeypatch: pytest.MonkeyPatch, tmp_path: Path, answers: list[Collection[str] | None]) -> None:
+    """Replaces `run_catch_up` with one that sends two steps, asks once and records the answer."""
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    write_team(Paths.from_environment(), "acme")
+    monkeypatch.setattr("codetrail.cli.sync_team", lambda *arguments: TeamSync())
+
+    def run(paths: Paths, name: str, confirm: Any, progress: Any, stop: Any, sync: Any) -> CatchUpResult:
+        sync()
+        progress({"step": "write", "repository": "repo-a", "target": "acme-repo-a"})
+        answers.append(confirm(fake_estimate()))
+        failed = [("repo-b", "the refresh failed")]
+        return CatchUpResult(fake_estimate(), [], [], failed, None, answers[-1] is None)
+
+    monkeypatch.setattr("codetrail.cli.run_catch_up", run)
+
+
+def test_team_update_asks_once(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    answers: list[Collection[str] | None] = []
+    fake_catch_up(monkeypatch, tmp_path, answers)
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+    prompts: list[str] = []
+
+    def decline(prompt: str) -> str:
+        prompts.append(prompt)
+        return "n"
+
+    monkeypatch.setattr("builtins.input", decline)
+
+    assert main(["team", "update", "acme"]) == 0
+
+    assert answers == [None]
+    output = capsys.readouterr().out
+    assert prompts == ["Continue? [y/N] "]
+    assert "repo-a (first guide): write" in output
+    assert "repo-b: write" in output
+
+
+def test_team_update_yes_ticks_all(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    answers: list[Collection[str] | None] = []
+    fake_catch_up(monkeypatch, tmp_path, answers)
+
+    assert main(["team", "update", "acme", "--yes"]) == 0
+
+    assert answers == [["acme-repo-a", "acme-repo-b"]]  # the first guide too
+    assert "Continue?" not in capsys.readouterr().out
+
+
+def test_team_update_without_a_terminal_spends_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    answers: list[Collection[str] | None] = []
+    fake_catch_up(monkeypatch, tmp_path, answers)
+
+    assert main(["team", "update", "acme"]) == 2
+
+    assert answers == [None]
+    assert "Run again with --yes" in capsys.readouterr().out
+
+
+def test_team_update_prints_steps_with_names_and_the_outcome(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    fake_catch_up(monkeypatch, tmp_path, [])
+
+    assert main(["team", "update", "acme", "--yes"]) == 0
+
+    lines = capsys.readouterr().out.splitlines()
+    assert any(line.startswith("repo-a: write") for line in lines)
+    assert "repo-b: not updated (the refresh failed)" in lines
+    assert "No overview was written." in lines
+
+
+def test_team_update_busy(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "data"))
+    paths = Paths.from_environment()
+    write_team(paths, "acme")
+    monkeypatch.setattr("codetrail.cli.sync_team", lambda *arguments: TeamSync())
+
+    with team_catch_up_lock(paths, "acme"):
+        assert main(["team", "update", "acme", "--yes"]) == 1
+
+    assert "already catching up" in capsys.readouterr().err

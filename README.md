@@ -193,7 +193,7 @@ These screenshots are Codetrail's guide to its own repository, written by Claude
 
 Codetrail never writes to the repository it teaches. It keeps its own mirror, copies out only the files it is allowed to see, extracts facts from them, and has your assistant write the guide from the facts. The facts and the guide also become the map and briefs your coding agent reads.
 
-A team's repositories work the same way. Each one followed from GitHub, Azure DevOps or GitLab is its own target, mirrored over https or ssh with your own git sign-in, and `codetrail team serve` serves them all under one login. Catching up on all of them with one estimate is planned for Phase 22.
+A team's repositories work the same way. Each one followed from GitHub, Azure DevOps or GitLab is its own target, mirrored over https or ssh with your own git sign-in, and `codetrail team serve` serves them all under one login. `codetrail team update <name>` catches all of them up with one estimate and one question; the page's catch-up comes later in Phase 22.
 
 ![How Codetrail works: your checkout is fetched into a mirror, filtered by the exclusions into source/, extracted into codetrail.db; your assistant reads the facts and the allowed files and writes the guide, which the local page shows and sends questions from; the facts and the guide also become agents/, the map and briefs, which codetrail mcp serves to your coding agent](docs/diagrams/how-it-works.svg)
 
