@@ -8,7 +8,14 @@ from typing import Any
 import httpx
 import pytest
 
-from codetrail.assistant import AssistantError, GradeRequest, OverviewRequest, PageRequest, QuestionRequest
+from codetrail.assistant import (
+    AssistantError,
+    GradeRequest,
+    OverviewDigest,
+    OverviewRequest,
+    PageRequest,
+    QuestionRequest,
+)
 from codetrail.assistant.local import LocalAssistant
 from codetrail.assistant.prompts import FULLWIDTH_AT, OVERVIEW_RULES
 from codetrail.config import GenerationSettings, LocalSettings
@@ -115,8 +122,11 @@ async def test_grading_offers_no_tools(source: Path) -> None:
 @pytest.mark.anyio
 async def test_overview_offers_no_tools(source: Path) -> None:
     endpoint = Endpoint([reply(json.dumps({"body": "Across the team."}))])
-    draft = await adapter(source, endpoint).write_overview(OverviewRequest("platform", [], 250))
+    digest = OverviewDigest("shop", "acme/shop", "digests/2026-11-11-aaaa", "Changes", "Mentions @app/x.py", [])
+    draft = await adapter(source, endpoint).write_overview(OverviewRequest("platform", [digest, digest], 250))
     request = endpoint.requests[0]
+    prompt = request["messages"][1]["content"]
+    assert f"{FULLWIDTH_AT}app/x.py" in prompt and "@app" not in prompt
     assert "tools" not in request and request["messages"][0]["content"].startswith(OVERVIEW_RULES)
     assert "read, grep and glob" not in request["messages"][0]["content"]
     assert draft.body == "Across the team." and draft.cost_usd == 0.0 and draft.usage.provider == "local"

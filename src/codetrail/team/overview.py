@@ -21,7 +21,7 @@ from codetrail.generate.run import SharedBudget
 from codetrail.generate.validate import DIAGRAM, FACT_LINK, FLAGGED_PROBLEM, normalize, parse_rationale
 from codetrail.repo.secrets import SecretScanner
 from codetrail.team.state import Overviews
-from codetrail.web.render import MARKDOWN
+from codetrail.web.render import MARKDOWN, body_parts
 
 BUDGET_SPENT = "The team's budget was spent before the overview."
 ATTEMPTS = 2  # the draft and its one retry, as for a page (design section 6.5)
@@ -57,9 +57,14 @@ def validate_overview(
         else:
             cited.append(target)
     links = {digest_link(digest.target, digest.digest_id) for digest in digests}
-    for link in _links(MARKDOWN.parse(body)):
-        if link not in links:
-            problems.append(f"The link to {link} names no digest of this catch-up.")
+    # Parsed piece by piece, as the page renders it: one parse of the whole body would let an unclosed code fence hide
+    # links that the page, which ends the fence at the next rationale block, still renders.
+    for part in body_parts(body):
+        if part.kind == "diagram":
+            continue
+        for link in _links(MARKDOWN.parse(part.text)):
+            if link not in links:
+                problems.append(f"The link to {link} names no digest of this catch-up.")
     for fact in FACT_LINK.findall(body):
         problems.append(f"The fact link [[{fact}]] isn't allowed in an overview.")
     for number, line in enumerate(body.splitlines(), start=1):

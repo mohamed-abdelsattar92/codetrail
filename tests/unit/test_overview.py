@@ -17,6 +17,7 @@ from codetrail.generate.validate import FLAGGED_PROBLEM
 from codetrail.repo.secrets import SecretScanner
 from codetrail.team.overview import OverviewOutcome, validate_overview, write_overview
 from codetrail.team.state import Overviews
+from codetrail.web.render import render_markdown
 from tests.fixtures.repos import fake_github_token
 
 SHOP_BLOCK = '> [!documented] commit:3f9c2e1\n> "Why: the payment calls timed out"'
@@ -98,10 +99,20 @@ def test_validate_overview_documented_block_must_be_copied_from_a_digest(scanner
         ("See [this][ref].\n\n[ref]: https://example.com/ref", "https://example.com/ref"),
         ("See <https://example.com/auto>.", "https://example.com/auto"),
         ("See ![a chart](https://example.com/pixel.png).", "https://example.com/pixel.png"),
+        ("See [this](//evil.example/x).", "//evil.example/x"),  # protocol-relative
+        # An unclosed fence hides the rest from one parse, but the page renders each segment on its own.
+        ("```\n> [!inferred]\n> Both changed.\n\nRead [it](https://evil.example/x).\n", "https://evil.example/x"),
+        ("```\n> [!inferred]\n> Read [it](https://evil.example/y).\n", "https://evil.example/y"),
     ],
 )
 def test_validate_overview_links_only_to_its_digests(body: str, link: str, scanner: SecretScanner) -> None:
     assert check(body, scanner) == ([f"The link to {link} names no digest of this catch-up."], [])
+
+
+def test_validate_overview_raw_html_link_renders_as_text(scanner: SecretScanner) -> None:
+    body = 'See <a href="https://x">this</a>.'
+    assert check(body, scanner) == ([], [])  # raw HTML is off: the page shows it as text
+    assert '<a href="https://x"' not in render_markdown(body)
 
 
 def test_validate_overview_links_to_each_digest(scanner: SecretScanner) -> None:
@@ -136,9 +147,11 @@ def test_overview_prompt_fences_digests() -> None:
         assert digest_link(digest.target, digest.digest_id) in outside
         assert digest.repository in outside
     assert "250 words" in prompt
-    retry = overview_prompt(OverviewRequest("platform", DIGESTS, 250, ["The overview is empty."], "Old draft."))
-    assert "The overview is empty." in retry
-    assert any(text == "Old draft." for _boundary, text in fenced(retry))
+    problem = "The link to https://evil.example/x names no digest of this catch-up."
+    retry = overview_prompt(OverviewRequest("platform", DIGESTS, 250, [problem], "Old draft."))
+    retry_blocks = [text for _boundary, text in fenced(retry)]
+    assert f"- {problem}" in retry_blocks and "Old draft." in retry_blocks
+    assert "evil.example" not in re.sub(r"<<<(data-[0-9a-f]{16})\n.*?\n\1>>>", "", retry, flags=re.DOTALL)
 
 
 def usage(cost: float) -> Usage:
