@@ -10,6 +10,7 @@ from codetrail.assistant.fake import FakeAssistant
 from codetrail.config import Paths, write_target
 from codetrail.database import connect
 from codetrail.errors import CodetrailError
+from codetrail.generate.run import SharedBudget
 from codetrail.guide import GuideRepository, Page
 from codetrail.update import run_update
 from tests.fixtures.repos import Commit, add_commit, make_repository
@@ -166,6 +167,26 @@ def test_the_update_stops_calling_claude_at_its_total_budget(paths: Paths) -> No
     assert generation is not None
     assert len(generation.written) == 2 - len(generation.left_for_later)
     assert generation.left_for_later  # the second page waits for the next update
+
+
+def test_shared_budget_stops_new_calls(paths: Paths, tmp_path: Path) -> None:
+    write_target(paths, "u", make_repository(tmp_path / "other", [FILES]), "develop")
+    shared = SharedBudget(0.01)
+    first = run_update(paths, "t", claude=FakeAssistant(plans=[PLAN], page_writer=good_page), shared_budget=shared)
+    assert first.generation is not None and first.generation.written
+    assert shared.exhausted
+    second = run_update(paths, "u", claude=FakeAssistant(plans=[PLAN], page_writer=good_page), shared_budget=shared)
+    assert second.generation is not None
+    assert second.generation.written == []
+    assert second.generation.left_for_later
+
+
+def test_shared_budget_counts_each_call() -> None:
+    shared = SharedBudget(1.0)
+    shared.add(0.25)
+    shared.add(0.25)
+    assert shared.spent_usd == 0.5
+    assert not shared.exhausted
 
 
 PLAN_WITH_PATHS = PlanDraft(

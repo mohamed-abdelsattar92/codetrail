@@ -10,6 +10,7 @@ page's update panel.
 from __future__ import annotations
 
 import json
+import threading
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
@@ -75,6 +76,28 @@ def no_progress(event: dict[str, object]) -> None:
     """Reports nowhere: the command line prints its summary at the end instead."""
 
 
+class SharedBudget:
+    """A spending limit that several updates, running in threads, count against together (design 24.8)."""
+
+    def __init__(self, limit_usd: float) -> None:
+        self._limit_usd = limit_usd
+        self._spent_usd = 0.0
+        self._lock = threading.Lock()
+
+    def add(self, cost_usd: float) -> None:
+        with self._lock:
+            self._spent_usd += cost_usd
+
+    @property
+    def spent_usd(self) -> float:
+        with self._lock:
+            return self._spent_usd
+
+    @property
+    def exhausted(self) -> bool:
+        return self.spent_usd >= self._limit_usd
+
+
 @dataclass
 class GenerationContext:
     target: str
@@ -97,6 +120,7 @@ class GenerationContext:
     failed_pages: FailedPages | None = None  # pages that failed validation, skipped until their scope changes
     retry_failed: bool = False  # try them anyway
     revise_max_changes: int = 0  # an affected page with at most this many changes in its scope is revised (6.3)
+    shared_budget: SharedBudget | None = None  # a team catch-up's budget, which every update in it counts against
     max_highlights: int = 0  # the highlights a digest carries for the team page (24)
     max_brief_words: int = 300  # the brief for coding agents each page carries (23.3)
 
@@ -215,7 +239,8 @@ async def _outline(context: GenerationContext, claude: Assistant, result: Genera
 
 def _budget_spent(context: GenerationContext, result: GenerationResult) -> bool:
     over_tokens = context.max_tokens is not None and result.tokens >= context.max_tokens
-    return result.cost_usd >= context.max_budget_usd or over_tokens
+    over_shared = context.shared_budget is not None and context.shared_budget.exhausted
+    return result.cost_usd >= context.max_budget_usd or over_tokens or over_shared
 
 
 def _spend(
@@ -228,6 +253,8 @@ def _spend(
     cost = context.usage.record(kind, usage) if context.usage is not None and usage.provider else draft.cost_usd
     tokens = usage.input_tokens + usage.cached_input_tokens + usage.output_tokens
     result.cost_usd += cost
+    if context.shared_budget is not None:
+        context.shared_budget.add(cost)
     result.tokens += tokens
     return {"provider": usage.provider, "model": usage.model, "tokens": tokens, "cost_usd": cost}
 

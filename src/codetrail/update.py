@@ -50,6 +50,7 @@ from codetrail.generate.run import (
     GenerationResult,
     PlannedWork,
     Progress,
+    SharedBudget,
     generate_guide,
     no_progress,
     planned_work,
@@ -184,6 +185,7 @@ def run_update(
     progress: Progress = no_progress,
     stop: threading.Event | None = None,
     retry_failed: bool = False,
+    shared_budget: SharedBudget | None = None,
 ) -> UpdateResult:
     """Refreshes the sources and facts (free), then, unless `facts_only`, estimates the guide's paid work and asks
     `confirm` before doing it (design section 15.4). An update with a real assistant always needs `confirm`.
@@ -253,6 +255,7 @@ def run_update(
                     revise_max_changes=target.generation.revise_max_changes,
                     max_brief_words=settings.agents.max_brief_words,
                     max_highlights=settings.team.highlights_per_digest,
+                    shared_budget=shared_budget,
                 )
                 if confirm is not None:
                     work = planned_work(context)
