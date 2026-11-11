@@ -238,11 +238,11 @@ If your team keeps its repositories on GitHub, Azure DevOps or GitLab, Codetrail
    codetrail team add acme
    ```
 
-   This writes `~/.config/codetrail/teams/acme.toml` and opens the add-repositories screen. Pick a source: a GitHub organization or your own account, an Azure DevOps project, or a GitLab group. For Azure DevOps you type the organization, since `az` can't list them. Each service shows whether its program is installed and signed in, and the command to run if not.
+   This writes `~/.config/codetrail/teams/acme.toml` and opens the add-repositories screen. Pick a source: a GitHub organization or your own account, an Azure DevOps project, or a GitLab group. Once Azure DevOps is installed and signed in, a field appears where you type the organization, since `az` can't list them. Each service shows whether its program is installed and signed in, and if not, where to get it and the command to run.
 
    **Follow the whole source** is on by default. It follows the repositories pushed to in the last 90 days, so an organization of 600 repositories with 40 active ones gets 40. Untick a row to leave that repository out. Turn the switch off to pick repositories by hand. Archived, empty and disabled repositories are never followed. Azure DevOps reports no push time, so a whole Azure DevOps project follows all its enabled, non-empty repositories.
 
-   **Add** then clones each repository, extracts its facts and builds the "you're behind" signal. This costs nothing. No guide is written yet.
+   **Add** then clones each repository, extracts its facts and builds the "you're behind" signal, naming each repository as it goes. This costs nothing. No guide is written yet: open a repository and use **Update the guide** to write its guide, with the estimate first. The list is read again afterwards, so what you added shows as followed.
 
    `codetrail team add` serves the team just as `codetrail team serve` does, and keeps serving it once the screen is done: the team page is at the same address, at `/`. Stop it with Ctrl-C.
 4. **Serve it again later.** For every run after the first:
@@ -251,7 +251,7 @@ If your team keeps its repositories on GitHub, Azure DevOps or GitLab, Codetrail
    codetrail team serve acme
    ```
 
-   The team page lists each repository with its "you're behind" signal, how many merges landed since its guide was updated, and a link to its guide. Each guide opens under `/repos/<name>/`, with all the pages of section 7, and one sign-in covers the team. **Add repositories** on the page opens the screen again. `codetrail serve <name>` still serves one repository at a time.
+   The team page lists each source, with how it's followed and how many repositories are left out, and each repository by its own name with its "you're behind" signal, how many merges landed since its guide was updated, and a link to its guide. A repository whose facts are read but whose guide isn't written yet says **No guide yet**, with a link to its guide's home, where **Update the guide** writes it. The team's pages share the guides' header (the theme switch and the language picker) and sidebar, which lists the team page, **Add repositories** and every followed repository. Each guide opens under `/repos/<name>/`, with all the pages of section 7 and **← Team** at the top of its sidebar, and one sign-in covers the team. `codetrail serve <name>` still serves one repository at a time, and its home page says which team it belongs to and how to serve the team.
 
    `team serve` lists your sources once when it starts, and gives each newly active repository the same free first refresh **Add** does. A page view writes no settings and lists no source: it may start serving a repository another command added, and it fetches each repository that already has a copy to read its signal, but it never clones one. Restart `team serve` to see repositories added or archived on the service.
 5. **Update a guide.** Each repository is a normal target named `acme-<repository>`. Run `codetrail update acme-web-shop` as in section 6, or use **Update the guide** on that repository's pages. The estimate comes first, as always. Catching up on all the repositories at once, with one estimate, arrives in a later version.
