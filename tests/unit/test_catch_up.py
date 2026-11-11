@@ -14,12 +14,15 @@ import pytest
 from codetrail.assistant.estimate import CallEstimate, EstimateLine, UpdateEstimate
 from codetrail.assistant.fake import FakeAssistant
 from codetrail.config import Paths, RemoteSettings, TeamSource, write_remote_target
+from codetrail.database import connect
 from codetrail.errors import CodetrailError
 from codetrail.generate.run import GenerationResult
+from codetrail.guide import GuideRepository, Page
 from codetrail.lock import TeamBusy, team_catch_up_lock
 from codetrail.team import catch_up
 from codetrail.team.catch_up import CatchUpEstimate, CatchUpLine, describe_catch_up, run_catch_up
 from codetrail.team.settings import save_selection, write_team
+from codetrail.team.state import TeamState, team_database
 from codetrail.update import UpdateResult
 
 UNUSED: Any = None  # the manifest, snapshot, diff and extraction, which the coordinator never reads
@@ -38,6 +41,12 @@ def paid(digest: bool = True, cost_usd: float | None = 0.5) -> UpdateEstimate:
 
 
 FREE = UpdateEstimate([], {}, [], 5.0, 1_000_000)
+
+
+def possible() -> UpdateEstimate:
+    """A page or none, and a digest only if commits came in and no page was written: 0 to 1 digests."""
+    lines = [EstimateLine(call("write"), 1, 2), EstimateLine(call("digest"), 0, 1)]
+    return UpdateEstimate(lines, {"claude_code": "Claude subscription"}, [], 5.0, 1_000_000)
 
 
 def team_paths(tmp_path: Path, concurrency: int = 2, budget_usd: float = 20.0) -> Paths:
@@ -61,6 +70,7 @@ class StandIn:
     estimates: dict[str, UpdateEstimate] = field(default_factory=dict)  # by target; a paid estimate otherwise
     failures: dict[str, Exception] = field(default_factory=dict)  # raised before `confirm`
     in_paid_part: Callable[[str], None] = lambda target: None
+    digests: bool = False  # each paid part writes a digest page
     written: list[str] = field(default_factory=list)
     lock: threading.Lock = field(default_factory=threading.Lock)
 
@@ -74,7 +84,13 @@ class StandIn:
         self.in_paid_part(name)
         with self.lock:
             self.written.append(name)
-        return UpdateResult(UNUSED, UNUSED, UNUSED, UNUSED, GenerationResult(), estimate)
+        digest = None
+        if self.digests:
+            digest = f"digests/2026-11-11-{name}"
+            GuideRepository(paths.target_data(name) / "guide").write_page(
+                Page(digest, {"kind": "digest", "title": f"Changes in {name}"}, "Things changed.")
+            )
+        return UpdateResult(UNUSED, UNUSED, UNUSED, UNUSED, GenerationResult(digest=digest), estimate)
 
 
 def install(monkeypatch: pytest.MonkeyPatch, stand_in: StandIn) -> StandIn:
@@ -94,8 +110,13 @@ def asking(
     return confirm
 
 
-def catch_up_of(paths: Paths, confirm: Callable[[CatchUpEstimate], Collection[str] | None], **keywords: Any) -> Any:
-    return run_catch_up(paths, "acme", confirm, overview_writer=FakeAssistant(), **keywords)
+def catch_up_of(
+    paths: Paths,
+    confirm: Callable[[CatchUpEstimate], Collection[str] | None],
+    overview_writer: FakeAssistant | None = None,
+    **keywords: Any,
+) -> Any:
+    return run_catch_up(paths, "acme", confirm, overview_writer=overview_writer or FakeAssistant(), **keywords)
 
 
 def test_one_question_for_every_target(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -290,8 +311,6 @@ def test_stopped_targets_are_left_out(tmp_path: Path, monkeypatch: pytest.Monkey
 
 
 def test_first_guide_is_marked(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from codetrail.guide import GuideRepository, Page
-
     install(monkeypatch, StandIn())
     paths = team_paths(tmp_path)
     guide = GuideRepository(paths.target_data("acme-repo-a") / "guide")
@@ -305,8 +324,9 @@ def test_first_guide_is_marked(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
         "acme-repo-a": False, "acme-repo-b": True, "acme-repo-c": True}  # fmt: skip
 
 
-def line_of(target: str, estimate: UpdateEstimate, digest: bool) -> CatchUpLine:
-    return CatchUpLine(target, target.removeprefix("acme-"), estimate, first_guide=False, digest_expected=digest)
+def line_of(target: str, estimate: UpdateEstimate, digest: bool, possible: bool | None = None) -> CatchUpLine:
+    return CatchUpLine(target, target.removeprefix("acme-"), estimate, first_guide=False, digest_expected=digest,
+                       digest_possible=digest if possible is None else possible)  # fmt: skip
 
 
 def test_totals_overview_only_with_two_digests() -> None:
@@ -348,7 +368,7 @@ def test_totals_without_a_price_have_no_dollars() -> None:
 
 def test_describe_catch_up_names_repositories() -> None:
     estimate = CatchUpEstimate(
-        [CatchUpLine("acme-repo-a", "repo-a", paid(), first_guide=True, digest_expected=True),
+        [CatchUpLine("acme-repo-a", "repo-a", paid(), first_guide=True, digest_expected=True, digest_possible=True),
          line_of("acme-repo-b", paid(), True)],
         call("overview", cost_usd=0.25), [("repo-c", "fetch refused")], 20.0,
         {"claude_code": "Claude subscription"}, [],
@@ -373,6 +393,7 @@ def test_estimate_as_json_has_every_line() -> None:
 
     lines = data["lines"]
     assert isinstance(lines, list) and [line["target"] for line in lines] == ["acme-repo-a", "acme-repo-b"]
+    assert all(line["digest_possible"] is True for line in lines)
     assert data["failed"] == [{"repository": "repo-c", "reason": "fetch refused"}]
     assert data["budget_usd"] == 20.0
     assert isinstance(data["overview"], dict) and data["overview"]["kind"] == "overview"
@@ -386,3 +407,89 @@ def test_one_catch_up_per_team(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) 
         catch_up_of(paths, asking([]))
 
     assert stand_in.written == []
+
+
+def test_totals_count_a_possible_digest_in_the_maximum_only() -> None:
+    overview = call("overview", cost_usd=0.25, tokens=100)
+    estimate = CatchUpEstimate(
+        [line_of("acme-repo-a", possible(), False, possible=True), line_of("acme-repo-b", possible(), False,
+                                                                            possible=True)],
+        overview, [], 100.0, {}, [],
+    )  # fmt: skip
+
+    totals = estimate.totals(["acme-repo-a", "acme-repo-b"])
+
+    assert totals["expected_usd"] == pytest.approx(2 * 0.5)  # neither expects a digest, so no overview expected
+    assert totals["expected_tokens"] == 2 * 1000
+    assert totals["maximum_usd"] == pytest.approx(2 * (1.0 + 0.5) + 0.25)  # both may write one: the overview may run
+    assert totals["maximum_tokens"] == 2 * 3000 + 100
+
+
+def test_totals_cap_expected_at_the_maximum() -> None:
+    lines = [EstimateLine(call("write"), 5, 5)]  # 5 calls of 1000 tokens at $0.50, but its own cap is 3000 tokens
+    estimate = CatchUpEstimate(
+        [line_of("acme-repo-a", UpdateEstimate(lines, {}, [], 5.0, 3000), False)], None, [], 2.0, {}, []
+    )
+
+    totals = estimate.totals(["acme-repo-a"])
+
+    assert totals["maximum_usd"] == 2.0 and totals["expected_usd"] == 2.0  # never ~$2.50 (at most $2.00)
+    assert totals["maximum_tokens"] == 3000 and totals["expected_tokens"] == 3000
+
+
+def test_a_possible_digest_gets_the_overview_line(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    install(monkeypatch, StandIn(estimates=dict.fromkeys(("acme-repo-a", "acme-repo-b", "acme-repo-c"), possible())))
+    seen: list[CatchUpEstimate] = []
+
+    catch_up_of(team_paths(tmp_path), asking(seen))
+
+    [estimate] = seen
+    assert estimate.overview is not None
+    assert all(line.digest_possible and not line.digest_expected for line in estimate.lines)
+
+
+def test_no_overview_in_the_estimate_means_no_overview_call(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    install(monkeypatch, StandIn(estimates=dict.fromkeys(
+        ("acme-repo-a", "acme-repo-b", "acme-repo-c"), paid(digest=False)), digests=True))  # fmt: skip
+    overview_writer = FakeAssistant()
+    seen: list[CatchUpEstimate] = []
+
+    result = catch_up_of(team_paths(tmp_path), asking(seen), overview_writer=overview_writer)
+
+    assert seen[0].overview is None
+    assert overview_writer.requests == [] and result.overview is None  # three digests, but the reader saw no overview
+
+
+def test_no_overview_when_fewer_than_two_ticked_lines_may_digest(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    install(monkeypatch, StandIn(digests=True))
+    overview_writer = FakeAssistant()
+
+    result = catch_up_of(team_paths(tmp_path), asking([], lambda estimate: ["acme-repo-a"]),
+                         overview_writer=overview_writer)  # fmt: skip
+
+    assert overview_writer.requests == [] and result.overview is None
+
+
+def test_the_overview_step_is_reported(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    install(monkeypatch, StandIn(digests=True))
+    steps: list[dict[str, object]] = []
+
+    result = catch_up_of(team_paths(tmp_path), asking([]), progress=steps.append)
+
+    assert result.overview is not None and result.overview.overview_id is not None, result.overview
+    assert steps.index({"step": "overview"}) == len(steps) - 2  # after every target's steps, before the end
+
+
+def test_an_overview_that_raises_still_finishes_the_catch_up(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    install(monkeypatch, StandIn(digests=True))
+    paths = team_paths(tmp_path)
+
+    result = catch_up_of(paths, asking([]), overview_writer=FakeAssistant(overviews=[RuntimeError("/private/path")]))
+
+    assert result.overview is not None and result.overview.overview_id is None
+    problem = result.overview.problem
+    assert problem is not None and "RuntimeError" in problem and "/private/path" not in problem
+    record = TeamState(connect(team_database(paths, "acme"))).last_finished()
+    assert record is not None and record.overview_problem == problem

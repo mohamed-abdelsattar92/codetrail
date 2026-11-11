@@ -48,6 +48,7 @@ from codetrail.update import STOPPED, UpdateResult, run_update, until_stopped
 
 FAILED_UNEXPECTEDLY = "The update failed ({error})."  # an error that isn't Codetrail's own: only its type is shown
 OVERVIEW_STOPPED = "The server stopped, so the overview wasn't written."
+OVERVIEW_FAILED = "The overview couldn't be written ({error})."  # an error that isn't Codetrail's own
 logger = logging.getLogger(__name__)
 
 
@@ -59,7 +60,8 @@ class CatchUpLine:
     repository: str  # the name the service gives it
     estimate: UpdateEstimate
     first_guide: bool  # its guide had no pages before this catch-up
-    digest_expected: bool
+    digest_expected: bool  # its estimate expects a digest
+    digest_possible: bool  # it may write one: a digest also runs when commits came in and no page was written
 
 
 @dataclass(frozen=True)
@@ -75,36 +77,41 @@ class CatchUpEstimate:
     """What the whole catch-up's paid calls are expected to use, and at most, before any starts (design 24.8)."""
 
     lines: list[CatchUpLine]
-    overview: CallEstimate | None  # None when fewer than two lines expect a digest
+    overview: CallEstimate | None  # None when fewer than two lines may write a digest
     failed: list[tuple[str, str]]  # the repository and why, for each target whose free part failed
     budget_usd: float  # catch_up.max_budget_usd
     sign_ins: dict[str, str]
     plan_usage: list[PlanUsageReading]
 
-    def sums(self, ticked: Collection[str]) -> Totals:
-        """The ticked lines' totals, with the overview when at least two of them expect a digest; the dollars at most
-        are capped at the team's budget, where the catch-up stops starting calls."""
-        estimates = [line.estimate for line in self.lines if line.target in ticked]
-        digests = sum(line.digest_expected for line in self.lines if line.target in ticked)
-        overview = self.overview if digests >= 2 else None
-        overview_tokens = overview.tokens if overview is not None else 0
-        overview_costs = [overview.cost_usd] if overview is not None else []
-        maximum_usd = _total([estimate.maximum_usd for estimate in estimates] + overview_costs)
-        return Totals(
-            sum(estimate.expected_tokens for estimate in estimates) + overview_tokens,
-            sum(estimate.maximum_tokens for estimate in estimates) + overview_tokens,
-            _total([estimate.expected_usd for estimate in estimates] + overview_costs),
-            None if maximum_usd is None else min(maximum_usd, self.budget_usd),
-        )
+    def _sums(self, ticked: Collection[str]) -> Totals:
+        """The ticked lines' totals. The overview counts in the maximums when at least two of them may write a
+        digest, and in the expected figures when at least two expect one. The dollars at most are capped at the
+        team's budget, where the catch-up stops starting calls, and nothing expected exceeds its maximum."""
+        lines = [line for line in self.lines if line.target in ticked]
+        estimates = [line.estimate for line in lines]
+        overview = self.overview
+        at_most = [overview] if overview is not None and sum(line.digest_possible for line in lines) >= 2 else []
+        expected = [overview] if overview is not None and sum(line.digest_expected for line in lines) >= 2 else []
+        maximum_tokens = sum(estimate.maximum_tokens for estimate in estimates) + sum(call.tokens for call in at_most)
+        maximum_usd = _total([estimate.maximum_usd for estimate in estimates] + [call.cost_usd for call in at_most])
+        if maximum_usd is not None:
+            maximum_usd = min(maximum_usd, self.budget_usd)
+        expected_usd = _total([estimate.expected_usd for estimate in estimates] + [call.cost_usd for call in expected])
+        if expected_usd is not None and maximum_usd is not None:
+            expected_usd = min(expected_usd, maximum_usd)
+        expected_tokens = sum(estimate.expected_tokens for estimate in estimates)
+        expected_tokens += sum(call.tokens for call in expected)
+        return Totals(min(expected_tokens, maximum_tokens), maximum_tokens, expected_usd, maximum_usd)
 
     def totals(self, ticked: Collection[str]) -> dict[str, float | int | None]:
-        return asdict(self.sums(ticked))
+        return asdict(self._sums(ticked))
 
     def as_json(self) -> dict[str, object]:
         overview = self.overview
         return {
             "lines": [{"target": line.target, "repository": line.repository, "first_guide": line.first_guide,
-                       "digest_expected": line.digest_expected, "estimate": line.estimate.as_json()}
+                       "digest_expected": line.digest_expected, "digest_possible": line.digest_possible,
+                       "estimate": line.estimate.as_json()}
                       for line in self.lines],
             "overview": None if overview is None else {
                 "kind": overview.kind, "provider": overview.provider, "model": overview.model,
@@ -134,7 +141,7 @@ def describe_catch_up(estimate: CatchUpEstimate) -> list[str]:
     if estimate.overview is not None:
         lines.append(f"  The team: {call_text(EstimateLine(estimate.overview, 1, 1))}, once two repositories have "
                      "new digests")  # fmt: skip
-    totals = estimate.sums([line.target for line in estimate.lines])
+    totals = estimate._sums([line.target for line in estimate.lines])
     expected, maximum = totals.expected_usd, totals.maximum_usd
     money = "" if expected is None or maximum is None else f", ~${expected:.2f} (at most ${maximum:.2f})"
     lines.append(f"Expected: ~{tokens_text(totals.expected_tokens)} tokens (at most "
@@ -234,8 +241,9 @@ class _Coordinator:
             self.free_slots.release()
             holds_free_slot = False
             first_guide = not GuideRepository(self.paths.target_data(target.name) / "guide").has_guide_pages()
-            digest_expected = any(line.call.kind == "digest" and line.expected for line in estimate.lines)
-            line = CatchUpLine(target.name, target.repository, estimate, first_guide, digest_expected)
+            digest = [line for line in estimate.lines if line.call.kind == "digest"]
+            line = CatchUpLine(target.name, target.repository, estimate, first_guide,
+                               any(line.expected for line in digest), any(line.maximum for line in digest))  # fmt: skip
             self.report(target, line if estimate.lines else None, None)
             if not estimate.lines:  # nothing paid: nothing to ask
                 return True
@@ -255,7 +263,7 @@ class _Coordinator:
         except CodetrailError as error:  # its messages are Codetrail's own
             target.failure = str(error)
         except Exception as error:  # one repository mustn't stop the others; details stay in the log
-            logger.warning("Target %r's update failed: %s", target.name, type(error).__name__)
+            logger.warning("Target %r's update failed: %s", target.name, type(error).__name__, exc_info=True)
             target.failure = FAILED_UNEXPECTEDLY.format(error=type(error).__name__)
         finally:
             if holds_free_slot:
@@ -274,6 +282,14 @@ def _ticked(answer: Collection[str] | None, estimate: CatchUpEstimate, stop: thr
     if len(set(chosen)) != len(chosen) or not set(chosen) <= {line.target for line in estimate.lines}:
         return None
     return set(chosen)
+
+
+def _overview_confirmed(estimate: CatchUpEstimate | None, ticked: set[str] | None) -> bool:
+    """Whether the reader confirmed an estimate that showed the overview: its line, and two ticked lines that may
+    write a digest. Only such an overview runs (design sections 15.4 and 24.9)."""
+    if estimate is None or estimate.overview is None or ticked is None:
+        return False
+    return sum(line.digest_possible for line in estimate.lines if line.target in ticked) >= 2
 
 
 def _join(threads: list[threading.Thread], stop: threading.Event) -> None:
@@ -360,7 +376,7 @@ def run_catch_up(
                 _join(threads, stop)
             overview = None
             digests = _digests(paths, targets)
-            if len(digests) >= 2:
+            if _overview_confirmed(estimate, ticked) and len(digests) >= 2:
                 coordinator.step({"step": "overview"})
                 overview = _overview(paths, name, team, settings, connection, digests, budget, stop, overview_writer)
             chosen = [line.target for line in estimate.lines if line.target in ticked] if estimate and ticked else []
@@ -390,7 +406,7 @@ def _estimate(
     for line in lines:
         sign_ins |= line.estimate.sign_ins
     overview = None
-    if sum(line.digest_expected for line in lines) >= 2:
+    if sum(line.digest_possible for line in lines) >= 2:
         provider, model = model_choice(team.models.overview)
         overview = estimate_call(connection, "overview", provider, model, settings.estimates, settings.prices)
         if overview_writer is None and provider not in sign_ins:
@@ -431,3 +447,6 @@ def _overview(
                                                                usage, budget), stop)  # fmt: skip
     except CodetrailError as error:  # a provider that isn't ready, or the overview's commit failing
         return OverviewOutcome(None, OVERVIEW_STOPPED if stop.is_set() else str(error))
+    except Exception as error:  # the catch-up is still recorded; details stay in the log
+        logger.warning("Team %r's overview failed: %s", name, type(error).__name__, exc_info=True)
+        return OverviewOutcome(None, OVERVIEW_FAILED.format(error=type(error).__name__))
