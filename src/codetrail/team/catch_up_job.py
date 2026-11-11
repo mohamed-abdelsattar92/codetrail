@@ -20,6 +20,7 @@ from collections.abc import Callable, Collection
 from codetrail.errors import CodetrailError
 from codetrail.generate.run import Progress
 from codetrail.team.catch_up import CatchUpEstimate
+from codetrail.web.app import wait_for_cleanup
 
 logger = logging.getLogger(__name__)
 Confirm = Callable[[CatchUpEstimate], Collection[str] | None]
@@ -122,28 +123,20 @@ class CatchUpJob:
             return str
 
     def stop(self) -> None:
-        """Declines a waiting estimate, stops the paid parts and waits for every target's cleanup (design 15.5).
+        """Declines a waiting estimate, stops the paid parts and waits for every target's cleanup (design 15.5)."""
+        self.request_stop()
+        self.wait_for_stop()
 
-        The worker is a daemon thread, which the interpreter would kill at exit without running its cleanup, so a
-        further signal (closing the terminal while this waits) doesn't end the wait; it's raised once the cleanup ran.
-        """
+    def request_stop(self) -> None:
+        """Declines a waiting estimate and lets no catch-up start; the running one's paid parts stop."""
         with self._lock:  # under the lock, so _confirm either sees it before waiting or is woken by it
             self._stopping.set()
             self._decided.set()
-        if self._thread is None:
-            return
-        reported = False
-        interrupted: BaseException | None = None
-        while self._thread.is_alive():
-            try:
-                if not reported:  # inside the try: a signal while the line is written mustn't end the wait
-                    reported = True
-                    logger.warning("Stopping the catch-up started from the page; waiting for its cleanup.")
-                self._thread.join()
-            except BaseException as error:  # raised below, once the catch-up stopped
-                interrupted = error
-        if interrupted is not None:
-            raise interrupted
+
+    def wait_for_stop(self) -> None:
+        """Waits for every target's cleanup once `request_stop()` ran (see `wait_for_cleanup`)."""
+        if self._thread is not None:
+            wait_for_cleanup(self._thread, "Stopping the catch-up started from the page; waiting for its cleanup.")
 
     def _work(self) -> None:
         try:

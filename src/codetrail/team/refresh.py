@@ -61,8 +61,17 @@ class TeamRefreshJob:
         return True
 
     def stop(self) -> None:
+        self.request_stop()
+        self.wait_for_stop()
+
+    def request_stop(self) -> None:
+        """Lets no further target start."""
         with self._lock:
             self._stopping.set()
+
+    def wait_for_stop(self) -> None:
+        """Waits for the targets being refreshed."""
+        with self._lock:
             thread = self._thread
         if thread is not None:
             thread.join()

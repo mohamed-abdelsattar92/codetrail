@@ -18,28 +18,42 @@ let estimateId = null;
 let polling = false;
 let active = false;
 let after = 0; // the number of the last step shown
+let refusal = null; // why a decision was refused: it stays in the panel until the next catch-up starts
 
 function say(text, failed = false) {
+  if (refusal) return; // the reader reads the refusal first
   stateLine.textContent = text;
   stateLine.classList.toggle("failed", failed);
 }
 
-// A token count for people, as the server's `tokens_text` writes it: 950, 12k, 1.4M (halves round to even).
-function roundHalfEven(value) {
-  const floor = Math.floor(value);
-  const rest = value - floor;
-  if (rest !== 0.5) return Math.round(value);
-  return floor % 2 === 0 ? floor : floor + 1;
+// Python's `f"{value:.{digits}f}"`. Both it and toFixed round the double's exact value, so they differ only on an
+// exact half, which Python rounds to even and toFixed up. A double is an exact half at `digits` decimals when it is
+// a whole number of 2^-(digits + 1) but not of 2^-digits (1.25 at one decimal, 0.125 at two); scaling a double by a
+// power of two is exact, so the test is too.
+function fixed(value, digits) {
+  const isHalf = Number.isInteger(value * 2 ** (digits + 1)) && !Number.isInteger(value * 2 ** digits);
+  if (!isHalf) return value.toFixed(digits);
+  const below = Math.floor(value * 10 ** digits);
+  return ((below % 2 === 0 ? below : below + 1) / 10 ** digits).toFixed(digits);
 }
 
-function tokensText(tokens) {
-  if (tokens >= 1_000_000) return (roundHalfEven(tokens / 100_000) / 10).toFixed(1) + "M";
+// Python's `round()`: a half rounds to even.
+function roundHalfEven(value) {
+  const below = Math.floor(value);
+  if (value - below !== 0.5) return Math.round(value);
+  return below % 2 === 0 ? below : below + 1;
+}
+
+// A token count as the server's `tokens_text` writes it: 950, 12k, 1.4M.
+export function tokensText(tokens) {
+  if (tokens >= 1_000_000) return `${fixed(tokens / 1_000_000, 1)}M`;
   if (tokens >= 1_000) return `${roundHalfEven(tokens / 1_000)}k`;
   return `${tokens}`;
 }
 
-function dollarsText(amount) {
-  return amount === null ? "" : `$${amount.toFixed(2)}`;
+// An amount as the server's `dollars` filter writes it: $0.12, or nothing when it is unknown.
+export function dollarsText(amount) {
+  return amount === null ? "" : `$${fixed(amount, 2)}`;
 }
 
 function amount(value) {
@@ -89,6 +103,7 @@ function recompute() {
   };
   for (const [name, text] of Object.entries(shown)) body.querySelector(`[data-total="${name}"]`).textContent = text;
   body.querySelector("[data-total-prices]").hidden = expectedUsd === null || maximumUsd === null;
+  dialog.querySelector("[data-catch-up-go]").disabled = ticked.length === 0; // nothing ticked: only Cancel
 }
 
 function tickedTargets() {
@@ -103,7 +118,10 @@ async function decide(url, data) {
   const response = await post(url, { estimate_id: id, ...data });
   if (!response.ok) {
     const result = await response.json().catch(() => ({}));
-    if (result.error) say(result.error, true);
+    if (result.error) {
+      say(result.error, true);
+      refusal = result.error;
+    }
   }
   poll();
 }
@@ -125,6 +143,7 @@ async function poll(reloadWhenDone = true) {
     if (state === "waiting" && result.estimate_id && result.estimate_id !== estimateId) {
       estimateId = result.estimate_id;
       body.innerHTML = result.estimate_html; // rendered, escaped on the server
+      recompute();
       dialog.showModal();
     }
     polling = false;
@@ -140,6 +159,7 @@ async function poll(reloadWhenDone = true) {
 async function startCatchUp() {
   panel.hidden = false;
   if (active) return; // one runs already: the panel shows it
+  refusal = null;
   log.replaceChildren();
   say(panel.dataset.labelRunning);
   const response = await post("/team/catch-up", {});

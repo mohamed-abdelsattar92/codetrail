@@ -47,7 +47,7 @@ from codetrail.team.follow import followed_targets
 from codetrail.team.refresh import TeamRefreshJob
 from codetrail.team.routes import team_router
 from codetrail.team.sync import TeamSync, sync_team
-from codetrail.web.app import EstimateDecision, LanguageChoice, create_target_app, template_environment
+from codetrail.web.app import EstimateDecision, LanguageChoice, UpdateJob, create_target_app, template_environment
 from codetrail.web.i18n import Language, installed_languages
 from codetrail.web.security import SecurityMiddleware, SessionState, login_response
 
@@ -123,7 +123,7 @@ def create_team_app(
     listing = synced or TeamSync()
     mounted: set[str] = set()  # the security middleware reads it on each request
     refused: dict[str, str] = {}  # target: why its lock couldn't be taken
-    stops: list[Callable[[], None]] = []
+    page_jobs: list[UpdateJob] = []  # each served page's update, which the server's lifespan stops
     mount_lock = threading.Lock()
     languages = installed_languages(locales)
     templates = str(files("codetrail.web").joinpath("templates"))
@@ -163,12 +163,13 @@ def create_team_app(
         try:
             yield
         finally:  # a mount doesn't run its page's lifespan, so each page's update is stopped here
-            catch_up.stop()
-            refresh.stop()
             with mount_lock:
-                stopping = list(stops)
-            for stop in stopping:
-                stop()
+                pages = list(page_jobs)
+            # Every job stops starting paid work before any is waited for, and an interrupt during one wait (a
+            # signal) never skips another's (design section 15.5).
+            for request_stop in [catch_up.request_stop, refresh.request_stop, *(page.request_stop for page in pages)]:
+                request_stop()
+            wait_for_each([catch_up.wait_for_stop, refresh.wait_for_stop, *(page.wait_for_stop for page in pages)])
 
     app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
 
@@ -186,11 +187,11 @@ def create_team_app(
                 return
             refused.pop(target, None)
             try:
-                target_app, stop = create_target_app(paths, target, session, settings, locales, team=name)
+                target_app, job = create_target_app(paths, target, session, settings, locales, team=name)
             except BaseException:
                 release()  # nothing is served, so nothing stays held
                 raise
-            stops.append(stop)
+            page_jobs.append(job)
             mounted.add(target)
             app.mount(f"/repos/{target}", target_app)
 
@@ -320,6 +321,18 @@ def create_team_app(
     if listing.added:  # the start's listing wrote them: they get the free first refresh a save starts
         refresh.start(listing.added)
     return SecurityMiddleware(app, session=session, port=settings.server.port, mounted_targets=mounted)
+
+
+def wait_for_each(waits: list[Callable[[], None]]) -> None:
+    """Runs every wait, even after one is interrupted, then raises the first interruption."""
+    interrupted: BaseException | None = None
+    for wait in waits:
+        try:
+            wait()
+        except BaseException as error:  # raised below, once every job's cleanup ran
+            interrupted = interrupted or error
+    if interrupted is not None:
+        raise interrupted
 
 
 def list_sources(paths: Paths, name: str, services: Mapping[Service, HostingService]) -> TeamSync:

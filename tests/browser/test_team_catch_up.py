@@ -88,9 +88,14 @@ def test_team_catch_up_with_one_unticked(page: Page, caught_up_once: TeamSite, e
     web_shop = dialog.locator("[data-catch-up-line]", has=page.get_by_label("web-shop", exact=True))
     expect(at_most).to_have_text(tokens_text(int(web_shop.get_attribute("data-maximum-tokens") or "0")))
     budget = float(dialog.locator("[data-budget-usd]").get_attribute("data-budget-usd") or "0")
-    maximum_usd = web_shop.get_attribute("data-maximum-usd")
-    assert maximum_usd  # the default models have prices
-    expect(dialog.locator("[data-total='maximum-usd']")).to_have_text(f"${min(float(maximum_usd), budget):.2f}")
+    maximum_usd, expected_usd = (web_shop.get_attribute(f"data-{kind}-usd") for kind in ("maximum", "expected"))
+    assert maximum_usd and expected_usd  # the default models have prices
+    capped = min(float(maximum_usd), budget)
+    expect(dialog.locator("[data-total='maximum-usd']")).to_have_text(f"${capped:.2f}")
+    expect(dialog.locator("[data-total='expected-usd']")).to_have_text(f"${min(float(expected_usd), capped):.2f}")
+    expected_tokens = min(int(web_shop.get_attribute("data-expected-tokens") or "0"),
+                          int(web_shop.get_attribute("data-maximum-tokens") or "0"))  # fmt: skip
+    expect(dialog.locator("[data-total='expected-tokens']")).to_have_text(tokens_text(expected_tokens))
     log = page.locator("[data-catch-up-log]")
     with page.expect_navigation(timeout=CATCH_UP_SECONDS):  # done: the page reloads with the new guides
         dialog.locator("[data-catch-up-go]").click()
@@ -100,3 +105,66 @@ def test_team_catch_up_with_one_unticked(page: Page, caught_up_once: TeamSite, e
     expect(page.locator("[data-catch-up-button]")).to_be_visible()
     assert payments.head() == before  # unticked: its guide wasn't touched
     assert errors == []
+
+
+@pytest.fixture
+def two_first_guides(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TeamSite]:
+    """web-shop and payments-api are followed, and neither has a guide yet: each line is a first guide."""
+    with serving_team(tmp_path, monkeypatch, writer_for=lambda target: assistant(),
+                      overview_writer=FakeAssistant()) as site:  # fmt: skip
+        save_selection(site.paths, "acme", TeamSource(service="github", source="acme-org"))
+        for target, identifier, repository in (("acme-web-shop", "R_1", "web-shop"),
+                                               ("acme-payments-api", "R_2", "payments-api")):  # fmt: skip
+            remote = RemoteSettings(service="github", source="acme-org", id=identifier, name=repository,
+                                    url=site.repository_url)  # fmt: skip
+            write_remote_target(site.paths, target, remote, "develop", "acme")
+        yield site
+
+
+REFUSED = "That estimate isn't waiting any more."
+
+
+def test_go_ahead_needs_a_ticked_row_and_a_refusal_stays(
+    page: Page, two_first_guides: TeamSite, errors: list[str]
+) -> None:
+    two_first_guides.sign_in(page, "/")
+    ready(page)
+    page.locator("[data-catch-up-button]").click()
+    dialog = page.locator("[data-catch-up-dialog]")
+    expect(dialog).to_be_visible(timeout=CATCH_UP_SECONDS)
+    expect(dialog.locator("[data-catch-up-line]")).to_contain_text(["first guide", "first guide"])
+    go_ahead = dialog.locator("[data-catch-up-go]")
+
+    for repository in ("web-shop", "payments-api"):
+        dialog.get_by_label(repository, exact=True).uncheck()
+
+    expect(go_ahead).to_be_disabled()
+    dialog.get_by_label("web-shop", exact=True).check()
+    expect(go_ahead).to_be_enabled()
+    # The server refuses the confirmation (its estimate expired a moment before, say): the reason stays in the panel.
+    page.route("**/team/catch-up/confirm", lambda route: route.fulfill(status=400, json={"error": REFUSED}))
+    go_ahead.click()
+    state = page.locator("[data-catch-up-state]")
+    expect(state).to_have_text(REFUSED)
+    page.wait_for_timeout(2_000)  # longer than one poll of the status
+    expect(state).to_have_text(REFUSED)
+    assert all("status of 400" in error for error in errors), errors  # only the browser's note of the refusal
+
+
+@pytest.mark.parametrize(
+    ("tokens", "dollars"), [(950, 0.125), (2_500, 0.375), (3_500, 0.145), (1_150_000, 2.675), (1_250_000, 1.005),
+                            (1_750_000, 0.3), (2_450_000, 0.1 + 0.2), (12_345_678, 10.0)],
+)  # fmt: skip
+def test_the_script_formats_figures_as_the_server_does(
+    page: Page, two_first_guides: TeamSite, tokens: int, dollars: float
+) -> None:
+    two_first_guides.sign_in(page, "/")
+    ready(page)
+
+    shown = page.evaluate(
+        "async ([tokens, dollars]) => { const script = await import('/static/js/team_catch_up.js');"
+        " return [script.tokensText(tokens), script.dollarsText(dollars)]; }",
+        [tokens, dollars],
+    )
+
+    assert shown == [tokens_text(tokens), f"${dollars:.2f}"]

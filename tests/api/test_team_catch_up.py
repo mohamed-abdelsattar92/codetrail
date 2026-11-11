@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
+import anyio
 import pytest
 from fastapi.testclient import TestClient
 from httpx import Response
@@ -27,9 +28,11 @@ from codetrail.hosting.fake import FakeHosting
 from codetrail.hosting.names import Service
 from codetrail.lock import target_lock, team_catch_up_lock
 from codetrail.team.catch_up import CatchUpEstimate, CatchUpLine
+from codetrail.team.catch_up_job import CatchUpJob
 from codetrail.team.server import create_team_app
 from codetrail.team.settings import save_selection, write_team
 from codetrail.team.sync import sync_team
+from codetrail.web.app import UpdateJob
 from codetrail.web.security import TOKEN_HEADER, SessionState
 from tests.api.test_team_add import hosted
 from tests.fixtures.remote import allow_http_remotes, serving_repository
@@ -339,3 +342,63 @@ def test_server_stop_while_waiting(team: Team) -> None:
     with team_catch_up_lock(team.paths, "acme"):
         pass
     assert team.requests() == 0
+
+
+def test_an_interrupted_catch_up_stop_still_stops_every_page(team: Team, monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[str] = []
+    request_stop, wait_for_stop = UpdateJob.request_stop, UpdateJob.wait_for_stop
+
+    def interrupted(job: CatchUpJob) -> None:
+        calls.append("catch-up waited")
+        raise KeyboardInterrupt  # a signal while the catch-up's cleanup runs
+
+    def page_asked(job: UpdateJob) -> None:
+        calls.append("page asked")
+        request_stop(job)
+
+    def page_waited(job: UpdateJob) -> None:
+        calls.append("page waited")
+        wait_for_stop(job)
+
+    monkeypatch.setattr(CatchUpJob, "wait_for_stop", interrupted)
+    monkeypatch.setattr(UpdateJob, "request_stop", page_asked)
+    monkeypatch.setattr(UpdateJob, "wait_for_stop", page_waited)
+    app = create_team_app(team.paths, "acme", SessionState(60), SETTINGS, team.services, lambda target: lambda: None)
+    sent: list[dict[str, object]] = []
+
+    async def lifespan() -> None:
+        messages: list[dict[str, object]] = [{"type": "lifespan.startup"}, {"type": "lifespan.shutdown"}]
+
+        async def receive() -> dict[str, object]:
+            return messages.pop(0)
+
+        async def send(message: dict[str, object]) -> None:
+            sent.append(message)
+
+        await app({"type": "lifespan", "asgi": {"version": "3.0"}, "state": {}}, receive, send)  # type: ignore[arg-type]
+
+    with pytest.raises(KeyboardInterrupt):
+        anyio.run(lifespan)
+
+    # Both pages were told to stop before any wait, and waited for after the catch-up's wait was interrupted.
+    assert calls == ["page asked", "page asked", "catch-up waited", "page waited", "page waited"]
+
+
+def test_catch_up_confirm_replayed_id_refused(team: Team) -> None:
+    with served(team) as page:
+        estimate_id = waiting(page)["estimate_id"]
+        assert page.confirm(estimate_id, []).status_code == 204  # nothing ticked: nothing paid runs
+
+        assert page.confirm(estimate_id, TARGETS).status_code == 400
+        assert page.cancel(estimate_id).status_code == 400
+
+        assert page.wait_for("done", "failed", "declined")["state"] == "done"
+    assert team.requests() == 0
+
+
+def test_catch_up_confirm_while_idle_refused(team: Team) -> None:
+    with served(team) as page:
+        assert page.confirm("an-id", TARGETS).status_code == 400
+        assert page.cancel("an-id").status_code == 400
+
+        assert page.status()["state"] == "idle"
