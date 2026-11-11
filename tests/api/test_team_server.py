@@ -481,7 +481,8 @@ def test_a_mounted_guide_links_back_to_its_team(team: Team) -> None:
     page = client.get("/repos/acme-web-shop/").text
 
     first = re.search(r'<ul class="nav-list">\s*<li>(.*?)</li>', sidebar(page), re.DOTALL)
-    assert first is not None and 'href="/"' in first.group(1) and "← Team acme" in first.group(1), page
+    assert first is not None and 'href="/"' in first.group(1), page
+    assert '<span class="label">← Team <bdi>acme</bdi></span>' in first.group(1)  # as its siblings, ellipsis and all
     assert re.search(r'<span class="target"[^>]*>web-shop<', header(page))  # the repository's name, not the target's
     assert "Part of team" not in page
 
@@ -553,3 +554,17 @@ def test_each_source_says_how_it_is_followed(team: Team, selection: TeamSource, 
     save_selection(team.paths, "acme", selection)
 
     assert line in client_for(team).get("/").text
+
+
+def test_one_guide_that_cannot_be_read_does_not_stop_the_page(team: Team) -> None:
+    broken = team.paths.target_data("acme-web-shop") / "guide" / "concepts" / "a-broken.md"  # read first
+    broken.write_bytes(b"---\nkind: concept\ntitle: \xff\n---\n")  # not UTF-8: a half-written or hand-edited page
+    run_update(team.paths, "acme-payments-api", facts_only=True)
+
+    page = client_for(team).get("/")
+
+    assert page.status_code == 200
+    repositories = section(page.text, "repositories-title")
+    web_shop = row(repositories, "acme-web-shop")
+    assert "Couldn&#39;t read this repository&#39;s guide (UnicodeDecodeError)." in web_shop
+    assert "No guide yet" in row(repositories, "acme-payments-api")

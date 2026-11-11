@@ -344,8 +344,6 @@ async function save() {
       return;
     }
     saveState.textContent = "";
-    // Listed again, so what was just added shows as followed and the button counts only what's still new.
-    await listRepositories(current.service, current.source);
     refreshLog.replaceChildren();
     refreshSection.hidden = false;
     if (result.refresh) {
@@ -355,6 +353,9 @@ async function save() {
       refreshState.textContent = labels.text(result.added.length ? "notStarted" : "nothingNew");
     }
     refreshSection.scrollIntoView({ block: "nearest" });
+    // Then listed again, so what was just added shows as followed and the button counts only what's still new.
+    // The progress shows first: a slow service mustn't hide it.
+    await listRepositories(current.service, current.source);
   } catch {
     saveState.textContent = labels.text("saveFailed");
   } finally {

@@ -37,7 +37,7 @@
   <template data-pin-template><li class="pin-item"><a class="pin"></a><button type="button" class="pin-remove">{{ icon("close") }}</button></li></template>
 
   <ul class="nav-list">
-    {% if mounted_team %}<li><a class="nav-link" href="/">{{ _("← Team %(team)s", team=mounted_team) }}</a></li>{% endif %}
+    {% if mounted_team %}<li><a class="nav-link" href="/"><span class="label">{% trans team=mounted_team %}← Team <bdi>{{ team }}</bdi>{% endtrans %}</span></a></li>{% endif %}
     <li><a class="nav-link" href="{{ site_path('/') }}" {% if active == "home" %}aria-current="page"{% endif %}>{{ icon("home") }}<span class="label">{{ _("Home") }}</span></a></li>
     <li><a class="nav-link" href="{{ site_path('/progress') }}" {% if active == "progress" %}aria-current="page"{% endif %}>{{ icon("progress") }}<span class="label">{{ _("Progress") }}</span></a></li>
     {% if has_system %}<li><a class="nav-link" href="{{ site_path('/system') }}" {% if active == "system" %}aria-current="page"{% endif %}>{{ icon("system") }}<span class="label">{{ _("System") }}</span></a></li>{% endif %}

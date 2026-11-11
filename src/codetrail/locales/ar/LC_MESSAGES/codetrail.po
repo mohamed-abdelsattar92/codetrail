@@ -877,6 +877,10 @@ msgid "Couldn't read this repository (%(error)s)."
 msgstr "تعذّرت قراءة هذا المستودع (%(error)s)."
 
 #, python-format
+msgid "Couldn't read this repository's guide (%(error)s)."
+msgstr "تعذّرت قراءة دليل هذا المستودع (%(error)s)."
+
+#, python-format
 msgid "Couldn't refresh this repository (%(error)s)."
 msgstr "تعذّر تحديث هذا المستودع (%(error)s)."
 
@@ -2508,6 +2512,6 @@ msgid "“%(title)s” wasn’t written: %(reason)s"
 msgstr "لم تُكتب «%(title)s»: %(reason)s"
 
 #, python-format
-msgid "← Team %(team)s"
-msgstr "→ الفريق %(team)s"
+msgid "← Team <bdi>%(team)s</bdi>"
+msgstr "→ الفريق <bdi>%(team)s</bdi>"
 

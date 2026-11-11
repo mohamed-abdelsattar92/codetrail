@@ -666,6 +666,10 @@ msgid "Couldn't read this repository (%(error)s)."
 msgstr ""
 
 #, python-format
+msgid "Couldn't read this repository's guide (%(error)s)."
+msgstr ""
+
+#, python-format
 msgid "Couldn't refresh this repository (%(error)s)."
 msgstr ""
 
@@ -2187,6 +2191,6 @@ msgid "“%(title)s” wasn’t written: %(reason)s"
 msgstr ""
 
 #, python-format
-msgid "← Team %(team)s"
+msgid "← Team <bdi>%(team)s</bdi>"
 msgstr ""
 

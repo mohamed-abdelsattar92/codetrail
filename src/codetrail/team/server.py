@@ -30,7 +30,7 @@ from starlette.types import ASGIApp
 
 from codetrail.config import GlobalConfig, Paths, TeamConfig, load_global, load_team
 from codetrail.errors import CodetrailError
-from codetrail.guide import GuideRepository, guide_pages
+from codetrail.guide import GuideRepository
 from codetrail.hosting import HostingService
 from codetrail.hosting.names import SERVICE_NAMES, Service
 from codetrail.hosting.services import services_for
@@ -120,7 +120,7 @@ def create_team_app(
     def _(message: str) -> str:
         return language().translations.gettext(message)
 
-    signals: TimedCache[tuple[Signal | None, str]] = TimedCache(settings.signal.cache_seconds)
+    signals: TimedCache[tuple[Signal | None, str, bool]] = TimedCache(settings.signal.cache_seconds)
     refresh = TeamRefreshJob(paths, settings.hosting.concurrency, _, settings.server.update_log_lines)
 
     @asynccontextmanager
@@ -176,6 +176,17 @@ def create_team_app(
             logger.warning("Couldn't read target %r's signal: %s", target, type(error).__name__)
             return None, _("Couldn't read this repository (%(error)s).") % {"error": type(error).__name__}
 
+    def read_target(target: str) -> tuple[Signal | None, str, bool]:
+        """The target's signal, why it couldn't be read, and whether its guide has pages yet."""
+        signal, reason = read_signal(target)
+        try:
+            written = GuideRepository(paths.target_data(target) / "guide").has_guide_pages()
+        except Exception as error:  # a page half-written, or edited by hand, mustn't stop the page either
+            logger.warning("Couldn't read target %r's guide: %s", target, type(error).__name__)
+            message = _("Couldn't read this repository's guide (%(error)s).") % {"error": type(error).__name__}
+            return signal, reason or message, False
+        return signal, reason, written
+
     def row(target: str, repository: str, branch: str) -> Row:
         """A page view never clones: a target waiting for its first refresh says so, as one never cloned does,
         without fetching (a fetch would clone it, and the refresh would then find it busy)."""
@@ -185,16 +196,19 @@ def create_team_app(
             return Row(target, repository, branch, Signal(updating=True))
         if not (paths.target_data(target) / "mirror.git" / "HEAD").exists():
             return Row(target, repository, branch, Signal())  # not updated yet
-        signal, reason = signals.get(target, lambda: read_signal(target))
-        written = guide_pages(GuideRepository(paths.target_data(target) / "guide").pages())
-        return Row(target, repository, branch, signal, reason, has_guide=bool(written))
+        signal, reason, written = signals.get(target, lambda: read_target(target))
+        return Row(target, repository, branch, signal, reason, has_guide=written)
 
-    def render(template: str, active: str, **context: Any) -> HTMLResponse:
-        """A team page in the guides' shell: its sidebar lists each followed repository the server serves."""
-        try:
-            targets = followed(load_team(paths, name))
-        except CodetrailError:  # the page, or its script's reads, say why
-            targets = {}
+    def render(
+        template: str, active: str, targets: dict[str, tuple[str, str]] | None = None, **context: Any
+    ) -> HTMLResponse:
+        """A team page in the guides' shell: its sidebar lists each followed repository the server serves.
+        `targets` are the followed ones, as `followed()` gives them, when the caller has them already."""
+        if targets is None:
+            try:
+                targets = followed(load_team(paths, name))
+            except CodetrailError:  # the page, or its script's reads, say why
+                targets = {}
         current = language()
         html = environments[current.code].get_template(template).render(
             language=current, languages=list(languages.values()), token=session.token, team=name, active=active,
@@ -223,7 +237,7 @@ def create_team_app(
         stopped = [Row(target, *targets[target], served=target in mounted) for target in targets
                    if target in listing.stopped]  # fmt: skip
         return render(
-            "team.html", "team", sources=team.sources, unreachable=set(listing.unreachable),
+            "team.html", "team", targets, sources=team.sources, unreachable=set(listing.unreachable),
             service_names=SERVICE_NAMES, rows=rows, stopped=stopped,
         )  # fmt: skip
 

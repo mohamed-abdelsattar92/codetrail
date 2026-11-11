@@ -15,7 +15,7 @@ from urllib.parse import urlsplit
 
 import pytest
 import uvicorn
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Page, Route, expect
 
 from codetrail.config import (
     GlobalConfig,
@@ -306,3 +306,19 @@ def test_the_azure_organization_field_shows_once_signed_in(page: Page, team_site
 
     expect(page.locator("[data-services] li").nth(1)).to_contain_text("Signed in as reader")
     expect(page.get_by_label("Azure DevOps organization")).to_be_visible()
+
+
+def test_the_progress_shows_while_the_source_is_listed_again(page: Page, team_site: TeamSite) -> None:
+    team_site.sign_in(page)
+    choose_the_source(page)
+    waiting: list[Route] = []
+    page.route("**/team/hosting/repositories?*", lambda route: waiting.append(route))  # a slow service: it waits
+
+    page.locator("[data-save]").click()
+
+    expect(page.locator("[data-refresh]")).to_be_visible()
+    expect(page.locator("[data-refresh-log] li").first).to_be_visible(timeout=REFRESH_SECONDS)
+    assert len(waiting) == 1
+    waiting[0].continue_()
+    expect(page.locator("[data-save]")).to_have_text("Save")
+    expect(page.locator("[data-refresh-state]")).to_have_text(FINISHED, timeout=REFRESH_SECONDS)
