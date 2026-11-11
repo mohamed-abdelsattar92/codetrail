@@ -335,7 +335,7 @@ def labels(language: Language) -> dict[str, object]:
         "archived": t.gettext("Archived"),
         "whenActive": t.gettext("Followed once it's active"),
         "gone": t.gettext("No longer in the source"),
-        "branchOf": t.gettext("Branch of %(name)s") % {"name": "{name}"},
+        "branchFor": t.gettext("Branch for %(name)s") % {"name": "{name}"},
         "noMatch": t.gettext("No repository matches."),
         "save": t.gettext("Save"),
         "saving": t.gettext("Saving…"),
@@ -346,9 +346,11 @@ def labels(language: Language) -> dict[str, object]:
         ),
         "sourcesFailed": t.gettext("Its sources couldn't be listed just now."),
         "running": t.gettext("Getting the new repositories ready (free)…"),
-        "finished": t.gettext("Done. Their first guides wait for the next catch-up's estimate."),
-        "started": t.gettext("Cloning %(target)s and reading its facts…") % {"target": "{target}"},
-        "done": t.gettext("%(target)s is ready.") % {"target": "{target}"},
-        "failed": t.gettext("%(target)s couldn't be refreshed: %(reason)s")
-        % {"target": "{target}", "reason": "{reason}"},
+        "finished": t.gettext(
+            "Done. Open a repository and use Update the guide to write its guide; you'll see the estimate first."
+        ),
+        "started": t.gettext("Cloning %(repository)s and reading its facts…") % {"repository": "{repository}"},
+        "done": t.gettext("%(repository)s is ready.") % {"repository": "{repository}"},
+        "failed": t.gettext("%(repository)s couldn't be refreshed: %(reason)s")
+        % {"repository": "{repository}", "reason": "{reason}"},
     }

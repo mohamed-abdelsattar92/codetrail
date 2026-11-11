@@ -19,9 +19,9 @@
 <section aria-labelledby="source-title">
   <h2 id="source-title">{{ _("Source") }}</h2>
   <div class="team-fields">
-    <label class="field" for="source-picker"><span>{{ _("Source") }}</span>
-      <select id="source-picker" data-source-picker disabled></select></label>
-    <form class="field" data-organization-form>
+    <select id="source-picker" aria-labelledby="source-title" data-source-picker disabled></select>
+    {# Shown by the script once Azure DevOps is installed and signed in. #}
+    <form class="field" data-organization-form hidden>
       <label for="azure-organization">{{ _("Azure DevOps organization") }}</label>
       <span class="field-row">
         <input id="azure-organization" name="organization" autocomplete="off" spellcheck="false" maxlength="50"
@@ -37,7 +37,8 @@
 <section aria-labelledby="list-title" data-list hidden>
   <h2 id="list-title">{{ _("Repositories") }}</h2>
   <label class="switch">
-    <input type="checkbox" role="switch" data-follow-all checked aria-describedby="follow-all-help">
+    <input type="checkbox" role="switch" data-follow-all checked aria-label="{{ _('Follow the whole source') }}"
+           aria-describedby="follow-all-help">
     <span data-follow-label>{{ _("Follow the whole source") }}</span>
   </label>
   <p id="follow-all-help" class="faint">{{ _("Repositories that become active later are followed too. Archived, empty and disabled ones never are. Unticking one leaves it out.") }}</p>

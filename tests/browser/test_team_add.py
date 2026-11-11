@@ -26,7 +26,8 @@ from codetrail.config import (
     load_team,
     write_remote_target,
 )
-from codetrail.hosting import HostingError, HostingService, Source
+from codetrail.hosting import HostingError, HostingService, HostingStatus, Source
+from codetrail.hosting.fake import FakeHosting
 from codetrail.hosting.names import Service
 from codetrail.team.server import create_team_app
 from codetrail.team.settings import existing_target_names, save_selection, write_team
@@ -40,7 +41,7 @@ from tests.fixtures.repos import git, make_repository
 
 pytestmark = pytest.mark.browser
 NOTHING_NEW = "Saved. There's no new repository to get ready."
-FINISHED = "Done. Their first guides wait for the next catch-up's estimate."
+FINISHED = "Done. Open a repository and use Update the guide to write its guide; you'll see the estimate first."
 REFRESH_SECONDS = 60_000  # a first refresh clones and reads the facts
 
 
@@ -102,7 +103,13 @@ def test_follow_all_then_leave_one_out(page: Page, team_site: TeamSite, errors: 
     services = page.locator("[data-services] li")
     expect(services).to_have_count(3)
     expect(services.nth(0)).to_contain_text("Signed in as reader")
-    expect(services.nth(2)).to_contain_text("glab auth login")
+    expect(services.nth(2).locator("code")).to_have_text("glab auth login")
+    install = services.nth(1).get_by_role("link", name="https://learn.microsoft.com/cli/azure/install-azure-cli")
+    expect(install).to_have_attribute("href", "https://learn.microsoft.com/cli/azure/install-azure-cli")
+    expect(install).to_have_attribute("rel", "noreferrer")
+    expect(install).to_have_attribute("target", "_blank")
+    expect(services.nth(1).locator("code")).to_have_text("az extension add --name azure-devops")
+    expect(page.locator("[data-organization-form]")).to_be_hidden()  # Azure DevOps isn't installed
     choose_the_source(page)
     # The quiet inventory and the archived old-site are filtered out; the active two are ticked.
     expect(page.locator("[data-rows] > li")).to_have_count(2)
@@ -115,7 +122,10 @@ def test_follow_all_then_leave_one_out(page: Page, team_site: TeamSite, errors: 
     expect(page.locator("[data-save]")).to_have_text("Add 1 repository")
     page.locator("[data-save]").click()
     expect(page.locator("[data-refresh-state]")).to_have_text(FINISHED, timeout=REFRESH_SECONDS)
-    expect(page.locator("[data-refresh-log] li.done")).to_have_text(["acme-web-shop is ready."])
+    expect(page.locator("[data-refresh-log] li.done")).to_have_text(["web-shop is ready."])
+    # The source's repositories are listed again: web-shop is followed now, so saving adds nothing.
+    expect(page.get_by_label("Branch for web-shop")).to_be_disabled()
+    expect(page.locator("[data-save]")).to_have_text("Save")
     source = load_team(team_site.paths, "acme").sources[0]
     assert (source.follow, source.left_out) == ("all", ["R_2"])
     assert existing_target_names(team_site.paths) == ["acme-web-shop"]
@@ -148,7 +158,7 @@ def test_switch_off_keeps_the_ticked_rows(page: Page, team_site: TeamSite, error
 def test_branch_picker_loads_and_saves(page: Page, team_site: TeamSite, errors: list[str]) -> None:
     team_site.sign_in(page)
     choose_the_source(page)
-    branch = page.get_by_label("Branch of web-shop")
+    branch = page.get_by_label("Branch for web-shop")
     expect(branch.locator("option")).to_have_text(["develop"])
 
     branch.focus()  # opening it lists the repository's branches
@@ -176,6 +186,13 @@ def test_add_screen_has_no_accessibility_violations(
     expect(page.get_by_label("old-site", exact=True)).to_be_disabled()
     expect(page.locator("[data-repository='R_3']")).to_contain_text("Followed once it's active")  # quiet
     expect(page.locator("[data-save]")).to_have_text("Add 2 repositories")
+    page.get_by_label("payments-api", exact=True).uncheck()
+    # Each control's accessible name, whatever its visible text says.
+    expect(page.get_by_role("switch", name="Follow the whole source", exact=True)).to_be_checked()
+    expect(page.get_by_role("checkbox", name="web-shop", exact=True)).to_be_checked()
+    expect(page.get_by_role("combobox", name="Branch for web-shop", exact=True)).to_be_visible()
+    expect(page.get_by_role("searchbox", name="Filter", exact=True)).to_be_visible()
+    expect(page.get_by_role("combobox", name="Source", exact=True)).to_be_visible()
     page.evaluate(AXE)
     result = page.evaluate(
         "async () => (await axe.run(document, {resultTypes: ['violations']})).violations"
@@ -279,3 +296,13 @@ def test_the_team_page_a_guide_and_back(page: Page, team_site: TeamSite, errors:
     page.locator("#sidebar").get_by_role("link", name="Add repositories").click()
     expect(page).to_have_url(f"{team_site.url}/team/add")
     assert errors == []
+
+
+def test_the_azure_organization_field_shows_once_signed_in(page: Page, team_site: TeamSite) -> None:
+    signed_in = HostingStatus("azure_devops", True, True, "reader", None)
+    team_site.services["azure_devops"] = FakeHosting("azure_devops", [signed_in], [], {}, {})
+
+    team_site.sign_in(page)
+
+    expect(page.locator("[data-services] li").nth(1)).to_contain_text("Signed in as reader")
+    expect(page.get_by_label("Azure DevOps organization")).to_be_visible()

@@ -2295,6 +2295,10 @@ details.more > summary {
   color: var(--text-faint);
 }
 
+.service-chip a {
+  text-decoration: underline; /* in a line of text, a link isn't told apart by its color alone */
+}
+
 .team-fields,
 .team-filters {
   display: flex;

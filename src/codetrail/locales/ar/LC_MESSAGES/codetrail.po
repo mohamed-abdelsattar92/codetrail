@@ -437,20 +437,20 @@ msgid "%(reason)s The facts were refreshed; the guide wasn't updated."
 msgstr "%(reason)s حُدّثت الحقائق، ولم يُحدَّث الدليل."
 
 #, python-format
+msgid "%(repository)s couldn't be refreshed: %(reason)s"
+msgstr "تعذّر تحديث %(repository)s: %(reason)s"
+
+#, python-format
+msgid "%(repository)s is ready."
+msgstr "%(repository)s جاهز."
+
+#, python-format
 msgid "%(size)s KB"
 msgstr "%(size)s KB"
 
 #, python-format
 msgid "%(size)s MB"
 msgstr "%(size)s MB"
-
-#, python-format
-msgid "%(target)s couldn't be refreshed: %(reason)s"
-msgstr "تعذّر تحديث %(target)s: %(reason)s"
-
-#, python-format
-msgid "%(target)s is ready."
-msgstr "%(target)s جاهز."
 
 msgid ", drawn from the code"
 msgstr "، مرسومة من الكود"
@@ -702,7 +702,7 @@ msgid "Body without a why"
 msgstr "متن دون سبب"
 
 #, python-format
-msgid "Branch of %(name)s"
+msgid "Branch for %(name)s"
 msgstr "الـ branch الخاص بـ %(name)s"
 
 msgid "Breadcrumbs"
@@ -754,8 +754,8 @@ msgid "Chosen repositories"
 msgstr "مستودعات مختارة"
 
 #, python-format
-msgid "Cloning %(target)s and reading its facts…"
-msgstr "جارٍ استنساخ %(target)s وقراءة حقائقه…"
+msgid "Cloning %(repository)s and reading its facts…"
+msgstr "جارٍ استنساخ %(repository)s وقراءة حقائقه…"
 
 msgid "Close"
 msgstr "إغلاق"
@@ -919,8 +919,10 @@ msgstr "المبرّرات الموثّقة"
 msgid "Documents"
 msgstr "المستندات"
 
-msgid "Done. Their first guides wait for the next catch-up's estimate."
-msgstr "تم. تنتظر أدلتها الأولى تقدير اللحاق التالي."
+msgid ""
+"Done. Open a repository and use Update the guide to write its guide; "
+"you'll see the estimate first."
+msgstr "تم. افتح مستودعًا واستخدم «حدّث الدليل» لكتابة دليله؛ سترى التقدير أولًا."
 
 msgid "Drag to resize; double-click to reset"
 msgstr "اسحب لتغيير الحجم، وانقر مرتين للاستعادة"

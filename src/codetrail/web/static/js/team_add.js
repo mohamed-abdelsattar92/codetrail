@@ -13,6 +13,7 @@ const labels = new Labels({
   lang: document.documentElement.lang,
 });
 const picker = screen.querySelector("[data-source-picker]");
+const organizationForm = screen.querySelector("[data-organization-form]");
 const sourceState = screen.querySelector("[data-source-state]");
 const list = screen.querySelector("[data-list]");
 const rowsList = screen.querySelector("[data-rows]");
@@ -42,6 +43,34 @@ function element(tag, className, text) {
 
 // --- Services and sources ---
 
+// A service's fix is Codetrail's own text (the adapters' constants), never the service's: its https address becomes
+// a link and the command after "run: " a code span. Signed out, the fix is the command alone.
+const ADDRESS = /(https:\/\/[^\s,]+)/;
+const RUN = "run: ";
+
+function fixHint(status) {
+  const hint = element("span", "faint");
+  if (status.installed) {
+    hint.append(element("code", "", status.fix));
+    return hint;
+  }
+  const run = status.fix.indexOf(RUN);
+  const words = run < 0 ? status.fix : status.fix.slice(0, run + RUN.length);
+  for (const part of words.split(ADDRESS)) {
+    if (!ADDRESS.test(part)) {
+      if (part) hint.append(part);
+      continue;
+    }
+    const link = element("a", "", part);
+    link.href = part;
+    link.rel = "noreferrer";
+    link.target = "_blank";
+    hint.append(link);
+  }
+  if (run >= 0) hint.append(element("code", "", status.fix.slice(run + RUN.length)));
+  return hint;
+}
+
 function showServices(services) {
   const chips = screen.querySelector("[data-services]");
   chips.replaceChildren();
@@ -55,10 +84,12 @@ function showServices(services) {
       state = status.installed ? labels.text("signedOut") : labels.text("notInstalled");
     }
     chip.append(element("span", "", state));
-    if (!status.signed_in && status.fix) chip.append(element(status.installed ? "code" : "span", "faint", status.fix));
+    if (!status.signed_in && status.fix) chip.append(fixHint(status));
     if (status.sources_failed) chip.append(element("span", "faint", labels.text("sourcesFailed")));
     chips.append(chip);
   }
+  // Azure DevOps can't list its organizations, so the reader names one, once it's installed and signed in.
+  organizationForm.hidden = !services.some((status) => status.service === "azure_devops" && status.signed_in);
 }
 
 function showSources(found, failed) {
@@ -131,7 +162,7 @@ function sizeText(row) {
 
 function branchPicker(row) {
   const select = element("select", "branch-picker");
-  select.setAttribute("aria-label", labels.text("branchOf", { name: row.name }));
+  select.setAttribute("aria-label", labels.text("branchFor", { name: row.name }));
   const chosen = current.branches.get(row.id) ?? row.branch;
   const option = element("option", "", chosen);
   option.value = chosen;
@@ -220,12 +251,18 @@ async function chooseSource() {
   list.hidden = true;
   if (picker.value === "" || !source) return;
   sourceState.textContent = labels.text("listing");
+  saveState.textContent = "";
+  await listRepositories(source.service, source.name);
+}
+
+// The source's repositories as the service lists them and the team follows them now, and its saved selection.
+async function listRepositories(service, name) {
   try {
-    const params = `service=${encodeURIComponent(source.service)}&source=${encodeURIComponent(source.name)}`;
+    const params = `service=${encodeURIComponent(service)}&source=${encodeURIComponent(name)}`;
     const { repositories, following } = await getJSON(`/team/hosting/repositories?${params}`);
     current = {
-      service: source.service,
-      source: source.name,
+      service,
+      source: name,
       rows: repositories,
       follow: following ? following.follow === "all" : true,
       cloneOver: following?.clone_over ?? "https",
@@ -235,7 +272,6 @@ async function chooseSource() {
     };
     followAll.checked = current.follow;
     sourceState.textContent = "";
-    saveState.textContent = "";
     list.hidden = false;
     showRows();
   } catch (error) {
@@ -274,9 +310,9 @@ function selection() {
 }
 
 function stepText(step) {
-  if (step.step === "started") return labels.text("started", { target: step.target });
-  if (step.step === "done") return labels.text("done", { target: step.target });
-  return labels.text("failed", { target: step.target, reason: step.message ?? "" });
+  if (step.step === "started") return labels.text("started", { repository: step.repository });
+  if (step.step === "done") return labels.text("done", { repository: step.repository });
+  return labels.text("failed", { repository: step.repository, reason: step.message ?? "" });
 }
 
 async function pollRefresh(after = 0) {
@@ -308,6 +344,8 @@ async function save() {
       return;
     }
     saveState.textContent = "";
+    // Listed again, so what was just added shows as followed and the button counts only what's still new.
+    await listRepositories(current.service, current.source);
     refreshLog.replaceChildren();
     refreshSection.hidden = false;
     if (result.refresh) {
