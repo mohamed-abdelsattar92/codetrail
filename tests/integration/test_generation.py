@@ -331,6 +331,13 @@ def test_digest_stores_highlights(paths: Paths, tmp_path: Path) -> None:
     assert page is not None and page.title == "Routes" and page.meta["highlights"] == ["One.", "Two."]
 
 
+def test_digest_without_highlights_drops_returned_ones(paths: Paths, tmp_path: Path) -> None:
+    paths.config_dir.mkdir(parents=True, exist_ok=True)
+    (paths.config_dir / "config.toml").write_text("[team]\nhighlights_per_digest = 0\n")
+    page = update_with_digest(paths, tmp_path, DigestDraft("Routes", "Routes added.", highlights=["One."]))
+    assert page is not None and page.title == "Routes" and page.meta["highlights"] == []  # the digest itself stays
+
+
 def test_digest_with_bad_highlights_falls_back(paths: Paths, tmp_path: Path) -> None:
     draft = DigestDraft("Routes", "Routes added.", highlights=[f"Item {number}." for number in range(5)])
     page = update_with_digest(paths, tmp_path, draft)  # the default maximum is three

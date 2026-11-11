@@ -1257,6 +1257,10 @@ msgid_plural "Not caught up yet: %(count)s merges."
 msgstr[0] ""
 msgstr[1] ""
 
+#, python-format
+msgid "Not caught up: %(reason)s"
+msgstr ""
+
 msgid "Not caught up: you left it out of the last catch-up."
 msgstr ""
 

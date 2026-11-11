@@ -483,6 +483,7 @@ class TeamModels(Settings):
 class CatchUpSettings(Settings):
     max_budget_usd: float = Field(default=20.0, gt=0)  # the whole catch-up's spend, across its repositories
     concurrency: int = Field(default=2, ge=1, le=8)  # repositories updated at once
+    max_budget_usd_per_call: float = Field(default=1.0, gt=0)  # the overview's one call
 
 
 class TeamConfig(Settings):

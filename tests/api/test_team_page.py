@@ -15,6 +15,7 @@ from codetrail.assistant.estimate import when_text
 from codetrail.assistant.fake import FakeAssistant
 from codetrail.config import Paths
 from codetrail.database import connect
+from codetrail.facts.store import FactStore
 from codetrail.guide import GuideRepository, Page
 from codetrail.hosting.fake import FakeHosting
 from codetrail.team import follow, server
@@ -24,6 +25,7 @@ from codetrail.web.security import TOKEN_HEADER, SessionState
 from tests.api.test_team_server import ORIGIN, SETTINGS, Team, client_for, following_team, row, section
 from tests.fixtures.remote import publish
 from tests.fixtures.repos import git
+from tests.unit.test_signal import merge_feature
 
 OVERVIEW = "overviews/2026-11-11-101500"
 DIGEST = "digests/2026-11-11-abc123"
@@ -69,9 +71,11 @@ def write_overview(paths: Paths) -> None:
     Overviews(paths.team_data("acme") / "overviews").write(OVERVIEW, meta, body)
 
 
-def write_digest(paths: Paths, title: str = "Charges retry twice", highlights: list[str] | None = None) -> None:
+def write_digest(
+    paths: Paths, title: str = "Charges retry twice", highlights: list[str] | None = None, to_commit: str = "b" * 40
+) -> None:
     shown = ["Charges retry **twice** now."] if highlights is None else highlights
-    meta: dict[str, object] = {"kind": "digest", "title": title, "from_commit": None, "to_commit": "b" * 40,
+    meta: dict[str, object] = {"kind": "digest", "title": title, "from_commit": None, "to_commit": to_commit,
                                "written_at": "2026-11-11T10:15:00+00:00", "pages_changed": ["concepts/orders"],
                                "highlights": shown}  # fmt: skip
     GuideRepository(paths.target_data("acme-web-shop") / "guide").write_page(Page(DIGEST, meta, "Things changed."))
@@ -201,6 +205,34 @@ def test_card_not_caught_up_line(team: Team) -> None:
     assert "Merged by: <bdi>Test Author</bdi>" in card
 
 
+def snapshot_commit(paths: Paths) -> str:
+    connection = connect(paths.target_data("acme-web-shop") / "codetrail.db")
+    try:
+        snapshot = FactStore(connection).latest_snapshot()
+    finally:
+        connection.close()
+    assert snapshot is not None
+    return snapshot.commit
+
+
+def test_a_missed_card_counts_from_its_last_digest(team: Team, tmp_path: Path) -> None:
+    write_digest(team.paths, to_commit=snapshot_commit(team.paths))  # the guide covers up to the first update
+    checkout = tmp_path / "checkout"
+    merge_feature(checkout, "two", {"networking/retry.py": "z = 3\n"})
+    publish(checkout, tmp_path / "served")
+    caught_up(team)  # the catch-up's free part moved the snapshot to the head; the reader left the guide out
+    finish_catch_up(team.paths, unticked=["acme-web-shop"])
+
+    page = client_for(team).get("/").text
+
+    card = row(section(page, "repositories-title"), "acme-web-shop")
+    assert "2 merges landed" in card
+    assert 'Not caught up yet: 2 merges touched <span lang="en" dir="ltr">networking, services</span>.' in card
+    assert "Not caught up: you left it out of the last catch-up." in card
+    assert "Merged by: <bdi>Test Author</bdi>" in card
+    assert "1 of 2 repositories has new merges" in header(page)
+
+
 def test_a_failed_target_with_no_commits_gets_a_card(team: Team) -> None:
     caught_up(team)  # its free part recorded the snapshot: no commits wait
     finish_catch_up(team.paths, failed={"acme-web-shop": "The team's budget is spent."})
@@ -220,6 +252,25 @@ def test_an_unticked_target_with_no_commits_gets_a_card(team: Team) -> None:
 
     assert card.startswith('<article class="team-card not-caught-up"')
     assert "Not caught up: you left it out of the last catch-up." in card
+
+
+def test_a_first_guide_that_failed_says_why_on_its_row(team: Team) -> None:
+    run_update(team.paths, "acme-payments-api", facts_only=True)  # its facts, but no guide yet
+    finish_catch_up(team.paths, failed={"acme-payments-api": "The plan was <refused>."})
+
+    found = row(section(client_for(team).get("/").text, "repositories-title"), "acme-payments-api")
+
+    assert "No guide yet" in found
+    assert "Not caught up in the last catch-up: <bdi>The plan was &lt;refused&gt;.</bdi>" in found
+
+
+def test_an_unticked_first_guide_says_so_on_its_row(team: Team) -> None:
+    run_update(team.paths, "acme-payments-api", facts_only=True)
+    finish_catch_up(team.paths, unticked=["acme-payments-api"])
+
+    found = row(section(client_for(team).get("/").text, "repositories-title"), "acme-payments-api")
+
+    assert "No guide yet" in found and "Not caught up: you left it out of the last catch-up." in found
 
 
 def test_a_first_guide_digest_names_no_authors(team: Team, tmp_path: Path) -> None:

@@ -43,7 +43,7 @@
 <p>{{ _("These repositories won’t be caught up, since their refresh failed:") }}</p>
 <ul class="estimate-pages">
 {% for failure in estimate.failed %}
-  <li><bdi>{{ failure.repository }}</bdi>: {{ failure.reason }}</li>
+  <li><bdi>{{ failure.repository }}</bdi>: <bdi>{{ failure.reason }}</bdi></li>
 {% endfor %}
 </ul>
 {% endif %}

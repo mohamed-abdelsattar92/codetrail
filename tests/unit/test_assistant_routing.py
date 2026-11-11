@@ -82,15 +82,15 @@ def test_build_overview_assistant_uses_the_models_provider(tmp_path: Path) -> No
     settings = GlobalConfig(providers=ProvidersSettings(claude_code=ClaudeCodeSettings(command=str(program.path))))
     workspace = tmp_path / "team" / "workspace"
     workspace.mkdir(parents=True)
-    claude = build_overview_assistant(workspace, settings, "claude-sonnet-5-5")
+    claude = build_overview_assistant(workspace, settings, "claude-sonnet-5-5", 0.25)
     assert isinstance(claude, ClaudeCodeAssistant)
     assert (claude.root, claude.models) == (workspace.resolve(), {"overview": "claude-sonnet-5-5"})
-    assert claude.limits == GenerationSettings()
-    local = build_overview_assistant(workspace, settings, "local:qwen3:14b")
+    assert claude.limits == GenerationSettings(max_budget_usd_per_call=0.25)  # the team's catch_up setting
+    local = build_overview_assistant(workspace, settings, "local:qwen3:14b", 0.25)
     assert isinstance(local, LocalAssistant) and local.models == {"overview": "qwen3:14b"}
 
 
 def test_build_overview_assistant_refuses_codex(tmp_path: Path) -> None:
     nothing_installed = {"PATH": str(tmp_path / "empty")}
     with pytest.raises(AssistantError, match="can't use Codex"):
-        build_overview_assistant(tmp_path, GlobalConfig(), "codex:gpt-5.5-codex", nothing_installed)
+        build_overview_assistant(tmp_path, GlobalConfig(), "codex:gpt-5.5-codex", 1.0, nothing_installed)

@@ -95,15 +95,20 @@ def build_assistant(
 
 
 def build_overview_assistant(
-    workspace: Path, settings: GlobalConfig, model: str, environ: Mapping[str, str] = os.environ
+    workspace: Path,
+    settings: GlobalConfig,
+    model: str,
+    max_budget_usd_per_call: float,
+    environ: Mapping[str, str] = os.environ,
 ) -> Assistant:
-    """The adapter for a team's overview (design section 24.9): `model` is `[models] overview`, and `workspace` an
-    empty folder the caller made, since the call has no tools and reads nothing."""
+    """The adapter for a team's overview (design section 24.9): `model` is `[models] overview`,
+    `max_budget_usd_per_call` is `[catch_up] max_budget_usd_per_call`, and `workspace` an empty folder the caller
+    made, since the call has no tools and reads nothing."""
     from codetrail.assistant.claude_code import ClaudeCodeAssistant
     from codetrail.assistant.local import LocalAssistant
 
     provider, name = model_choice(model)
-    models, limits = {"overview": name}, GenerationSettings()
+    models, limits = {"overview": name}, GenerationSettings(max_budget_usd_per_call=max_budget_usd_per_call)
     if provider == "claude_code":
         return ClaudeCodeAssistant(
             workspace,

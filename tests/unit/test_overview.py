@@ -142,10 +142,12 @@ def test_overview_prompt_fences_digests() -> None:
     outside = re.sub(r"<<<(data-[0-9a-f]{16})\n.*?\n\1>>>", "", prompt, flags=re.DOTALL)
     for digest in DIGESTS:
         assert any(digest.body in block and digest.title in block for block in blocks)
+        assert any(f"Repository: {digest.repository} (target {digest.target})" in block for block in blocks)
         assert digest.body.strip() not in outside and digest.title not in outside
         assert all(highlight in "".join(blocks) for highlight in digest.highlights)
         assert digest_link(digest.target, digest.digest_id) in outside
-        assert digest.repository in outside
+        assert digest.repository not in outside  # the service's name for it is data
+    assert outside.count("platform") == 1  # the team's name, which validate_team_name keeps to a plain word
     assert "250 words" in prompt
     problem = "The link to https://evil.example/x names no digest of this catch-up."
     retry = overview_prompt(OverviewRequest("platform", DIGESTS, 250, [problem], "Old draft."))

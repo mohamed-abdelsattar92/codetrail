@@ -60,10 +60,6 @@ class TeamRefreshJob:
             self._thread.start()
         return True
 
-    def stop(self) -> None:
-        self.request_stop()
-        self.wait_for_stop()
-
     def request_stop(self) -> None:
         """Lets no further target start."""
         with self._lock:

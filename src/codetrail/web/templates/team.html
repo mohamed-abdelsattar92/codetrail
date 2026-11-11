@@ -124,6 +124,11 @@
       {% else %}
         <span class="chip">{{ _("No guide yet") }}</span>
         <a class="stat-note" href="/repos/{{ row.target }}/">{{ _("Write its guide") }}</a>
+        {% if failed.get(row.target) %}{% set reason %}<bdi>{{ failed[row.target] }}</bdi>{% endset %}
+        <span class="stat-note">{{ _("Not caught up in the last catch-up: %(reason)s", reason=reason) }}</span>
+        {% elif row.target in unticked %}
+        <span class="stat-note">{{ _("Not caught up: you left it out of the last catch-up.") }}</span>
+        {% endif %}
       {% endif %}
     </li>
     {% endfor %}

@@ -159,10 +159,10 @@ def test_team_page_lists_each_target_with_its_signal(team: Team) -> None:
 
 
 def test_one_unreachable_repository_does_not_block_the_page(team: Team, monkeypatch: pytest.MonkeyPatch) -> None:
-    def unreachable(paths: Paths, name: str) -> Signal:
+    def unreachable(paths: Paths, name: str, since: str | None) -> Signal:
         if name == "acme-payments-api":
             raise CodetrailError("git couldn't fetch the repository. If it needs your sign-in, run: gh auth setup-git")
-        return behind(paths, name)
+        return behind(paths, name, since)
 
     behind(team.paths, "acme-payments-api")  # cloned, so the page reads its signal
     monkeypatch.setattr("codetrail.team.server.behind", unreachable)
@@ -323,7 +323,7 @@ def test_a_page_that_fails_to_build_releases_its_target(team: Team, monkeypatch:
 
 def test_team_page_escapes_text_it_did_not_write(team: Team, monkeypatch: pytest.MonkeyPatch) -> None:
     # Names are validated before they are stored, so the hostile text comes in through an unreachable target's reason.
-    def hostile(paths: Paths, name: str) -> Signal:
+    def hostile(paths: Paths, name: str, since: str | None) -> Signal:
         raise CodetrailError("git couldn't fetch <script>alert(1)</script>")
 
     monkeypatch.setattr("codetrail.team.server.behind", hostile)
@@ -381,7 +381,7 @@ def test_serving_lists_the_sources_once_at_start(
 
     monkeypatch.setattr("codetrail.team.server.uvicorn.run", run)
     monkeypatch.setattr("codetrail.team.server.services_for", lambda settings: team.services)
-    monkeypatch.setattr("codetrail.team.server.behind", lambda paths, name: Signal(updating=True))  # no fetch
+    monkeypatch.setattr("codetrail.team.server.behind", lambda paths, name, since: Signal(updating=True))  # no fetch
     refreshed: list[str] = []
     finished = threading.Event()
 
@@ -405,7 +405,7 @@ def fetched_by_the_page(monkeypatch: pytest.MonkeyPatch, fetch: Callable[[Paths,
     """The targets whose signal the team page reads (each read fetches into the target's mirror)."""
     fetched: list[str] = []
 
-    def recorded(paths: Paths, name: str) -> Signal:
+    def recorded(paths: Paths, name: str, since: str | None) -> Signal:
         fetched.append(name)
         return fetch(paths, name)
 

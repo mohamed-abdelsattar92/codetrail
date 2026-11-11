@@ -1508,6 +1508,10 @@ msgstr[3] "لم يُواكَب بعد: %(count)s merges."
 msgstr[4] "لم يُواكَب بعد: %(count)s merges."
 msgstr[5] "لم يُواكَب بعد: %(count)s merges."
 
+#, python-format
+msgid "Not caught up: %(reason)s"
+msgstr "لم يُواكَب: %(reason)s"
+
 msgid "Not caught up: you left it out of the last catch-up."
 msgstr "لم يُواكَب: تركته خارج المواكبة الأخيرة."
 

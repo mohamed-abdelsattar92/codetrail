@@ -36,7 +36,7 @@ from codetrail.assistant.usage import UsageLog
 from codetrail.config import GlobalConfig, Paths, TeamConfig, load_global, load_team, model_choice
 from codetrail.database import connect
 from codetrail.errors import CodetrailError
-from codetrail.generate.run import Progress, SharedBudget, no_progress
+from codetrail.generate.run import TEAM_BUDGET_SPENT, Progress, SharedBudget, no_progress
 from codetrail.guide import GuideRepository
 from codetrail.lock import team_catch_up_lock
 from codetrail.repo.secrets import SecretScanner
@@ -251,6 +251,9 @@ class _Coordinator:
                 return False
             self.paid_slots.acquire()
             holds_paid_slot = True
+            if self.budget.exhausted:  # the targets before it spent the team's budget: nothing is committed
+                target.failure = TEAM_BUDGET_SPENT
+                return False
             return True
 
         self.free_slots.acquire()
@@ -271,15 +274,18 @@ class _Coordinator:
             if holds_paid_slot:
                 self.paid_slots.release()
             self.report(target, None, target.failure)  # a target that failed before its `confirm` reports here
+            if target.failure is not None:  # the panel names each failure, and why
+                progress({"step": "target_failed", "reason": target.failure})
 
 
 def _ticked(answer: Collection[str] | None, estimate: CatchUpEstimate, stop: threading.Event) -> set[str] | None:
-    """The reader's ticked targets; None declines every line: no answer, the server stopping, or an answer that names
-    a target that isn't in the estimate, or one twice."""
+    """The reader's ticked targets; None declines every line: no answer, the server stopping, no target ticked, or an
+    answer that names a target that isn't in the estimate, or one twice."""
     if answer is None or stop.is_set():
         return None
     chosen = list(answer)
-    if len(set(chosen)) != len(chosen) or not set(chosen) <= {line.target for line in estimate.lines}:
+    listed = {line.target for line in estimate.lines}
+    if not chosen or len(set(chosen)) != len(chosen) or not set(chosen) <= listed:
         return None
     return set(chosen)
 
@@ -440,7 +446,8 @@ def _overview(
             require_provider_ready(model_choice(team.models.overview)[0], settings)
             workspace = paths.team_data(name) / "workspace"  # the call has no tools, so it reads nothing here
             workspace.mkdir(parents=True, exist_ok=True)
-            writer = build_overview_assistant(workspace, settings, team.models.overview)
+            writer = build_overview_assistant(workspace, settings, team.models.overview,
+                                              team.catch_up.max_budget_usd_per_call)  # fmt: skip
         else:
             writer = overview_writer
         # The files are at overviews/overviews/<id>.md: an id carries its folder, as a guide page's id does.

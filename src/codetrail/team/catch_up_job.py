@@ -122,11 +122,6 @@ class CatchUpJob:
         except Exception:
             return str
 
-    def stop(self) -> None:
-        """Declines a waiting estimate, stops the paid parts and waits for every target's cleanup (design 15.5)."""
-        self.request_stop()
-        self.wait_for_stop()
-
     def request_stop(self) -> None:
         """Declines a waiting estimate and lets no catch-up start; the running one's paid parts stop."""
         with self._lock:  # under the lock, so _confirm either sees it before waiting or is woken by it

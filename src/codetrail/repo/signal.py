@@ -13,7 +13,7 @@ from codetrail.config import Paths, check_containment, load_global, load_target
 from codetrail.database import connect
 from codetrail.facts.store import FactStore
 from codetrail.lock import TargetBusy, target_lock
-from codetrail.repo.history import changed_paths, commit_count, merges_between
+from codetrail.repo.history import changed_paths, commit_count, is_ancestor, merges_between
 from codetrail.repo.mirror import read_file_at
 from codetrail.repo.refresh import TARGET_IGNORE_FILE, ignore_lines
 from codetrail.repo.remote import fetch_target
@@ -31,7 +31,9 @@ class Signal:
     updating: bool = False
 
 
-def behind(paths: Paths, name: str) -> Signal:
+def behind(paths: Paths, name: str, since: str | None = None) -> Signal:
+    """What landed since the last update. `since`, the commit the guide last covered, measures from there instead,
+    when it is in the branch's history: a catch-up that missed the target moved its snapshot, not its guide."""
     target = load_target(paths, name)
     if target.repository is not None:
         check_containment(paths, target.repository)
@@ -43,6 +45,8 @@ def behind(paths: Paths, name: str) -> Signal:
             snapshot = _latest_snapshot_commit(paths, name)
             if snapshot is None:
                 return Signal(head=head)
+            if since is not None and is_ancestor(mirror, since, head):
+                snapshot = since
             rules = ExclusionRules(ignore_lines(paths, name, read_file_at(mirror, head, TARGET_IGNORE_FILE)))
             manifest = SourceManifest.load(data / "source.json")
             flagged = manifest.excluded_paths() if manifest else set()

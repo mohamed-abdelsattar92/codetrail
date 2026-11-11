@@ -6,6 +6,8 @@
 <li class="update-line">{{ _("Refreshing every repository (free)…") }}</li>
 {% elif step.step == "overview" %}
 <li class="update-line">{{ _("Writing the team overview…") }}</li>
+{% elif step.step == "target_failed" %}{% set reason %}<bdi>{{ step.reason }}</bdi>{% endset %}
+<li class="update-line failed"><bdi>{{ step.repository }}</bdi>: {{ _("Not caught up: %(reason)s", reason=reason) }}</li>
 {% elif step.step == "catch_up_done" %}
 <li class="update-line done">{% trans count=step.updated %}One repository caught up.{% pluralize %}{{ count }} repositories caught up.{% endtrans %}{% if step.failed %} {% trans count=step.failed %}One couldn’t be.{% pluralize %}{{ count }} couldn’t be.{% endtrans %}{% endif %}</li>
 {% else %}

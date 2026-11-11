@@ -246,6 +246,12 @@ def _flagged_indexes(texts: Sequence[str], scanner: SecretScanner) -> set[int]:
     return flagged
 
 
+def is_ancestor(mirror: Path, commit: str, end: str) -> bool:
+    """Whether `commit` is in `end`'s history; a commit the mirror doesn't hold isn't."""
+    output = run_git(["merge-base", "--end-of-options", commit, end], git_dir=mirror, allowed_exit_codes=(0, 1, 128))
+    return output.decode().strip() == commit
+
+
 def commit_count(mirror: Path, start: str, end: str) -> int:
     return int(run_git(["rev-list", "--count", "--end-of-options", f"{start}..{end}"], git_dir=mirror))
 

@@ -226,6 +226,8 @@ def answering_with(estimate: CatchUpEstimate, monkeypatch: pytest.MonkeyPatch) -
     def run_catch_up(paths: Paths, name: str, confirm: Callable[[CatchUpEstimate], object], progress: Callable[
             [dict[str, object]], None], *_options: object) -> None:  # fmt: skip
         progress({"step": "facts", "repository": HOSTILE, "target": "acme-web-shop"})
+        progress({"step": "target_failed", "repository": HOSTILE, "target": "acme-web-shop",
+                  "reason": f"git couldn't fetch {HOSTILE}"})  # fmt: skip
         answers.append(confirm(estimate))
 
     monkeypatch.setattr("codetrail.team.server.run_catch_up", run_catch_up)
@@ -239,8 +241,11 @@ def test_catch_up_status_renders_estimate_escaped(team: Team, monkeypatch: pytes
 
         rendered, log = str(status["estimate_html"]), str(status["log_html"])
         assert "<bdi>&lt;script&gt;x&lt;/script&gt;</bdi>" in rendered
-        assert "git couldn&#39;t fetch &lt;script&gt;x&lt;/script&gt;" in rendered
+        assert "<bdi>ledger</bdi>: <bdi>git couldn&#39;t fetch &lt;script&gt;x&lt;/script&gt;</bdi>" in rendered
         assert "<bdi>&lt;script&gt;x&lt;/script&gt;</bdi>: " in log
+        name = "<bdi>&lt;script&gt;x&lt;/script&gt;</bdi>"
+        reason = "<bdi>git couldn&#39;t fetch &lt;script&gt;x&lt;/script&gt;</bdi>"
+        assert f'<li class="update-line failed">{name}: Not caught up: {reason}</li>' in log
         assert "<script>x" not in rendered + log
         assert re.search(r'<input type="checkbox" name="target" value="acme-web-shop" checked', rendered)
         assert "Before catching up" in rendered and "first guide" in rendered
@@ -392,7 +397,7 @@ def test_catch_up_confirm_replayed_id_refused(team: Team) -> None:
         assert page.confirm(estimate_id, TARGETS).status_code == 400
         assert page.cancel(estimate_id).status_code == 400
 
-        assert page.wait_for("done", "failed", "declined")["state"] == "done"
+        assert page.wait_for("done", "failed", "declined")["state"] == "declined"
     assert team.requests() == 0
 
 
@@ -402,3 +407,13 @@ def test_catch_up_confirm_while_idle_refused(team: Team) -> None:
         assert page.cancel("an-id").status_code == 400
 
         assert page.status()["state"] == "idle"
+
+
+def test_catch_up_confirm_with_no_target_declines(team: Team) -> None:
+    with served(team) as page:
+        status = waiting(page)
+
+        assert page.confirm(status["estimate_id"], []).status_code == 204
+
+        assert page.wait_for("done", "failed", "declined")["state"] == "declined"
+    assert team.requests() == 0

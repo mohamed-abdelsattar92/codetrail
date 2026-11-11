@@ -146,3 +146,27 @@ def test_catch_up_team_budget(team: Team) -> None:
     assert team.guide(written).read_page("areas/api") is not None
     assert team.guide(not_written).read_page("areas/api") is None
     assert repository == {"acme-web-shop": "web-shop", "acme-payments": "payments"}[not_written]
+
+
+def test_catch_up_team_budget_stops_targets_with_guides(team: Team) -> None:
+    team.add("acme-web-shop", "R_1", "web-shop")
+    team.add("acme-payments", "R_2", "payments")
+    for target in ("acme-web-shop", "acme-payments"):  # each has a guide already
+        run_update(team.paths, target, claude=writer(), confirm=lambda estimate: True)
+    heads = {target: team.guide(target).head() for target in ("acme-web-shop", "acme-payments")}
+    upgraded = '[project]\nname = "api"\ndependencies = ["fastapi==0.2"]\n'  # a changed fact: the page is rewritten
+    add_commit(team.checkout, {"services/api/pyproject.toml": upgraded}, "build: upgrade fastapi")
+    publish(team.checkout, team.served)
+    set_catch_up(team.paths, budget_usd=0.5, concurrency=1)  # one at a time, so the first spends it all
+
+    result = run_catch_up(team.paths, "acme", tick_all, writer_for=lambda target: writer(cost_usd=0.5),
+                          overview_writer=FakeAssistant())  # fmt: skip
+
+    [written] = result.updated
+    [not_written] = {"acme-web-shop", "acme-payments"} - {written}
+    repository = {"acme-web-shop": "web-shop", "acme-payments": "payments"}[not_written]
+    assert result.failed == [(repository, "The team's budget is spent, so this repository wasn't updated.")]
+    assert team.guide(not_written).head() == heads[not_written]
+    assert team.guide(written).head() != heads[written]
+    record = TeamState(connect(team_database(team.paths, "acme"))).last_finished()
+    assert record is not None and not_written in record.failed

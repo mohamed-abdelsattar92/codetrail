@@ -76,6 +76,9 @@ def no_progress(event: dict[str, object]) -> None:
     """Reports nowhere: the command line prints its summary at the end instead."""
 
 
+TEAM_BUDGET_SPENT = "The team's budget is spent, so this repository wasn't updated."
+
+
 class SharedBudget:
     """A spending limit that several updates, running in threads, count against together (design 24.8)."""
 
@@ -196,7 +199,7 @@ async def _outline(context: GenerationContext, claude: Assistant, result: Genera
     paths: list[OutlinePath] = []
     if not entries:
         if context.shared_budget is not None and context.shared_budget.exhausted:
-            raise CodetrailError("The team's budget is spent, so this repository wasn't updated.")
+            raise CodetrailError(TEAM_BUDGET_SPENT)
         context.progress({"step": "plan"})
         draft = await claude.plan(PlanRequest(context.target, facts_summary(store, context.manifest), ""))
         spent = _spend(context, result, "plan", draft)
@@ -380,12 +383,13 @@ async def _write_digest(
             raise AssistantError("the update's budget is spent")
         draft = await claude.write_digest(request)
         _spend(context, result, "digest", draft)
+        highlights = draft.highlights if context.max_highlights else []  # none asked for: any returned are dropped
         if validate_page(draft.body, None, validation) or validate_highlights(
-            draft.highlights, context.max_highlights, validation
+            highlights, context.max_highlights, validation
         ):
             raise AssistantError("the digest failed validation")
         meta["title"], body = draft.title, draft.body
-        meta["highlights"] = draft.highlights
+        meta["highlights"] = highlights
     except AssistantError:
         meta["title"] = f"{len(commits)} commits since the last update"
         body = "The assistant's digest couldn't be checked, so here are the commits:\n\n" + "\n".join(

@@ -43,7 +43,14 @@ from codetrail.hosting.services import services_for
 from codetrail.lock import target_in_use, team_in_use
 from codetrail.repo.signal import Signal, behind
 from codetrail.server import HOST
-from codetrail.team.cards import Row, build_cards, card_authors, render_overview, unread_digests
+from codetrail.team.cards import (
+    Row,
+    build_cards,
+    card_authors,
+    last_covered_commit,
+    render_overview,
+    unread_digests,
+)
 from codetrail.team.catch_up import run_catch_up
 from codetrail.team.catch_up_job import CatchUpJob
 from codetrail.team.catch_up_job import Confirm as CatchUpConfirm
@@ -208,9 +215,9 @@ def create_team_app(
             mounted.add(target)
             app.mount(f"/repos/{target}", target_app)
 
-    def read_signal(target: str) -> tuple[Signal | None, str]:
+    def read_signal(target: str, since: str | None) -> tuple[Signal | None, str]:
         try:
-            return behind(paths, target), ""
+            return behind(paths, target, since), ""
         except CodetrailError as error:  # its messages are Codetrail's own, never git's
             return None, str(error)
         except Exception as error:  # one repository mustn't stop the page; details stay out of it
@@ -221,10 +228,15 @@ def create_team_app(
         logger.warning("Couldn't read target %r's guide: %s", target, type(error).__name__)
         return _("Couldn't read this repository's guide (%(error)s).") % {"error": type(error).__name__}
 
-    def read_target(target: str) -> tuple[Signal | None, str, bool, list[str]]:
+    def read_target(target: str, missed: bool) -> tuple[Signal | None, str, bool, list[str]]:
         """The target's signal, why it couldn't be read, whether its guide has pages yet, and who merged what its card
-        covers."""
-        signal, reason = read_signal(target)
+        covers. A target the last catch-up `missed` is measured from the commit its guide last covered, since that
+        catch-up's free part moved its snapshot past merges its guide never took in."""
+        try:
+            since = last_covered_commit(paths, target) if missed else None
+        except Exception:  # an unreadable guide is reported below; until then, the snapshot is the start
+            since = None
+        signal, reason = read_signal(target, since)
         try:
             written = GuideRepository(paths.target_data(target) / "guide").has_guide_pages()
             unread = unread_digests(paths, target) if written else []
@@ -238,7 +250,7 @@ def create_team_app(
             logger.warning("Couldn't read target %r's authors: %s", target, type(error).__name__)
             return signal, reason, written, []
 
-    def row(target: str, repository: str, branch: str) -> Row:
+    def row(target: str, repository: str, branch: str, missed: bool) -> Row:
         """A page view never clones: a target waiting for its first refresh says so, as one never cloned does,
         without fetching (a fetch would clone it, and the refresh would then find it busy)."""
         if target in refused:
@@ -247,7 +259,7 @@ def create_team_app(
             return Row(target, repository, branch, Signal(updating=True))
         if not (paths.target_data(target) / "mirror.git" / "HEAD").exists():
             return Row(target, repository, branch, Signal())  # not updated yet
-        signal, reason, written, authors = signals.get(target, lambda: read_target(target))
+        signal, reason, written, authors = signals.get(target, lambda: read_target(target, missed))
         found = Row(target, repository, branch, signal, reason, has_guide=written, authors=authors)
         if not found.measured:
             return found
@@ -320,12 +332,12 @@ def create_team_app(
         for target in targets:
             mount(target)
         current = [target for target in targets if target not in listing.stopped]
-        with ThreadPoolExecutor(max_workers=settings.hosting.concurrency) as pool:
-            rows = list(pool.map(lambda target: row(target, *targets[target]), current))
-        stopped = [Row(target, *targets[target], served=target in mounted) for target in targets
-                   if target in listing.stopped]  # fmt: skip
         record, overview = last_catch_up()
         missed = {*record.failed, *record.unticked} if record is not None else set()
+        with ThreadPoolExecutor(max_workers=settings.hosting.concurrency) as pool:
+            rows = list(pool.map(lambda target: row(target, *targets[target], target in missed), current))
+        stopped = [Row(target, *targets[target], served=target in mounted) for target in targets
+                   if target in listing.stopped]  # fmt: skip
         cards, rest = build_cards(rows, settings.diagrams.max_nodes, missed)
         return render(
             "team.html", "team", targets, sources=team.sources, unreachable=set(listing.unreachable),

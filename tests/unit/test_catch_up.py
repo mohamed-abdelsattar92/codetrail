@@ -166,6 +166,18 @@ def test_failed_free_part_still_asks_the_rest(tmp_path: Path, monkeypatch: pytes
     assert result.updated == ["acme-repo-a", "acme-repo-b"]
 
 
+def test_each_failed_target_is_reported_as_a_step(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    install(monkeypatch, StandIn(failures={"acme-repo-c": CodetrailError("fetch refused")}))
+    steps: list[dict[str, object]] = []
+
+    catch_up_of(team_paths(tmp_path), asking([]), progress=steps.append)
+
+    failures = [step for step in steps if step["step"] == "target_failed"]
+    assert failures == [{"step": "target_failed", "repository": "repo-c", "target": "acme-repo-c",
+                         "reason": "fetch refused"}]  # fmt: skip
+    assert steps[-1] == {"step": "catch_up_done", "updated": 2, "failed": 1}
+
+
 def test_the_record_says_why_each_target_failed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     install(monkeypatch, StandIn(failures={"acme-repo-c": CodetrailError("fetch refused")}))
     paths = team_paths(tmp_path)
@@ -203,6 +215,17 @@ def test_confirm_naming_a_target_twice_declines_all(tmp_path: Path, monkeypatch:
     result = catch_up_of(team_paths(tmp_path), asking([], lambda estimate: ["acme-repo-a", "acme-repo-a"]))
 
     assert result.declined and stand_in.written == []
+
+
+def test_confirm_with_no_target_declines(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    stand_in = install(monkeypatch, StandIn())
+    paths = team_paths(tmp_path)
+
+    result = catch_up_of(paths, asking([], lambda estimate: []))
+
+    assert result.declined and stand_in.written == [] and result.updated == []
+    record = TeamState(connect(team_database(paths, "acme"))).last_finished()
+    assert record is not None and record.unticked == ["acme-repo-a", "acme-repo-b", "acme-repo-c"]
 
 
 def test_declining_runs_no_paid_part(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -528,3 +551,23 @@ def test_an_overview_that_raises_still_finishes_the_catch_up(tmp_path: Path, mon
     assert problem is not None and "RuntimeError" in problem and "/private/path" not in problem
     record = TeamState(connect(team_database(paths, "acme"))).last_finished()
     assert record is not None and record.overview_problem == problem
+
+
+def test_the_overview_adapter_gets_the_teams_per_call_budget(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    install(monkeypatch, StandIn(digests=True))
+    paths = team_paths(tmp_path)
+    file = paths.team_file("acme")
+    file.write_text(file.read_text() + "max_budget_usd_per_call = 0.25\n")  # under [catch_up], written last
+    budgets: list[float] = []
+
+    def built(workspace: Path, settings: object, model: str, max_budget_usd_per_call: float) -> FakeAssistant:
+        budgets.append(max_budget_usd_per_call)
+        return FakeAssistant()
+
+    monkeypatch.setattr(catch_up, "require_provider_ready", lambda provider, settings: None)
+    monkeypatch.setattr(catch_up, "build_overview_assistant", built)
+
+    result = run_catch_up(paths, "acme", asking([]))
+
+    assert budgets == [0.25]
+    assert result.overview is not None and result.overview.overview_id is not None, result.overview
