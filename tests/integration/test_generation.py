@@ -169,16 +169,34 @@ def test_the_update_stops_calling_claude_at_its_total_budget(paths: Paths) -> No
     assert generation.left_for_later  # the second page waits for the next update
 
 
-def test_shared_budget_stops_new_calls(paths: Paths, tmp_path: Path) -> None:
-    write_target(paths, "u", make_repository(tmp_path / "other", [FILES]), "develop")
-    shared = SharedBudget(0.01)
-    first = run_update(paths, "t", claude=FakeAssistant(plans=[PLAN], page_writer=good_page), shared_budget=shared)
-    assert first.generation is not None and first.generation.written
+def test_shared_budget_stops_new_calls(paths: Paths) -> None:
+    one_at_a_time(paths)
+    shared = SharedBudget(0.01)  # each page costs 0.01
+    claude = FakeAssistant(plans=[PLAN], page_writer=good_page)
+    generation = run_update(paths, "t", claude=claude, shared_budget=shared).generation
+    assert generation is not None
+    assert len(generation.written) == 1 and len(generation.left_for_later) == 1
     assert shared.exhausted
-    second = run_update(paths, "u", claude=FakeAssistant(plans=[PLAN], page_writer=good_page), shared_budget=shared)
-    assert second.generation is not None
-    assert second.generation.written == []
-    assert second.generation.left_for_later
+
+
+def test_an_exhausted_shared_budget_stops_a_first_run_before_its_plan(paths: Paths) -> None:
+    shared = SharedBudget(1.0)
+    shared.add(1.0)
+    claude = FakeAssistant(plans=[PLAN], page_writer=good_page)
+    with pytest.raises(CodetrailError, match="team's budget is spent"):
+        run_update(paths, "t", claude=claude, shared_budget=shared)
+    assert claude.requests == []
+
+
+def test_no_page_retry_once_the_shared_budget_runs_out(paths: Paths) -> None:
+    one_at_a_time(paths)
+    bad = PageDraft("Cites [[module:ghost.py]].", CHECKS, cost_usd=0.01, brief=BRIEF)
+    claude = FakeAssistant(plans=[PLAN], pages={"areas/api": [bad, bad]}, page_writer=good_page)
+    generation = run_update(paths, "t", claude=claude, shared_budget=SharedBudget(0.01)).generation
+    assert generation is not None
+    page_requests = [request for request in claude.requests if isinstance(request, PageRequest)]
+    assert [request.page_id for request in page_requests] == ["areas/api"]  # one attempt, and nothing after it
+    assert "areas/api" in generation.left_for_later
 
 
 def test_shared_budget_counts_each_call() -> None:
@@ -271,7 +289,7 @@ def test_an_update_reports_each_step_as_it_goes(paths: Paths) -> None:
 
 
 def test_the_steps_report_a_retry_a_failed_page_and_one_left_for_later(paths: Paths) -> None:
-    one_at_a_time(paths, budget_usd=0.01)
+    one_at_a_time(paths, budget_usd=0.015)
     bad = PageDraft("Cites [[module:ghost.py]].", CHECKS, cost_usd=0.01, brief=BRIEF)
     events: list[dict[str, object]] = []
     claude = FakeAssistant(plans=[PLAN], pages={"areas/api": [bad, bad]}, page_writer=good_page)

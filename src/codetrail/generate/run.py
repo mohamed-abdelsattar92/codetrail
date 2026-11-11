@@ -195,6 +195,8 @@ async def _outline(context: GenerationContext, claude: Assistant, result: Genera
     entries = outline_entries(stored)
     paths: list[OutlinePath] = []
     if not entries:
+        if context.shared_budget is not None and context.shared_budget.exhausted:
+            raise CodetrailError("The team's budget is spent, so this repository wasn't updated.")
         context.progress({"step": "plan"})
         draft = await claude.plan(PlanRequest(context.target, facts_summary(store, context.manifest), ""))
         spent = _spend(context, result, "plan", draft)
@@ -209,7 +211,7 @@ async def _outline(context: GenerationContext, claude: Assistant, result: Genera
         paths = outline_paths(stored, {entry.id for entry in entries})
         new_facts = set(context.diff.added_entities)
         uncovered = [fact for fact in uncovered_facts(store, entries) if fact in new_facts]
-        if uncovered:
+        if uncovered and not _budget_spent(context, result):
             current = json.dumps(outline_data(entries, paths), indent=1)
             context.progress({"step": "plan"})
             draft = await claude.plan(PlanRequest(context.target, facts_summary(store, context.manifest), current,
@@ -219,7 +221,8 @@ async def _outline(context: GenerationContext, claude: Assistant, result: Genera
             context.progress({"step": "planned", "pages": len(added), **spent})
             result.outline_problems += problems
             entries = [*entries, *added]
-        if stored is not None and "paths" not in stored:  # an outline written before paths existed: plan them once
+        # an outline written before paths existed: plan them once
+        if stored is not None and "paths" not in stored and not _budget_spent(context, result):
             current = json.dumps(outline_data(entries), indent=1)
             context.progress({"step": "plan"})
             try:
@@ -302,6 +305,10 @@ async def _write_page(
     problems: list[str] = []
     try:
         for attempt in range(1, PAGE_ATTEMPTS + 1):
+            if attempt > 1 and _budget_spent(context, result):  # no retry once the budget is spent
+                result.left_for_later.append(entry.id)
+                context.progress({"step": "page_later", "id": entry.id, "title": entry.title})
+                return
             context.progress({"step": "page", "id": entry.id, "title": entry.title, "attempt": attempt,
                               "reason": planned.reason, "changed": planned.changed_now,
                               "revise": revising})  # fmt: skip
