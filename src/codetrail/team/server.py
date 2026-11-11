@@ -28,7 +28,7 @@ from fastapi.responses import HTMLResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.types import ASGIApp
 
-from codetrail.config import GlobalConfig, Paths, TeamConfig, load_global, load_team
+from codetrail.config import GlobalConfig, Paths, load_global, load_team
 from codetrail.errors import CodetrailError
 from codetrail.guide import GuideRepository
 from codetrail.hosting import HostingService
@@ -37,10 +37,9 @@ from codetrail.hosting.services import services_for
 from codetrail.lock import target_in_use, team_in_use
 from codetrail.repo.signal import Signal, behind
 from codetrail.server import HOST
-from codetrail.team.follow import follows
+from codetrail.team.follow import followed_targets
 from codetrail.team.refresh import TeamRefreshJob
 from codetrail.team.routes import team_router
-from codetrail.team.settings import team_targets
 from codetrail.team.sync import TeamSync, sync_team
 from codetrail.web.app import LanguageChoice, create_target_app, template_environment
 from codetrail.web.i18n import Language, installed_languages
@@ -158,15 +157,6 @@ def create_team_app(
             mounted.add(target)
             app.mount(f"/repos/{target}", target_app)
 
-    def followed(team: TeamConfig) -> dict[str, tuple[str, str]]:
-        """Each followed target's repository name, as the service gives it, and branch."""
-        return {
-            target: (config.remote.name, config.branch)
-            for target, config in sorted(team_targets(paths, name).items())
-            if config.remote is not None
-            and follows(team, config.remote.service, config.remote.source, config.remote.id)
-        }
-
     def read_signal(target: str) -> tuple[Signal | None, str]:
         try:
             return behind(paths, target), ""
@@ -203,10 +193,10 @@ def create_team_app(
         template: str, active: str, targets: dict[str, tuple[str, str]] | None = None, **context: Any
     ) -> HTMLResponse:
         """A team page in the guides' shell: its sidebar lists each followed repository the server serves.
-        `targets` are the followed ones, as `followed()` gives them, when the caller has them already."""
+        `targets` are the followed ones, as `followed_targets()` gives them, when the caller has them already."""
         if targets is None:
             try:
-                targets = followed(load_team(paths, name))
+                targets = followed_targets(paths, name, load_team(paths, name))
             except CodetrailError:  # the page, or its script's reads, say why
                 targets = {}
         current = language()
@@ -228,7 +218,7 @@ def create_team_app(
             return PlainTextResponse(str(error), 500)
         # A followed target this server doesn't hold yet (another command wrote it) is held and mounted: in memory
         # only. Nothing here writes settings or lists the sources.
-        targets = followed(team)
+        targets = followed_targets(paths, name, team)
         for target in targets:
             mount(target)
         current = [target for target in targets if target not in listing.stopped]
@@ -254,7 +244,7 @@ def create_team_app(
 
     app.include_router(team_router(paths, name, settings, services, language, render, mount, refresh, record_sync))
     app.mount("/static", StaticFiles(directory=str(files("codetrail.web").joinpath("static"))), name="static")
-    for target in followed(load_team(paths, name)):
+    for target in followed_targets(paths, name, load_team(paths, name)):
         mount(target)
     if listing.added:  # the start's listing wrote them: they get the free first refresh a save starts
         refresh.start(listing.added)
