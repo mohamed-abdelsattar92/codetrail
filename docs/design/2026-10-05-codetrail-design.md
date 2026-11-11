@@ -1387,6 +1387,7 @@ overview = "claude-sonnet-5-5"
 [catch_up]
 max_budget_usd = 20.0
 concurrency = 2
+max_budget_usd_per_call = 1.0  # the overview's one call
 ```
 
 - **Target names** are `<team>-<repository>`, lower-cased, with characters outside the target-name pattern replaced by `-`; a clash gets the start of the service's id. The page shows the repository's own name.
@@ -1412,7 +1413,7 @@ Routes, all under section 7.4's rules: `GET /team/add`; `GET /team/hosting/sourc
 The page, top to bottom:
 - **The header line:** "Since you last caught up", with the time the last catch-up finished, how many of the team's repositories have new merges, and the **Catch up** button.
 - **"Across the team",** the latest overview (section 24.9), until the reader marks it read.
-- **One card per repository with something new, busiest first:** its name, branch and merge count; the areas touched, from the free signal; the digest's highlights, each with its documented or inferred mark and source; who merged, as git records the authors' names; a link to the digest; and how many guide pages changed. A repository whose new merges aren't caught up yet shows the free part only, with a dashed edge: "Not caught up yet: 2 merges touched Networking." A repository that couldn't be reached shows why.
+- **One card per repository with something new, busiest first:** its name, branch and merge count; the areas touched, from the free signal; the digest's highlights, each with its documented or inferred mark and source; who merged, as git records the authors' names; a link to the digest; and how many guide pages changed. A repository whose new merges aren't caught up yet shows the free part only, with a dashed edge: "Not caught up yet: 2 merges touched Networking." A repository the last catch-up missed (it failed, or the reader left it out) keeps that line and says why; its merges, areas and authors count from the commit its newest digest covered, since its free part moved the snapshot past them. A repository with no guide yet says the same on its row. A repository that couldn't be reached shows why.
 - **One line for the rest:** "Nothing new: docs-site, inventory-service", then archived repositories and those that left their source.
 
 A card shows the repository's unread digests (section 8.3), so a digest read on the repository's own guide counts as read here, and marking it read on the card marks it there.
@@ -1423,7 +1424,7 @@ A card shows the repository's unread digests (section 8.3), so a digest read on 
 **Catch up** on the page, or `codetrail team update <name>`:
 1. **The free part, for every repository,** `catch_up.concurrency` at a time: the source lists are read again (section 24.5), new repositories are cloned, and every target's sources and facts are refreshed, as the start of `codetrail update` does (section 15.4).
 2. **One estimate** for the whole catch-up: each target's update estimate (plan, pages and digest, section 15.4) on its own line with a checkbox, ticked by default, a new repository's first guide marked as such (an unticked first guide is offered again at every catch-up until it runs or the repository is left out; `team update --yes` runs it, within the team's budget, as `codetrail update --yes` runs a first update); the overview, when at least two ticked repositories have new commits; the total, expected and at most; the sign-in in use and the latest plan usage. The reader can untick any repository: it keeps its free part, and its card says it wasn't caught up. Confirming sends the estimate's id with the ticked targets.
-3. **The paid part:** each ticked target's update runs as it does today, with its own lock, its own budget and its own all-or-nothing commit (section 6.8), `catch_up.concurrency` targets at a time, and the whole catch-up stops starting new calls at `catch_up.max_budget_usd`. The update panel shows every step, prefixed by the repository's name. A target that fails (busy with its own update, its sign-in lost, its budget spent) doesn't stop the others; its card says why.
+3. **The paid part:** each ticked target's update runs as it does today, with its own lock, its own budget and its own all-or-nothing commit (section 6.8), `catch_up.concurrency` targets at a time, and the whole catch-up stops starting new calls at `catch_up.max_budget_usd`. The update panel shows every step, prefixed by the repository's name. A target that fails (busy with its own update, its sign-in lost, its budget spent, or its turn coming after the team's budget is spent) doesn't stop the others and commits nothing; its card and the panel say why. Unticking every repository declines the catch-up, as cancelling does.
 4. **The overview** (section 24.9), from the digests this catch-up wrote.
 
 One catch-up runs per team at a time (a team lock), and the page's cooldown and estimate rules (sections 7.4 and 15.4) apply to it as to one target's update.
@@ -1451,7 +1452,7 @@ highlights_per_digest = 3             # 0 to 10
 max_overview_words = 250              # 50 to 1000
 ```
 
-Each team's file holds its sources, `[models] overview`, `catch_up.max_budget_usd` and `catch_up.concurrency` (section 24.5). The starting estimate for `overview` joins `[estimates]`.
+Each team's file holds its sources, `[models] overview`, `catch_up.max_budget_usd`, `catch_up.concurrency` and `catch_up.max_budget_usd_per_call` (1.0 by default, above 0: the overview call's own limit, as `generation.max_budget_usd_per_call` is a page call's) (section 24.5). The starting estimate for `overview` joins `[estimates]`.
 
 ### 24.11 Security
 - **Who can reach it:** the new routes follow section 7.4 unchanged (`127.0.0.1`, `Host`, `Origin`, the token, `Sec-Fetch-Site`, the session). `POST /team/repositories` changes configuration and starts free work (network, disk and time). A local server holding the session cookie (section 7.4) could make the reader follow repositories their own sign-in can already read, but it can't make paid work run without an estimate id, which it can't read.
