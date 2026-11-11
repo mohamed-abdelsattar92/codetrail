@@ -406,7 +406,7 @@ Each of these has a test in the task that owns the code (Tasks 6, 7, 8 and 9).
 - [ ] **Step 2: Write the failing browser test** `test_team_catch_up_with_one_unticked`: two followed targets with new commits. Press Catch up, see two rows and the overview row, untick one, and the overview row hides and the total drops. Press Go ahead, the panel shows steps prefixed by the ticked repository's name, and after the reload the page has loaded again. Use the existing team browser fixtures (`tests/browser/test_team_add.py`'s setup) and an axe check of the open dialog.
 - [ ] **Step 3: Run them.** Expected: FAIL.
 - [ ] **Step 4: Implement.**
-- [ ] **Step 5: Run them again,** then `mise exec -- just test-browser -k team`. Expected: PASS.
+- [ ] **Step 5: Run them again,** then `mise exec -- uv run pytest -q -m browser tests/browser -k team`. Expected: PASS.
 - [ ] **Step 6: Commit:** `feat(team): catch up from the team page with one estimate`.
 
 ---
@@ -481,7 +481,7 @@ The cards' authors come from `authors_between(mirror, oldest unread digest's fro
 - [ ] **Step 3: Write the failing browser test** `test_team_page_cards`: the page in light and dark themes, with axe passing. The card's dashed edge is visible for a target that isn't caught up. Pressing a card's Mark as read removes it without a reload error. Check it at 375px width too, with no horizontal scroll.
 - [ ] **Step 4: Run them.** Expected: FAIL.
 - [ ] **Step 5: Implement.** Keep `team_page()` readable by moving the card building into `team/cards.py`.
-- [ ] **Step 6: Run them again,** then `mise exec -- just test-browser -k team`. Expected: PASS.
+- [ ] **Step 6: Run them again,** then `mise exec -- uv run pytest -q -m browser tests/browser -k team`. Expected: PASS.
 - [ ] **Step 7: Commit:** `feat(team): the team page's header, overview and cards`.
 
 ---

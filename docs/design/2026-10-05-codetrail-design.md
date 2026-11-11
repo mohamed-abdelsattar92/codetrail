@@ -612,7 +612,7 @@ Each phase is usable on its own, has its own implementation plan, and ends with 
 | 19. The sidebar | Hiding and peeking, the frame and card, folding sections and pinned tiles (section 22) | A sidebar that gets out of the way, with the pages you use most at the top | Phase 11 |
 | 20. Context for coding agents | The map, briefs in the page call, the `agents/` export, `codetrail agents` and the `codetrail mcp` tool server (section 23) | Coding agents start a task from Codetrail's understanding of the repository instead of rediscovering it | ADR 0017 |
 | 21. Teams from hosting services | The spike, the `hosting` interface with the `github`, `azure_devops` and `gitlab` adapters and the fake, remote targets, teams, `codetrail team serve` with the team's server and a plain team page, the add-repositories screen, `codetrail team add`, `list` and `remove` (section 24) | A whole organization's repositories, or a chosen set, followed from GitHub, Azure DevOps or GitLab, each with its own guide | ADR 0020 |
-| 22. Catching up across a team (designed) | The team page's cards, the catch-up with one estimate, highlights in digests, the overview across repositories (section 24) | One page each morning: what the team merged everywhere since you last looked, and why | Phase 21 |
+| 22. Catching up across a team (built) | The team page's cards, the catch-up with one estimate, highlights in digests, the overview across repositories (section 24) | One page each morning: what the team merged everywhere since you last looked, and why | Phase 21 |
 | 16. Decision inventory (planned) | An opt-in paid pass listing the decisions in the code and their documented "why" (section 18.8) | The share of the repository's decisions that are documented, beyond what the guide wrote about | Phase 13 |
 
 ## 14. Answers to the brainstorm's open questions
@@ -1493,3 +1493,13 @@ The founder decided: following teams through `gh`, `az` and `glab`; adding repos
 - First guides are ticked by default in the estimate, offered again when unticked, and run by `team update --yes` within the team's budget.
 - Forks and templates count like any other repository; a followed repository that goes quiet stays followed.
 - Target names `<team>-<repository>`, matched to the service by stable id.
+
+Phase 22's calls, for the founder to check:
+- **No Codex for the overview:** `[models] overview` refuses the `codex` provider, since the overview call has no tools and Codetrail can't confine Codex. Its links may point only at the digests of that catch-up.
+- **No fact links or diagrams** in an overview; it holds only digest blocks, inferred blocks and plain lines.
+- **`team.db`** shares the targets' migrations; migration 0007 adds `catch_ups` (with `failed` and `unticked`) and `overview_reads`.
+- **The overview appears in the estimate** when at least two ticked repositories can write a digest, not only when they're expected to. So the shown maximum includes it whenever it could run, and it runs only if the confirmed estimate showed it.
+- **The team budget** also stops the plan call of a repository with no guide yet, and a page's retry.
+- **"Merged by"** lists first-parent authors since the oldest unread digest, alphabetical and never counted. A first guide's digest names nobody.
+- **A cancelled or unticked estimate** leaves dashed cards, since the free part moved each repository's snapshot.
+- **`codetrail team update`** asks all or nothing, like `codetrail update`.
