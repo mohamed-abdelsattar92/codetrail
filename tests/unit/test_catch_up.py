@@ -11,6 +11,7 @@ from typing import Any
 
 import pytest
 
+from codetrail.assistant import OverviewRequest
 from codetrail.assistant.estimate import CallEstimate, EstimateLine, UpdateEstimate
 from codetrail.assistant.fake import FakeAssistant
 from codetrail.config import Paths, RemoteSettings, TeamSource, write_remote_target
@@ -385,7 +386,7 @@ def test_describe_catch_up_names_repositories() -> None:
 
 def test_estimate_as_json_has_every_line() -> None:
     estimate = CatchUpEstimate(
-        [line_of("acme-repo-a", paid(), True), line_of("acme-repo-b", paid(), True)],
+        [line_of("acme-repo-a", paid(), True), line_of("acme-repo-b", possible(), False, possible=True)],
         call("overview", cost_usd=0.25), [("repo-c", "fetch refused")], 20.0, {}, [],
     )  # fmt: skip
 
@@ -393,7 +394,7 @@ def test_estimate_as_json_has_every_line() -> None:
 
     lines = data["lines"]
     assert isinstance(lines, list) and [line["target"] for line in lines] == ["acme-repo-a", "acme-repo-b"]
-    assert all(line["digest_possible"] is True for line in lines)
+    assert [(line["digest_expected"], line["digest_possible"]) for line in lines] == [(True, True), (False, True)]
     assert data["failed"] == [{"repository": "repo-c", "reason": "fetch refused"}]
     assert data["budget_usd"] == 20.0
     assert isinstance(data["overview"], dict) and data["overview"]["kind"] == "overview"
@@ -470,6 +471,23 @@ def test_no_overview_when_fewer_than_two_ticked_lines_may_digest(
                          overview_writer=overview_writer)  # fmt: skip
 
     assert overview_writer.requests == [] and result.overview is None
+
+
+def test_no_overview_when_one_ticked_line_may_digest(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The estimate shows the overview (repo-a and repo-b may digest) and two digests are written, but of the ticked
+    repo-a and repo-c only one may digest, so the reader's totals left the overview out and it doesn't run."""
+    install(monkeypatch, StandIn(estimates={"acme-repo-a": paid(), "acme-repo-b": paid(),
+                                            "acme-repo-c": paid(digest=False)}, digests=True))  # fmt: skip
+    overview_writer = FakeAssistant()
+    seen: list[CatchUpEstimate] = []
+
+    result = catch_up_of(team_paths(tmp_path), asking(seen, lambda estimate: ["acme-repo-a", "acme-repo-c"]),
+                         overview_writer=overview_writer)  # fmt: skip
+
+    assert seen[0].overview is not None
+    assert sorted(result.updated) == ["acme-repo-a", "acme-repo-c"]  # each wrote a digest
+    assert not any(isinstance(request, OverviewRequest) for request in overview_writer.requests)
+    assert result.overview is None
 
 
 def test_the_overview_step_is_reported(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
