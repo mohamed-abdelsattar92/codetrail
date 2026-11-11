@@ -481,9 +481,10 @@ history_size = 20
 plan = { input = 60_000, output = 8_000 }
 write = { input = 120_000, output = 6_000 }
 revise = { input = 40_000, output = 2_000 }
-digest = { input = 40_000, output = 3_000 }
+digest = { input = 40_000, output = 3_500 }       # grew from 3_000 for the highlights
 answer = { input = 30_000, output = 1_500 }
 grade = { input = 4_000, output = 500 }
+overview = { input = 15_000, output = 1_500 }     # a team's catch-up overview (section 24.9)
 
 [signal]
 cache_seconds = 60

@@ -46,6 +46,30 @@ def test_a_selection_is_saved_and_replaced(paths: Paths) -> None:
     assert not list(paths.team_file("acme").parent.glob("*.tmp"))
 
 
+def test_save_selection_keeps_models_and_catch_up(paths: Paths) -> None:
+    team_following(paths)
+    file = paths.team_file("acme")
+    file.write_text(
+        file.read_text(encoding="utf-8") + '\n[models]\noverview = "local:qwen3"\n\n'
+        "[catch_up]\nmax_budget_usd = 5.5\nconcurrency = 3\n",
+        encoding="utf-8",
+    )
+
+    save_selection(paths, "acme", TeamSource(service="gitlab", source="example-group"))
+
+    team = load_team(paths, "acme")
+    assert len(team.sources) == 2
+    assert team.models.overview == "local:qwen3"
+    assert (team.catch_up.max_budget_usd, team.catch_up.concurrency) == (5.5, 3)
+
+
+def test_save_selection_writes_no_default_tables(paths: Paths) -> None:
+    team_following(paths)
+    text = paths.team_file("acme").read_text(encoding="utf-8")
+    assert "[models]" not in text
+    assert "[catch_up]" not in text
+
+
 def test_writing_a_team_twice_is_refused(paths: Paths) -> None:
     write_team(paths, "acme")
     with pytest.raises(CodetrailError, match="already exists"):

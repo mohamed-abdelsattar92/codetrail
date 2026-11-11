@@ -8,11 +8,14 @@ from pydantic import ValidationError
 from codetrail.config import (
     TEAM_NAME,
     AgentSettings,
+    EstimateSettings,
     GlobalConfig,
     Paths,
     RemoteSettings,
     TargetConfig,
+    TeamSettings,
     TeamSource,
+    TokenGuess,
     check_containment,
     load_global,
     load_target,
@@ -456,6 +459,10 @@ def test_location_is_the_path_or_the_url(tmp_path: Path) -> None:
         "[hosting]\nconcurrency = 17",
         "[team]\nactive_days = 0",
         "[team]\nactive_days = 3651",
+        "[team]\nhighlights_per_digest = -1",
+        "[team]\nhighlights_per_digest = 11",
+        "[team]\nmax_overview_words = 49",
+        "[team]\nmax_overview_words = 1001",
     ],
 )
 def test_hosting_and_team_settings_refuse_values_out_of_range(paths: Paths, text: str) -> None:
@@ -587,3 +594,50 @@ def test_a_refused_remote_url_is_not_echoed_in_the_settings_error() -> None:
         RemoteSettings.model_validate({**REMOTE, "url": url})
     messages = " ".join(issue["msg"] for issue in raised.value.errors())  # what the settings' error names
     assert "clone URL" in messages and "secret" not in messages
+
+
+def test_team_settings_defaults() -> None:
+    settings = TeamSettings()
+    assert (settings.highlights_per_digest, settings.max_overview_words) == (3, 250)
+
+
+def test_estimate_overview_default() -> None:
+    estimates = EstimateSettings()
+    assert estimates.overview == TokenGuess(input=15_000, output=1_500)
+    assert estimates.digest.output == 3_500
+
+
+def test_team_config_models_and_catch_up(paths: Paths) -> None:
+    paths.team_file("acme").parent.mkdir(parents=True)
+    paths.team_file("acme").write_text(
+        '[models]\noverview = "local:qwen3"\n\n[catch_up]\nmax_budget_usd = 5\nconcurrency = 3\n',
+        encoding="utf-8",
+    )
+    team = load_team(paths, "acme")
+    assert team.models.overview == "local:qwen3"
+    assert (team.catch_up.max_budget_usd, team.catch_up.concurrency) == (5.0, 3)
+    paths.team_file("acme").write_text("", encoding="utf-8")
+    team = load_team(paths, "acme")
+    assert (team.models.overview, team.catch_up.max_budget_usd, team.catch_up.concurrency) == (
+        "claude-sonnet-5-5",
+        20.0,
+        2,
+    )
+
+
+def test_team_overview_refuses_codex(paths: Paths) -> None:
+    paths.team_file("acme").parent.mkdir(parents=True)
+    paths.team_file("acme").write_text('[models]\noverview = "codex:gpt-5"\n', encoding="utf-8")
+    with pytest.raises(CodetrailError, match="Codex"):
+        load_team(paths, "acme")
+    paths.team_file("acme").write_text('[models]\noverview = "gpt:x"\n', encoding="utf-8")
+    with pytest.raises(CodetrailError, match="isn't a provider"):
+        load_team(paths, "acme")
+
+
+@pytest.mark.parametrize("text", ["max_budget_usd = 0", "concurrency = 0", "concurrency = 9"])
+def test_catch_up_ranges(paths: Paths, text: str) -> None:
+    paths.team_file("acme").parent.mkdir(parents=True)
+    paths.team_file("acme").write_text(f"[catch_up]\n{text}\n", encoding="utf-8")
+    with pytest.raises(CodetrailError):
+        load_team(paths, "acme")

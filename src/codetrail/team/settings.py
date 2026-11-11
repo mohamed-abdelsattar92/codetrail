@@ -10,8 +10,10 @@ from pathlib import Path
 
 from codetrail.config import (
     TARGET_NAME,
+    CatchUpSettings,
     Paths,
     TargetConfig,
+    TeamModels,
     TeamSource,
     load_target,
     load_team,
@@ -44,13 +46,12 @@ def save_selection(paths: Paths, name: str, selection: TeamSource) -> None:
 
 
 def _write_sources(paths: Paths, name: str, file: Path, selection: TeamSource) -> None:
+    team = load_team(paths, name)
     sources = [
-        entry
-        for entry in load_team(paths, name).sources
-        if (entry.service, entry.source) != (selection.service, selection.source)
+        entry for entry in team.sources if (entry.service, entry.source) != (selection.service, selection.source)
     ]
     sources.append(selection)
-    text = "".join(_source_text(entry) for entry in sources)
+    text = "".join(_source_text(entry) for entry in sources) + _models_text(team.models) + _catch_up_text(team.catch_up)
     # A file in the same folder, renamed into place: a reader never sees half a file.
     descriptor, temporary = tempfile.mkstemp(dir=file.parent, prefix=f".{name}-", suffix=".tmp")
     try:
@@ -75,6 +76,18 @@ def _source_text(source: TeamSource) -> str:
         f"left_out = {array(source.left_out)}\n"
         f"chosen = {array(source.chosen)}\n"
     )
+
+
+def _models_text(models: TeamModels) -> str:
+    if models == TeamModels():
+        return ""
+    return f"\n[models]\noverview = {toml_string(models.overview)}\n"
+
+
+def _catch_up_text(catch_up: CatchUpSettings) -> str:
+    if catch_up == CatchUpSettings():
+        return ""
+    return f"\n[catch_up]\nmax_budget_usd = {catch_up.max_budget_usd!r}\nconcurrency = {catch_up.concurrency}\n"
 
 
 def existing_target_names(paths: Paths) -> list[str]:
