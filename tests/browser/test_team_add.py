@@ -130,7 +130,7 @@ def test_follow_all_then_leave_one_out(page: Page, team_site: TeamSite, errors: 
     assert (source.follow, source.left_out) == ("all", ["R_2"])
     assert existing_target_names(team_site.paths) == ["acme-web-shop"]
     page.get_by_role("link", name="Go to the team page").click()
-    expect(page.locator("#content a[href='/repos/acme-web-shop/']")).to_have_text("web-shop")
+    expect(page.locator("#content a.grow[href='/repos/acme-web-shop/']")).to_have_text("web-shop")
     assert errors == []
 
 
@@ -208,7 +208,7 @@ def test_a_mounted_guide_s_links_and_questions_go_under_its_prefix(page: Page, t
     write_served_target(team_site.paths, "acme-web-shop", team_site.repository_url)
     team_site.refresh("acme-web-shop")
     team_site.sign_in(page, "/")  # the team page mounts the target it follows
-    expect(page.locator("#content a[href='/repos/acme-web-shop/']")).to_be_visible()
+    expect(page.locator("#content a.grow[href='/repos/acme-web-shop/']")).to_be_visible()
 
     page.goto(f"{team_site.url}/repos/acme-web-shop/")
     ready(page)
