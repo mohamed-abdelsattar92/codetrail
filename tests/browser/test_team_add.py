@@ -120,7 +120,7 @@ def test_follow_all_then_leave_one_out(page: Page, team_site: TeamSite, errors: 
     assert (source.follow, source.left_out) == ("all", ["R_2"])
     assert existing_target_names(team_site.paths) == ["acme-web-shop"]
     page.get_by_role("link", name="Go to the team page").click()
-    expect(page.locator("a[href='/repos/acme-web-shop/']")).to_have_text("web-shop")
+    expect(page.locator("#content a[href='/repos/acme-web-shop/']")).to_have_text("web-shop")
     assert errors == []
 
 
@@ -191,12 +191,15 @@ def test_a_mounted_guide_s_links_and_questions_go_under_its_prefix(page: Page, t
     write_served_target(team_site.paths, "acme-web-shop", team_site.repository_url)
     team_site.refresh("acme-web-shop")
     team_site.sign_in(page, "/")  # the team page mounts the target it follows
-    expect(page.locator("a[href='/repos/acme-web-shop/']")).to_be_visible()
+    expect(page.locator("#content a[href='/repos/acme-web-shop/']")).to_be_visible()
 
     page.goto(f"{team_site.url}/repos/acme-web-shop/")
     ready(page)
 
     links = page.eval_on_selector_all("a[href^='/']", "links => links.map(link => link.getAttribute('href'))")
+    back = page.get_by_role("link", name="← Team acme")
+    assert back.get_attribute("href") == "/"  # the one link outside the prefix: the team's page
+    links.remove("/")
     assert links and all(link.startswith(("/repos/acme-web-shop/", "/static/")) for link in links), links
     page.route("**/bridge/questions", lambda route: route.abort())  # no assistant runs; only the path matters
     page.locator("[data-ask-open]").first.click()
@@ -253,3 +256,26 @@ def test_a_save_while_the_server_stops_says_so(
     expect(page.locator("[data-refresh-state]")).to_have_text(
         "Saved, but the server is stopping: the new repositories get ready at the next catch-up."
     )
+
+
+def test_the_team_page_a_guide_and_back(page: Page, team_site: TeamSite, errors: list[str]) -> None:
+    save_selection(team_site.paths, "acme", TeamSource(service="github", source="acme-org"))
+    write_served_target(team_site.paths, "acme-web-shop", team_site.repository_url)
+    team_site.refresh("acme-web-shop")
+    team_site.sign_in(page, "/")
+    ready(page)
+    page.keyboard.press("g")
+    page.keyboard.press("p")  # a guide's shortcut: the team page has no progress page to go to
+    expect(page).to_have_url(f"{team_site.url}/")
+
+    page.locator("#sidebar").get_by_role("link", name="web-shop").click()
+
+    expect(page).to_have_url(f"{team_site.url}/repos/acme-web-shop/")
+    expect(page.locator(".topbar .target")).to_contain_text("web-shop")
+    ready(page)
+    page.get_by_role("link", name="← Team acme").click()
+    expect(page).to_have_url(f"{team_site.url}/")
+    expect(page.locator("#sidebar [aria-current=page]")).to_have_text("Team")
+    page.locator("#sidebar").get_by_role("link", name="Add repositories").click()
+    expect(page).to_have_url(f"{team_site.url}/team/add")
+    assert errors == []

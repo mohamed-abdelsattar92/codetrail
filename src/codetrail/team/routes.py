@@ -18,7 +18,6 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Query
 from fastapi.responses import HTMLResponse, JSONResponse, Response
-from jinja2 import Environment
 from markupsafe import Markup
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
@@ -31,7 +30,6 @@ from codetrail.team.settings import save_selection, team_targets
 from codetrail.team.sync import TeamSync, sync_team
 from codetrail.web.i18n import Language
 from codetrail.web.repository_view import plural_templates, script_json
-from codetrail.web.security import SessionState
 
 logger = logging.getLogger(__name__)
 MAX_IDS = 10_000  # the most `hosting.max_repositories_per_source` allows; the setting itself is checked per request
@@ -65,17 +63,19 @@ def team_router(
     name: str,
     settings: GlobalConfig,
     services: Mapping[Service, HostingService],
-    session: SessionState,
-    language: Language,
-    environment: Environment,
+    language: Callable[[], Language],
+    render: Callable[..., HTMLResponse],
     mount: Callable[[str], None],
     refresh: TeamRefreshJob,
     record_sync: Callable[[TeamSync], None],
 ) -> APIRouter:
-    """`mount(target)` holds and serves a new target's page; `record_sync` gives the team page the latest listing."""
+    """`language()` is the reader's, `render(template, active, **context)` a page in the team's shell, and
+    `mount(target)` holds and serves a new target's page; `record_sync` gives the team page the latest listing."""
     router = APIRouter()
-    _ = language.translations.gettext
     saving = threading.Lock()
+
+    def _(message: str) -> str:
+        return language().translations.gettext(message)
 
     def service_for(service: Service) -> HostingService:
         if service not in services:
@@ -118,11 +118,10 @@ def team_router(
 
     @router.get("/team/add", response_class=HTMLResponse)
     def add_screen() -> HTMLResponse:
-        html = environment.get_template("team_add.html").render(
-            language=language, team=name, token=session.token, active_days=settings.team.active_days,
-            labels=Markup(script_json(labels(language))),  # noqa: S704 - escaped for a JSON script block
+        return render(
+            "team_add.html", "add", active_days=settings.team.active_days,
+            labels=Markup(script_json(labels(language()))),  # noqa: S704 - escaped for a JSON script block
         )  # fmt: skip
-        return HTMLResponse(html)
 
     @router.get("/team/hosting/sources")
     def hosting_sources(organization: Annotated[str | None, Query(max_length=100)] = None) -> Response:

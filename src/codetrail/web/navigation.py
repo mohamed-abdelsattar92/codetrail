@@ -29,6 +29,8 @@ class Navigation:
     branch: str = ""
     commit: str = ""
     pins: list[Page] = field(default_factory=list)  # pinned pages, in the order they were pinned
+    repository: str = ""  # the header's name: the repository's own, as its service gives it, or the target's
+    team: str = ""  # the team the target belongs to, if any
 
 
 def initials(title: str) -> str:
@@ -73,7 +75,7 @@ def answers_newest_first(pages: Iterable[Page]) -> list[Page]:
 
 def build_navigation(
     pages: Sequence[Page], statuses: Mapping[str, str], unread_digests: Sequence[str], branch: str = "",
-    commit: str = "", pinned: Sequence[str] = (),
+    commit: str = "", pinned: Sequence[str] = (), repository: str = "", team: str = "",
 ) -> Navigation:  # fmt: skip
     pinnable = {page.id: page for page in pages if page.kind in PINNABLE}
     paths = [
@@ -92,6 +94,8 @@ def build_navigation(
         branch=branch,
         commit=commit,
         pins=[pinnable[page_id] for page_id in pinned if page_id in pinnable],
+        repository=repository,
+        team=team,
     )
 
 

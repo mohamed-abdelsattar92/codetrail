@@ -1519,6 +1519,14 @@ msgstr "الصفحات، بترتيب كتابتها:"
 msgid "Part"
 msgstr "الجزء"
 
+#, python-format
+msgid ""
+"Part of team %(team)s. Run <code>codetrail team serve %(team)s</code> to "
+"see the whole team."
+msgstr ""
+"جزء من الفريق %(team)s. شغّل <code>codetrail team serve %(team)s</code> "
+"لترى الفريق كله."
+
 msgid "Partly there"
 msgstr "صحيحة جزئيًا"
 
@@ -2477,4 +2485,8 @@ msgstr "تنتظر «%(title)s» التحديث القادم: نفدت المي�
 #, python-format
 msgid "“%(title)s” wasn’t written: %(reason)s"
 msgstr "لم تُكتب «%(title)s»: %(reason)s"
+
+#, python-format
+msgid "← Team %(team)s"
+msgstr "→ الفريق %(team)s"
 

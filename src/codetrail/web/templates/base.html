@@ -1,4 +1,6 @@
 {% from "macros.html" import cost with context %}{% from "layout/icons.html" import icon %}<!doctype html>
+{# One shell for every page: a guide's, and the team server's own pages, which set `team_repositories` and have no
+   search, Ask, shortcuts or update of their own. #}
 <html lang="{{ language.code }}" dir="{{ language.direction }}">
 <head>
   <meta charset="utf-8">
@@ -6,7 +8,7 @@
   <meta name="codetrail-token" content="{{ token }}">
   <meta name="codetrail-base" content="{{ site_path('') }}">
   <meta name="color-scheme" content="light dark">
-  <title>{% block title %}{{ target }}{% endblock %} · Codetrail</title>
+  <title>{% block title %}{{ nav.repository }}{% endblock %} · Codetrail</title>
   <link rel="icon" href="/static/brand/favicon.svg" type="image/svg+xml">
   <link rel="preload" href="/static/vendor/inter/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/static/css/tokens.css">
@@ -16,6 +18,7 @@
   <link rel="stylesheet" href="/static/css/content.css">
   <link rel="stylesheet" href="/static/css/print.css" media="print">
   <script src="/static/js/theme-init.js"></script>
+  {% block scripts %}{% endblock %}{# before main.js: module scripts run in order, and main.js marks the page ready #}
   <script type="module" src="/static/js/main.js"></script>
 </head>
 <body>
@@ -30,9 +33,11 @@
       {% include "layout/outline.html" %}
     </div>
   </div>
+  {% if team_repositories is not defined %}
   {% include "layout/ask_panel.html" %}
   {% include "layout/palette.html" %}
   {% include "layout/shortcuts.html" %}
   {% include "layout/update_dialog.html" %}
+  {% endif %}
 </body>
 </html>

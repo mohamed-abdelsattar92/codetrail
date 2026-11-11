@@ -1,21 +1,8 @@
-<!doctype html>
-<html lang="{{ language.code }}" dir="{{ language.direction }}">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="light dark">
-  <title>{{ team }} · Codetrail</title>
-  <link rel="icon" href="/static/brand/favicon.svg" type="image/svg+xml">
-  <link rel="preload" href="/static/vendor/inter/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/static/css/tokens.css">
-  <link rel="stylesheet" href="/static/css/base.css">
-  <link rel="stylesheet" href="/static/css/layout.css">
-  <link rel="stylesheet" href="/static/css/components.css">
-  <link rel="stylesheet" href="/static/css/content.css">
-  <script src="/static/js/theme-init.js"></script>
-</head>
-<body>
-<main id="content" class="content">
+{% extends "base.html" %}
+{# The team page (design section 24.7), in the guides' shell: its sidebar lists the team page, the add-repositories
+   screen and each followed repository. #}
+{% block title %}{{ team }}{% endblock %}
+{% block content %}
 <div class="wide">
 <header class="page-head">
   <p class="card-label">{{ _("Team") }}</p>
@@ -79,6 +66,4 @@
 </section>
 {% endif %}
 </div>
-</main>
-</body>
-</html>
+{% endblock %}

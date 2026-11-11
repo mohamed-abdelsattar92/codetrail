@@ -1,26 +1,9 @@
-<!doctype html>
+{% extends "base.html" %}
 {# The add-repositories screen (design section 24.6, option A). The page calls no service: its script asks the JSON
    reads, and sets every value a service returns as text, never as markup. #}
-<html lang="{{ language.code }}" dir="{{ language.direction }}">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="codetrail-token" content="{{ token }}">
-  <meta name="codetrail-base" content="">
-  <meta name="color-scheme" content="light dark">
-  <title>{{ _("Add repositories") }} · {{ team }} · Codetrail</title>
-  <link rel="icon" href="/static/brand/favicon.svg" type="image/svg+xml">
-  <link rel="preload" href="/static/vendor/inter/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/static/css/tokens.css">
-  <link rel="stylesheet" href="/static/css/base.css">
-  <link rel="stylesheet" href="/static/css/layout.css">
-  <link rel="stylesheet" href="/static/css/components.css">
-  <link rel="stylesheet" href="/static/css/content.css">
-  <script src="/static/js/theme-init.js"></script>
-  <script type="module" src="/static/js/team_add.js"></script>
-</head>
-<body>
-<main id="content" class="content">
+{% block title %}{{ _("Add repositories") }} · {{ team }}{% endblock %}
+{% block scripts %}<script type="module" src="/static/js/team_add.js"></script>{% endblock %}
+{% block content %}
 <div class="wide team-add" data-team-add>
 <header class="page-head">
   <p class="card-label">{{ _("Team") }} · {{ team }}</p>
@@ -80,7 +63,5 @@
   <p><a class="button" href="/">{{ _("Go to the team page") }}</a></p>
 </section>
 </div>
-</main>
 <script type="application/json" data-team-add-labels>{{ labels }}</script>
-</body>
-</html>
+{% endblock %}

@@ -160,9 +160,11 @@ def create_target_app(
     locales: Path | None = None,
     updater: Callable[[Callable[[UpdateEstimate], bool], Progress], object] | None = None,
     assistant_for: Callable[[], Assistant] | None = None,
+    team: str | None = None,
 ) -> tuple[ASGIApp, Callable[[], None]]:
     """The target's page without the security middleware, to serve at `/` or mount under `/repos/<target>/`, and
-    the function that stops its update.
+    the function that stops its update. `team` names the team whose server mounts it: its sidebar links back to
+    that team's page, at `/`.
 
     Whoever serves it wraps it, once, in the security middleware. Every link it builds goes through `site_path`.
     `updater` runs one update; the Update button runs it in a background thread (tests pass a fake one). Served at
@@ -303,11 +305,15 @@ def create_target_app(
         statuses, unread = statuses_of(pages)
         manifest = view.manifest()
         try:
-            branch = load_target(paths, name).branch
+            target = load_target(paths, name)
         except CodetrailError:
-            branch = ""
-        return build_navigation(pages, statuses, unread, branch, manifest.commit if manifest else "",
-                                pinned=read_pins(setting(PINS_SETTING))[: settings.ui.max_pins])  # fmt: skip
+            target = None
+        return build_navigation(
+            pages, statuses, unread, target.branch if target else "", manifest.commit if manifest else "",
+            pinned=read_pins(setting(PINS_SETTING))[: settings.ui.max_pins],
+            repository=target.remote.name if target and target.remote else name,
+            team=(target.team or "") if target else "",
+        )  # fmt: skip
 
     def render(template: str, status_code: int = 200, **context: Any) -> HTMLResponse:
         current = language()
@@ -319,7 +325,7 @@ def create_target_app(
             environments[current.code]
             .get_template(template)
             .render(language=current, languages=list(languages.values()), token=session.token, target=name,
-                    estimates=call_estimates(), max_pins=settings.ui.max_pins, **context)
+                    estimates=call_estimates(), max_pins=settings.ui.max_pins, mounted_team=team, **context)
         )  # fmt: skip
         return HTMLResponse(html, status_code=status_code)
 

@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from importlib.resources import files
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Any
 
 import uvicorn
 from fastapi import FastAPI, Query
@@ -41,8 +41,8 @@ from codetrail.team.refresh import TeamRefreshJob
 from codetrail.team.routes import team_router
 from codetrail.team.settings import team_targets
 from codetrail.team.sync import TeamSync, sync_team
-from codetrail.web.app import create_target_app, template_environment
-from codetrail.web.i18n import installed_languages
+from codetrail.web.app import LanguageChoice, create_target_app, template_environment
+from codetrail.web.i18n import Language, installed_languages
 from codetrail.web.security import SecurityMiddleware, SessionState, login_response
 
 LOGIN_NEXT = ("/", "/team/add")  # where the sign-in link may lead; anything else leads to the team page
@@ -108,9 +108,16 @@ def create_team_app(
     stops: list[Callable[[], None]] = []
     mount_lock = threading.Lock()
     languages = installed_languages(locales)
-    language = languages.get(settings.ui.default_language) or languages["en"]
-    _ = language.translations.gettext
-    environment = template_environment(str(files("codetrail.web").joinpath("templates")), language)
+    templates = str(files("codetrail.web").joinpath("templates"))
+    environments = {code: template_environment(templates, language) for code, language in languages.items()}
+    chosen = [settings.ui.default_language]  # the header's language picker sets it, for as long as the server runs
+
+    def language() -> Language:
+        return languages.get(chosen[0]) or languages["en"]
+
+    def _(message: str) -> str:
+        return language().translations.gettext(message)
+
     signals: TimedCache[tuple[Signal | None, str]] = TimedCache(settings.signal.cache_seconds)
     refresh = TeamRefreshJob(paths, settings.hosting.concurrency, _, settings.server.update_log_lines)
 
@@ -141,7 +148,7 @@ def create_team_app(
                 return
             refused.pop(target, None)
             try:
-                target_app, stop = create_target_app(paths, target, session, settings, locales)
+                target_app, stop = create_target_app(paths, target, session, settings, locales, team=name)
             except BaseException:
                 release()  # nothing is served, so nothing stays held
                 raise
@@ -179,6 +186,19 @@ def create_team_app(
         signal, reason = signals.get(target, lambda: read_signal(target))
         return Row(target, repository, branch, signal, reason)
 
+    def render(template: str, active: str, **context: Any) -> HTMLResponse:
+        """A team page in the guides' shell: its sidebar lists each followed repository the server serves."""
+        try:
+            targets = followed(load_team(paths, name))
+        except CodetrailError:  # the page, or its script's reads, say why
+            targets = {}
+        current = language()
+        html = environments[current.code].get_template(template).render(
+            language=current, languages=list(languages.values()), token=session.token, team=name, active=active,
+            team_repositories=[(target, targets[target][0]) for target in targets if target in mounted], **context,
+        )  # fmt: skip
+        return HTMLResponse(html)
+
     @app.get("/login")
     def login(code: str = "", next_path: Annotated[str, Query(alias="next")] = "/") -> Response:
         return login_response(session, code, next_path if next_path in LOGIN_NEXT else "/")
@@ -199,19 +219,23 @@ def create_team_app(
             rows = list(pool.map(lambda target: row(target, *targets[target]), current))
         stopped = [Row(target, *targets[target], served=target in mounted) for target in targets
                    if target in listing.stopped]  # fmt: skip
-        html = environment.get_template("team.html").render(
-            language=language, team=name, sources=team.sources, unreachable=set(listing.unreachable),
+        return render(
+            "team.html", "team", sources=team.sources, unreachable=set(listing.unreachable),
             service_names=SERVICE_NAMES, rows=rows, stopped=stopped,
         )  # fmt: skip
-        return HTMLResponse(html)
+
+    @app.post("/settings/language")
+    def set_language(choice: LanguageChoice) -> Response:
+        if choice.language not in languages:
+            return Response(status_code=400)
+        chosen[0] = choice.language
+        return Response(status_code=204)
 
     def record_sync(result: TeamSync) -> None:
         nonlocal listing
         listing = result
 
-    app.include_router(
-        team_router(paths, name, settings, services, session, language, environment, mount, refresh, record_sync)
-    )
+    app.include_router(team_router(paths, name, settings, services, language, render, mount, refresh, record_sync))
     app.mount("/static", StaticFiles(directory=str(files("codetrail.web").joinpath("static"))), name="static")
     for target in followed(load_team(paths, name)):
         mount(target)

@@ -2,6 +2,7 @@
 writes the team and its new targets, mounts them and starts their free first refresh (design section 24.6)."""
 
 import dataclasses
+import re
 import threading
 import time
 from collections.abc import Iterator
@@ -114,6 +115,21 @@ def test_the_screen_calls_no_service(team: Team, client: TestClient) -> None:
     assert '<meta name="codetrail-token"' in page.text and "/static/js/team_add.js" in page.text
     assert "Follow the whole source" in page.text
     assert all(calls(team, service) == [] for service in team.services)
+
+
+def test_the_screen_uses_the_app_s_shell(team: Team) -> None:
+    save_selection(team.paths, "acme", TeamSource(service="github", source="acme-org"))
+    add_target(team, "acme-web-shop", "R_1", "web-shop")  # followed, so served from the start
+
+    with signed_in(team, SessionState(60)) as client:
+        page = client.get("/team/add").text
+
+    assert '<div class="shell">' in page and '<header class="topbar">' in page
+    assert "data-theme-toggle" in page and "data-language-form" in page and "data-search-form" not in page
+    nav = page[page.index('<nav class="sidebar"') : page.index("</nav>")]
+    assert re.search(r'<a class="nav-link" href="/team/add" aria-current="page">', nav), nav
+    assert re.search(r'href="/repos/acme-web-shop/"[^>]*>.*?<bdi>web-shop</bdi>', nav, re.DOTALL), nav
+    assert page.index("/static/js/team_add.js") < page.index("/static/js/main.js")  # main.js marks the page ready
 
 
 def test_sources_list_each_service_status_and_fix(team: Team, client: TestClient) -> None:

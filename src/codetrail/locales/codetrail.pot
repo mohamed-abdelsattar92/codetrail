@@ -1268,6 +1268,12 @@ msgstr ""
 msgid "Part"
 msgstr ""
 
+#, python-format
+msgid ""
+"Part of team %(team)s. Run <code>codetrail team serve %(team)s</code> to "
+"see the whole team."
+msgstr ""
+
 msgid "Partly there"
 msgstr ""
 
@@ -2161,5 +2167,9 @@ msgstr ""
 
 #, python-format
 msgid "“%(title)s” wasn’t written: %(reason)s"
+msgstr ""
+
+#, python-format
+msgid "← Team %(team)s"
 msgstr ""
 

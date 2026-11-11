@@ -5,7 +5,10 @@
           data-label-show="{{ _('Show the sidebar') }}">{{ icon("sidebar") }}</button>
   <button type="button" class="icon-button menu-button" data-menu aria-controls="sidebar" aria-expanded="false" aria-label="{{ _('Menu') }}">{{ icon("menu") }}</button>
   <a class="brand" href="{{ site_path('/') }}"><img src="/static/brand/mark.svg" alt="" width="24" height="24"><span>codetrail</span></a>
-  <span class="target" lang="en" dir="ltr">{{ target }}{% if nav.branch or nav.commit %}<span class="target-meta">{{ nav.branch }}{% if nav.commit %} · {{ nav.commit[:7] }}{% endif %}</span>{% endif %}</span>
+  {% if team_repositories is defined %}
+  <span class="target" lang="en" dir="ltr">{{ team }}</span>
+  {% else %}
+  <span class="target" lang="en" dir="ltr">{{ nav.repository }}{% if nav.branch or nav.commit %}<span class="target-meta">{{ nav.branch }}{% if nav.commit %} · {{ nav.commit[:7] }}{% endif %}</span>{% endif %}</span>
   <div class="topbar-search">
     <form class="search-box" action="{{ site_path('/search') }}" method="get" role="search" data-search-form>
       {{ icon("search") }}
@@ -13,8 +16,9 @@
       <kbd class="search-hint" aria-hidden="true">⌘K</kbd>
     </form>
   </div>
+  {% endif %}
   <div class="topbar-actions">
-    <button type="button" class="button" data-ask-open>{{ icon("ask") }}<span>{{ _("Ask") }}</span></button>
+    {% if team_repositories is not defined %}<button type="button" class="button" data-ask-open>{{ icon("ask") }}<span>{{ _("Ask") }}</span></button>{% endif %}
     <button type="button" class="icon-button" data-theme-toggle
             data-label-system="{{ _('Theme: system (switch to light)') }}"
             data-label-light="{{ _('Theme: light (switch to dark)') }}"
@@ -27,6 +31,6 @@
         </select>
       </label>
     </form>
-    <button type="button" class="icon-button" data-shortcuts-open aria-label="{{ _('Keyboard shortcuts') }}">{{ icon("keyboard") }}</button>
+    {% if team_repositories is not defined %}<button type="button" class="icon-button" data-shortcuts-open aria-label="{{ _('Keyboard shortcuts') }}">{{ icon("keyboard") }}</button>{% endif %}
   </div>
 </header>

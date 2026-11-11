@@ -57,7 +57,7 @@ export function setUpShortcuts() {
     if (awaitingPlace) {
       clearTimeout(awaitingPlace);
       awaitingPlace = null;
-      const place = PLACES[key.toLowerCase()];
+      const place = help && PLACES[key.toLowerCase()]; // a guide's places: the team's own pages have none
       if (place) {
         event.preventDefault();
         window.location.href = sitePath(place);

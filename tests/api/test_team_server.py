@@ -34,9 +34,10 @@ from codetrail.team.server import create_team_app, serve_team
 from codetrail.team.settings import existing_target_names, save_selection, write_team
 from codetrail.team.sync import sync_team
 from codetrail.update import run_update
-from codetrail.web.app import create_target_app
+from codetrail.web.app import create_app, create_target_app
 from codetrail.web.security import TOKEN_HEADER, SessionState
 from tests.api.test_update_estimate import ESTIMATE
+from tests.fixtures.catalogs import compiled_locales
 from tests.fixtures.remote import allow_http_remotes, publish, serving_repository
 from tests.fixtures.repos import make_repository
 from tests.unit.test_signal import merge_feature
@@ -439,3 +440,73 @@ def test_a_target_waiting_for_its_first_refresh_is_not_fetched_by_a_page_view(
         repositories = section(client.get("/").text, "repositories-title")
     assert "Not updated yet" in row(repositories, "acme-repo-r-4")  # refreshed (no mirror here), so no longer pending
     assert "acme-repo-r-4" not in fetched and "acme-repo-r-5" not in fetched
+
+
+def header(html: str) -> str:
+    match = re.search(r'<header class="topbar">.*?</header>', html, re.DOTALL)
+    assert match is not None
+    return match.group(0)
+
+
+def sidebar(html: str) -> str:
+    match = re.search(r'<nav class="sidebar".*?</nav>', html, re.DOTALL)
+    assert match is not None
+    return match.group(0)
+
+
+def test_team_page_uses_the_app_s_shell(team: Team) -> None:
+    page = client_for(team).get("/").text
+
+    assert '<div class="shell">' in page and '<main id="content" class="content"' in page
+    assert "/static/js/main.js" in page
+    top = header(page)
+    assert re.search(r'<span class="target"[^>]*>\s*acme\s*</span>', top), top
+    assert "data-theme-toggle" in top and "data-language-form" in top
+    assert "data-search-form" not in top and "data-ask-open" not in top
+    assert "data-ask-panel" not in page and "data-palette" not in page and "data-estimate-dialog" not in page
+    side = sidebar(page)
+    assert re.search(r'<a class="nav-link" href="/" aria-current="page">.*?Team</span></a>', side, re.DOTALL), side
+    assert re.search(r'<a class="nav-link" href="/team/add">.*?Add repositories</span></a>', side, re.DOTALL)
+    for target in TARGETS:  # every followed repository by its own name, the inventory too
+        repository_name = TARGETS[target][1]
+        assert re.search(rf'href="/repos/{target}/"[^>]*>.*?<bdi>{repository_name}</bdi>', side, re.DOTALL), target
+
+
+def test_a_mounted_guide_links_back_to_its_team(team: Team) -> None:
+    client = client_for(team)
+
+    page = client.get("/repos/acme-web-shop/").text
+
+    first = re.search(r'<ul class="nav-list">\s*<li>(.*?)</li>', sidebar(page), re.DOTALL)
+    assert first is not None and 'href="/"' in first.group(1) and "← Team acme" in first.group(1), page
+    assert re.search(r'<span class="target"[^>]*>web-shop<', header(page))  # the repository's name, not the target's
+    assert "Part of team" not in page
+
+
+def test_a_team_target_served_alone_points_to_its_team(team: Team) -> None:
+    session = SessionState(60)
+    client = TestClient(create_app(team.paths, "acme-web-shop", session, SETTINGS), base_url=ORIGIN)
+    assert client.get(f"/login?code={session.issue_login_code()}", follow_redirects=False).status_code == 303
+
+    page = client.get("/").text
+
+    assert "Part of team acme. Run <code>codetrail team serve acme</code> to see the whole team." in page
+    assert "← Team" not in page
+    assert re.search(r'<span class="target"[^>]*>web-shop<', header(page))
+
+
+def test_the_team_s_language_can_be_switched(team: Team, tmp_path: Path) -> None:
+    session = SessionState(60)
+    locales = compiled_locales(tmp_path / "locales")
+    app = create_team_app(team.paths, "acme", session, SETTINGS, team.services, team.hold, locales)
+    client = TestClient(app, base_url=ORIGIN, follow_redirects=False)
+    assert client.get(f"/login?code={session.issue_login_code()}").status_code == 303
+    headers = {"origin": ORIGIN, TOKEN_HEADER: session.token}
+    assert 'value="ar"' in client.get("/").text
+
+    assert client.post("/settings/language", json={"language": "xx"}, headers=headers).status_code == 400
+    assert client.post("/settings/language", json={"language": "ar"}, headers={"origin": ORIGIN}).status_code == 403
+    assert client.post("/settings/language", json={"language": "ar"}, headers=headers).status_code == 204
+
+    assert '<html lang="ar" dir="rtl">' in client.get("/").text
+    assert '<html lang="ar" dir="rtl">' in client.get("/team/add").text
