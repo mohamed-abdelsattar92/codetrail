@@ -10,7 +10,7 @@ from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Page, Route, expect
 
 from codetrail.assistant.estimate import tokens_text
 from codetrail.assistant.fake import FakeAssistant
@@ -168,3 +168,48 @@ def test_the_script_formats_figures_as_the_server_does(
     )
 
     assert shown == [tokens_text(tokens), f"${dollars:.2f}"]
+
+
+def test_a_cancelled_catch_up_reloads_the_page(page: Page, two_first_guides: TeamSite, errors: list[str]) -> None:
+    two_first_guides.sign_in(page, "/")
+    ready(page)
+    page.locator("[data-catch-up-button]").click()
+    dialog = page.locator("[data-catch-up-dialog]")
+    expect(dialog).to_be_visible(timeout=CATCH_UP_SECONDS)
+
+    with page.expect_navigation(timeout=CATCH_UP_SECONDS):  # declined: the cards show the refreshed facts
+        dialog.locator("[data-catch-up-cancel]").click()
+    ready(page)
+
+    expect(page.locator("[data-catch-up-panel]")).to_be_hidden()
+    assert errors == []
+
+
+def test_a_new_estimate_clears_the_refusal(page: Page, two_first_guides: TeamSite, errors: list[str]) -> None:
+    two_first_guides.sign_in(page, "/")
+    ready(page)
+    renewed: list[bool] = []
+
+    def status(route: Route) -> None:
+        found = route.fetch()
+        result = found.json()
+        if renewed and result.get("estimate_id"):
+            result["estimate_id"] = "a-new-estimate"  # as if the refused one expired and a new catch-up asked again
+        route.fulfill(response=found, json=result)
+
+    def refuse(route: Route) -> None:
+        renewed.append(True)
+        route.fulfill(status=400, json={"error": REFUSED})
+
+    page.route("**/team/catch-up/status*", status)
+    page.route("**/team/catch-up/confirm", refuse)
+    page.locator("[data-catch-up-button]").click()
+    dialog = page.locator("[data-catch-up-dialog]")
+    expect(dialog).to_be_visible(timeout=CATCH_UP_SECONDS)
+
+    dialog.locator("[data-catch-up-go]").click()
+
+    expect(dialog).to_be_visible()
+    expect(page.locator("[data-catch-up-state]")).not_to_have_text(REFUSED)
+    page.unroute_all(behavior="ignoreErrors")  # the server stops after the test, under a poll's fetch
+    assert all("status of 400" in error for error in errors), errors

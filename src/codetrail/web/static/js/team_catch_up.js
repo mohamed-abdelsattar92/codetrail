@@ -2,7 +2,8 @@
 // facts are refreshed for free, then the one estimate waits in a dialog with a checkbox per repository. Unticking a
 // row recomputes the totals and the overview's row exactly as the server's `CatchUpEstimate.totals` does; only Go
 // ahead, with the estimate's single-use id and the ticked targets, lets paid work start. The panel shows each step,
-// prefixed by its repository's name, and the page reloads once the catch-up is done.
+// prefixed by its repository's name, and the page reloads once the catch-up is done or declined, so its cards show the
+// refreshed facts.
 import { getJSON, post } from "./api.js";
 
 const button = document.querySelector("[data-catch-up-button]");
@@ -13,12 +14,13 @@ const log = panel?.querySelector("[data-catch-up-log]");
 const stateLine = panel?.querySelector("[data-catch-up-state]");
 const ACTIVE = ["preparing", "waiting", "running"];
 const POLL_MS = 1500;
-const DONE_SHOWN_MS = 1500; // how long "Caught up." stays before the page reloads
+const DONE_SHOWN_MS = 1500; // how long "Caught up." (or why it was declined) stays before the page reloads
 let estimateId = null;
 let polling = false;
 let active = false;
 let after = 0; // the number of the last step shown
-let refusal = null; // why a decision was refused: it stays in the panel until the next catch-up starts
+let refusal = null; // why a decision was refused: it stays in the panel until a new estimate or catch-up starts
+let refusedId = null; // the estimate whose decision was refused
 
 function say(text, failed = false) {
   if (refusal) return; // the reader reads the refusal first
@@ -121,6 +123,7 @@ async function decide(url, data) {
     if (result.error) {
       say(result.error, true);
       refusal = result.error;
+      refusedId = id;
     }
   }
   poll();
@@ -141,6 +144,7 @@ async function poll(reloadWhenDone = true) {
     else if (state === "failed") say(`${labels.labelFailed} ${message ?? ""}`, true);
     else if (state === "declined") say(message ?? "", true);
     if (state === "waiting" && result.estimate_id && result.estimate_id !== estimateId) {
+      if (result.estimate_id !== refusedId) refusal = null; // a new estimate: the old refusal no longer applies
       estimateId = result.estimate_id;
       body.innerHTML = result.estimate_html; // rendered, escaped on the server
       recompute();
@@ -148,7 +152,7 @@ async function poll(reloadWhenDone = true) {
     }
     polling = false;
     if (active) setTimeout(() => poll(reloadWhenDone), POLL_MS);
-    else if (state === "done") {
+    else if (state === "done" || state === "declined") {
       setTimeout(reloadWhenDone ? () => window.location.reload() : () => (panel.hidden = true), DONE_SHOWN_MS);
     }
   } catch {

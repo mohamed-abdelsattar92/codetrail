@@ -250,15 +250,13 @@ def team_update(paths: Paths, name: str, yes: bool = False) -> int:
             return TeamSync()
 
     def progress(event: dict[str, object]) -> None:
-        if "repository" in event:
-            print(f"{printable(str(event['repository']))}: {event['step']}")
-        elif event["step"] == "overview":
+        if event["step"] == "overview":
             print("Writing the team overview.")
+        elif "repository" in event and (text := _catch_up_step(event)) is not None:
+            print(f"{printable(str(event['repository']))}: {printable(text)}")
 
     with team_in_use(paths, name):
         result = run_catch_up(paths, name, confirm, progress, stop, sync)
-    for repository, reason in result.failed:
-        print(f"{printable(repository)}: not updated ({printable(reason)})")
     if result.declined:
         print("Nothing was spent." if no_terminal else "Nothing was updated.")
         return 2 if no_terminal else 0
@@ -269,6 +267,27 @@ def team_update(paths: Paths, name: str, yes: bool = False) -> int:
     else:
         print(f"Overview written ({result.overview.overview_id}).")
     return 0
+
+
+def _catch_up_step(event: dict[str, object]) -> str | None:
+    """One repository's step of a catch-up, as a line for the terminal, or None for a step it doesn't show: when it
+    starts, each page written or not, its digest, and how it ended."""
+    step, title = event["step"], event.get("title")
+    if step == "facts":
+        return "started, refreshing the facts (free)."
+    if step == "page_written":
+        return f"wrote “{title}”."
+    if step == "page_failed":
+        return f"“{title}” wasn't written: {event.get('reason')}"
+    if step == "digest":
+        return "writing the digest."
+    if step == "committed":
+        pages, failed = event.get("pages"), event.get("failed")
+        saved = f"done, {_plural(pages, 'page')} saved to the guide" if isinstance(pages, int) else "done"
+        return saved + (f", {failed} not written." if isinstance(failed, int) and failed else ".")
+    if step == "target_failed":
+        return f"not updated ({event.get('reason')})"
+    return None
 
 
 def list_teams(paths: Paths) -> int:
