@@ -88,6 +88,13 @@ Check the current version of each before citing it; when a newer one exists, use
   - the in-use locks of every followed target, and the team's own lock, are held for the server's whole life and released when it stops or a mount fails; a page view writes no settings and lists no source (it may mount a followed target another command wrote, and fetch an existing mirror for the signal), and it never clones: a target waiting for its first refresh, or with no mirror yet, is answered without a fetch;
   - the targets the start's listing adds get the free first refresh a save starts, and nothing paid.
 - **The team routes:** every route that changes anything is a `POST` with the `Origin` and token checks; `TOKEN_READS` lists the `GET`s that run the adapters and each needs the token; every name, id and branch is validated against the adapter's pattern and what it returned before anything is written; the page builds text with `textContent`, never `innerHTML`.
+- **The catch-up routes** (design sections 24.8 and 24.9):
+  - the estimate id is single-use and expires after `server.estimate_ttl_seconds`; a confirmation without a live id starts nothing, and the cooldown and the team's lock apply;
+  - `/team/catch-up/status` needs the token, like the other `GET`s that run work or show an estimate;
+  - a confirmation naming a target that wasn't in the estimate, or naming one twice, is refused with 400 and nothing paid starts for any target;
+  - the overview call has no tools and the Codex provider is refused for it; its output is validated for the word limit, the secret scan, documented blocks copied exactly from the digests it was given, and links only to those digests, checked on each segment the page renders;
+  - the shared budget (`catch_up.max_budget_usd`) stops every new call, including a plan call and a page's retry, and a ticked target whose paid part hadn't started commits nothing: the team-budget message is recorded as that target's failure, so its card and the panel say why;
+  - repository names, authors' names and digest titles on the cards are autoescaped and wrapped in `<bdi>`, and highlights render only through the guide's renderer with raw HTML off; the estimate's HTML is escaped too.
 - **The team file:** TOML written with `ensure_ascii=False`, so a character outside the basic plane can't break it; ids validated with `require_safe_id` before they are written; and the file written to a temporary file and renamed into place while the team's lock is held.
 
 ### Input and injection (A05)

@@ -97,12 +97,14 @@ class DigestRequest:
     commits: str
     fact_changes: str
     pages_changed: list[str] = field(default_factory=list)
+    max_highlights: int = 0
 
 
 @dataclass(frozen=True)
 class DigestDraft:
     title: str
     body: str
+    highlights: list[str] = field(default_factory=list)
     files_read: list[str] = field(default_factory=list)
     cost_usd: float = 0.0
     usage: Usage = field(default_factory=Usage)
@@ -149,6 +151,34 @@ class Verdict:
     usage: Usage = field(default_factory=Usage)
 
 
+@dataclass(frozen=True)
+class OverviewDigest:
+    """A digest a team's catch-up wrote, for the overview: its target, repository, page id, title and text."""
+
+    target: str
+    repository: str
+    digest_id: str
+    title: str
+    body: str
+    highlights: list[str]
+
+
+@dataclass(frozen=True)
+class OverviewRequest:
+    team: str
+    digests: list[OverviewDigest]
+    max_words: int
+    problems: list[str] = field(default_factory=list)  # from a failed validation, for the retry
+    previous_body: str = ""
+
+
+@dataclass(frozen=True)
+class OverviewDraft:
+    body: str
+    cost_usd: float = 0.0
+    usage: Usage = field(default_factory=Usage)
+
+
 class Assistant(Protocol):
     async def plan(self, request: PlanRequest) -> PlanDraft: ...
 
@@ -159,3 +189,5 @@ class Assistant(Protocol):
     def answer(self, request: QuestionRequest) -> AsyncIterator[AnswerChunk]: ...
 
     async def grade(self, request: GradeRequest) -> Verdict: ...
+
+    async def write_overview(self, request: OverviewRequest) -> OverviewDraft: ...

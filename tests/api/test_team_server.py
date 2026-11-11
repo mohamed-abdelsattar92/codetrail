@@ -5,7 +5,7 @@ import re
 import threading
 import time
 from collections.abc import Callable, Iterator
-from contextlib import ExitStack
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -80,10 +80,11 @@ def add_target(team: Team, target: str, identifier: str, repository_name: str) -
     write_remote_target(team.paths, target, remote, "develop", "acme")
 
 
-@pytest.fixture
-def team(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Team]:
+@contextmanager
+def following_team(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Team]:
     """Team acme follows all of acme-org: web-shop is updated and one merge behind, payments-api was never updated,
-    and inventory has left the source. Every target fetches from one repository served on 127.0.0.1."""
+    and inventory has left the source. Every target fetches from one repository served on 127.0.0.1, published from
+    the checkout at `tmp_path / "checkout"`."""
     allow_http_remotes(monkeypatch, tmp_path)
     paths = Paths(config_dir=tmp_path / "config", data_dir=tmp_path / "data", state_dir=tmp_path / "state")
     checkout = make_repository(tmp_path / "checkout", [{"services/api/main.py": "x = 1\n", "README.md": "r\n"}])
@@ -101,6 +102,12 @@ def team(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Team]:
         yield team
 
 
+@pytest.fixture
+def team(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Team]:
+    with following_team(tmp_path, monkeypatch) as followed:
+        yield followed
+
+
 def app_for(team: Team, session: SessionState) -> object:
     """The team's app as serve_team builds it, after listing the sources once."""
     synced = sync_team(team.paths, "acme", team.services, datetime.now(UTC)) if team.services else None
@@ -115,8 +122,10 @@ def client_for(team: Team, session: SessionState | None = None) -> TestClient:
 
 
 def row(html: str, target: str) -> str:
-    """The team page's row for one target: from its link to the next row."""
-    match = re.search(rf'<li[^>]*>\s*<a [^>]*href="/repos/{target}/".*?</li>', html, re.DOTALL)
+    """The team page's card for one target, or its row: from its link to the next row."""
+    match = re.search(rf'<article [^>]*data-team-card="{target}".*?</article>', html, re.DOTALL) or re.search(
+        rf'<li[^>]*>\s*<a [^>]*href="/repos/{target}/".*?</li>', html, re.DOTALL
+    )
     assert match is not None, target
     return match.group(0)
 
@@ -150,10 +159,10 @@ def test_team_page_lists_each_target_with_its_signal(team: Team) -> None:
 
 
 def test_one_unreachable_repository_does_not_block_the_page(team: Team, monkeypatch: pytest.MonkeyPatch) -> None:
-    def unreachable(paths: Paths, name: str) -> Signal:
+    def unreachable(paths: Paths, name: str, since: str | None) -> Signal:
         if name == "acme-payments-api":
             raise CodetrailError("git couldn't fetch the repository. If it needs your sign-in, run: gh auth setup-git")
-        return behind(paths, name)
+        return behind(paths, name, since)
 
     behind(team.paths, "acme-payments-api")  # cloned, so the page reads its signal
     monkeypatch.setattr("codetrail.team.server.behind", unreachable)
@@ -314,7 +323,7 @@ def test_a_page_that_fails_to_build_releases_its_target(team: Team, monkeypatch:
 
 def test_team_page_escapes_text_it_did_not_write(team: Team, monkeypatch: pytest.MonkeyPatch) -> None:
     # Names are validated before they are stored, so the hostile text comes in through an unreachable target's reason.
-    def hostile(paths: Paths, name: str) -> Signal:
+    def hostile(paths: Paths, name: str, since: str | None) -> Signal:
         raise CodetrailError("git couldn't fetch <script>alert(1)</script>")
 
     monkeypatch.setattr("codetrail.team.server.behind", hostile)
@@ -372,7 +381,7 @@ def test_serving_lists_the_sources_once_at_start(
 
     monkeypatch.setattr("codetrail.team.server.uvicorn.run", run)
     monkeypatch.setattr("codetrail.team.server.services_for", lambda settings: team.services)
-    monkeypatch.setattr("codetrail.team.server.behind", lambda paths, name: Signal(updating=True))  # no fetch
+    monkeypatch.setattr("codetrail.team.server.behind", lambda paths, name, since: Signal(updating=True))  # no fetch
     refreshed: list[str] = []
     finished = threading.Event()
 
@@ -396,7 +405,7 @@ def fetched_by_the_page(monkeypatch: pytest.MonkeyPatch, fetch: Callable[[Paths,
     """The targets whose signal the team page reads (each read fetches into the target's mirror)."""
     fetched: list[str] = []
 
-    def recorded(paths: Paths, name: str) -> Signal:
+    def recorded(paths: Paths, name: str, since: str | None) -> Signal:
         fetched.append(name)
         return fetch(paths, name)
 

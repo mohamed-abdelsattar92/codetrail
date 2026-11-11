@@ -5,6 +5,7 @@ from dataclasses import replace
 
 from codetrail.assistant import DigestRequest, PageRequest, PlanRequest
 from codetrail.assistant.prompts import (
+    DIGEST_SCHEMA,
     PAGE_SCHEMA,
     REVISE_SCHEMA,
     digest_prompt,
@@ -96,3 +97,13 @@ def test_a_revision_shows_the_brief_or_asks_for_one() -> None:
                           changes=["added module m"], current_brief="Key files: app/main.py.")  # fmt: skip
     assert "Key files: app/main.py." in revise_prompt(request)
     assert "has no brief yet" in revise_prompt(replace(request, current_brief=""))
+
+
+def test_digest_schema_requires_highlights() -> None:
+    assert DIGEST_SCHEMA["required"] == ["title", "body", "highlights"]
+    assert DIGEST_SCHEMA["properties"]["highlights"] == {"type": "array", "items": {"type": "string"}}
+
+
+def test_digest_prompt_asks_for_highlights() -> None:
+    assert "at most 3 highlights" in digest_prompt(DigestRequest("shop", "", "", max_highlights=3))
+    assert "empty list" in digest_prompt(DigestRequest("shop", "", "", max_highlights=0))

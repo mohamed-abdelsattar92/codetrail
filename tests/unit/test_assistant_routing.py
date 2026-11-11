@@ -9,6 +9,8 @@ from codetrail.assistant import (
     AssistantError,
     DigestRequest,
     GradeRequest,
+    OverviewDraft,
+    OverviewRequest,
     PageDraft,
     PageRequest,
     PlanRequest,
@@ -17,8 +19,15 @@ from codetrail.assistant import (
 from codetrail.assistant.claude_code import ClaudeCodeAssistant
 from codetrail.assistant.fake import FakeAssistant
 from codetrail.assistant.local import LocalAssistant
-from codetrail.assistant.routing import RoutedAssistant, build_assistant
-from codetrail.config import ClaudeCodeSettings, GlobalConfig, ModelSettings, ProvidersSettings, TargetConfig
+from codetrail.assistant.routing import RoutedAssistant, build_assistant, build_overview_assistant
+from codetrail.config import (
+    ClaudeCodeSettings,
+    GenerationSettings,
+    GlobalConfig,
+    ModelSettings,
+    ProvidersSettings,
+    TargetConfig,
+)
 from tests.fixtures.programs import make_program
 
 
@@ -56,3 +65,32 @@ def test_build_assistant_refuses_codex_without_the_targets_consent(tmp_path: Pat
     nothing_installed = {"PATH": str(tmp_path / "empty")}  # as on a machine without Claude Code, such as CI
     with pytest.raises(AssistantError, match="allow_codex"):  # the target's consent is checked before any program
         build_assistant(tmp_path / "source", GlobalConfig(), target, nothing_installed)
+
+
+@pytest.mark.anyio
+async def test_routed_overview_without_route_raises() -> None:
+    main = FakeAssistant()
+    with pytest.raises(AssistantError, match="overview"):
+        await RoutedAssistant({"plan": main, "grade": main}).write_overview(OverviewRequest("platform", [], 250))
+    writer = FakeAssistant(overviews=[OverviewDraft("Across the team.")])
+    draft = await RoutedAssistant({"overview": writer}).write_overview(OverviewRequest("platform", [], 250))
+    assert draft.body == "Across the team." and len(writer.requests) == 1 and main.requests == []
+
+
+def test_build_overview_assistant_uses_the_models_provider(tmp_path: Path) -> None:
+    program = make_program(tmp_path / "bin", "fake-claude", [])
+    settings = GlobalConfig(providers=ProvidersSettings(claude_code=ClaudeCodeSettings(command=str(program.path))))
+    workspace = tmp_path / "team" / "workspace"
+    workspace.mkdir(parents=True)
+    claude = build_overview_assistant(workspace, settings, "claude-sonnet-5-5", 0.25)
+    assert isinstance(claude, ClaudeCodeAssistant)
+    assert (claude.root, claude.models) == (workspace.resolve(), {"overview": "claude-sonnet-5-5"})
+    assert claude.limits == GenerationSettings(max_budget_usd_per_call=0.25)  # the team's catch_up setting
+    local = build_overview_assistant(workspace, settings, "local:qwen3:14b", 0.25)
+    assert isinstance(local, LocalAssistant) and local.models == {"overview": "qwen3:14b"}
+
+
+def test_build_overview_assistant_refuses_codex(tmp_path: Path) -> None:
+    nothing_installed = {"PATH": str(tmp_path / "empty")}
+    with pytest.raises(AssistantError, match="can't use Codex"):
+        build_overview_assistant(tmp_path, GlobalConfig(), "codex:gpt-5.5-codex", 1.0, nothing_installed)

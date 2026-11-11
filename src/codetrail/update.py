@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 import threading
-from collections.abc import Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, replace
 from datetime import date
 from pathlib import Path
@@ -50,6 +50,7 @@ from codetrail.generate.run import (
     GenerationResult,
     PlannedWork,
     Progress,
+    SharedBudget,
     generate_guide,
     no_progress,
     planned_work,
@@ -149,14 +150,12 @@ def record_metrics(paths: Paths, name: str, settings: GlobalConfig, store: FactS
             logger.warning("The metrics' values weren't recorded: %s", error)
 
 
-async def generate_until_stopped(
-    context: GenerationContext, claude: Assistant, stop: threading.Event
-) -> GenerationResult:
-    """Writes the guide, cancelled once `stop` is set, so its cleanup runs: each program's process group is killed and
-    the guide's uncommitted changes are discarded (design section 15.5)."""
+async def until_stopped[Result](work: Callable[[], Awaitable[Result]], stop: threading.Event) -> Result:
+    """`work`'s result, cancelled once `stop` is set, so its cleanup runs: each program's process group is killed
+    (design section 15.5). Raises `CodetrailError(STOPPED)` when it was stopped."""
     if stop.is_set():  # a confirmation that raced the stop: no program starts
         raise CodetrailError(STOPPED)
-    generation: GenerationResult | None = None
+    finished: list[Result] = []
     try:
         async with anyio.create_task_group() as group:
 
@@ -166,13 +165,21 @@ async def generate_until_stopped(
                 group.cancel_scope.cancel()
 
             group.start_soon(cancel_when_stopped)
-            generation = await generate_guide(context, claude)
+            finished.append(await work())
             group.cancel_scope.cancel()
-    except BaseExceptionGroup as errors:  # only the generation raises, and the group wraps its error
+    except BaseExceptionGroup as errors:  # only the work raises, and the group wraps its error
         raise errors.exceptions[0] from None
-    if generation is None:
+    if not finished:
         raise CodetrailError(STOPPED)
-    return generation
+    return finished[0]
+
+
+async def generate_until_stopped(
+    context: GenerationContext, claude: Assistant, stop: threading.Event
+) -> GenerationResult:
+    """Writes the guide, cancelled once `stop` is set, so its cleanup runs: each program's process group is killed and
+    the guide's uncommitted changes are discarded (design section 15.5)."""
+    return await until_stopped(lambda: generate_guide(context, claude), stop)
 
 
 def run_update(
@@ -184,6 +191,7 @@ def run_update(
     progress: Progress = no_progress,
     stop: threading.Event | None = None,
     retry_failed: bool = False,
+    shared_budget: SharedBudget | None = None,
 ) -> UpdateResult:
     """Refreshes the sources and facts (free), then, unless `facts_only`, estimates the guide's paid work and asks
     `confirm` before doing it (design section 15.4). An update with a real assistant always needs `confirm`.
@@ -252,6 +260,8 @@ def run_update(
                     retry_failed=retry_failed,
                     revise_max_changes=target.generation.revise_max_changes,
                     max_brief_words=settings.agents.max_brief_words,
+                    max_highlights=settings.team.highlights_per_digest,
+                    shared_budget=shared_budget,
                 )
                 if confirm is not None:
                     work = planned_work(context)

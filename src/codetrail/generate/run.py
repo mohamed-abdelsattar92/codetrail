@@ -10,6 +10,7 @@ page's update panel.
 from __future__ import annotations
 
 import json
+import threading
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
@@ -52,7 +53,13 @@ from codetrail.generate.scope import (
     scope_changes,
     scope_hash,
 )
-from codetrail.generate.validate import FLAGGED_PROBLEM, ValidationContext, validate_brief, validate_page
+from codetrail.generate.validate import (
+    FLAGGED_PROBLEM,
+    ValidationContext,
+    validate_brief,
+    validate_highlights,
+    validate_page,
+)
 from codetrail.guide import GuideRepository, Page
 from codetrail.repo.history import Commit, commits_between, recent_commits
 from codetrail.repo.secrets import SecretScanner
@@ -67,6 +74,31 @@ Progress = Callable[[dict[str, object]], None]  # one step of an update, such as
 
 def no_progress(event: dict[str, object]) -> None:
     """Reports nowhere: the command line prints its summary at the end instead."""
+
+
+TEAM_BUDGET_SPENT = "The team's budget is spent, so this repository wasn't updated."
+
+
+class SharedBudget:
+    """A spending limit that several updates, running in threads, count against together (design 24.8)."""
+
+    def __init__(self, limit_usd: float) -> None:
+        self._limit_usd = limit_usd
+        self._spent_usd = 0.0
+        self._lock = threading.Lock()
+
+    def add(self, cost_usd: float) -> None:
+        with self._lock:
+            self._spent_usd += cost_usd
+
+    @property
+    def spent_usd(self) -> float:
+        with self._lock:
+            return self._spent_usd
+
+    @property
+    def exhausted(self) -> bool:
+        return self.spent_usd >= self._limit_usd
 
 
 @dataclass
@@ -91,6 +123,8 @@ class GenerationContext:
     failed_pages: FailedPages | None = None  # pages that failed validation, skipped until their scope changes
     retry_failed: bool = False  # try them anyway
     revise_max_changes: int = 0  # an affected page with at most this many changes in its scope is revised (6.3)
+    shared_budget: SharedBudget | None = None  # a team catch-up's budget, which every update in it counts against
+    max_highlights: int = 0  # the highlights a digest carries for the team page (24)
     max_brief_words: int = 300  # the brief for coding agents each page carries (23.3)
 
 
@@ -164,6 +198,8 @@ async def _outline(context: GenerationContext, claude: Assistant, result: Genera
     entries = outline_entries(stored)
     paths: list[OutlinePath] = []
     if not entries:
+        if context.shared_budget is not None and context.shared_budget.exhausted:
+            raise CodetrailError(TEAM_BUDGET_SPENT)
         context.progress({"step": "plan"})
         draft = await claude.plan(PlanRequest(context.target, facts_summary(store, context.manifest), ""))
         spent = _spend(context, result, "plan", draft)
@@ -178,7 +214,7 @@ async def _outline(context: GenerationContext, claude: Assistant, result: Genera
         paths = outline_paths(stored, {entry.id for entry in entries})
         new_facts = set(context.diff.added_entities)
         uncovered = [fact for fact in uncovered_facts(store, entries) if fact in new_facts]
-        if uncovered:
+        if uncovered and not _budget_spent(context, result):
             current = json.dumps(outline_data(entries, paths), indent=1)
             context.progress({"step": "plan"})
             draft = await claude.plan(PlanRequest(context.target, facts_summary(store, context.manifest), current,
@@ -188,7 +224,8 @@ async def _outline(context: GenerationContext, claude: Assistant, result: Genera
             context.progress({"step": "planned", "pages": len(added), **spent})
             result.outline_problems += problems
             entries = [*entries, *added]
-        if stored is not None and "paths" not in stored:  # an outline written before paths existed: plan them once
+        # an outline written before paths existed: plan them once
+        if stored is not None and "paths" not in stored and not _budget_spent(context, result):
             current = json.dumps(outline_data(entries), indent=1)
             context.progress({"step": "plan"})
             try:
@@ -208,7 +245,8 @@ async def _outline(context: GenerationContext, claude: Assistant, result: Genera
 
 def _budget_spent(context: GenerationContext, result: GenerationResult) -> bool:
     over_tokens = context.max_tokens is not None and result.tokens >= context.max_tokens
-    return result.cost_usd >= context.max_budget_usd or over_tokens
+    over_shared = context.shared_budget is not None and context.shared_budget.exhausted
+    return result.cost_usd >= context.max_budget_usd or over_tokens or over_shared
 
 
 def _spend(
@@ -221,6 +259,8 @@ def _spend(
     cost = context.usage.record(kind, usage) if context.usage is not None and usage.provider else draft.cost_usd
     tokens = usage.input_tokens + usage.cached_input_tokens + usage.output_tokens
     result.cost_usd += cost
+    if context.shared_budget is not None:
+        context.shared_budget.add(cost)
     result.tokens += tokens
     return {"provider": usage.provider, "model": usage.model, "tokens": tokens, "cost_usd": cost}
 
@@ -268,6 +308,10 @@ async def _write_page(
     problems: list[str] = []
     try:
         for attempt in range(1, PAGE_ATTEMPTS + 1):
+            if attempt > 1 and _budget_spent(context, result):  # no retry once the budget is spent
+                result.left_for_later.append(entry.id)
+                context.progress({"step": "page_later", "id": entry.id, "title": entry.title})
+                return
             context.progress({"step": "page", "id": entry.id, "title": entry.title, "attempt": attempt,
                               "reason": planned.reason, "changed": planned.changed_now,
                               "revise": revising})  # fmt: skip
@@ -332,15 +376,20 @@ async def _write_digest(
         context.guide.write_page(Page(page_id, meta, body))
         result.digest = page_id
         return
-    request = DigestRequest(context.target, commits_text(commits), fact_changes_text(context.diff), result.written)
+    request = DigestRequest(context.target, commits_text(commits), fact_changes_text(context.diff), result.written,
+                            context.max_highlights)  # fmt: skip
     try:
         if _budget_spent(context, result):
             raise AssistantError("the update's budget is spent")
         draft = await claude.write_digest(request)
         _spend(context, result, "digest", draft)
-        if validate_page(draft.body, None, validation):
+        highlights = draft.highlights if context.max_highlights else []  # none asked for: any returned are dropped
+        if validate_page(draft.body, None, validation) or validate_highlights(
+            highlights, context.max_highlights, validation
+        ):
             raise AssistantError("the digest failed validation")
         meta["title"], body = draft.title, draft.body
+        meta["highlights"] = highlights
     except AssistantError:
         meta["title"] = f"{len(commits)} commits since the last update"
         body = "The assistant's digest couldn't be checked, so here are the commits:\n\n" + "\n".join(

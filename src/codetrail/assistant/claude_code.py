@@ -28,6 +28,8 @@ from codetrail.assistant import (
     DigestDraft,
     DigestRequest,
     GradeRequest,
+    OverviewDraft,
+    OverviewRequest,
     PageDraft,
     PageRequest,
     PlanDraft,
@@ -46,12 +48,15 @@ from codetrail.assistant.prompts import (
     GRADE_RULES,
     GRADE_SCHEMA,
     GROUND_RULES,
+    OVERVIEW_RULES,
+    OVERVIEW_SCHEMA,
     PAGE_SYNTAX,
     PLAN_SCHEMA,
     answer_prompt,
     digest_prompt,
     grade_prompt,
     neutralize,
+    overview_prompt,
     page_task,
     plan_prompt,
 )
@@ -106,7 +111,9 @@ class ClaudeCodeAssistant:
         data, files, usage = await self._run(
             "digest", digest_prompt(request), DIGEST_SCHEMA, GROUND_RULES + "\n" + PAGE_SYNTAX
         )
-        return DigestDraft(str(data.get("title", "")), str(data.get("body", "")), files, _cost(usage), usage)
+        highlights = [str(item) for item in data.get("highlights", [])]
+        title, body = str(data.get("title", "")), str(data.get("body", ""))
+        return DigestDraft(title, body, highlights, files, _cost(usage), usage)
 
     async def grade(self, request: GradeRequest) -> Verdict:
         """Grades with no tools at all: only the check, the rubric, the page and the answer (design section 8.2)."""
@@ -115,6 +122,18 @@ class ClaudeCodeAssistant:
         )
         missed = [str(item) for item in data.get("missed", [])]
         return Verdict(str(data.get("verdict", "")), missed, str(data.get("feedback", "")), _cost(usage), usage)
+
+    async def write_overview(self, request: OverviewRequest) -> OverviewDraft:
+        """Writes a team's overview with no tools at all: only the digests it was given (design section 24.9)."""
+        data, _files, usage = await self._run(
+            "overview",
+            overview_prompt(request),
+            OVERVIEW_SCHEMA,
+            OVERVIEW_RULES,
+            tools=(),
+            budget_usd=self.limits.max_budget_usd_per_call,
+        )
+        return OverviewDraft(str(data.get("body", "")), _cost(usage), usage)
 
     async def answer(self, request: QuestionRequest) -> AsyncIterator[AnswerChunk]:
         """Streams the answer's text as Claude writes it, then a final chunk with the files read and the usage."""

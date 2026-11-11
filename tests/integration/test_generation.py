@@ -5,12 +5,13 @@ from pathlib import Path
 
 import pytest
 
-from codetrail.assistant import AssistantError, PageDraft, PageRequest, PlanDraft, PlanRequest, Usage
+from codetrail.assistant import AssistantError, DigestDraft, PageDraft, PageRequest, PlanDraft, PlanRequest, Usage
 from codetrail.assistant.fake import FakeAssistant
 from codetrail.config import Paths, write_target
 from codetrail.database import connect
 from codetrail.errors import CodetrailError
-from codetrail.guide import GuideRepository
+from codetrail.generate.run import SharedBudget
+from codetrail.guide import GuideRepository, Page
 from codetrail.update import run_update
 from tests.fixtures.repos import Commit, add_commit, make_repository
 
@@ -168,6 +169,44 @@ def test_the_update_stops_calling_claude_at_its_total_budget(paths: Paths) -> No
     assert generation.left_for_later  # the second page waits for the next update
 
 
+def test_shared_budget_stops_new_calls(paths: Paths) -> None:
+    one_at_a_time(paths)
+    shared = SharedBudget(0.01)  # each page costs 0.01
+    claude = FakeAssistant(plans=[PLAN], page_writer=good_page)
+    generation = run_update(paths, "t", claude=claude, shared_budget=shared).generation
+    assert generation is not None
+    assert len(generation.written) == 1 and len(generation.left_for_later) == 1
+    assert shared.exhausted
+
+
+def test_an_exhausted_shared_budget_stops_a_first_run_before_its_plan(paths: Paths) -> None:
+    shared = SharedBudget(1.0)
+    shared.add(1.0)
+    claude = FakeAssistant(plans=[PLAN], page_writer=good_page)
+    with pytest.raises(CodetrailError, match="team's budget is spent"):
+        run_update(paths, "t", claude=claude, shared_budget=shared)
+    assert claude.requests == []
+
+
+def test_no_page_retry_once_the_shared_budget_runs_out(paths: Paths) -> None:
+    one_at_a_time(paths)
+    bad = PageDraft("Cites [[module:ghost.py]].", CHECKS, cost_usd=0.01, brief=BRIEF)
+    claude = FakeAssistant(plans=[PLAN], pages={"areas/api": [bad, bad]}, page_writer=good_page)
+    generation = run_update(paths, "t", claude=claude, shared_budget=SharedBudget(0.01)).generation
+    assert generation is not None
+    page_requests = [request for request in claude.requests if isinstance(request, PageRequest)]
+    assert [request.page_id for request in page_requests] == ["areas/api"]  # one attempt, and nothing after it
+    assert "areas/api" in generation.left_for_later
+
+
+def test_shared_budget_counts_each_call() -> None:
+    shared = SharedBudget(1.0)
+    shared.add(0.25)
+    shared.add(0.25)
+    assert shared.spent_usd == 0.5
+    assert not shared.exhausted
+
+
 PLAN_WITH_PATHS = PlanDraft(
     PLAN.pages,
     paths=[
@@ -250,7 +289,7 @@ def test_an_update_reports_each_step_as_it_goes(paths: Paths) -> None:
 
 
 def test_the_steps_report_a_retry_a_failed_page_and_one_left_for_later(paths: Paths) -> None:
-    one_at_a_time(paths, budget_usd=0.01)
+    one_at_a_time(paths, budget_usd=0.015)
     bad = PageDraft("Cites [[module:ghost.py]].", CHECKS, cost_usd=0.01, brief=BRIEF)
     events: list[dict[str, object]] = []
     claude = FakeAssistant(plans=[PLAN], pages={"areas/api": [bad, bad]}, page_writer=good_page)
@@ -277,3 +316,29 @@ def test_a_page_without_a_brief_is_retried_with_the_problem(paths: Paths) -> Non
     retry = [item for item in claude.requests if isinstance(item, PageRequest) and item.page_id == "areas/api"][1]
     assert "The brief is missing." in retry.problems
     assert retry.brief_words == 300
+
+
+def update_with_digest(paths: Paths, tmp_path: Path, digest: DigestDraft) -> Page | None:
+    run_update(paths, "t", claude=FakeAssistant(plans=[PLAN], page_writer=good_page))
+    add_commit(tmp_path / "target", {"services/api/app/routes.py": "x = 1\n"}, "feat(api): routes\n\nWhy: need")
+    generation = run_update(paths, "t", claude=FakeAssistant(page_writer=good_page, digests=[digest])).generation
+    assert generation is not None and generation.digest is not None
+    return guide(paths).read_page(generation.digest)
+
+
+def test_digest_stores_highlights(paths: Paths, tmp_path: Path) -> None:
+    page = update_with_digest(paths, tmp_path, DigestDraft("Routes", "Routes added.", highlights=["One.", "Two."]))
+    assert page is not None and page.title == "Routes" and page.meta["highlights"] == ["One.", "Two."]
+
+
+def test_digest_without_highlights_drops_returned_ones(paths: Paths, tmp_path: Path) -> None:
+    paths.config_dir.mkdir(parents=True, exist_ok=True)
+    (paths.config_dir / "config.toml").write_text("[team]\nhighlights_per_digest = 0\n")
+    page = update_with_digest(paths, tmp_path, DigestDraft("Routes", "Routes added.", highlights=["One."]))
+    assert page is not None and page.title == "Routes" and page.meta["highlights"] == []  # the digest itself stays
+
+
+def test_digest_with_bad_highlights_falls_back(paths: Paths, tmp_path: Path) -> None:
+    draft = DigestDraft("Routes", "Routes added.", highlights=[f"Item {number}." for number in range(5)])
+    page = update_with_digest(paths, tmp_path, draft)  # the default maximum is three
+    assert page is not None and "commits since the last update" in page.title and "highlights" not in page.meta

@@ -24,6 +24,8 @@ from codetrail.assistant import (
     DigestDraft,
     DigestRequest,
     GradeRequest,
+    OverviewDraft,
+    OverviewRequest,
     PageDraft,
     PageRequest,
     PlanDraft,
@@ -39,12 +41,15 @@ from codetrail.assistant.prompts import (
     GRADE_RULES,
     GRADE_SCHEMA,
     GROUND_RULES,
+    OVERVIEW_RULES,
+    OVERVIEW_SCHEMA,
     PAGE_SYNTAX,
     PLAN_SCHEMA,
     answer_prompt,
     digest_prompt,
     grade_prompt,
     neutralize,
+    overview_prompt,
     page_task,
     plan_prompt,
 )
@@ -96,12 +101,21 @@ class LocalAssistant:
         data, result = await self._structured(
             "digest", GROUND_RULES + "\n" + PAGE_SYNTAX, digest_prompt(request), DIGEST_SCHEMA
         )
-        return DigestDraft(str(data.get("title", "")), str(data.get("body", "")), result.files_read, 0.0, result.usage)
+        highlights = [str(item) for item in data.get("highlights", [])]
+        return DigestDraft(
+            str(data.get("title", "")), str(data.get("body", "")), highlights, result.files_read, 0.0, result.usage
+        )
 
     async def grade(self, request: GradeRequest) -> Verdict:
         data, result = await self._structured("grade", GRADE_RULES, grade_prompt(request), GRADE_SCHEMA, tools=False)
         missed = [str(item) for item in data.get("missed", [])]
         return Verdict(str(data.get("verdict", "")), missed, str(data.get("feedback", "")), 0.0, result.usage)
+
+    async def write_overview(self, request: OverviewRequest) -> OverviewDraft:
+        data, result = await self._structured(
+            "overview", OVERVIEW_RULES, overview_prompt(request), OVERVIEW_SCHEMA, tools=False
+        )
+        return OverviewDraft(str(data.get("body", "")), 0.0, result.usage)
 
     async def answer(self, request: QuestionRequest) -> AsyncIterator[AnswerChunk]:
         rules = GROUND_RULES + "\n" + PAGE_SYNTAX + "\n" + ANSWER_RULES

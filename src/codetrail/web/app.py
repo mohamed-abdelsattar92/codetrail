@@ -161,14 +161,14 @@ def create_target_app(
     updater: Callable[[Callable[[UpdateEstimate], bool], Progress], object] | None = None,
     assistant_for: Callable[[], Assistant] | None = None,
     team: str | None = None,
-) -> tuple[ASGIApp, Callable[[], None]]:
+) -> tuple[ASGIApp, UpdateJob]:
     """The target's page without the security middleware, to serve at `/` or mount under `/repos/<target>/`, and
-    the function that stops its update. `team` names the team whose server mounts it: its sidebar links back to
-    that team's page, at `/`.
+    its update's job, which whoever stops the server stops. `team` names the team whose server mounts it: its
+    sidebar links back to that team's page, at `/`.
 
     Whoever serves it wraps it, once, in the security middleware. Every link it builds goes through `site_path`.
     `updater` runs one update; the Update button runs it in a background thread (tests pass a fake one). Served at
-    `/`, the page's lifespan stops the update; a mount doesn't run it, so whoever mounts the page calls the stop.
+    `/`, the page's lifespan stops the update; a mount doesn't run it, so whoever mounts the page stops the job.
     """
     stopping = threading.Event()
     job = UpdateJob(
@@ -733,7 +733,7 @@ def create_target_app(
         )
     )
     app.mount("/static", StaticFiles(directory=str(files("codetrail.web").joinpath("static"))), name="static")
-    return BasePathMiddleware(TargetInUseMiddleware(app, paths, name)), job.stop
+    return BasePathMiddleware(TargetInUseMiddleware(app, paths, name)), job
 
 
 def day_text(seconds: int) -> str:
@@ -759,6 +759,25 @@ def template_environment(templates: str, language: Language) -> Environment:
     environment.filters["initials"] = initials
     environment.globals["site_path"] = site_path
     return environment
+
+
+def wait_for_cleanup(thread: threading.Thread, message: str) -> None:
+    """Waits for a page job's thread to end, logging `message` once if it is still running.
+
+    The thread is a daemon, which the interpreter would kill at exit without running its cleanup, so a further
+    signal (closing the terminal while this waits) doesn't end the wait; it's raised once the thread has ended."""
+    reported = False
+    interrupted: BaseException | None = None
+    while thread.is_alive():
+        try:
+            if not reported:  # inside the try: a signal while the line is written mustn't end the wait
+                reported = True
+                logger.warning(message)
+            thread.join()
+        except BaseException as error:  # raised below, once the thread ended
+            interrupted = error
+    if interrupted is not None:
+        raise interrupted
 
 
 class EstimateDecision(BaseModel):
@@ -865,28 +884,20 @@ class UpdateJob:
             return str
 
     def stop(self) -> None:
-        """Declines a waiting estimate, stops paid work and waits for the update's cleanup (design section 15.5).
+        """Declines a waiting estimate, stops paid work and waits for the update's cleanup (design section 15.5)."""
+        self.request_stop()
+        self.wait_for_stop()
 
-        The worker is a daemon thread, which the interpreter would kill at exit without running its cleanup, so a
-        further signal (closing the terminal while this waits) doesn't end the wait; it's raised once the cleanup ran.
-        """
+    def request_stop(self) -> None:
+        """Declines a waiting estimate and lets no update start; the running one's paid work stops."""
         with self._lock:  # under the lock, so _confirm either sees it before waiting or is woken by it
             self._stopping.set()
             self._decided.set()
-        if self._thread is None:
-            return
-        reported = False
-        interrupted: BaseException | None = None
-        while self._thread.is_alive():
-            try:
-                if not reported:  # inside the try: a signal while the line is written mustn't end the wait
-                    reported = True
-                    logger.warning("Stopping the update started from the page; waiting for its cleanup.")
-                self._thread.join()
-            except BaseException as error:  # raised below, once the update stopped
-                interrupted = error
-        if interrupted is not None:
-            raise interrupted
+
+    def wait_for_stop(self) -> None:
+        """Waits for the update's cleanup once `request_stop()` ran (see `wait_for_cleanup`)."""
+        if self._thread is not None:
+            wait_for_cleanup(self._thread, "Stopping the update started from the page; waiting for its cleanup.")
 
     def _work(self) -> None:
         try:

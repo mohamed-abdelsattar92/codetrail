@@ -28,6 +28,8 @@ from codetrail.assistant import (
     DigestDraft,
     DigestRequest,
     GradeRequest,
+    OverviewDraft,
+    OverviewRequest,
     PageDraft,
     PageRequest,
     PlanDraft,
@@ -106,12 +108,18 @@ class CodexAssistant:
         data, outcome, usage = await self._run(
             "digest", GROUND_RULES + "\n" + PAGE_SYNTAX, digest_prompt(request), DIGEST_SCHEMA
         )
-        return DigestDraft(str(data.get("title", "")), str(data.get("body", "")), outcome.files_read, 0.0, usage)
+        highlights = [str(item) for item in data.get("highlights", [])]
+        title, body = str(data.get("title", "")), str(data.get("body", ""))
+        return DigestDraft(title, body, highlights, outcome.files_read, 0.0, usage)
 
     async def grade(self, request: GradeRequest) -> Verdict:
         data, _outcome, usage = await self._run("grade", GRADE_RULES, grade_prompt(request), GRADE_SCHEMA)
         missed = [str(item) for item in data.get("missed", [])]
         return Verdict(str(data.get("verdict", "")), missed, str(data.get("feedback", "")), 0.0, usage)
+
+    async def write_overview(self, request: OverviewRequest) -> OverviewDraft:
+        """Refused: Codex can't be confined, and a team has no opt-in for it (design section 24.9)."""
+        raise AssistantError("The team's overview can't use Codex.")
 
     async def answer(self, request: QuestionRequest) -> AsyncIterator[AnswerChunk]:
         outcome = await self._call(

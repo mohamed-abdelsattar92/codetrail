@@ -93,6 +93,12 @@ msgstr[0] ""
 msgstr[1] ""
 
 #, python-format
+msgid "%(count)s guide page changed"
+msgid_plural "%(count)s guide pages changed"
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
 msgid "%(count)s inferred, worth documenting"
 msgid_plural "%(count)s inferred, worth documenting"
 msgstr[0] ""
@@ -141,6 +147,12 @@ msgstr[1] ""
 #, python-format
 msgid "%(count)s never mentioned"
 msgid_plural "%(count)s never mentioned"
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
+msgid "%(count)s of %(total)s repositories has new merges"
+msgid_plural "%(count)s of %(total)s repositories have new merges"
 msgstr[0] ""
 msgstr[1] ""
 
@@ -263,6 +275,10 @@ msgid "%(percent)s%% of the lines of code are tests"
 msgstr ""
 
 #, python-format
+msgid "%(reason)s The facts were refreshed; no guide was updated."
+msgstr ""
+
+#, python-format
 msgid "%(reason)s The facts were refreshed; the guide wasn't updated."
 msgstr ""
 
@@ -303,6 +319,12 @@ msgstr ""
 msgid "A branch name can't start with “-”."
 msgstr ""
 
+msgid "A catch-up finished a moment ago; wait a few minutes before the next."
+msgstr ""
+
+msgid "A catch-up is already running."
+msgstr ""
+
 msgid "A chosen branch isn't in its repository."
 msgstr ""
 
@@ -336,6 +358,9 @@ msgid "ADRs needing attention"
 msgstr ""
 
 msgid "Accepted, but no page cites them"
+msgstr ""
+
+msgid "Across the team"
 msgstr ""
 
 msgid "Actions"
@@ -486,6 +511,9 @@ msgstr ""
 msgid "At commit %(commit)s."
 msgstr ""
 
+msgid "At most"
+msgstr ""
+
 msgctxt "month"
 msgid "Aug"
 msgstr ""
@@ -500,6 +528,9 @@ msgid "Back to the start"
 msgstr ""
 
 msgid "Back to the team page"
+msgstr ""
+
+msgid "Before catching up"
 msgstr ""
 
 msgid "Before the update"
@@ -534,6 +565,18 @@ msgid "Called by"
 msgstr ""
 
 msgid "Cancel"
+msgstr ""
+
+msgid "Catch up"
+msgstr ""
+
+msgid "Catching up"
+msgstr ""
+
+msgid "Catching up…"
+msgstr ""
+
+msgid "Caught up."
 msgstr ""
 
 msgid "Change over time, by area"
@@ -661,6 +704,9 @@ msgstr ""
 msgid "Couldn't list them just now."
 msgstr ""
 
+msgid "Couldn't mark it read. Try again."
+msgstr ""
+
 #, python-format
 msgid "Couldn't read this repository (%(error)s)."
 msgstr ""
@@ -756,6 +802,14 @@ msgid "Every file of code changed in the last %(days)s days."
 msgstr ""
 
 msgid "Every path learned"
+msgstr ""
+
+msgid ""
+"Every repository’s facts are refreshed. Writing the ticked repositories’ "
+"guides will call:"
+msgstr ""
+
+msgid "Expected"
 msgstr ""
 
 #, python-format
@@ -861,6 +915,9 @@ msgstr ""
 
 #, python-format
 msgid "From %(start)s to %(end)s"
+msgstr ""
+
+msgid "From the digests of"
 msgstr ""
 
 msgid "Getting the new repositories ready (free)…"
@@ -1052,6 +1109,9 @@ msgstr ""
 msgid "Menu"
 msgstr ""
 
+msgid "Merged by:"
+msgstr ""
+
 msgctxt "weekday"
 msgid "Mon"
 msgstr ""
@@ -1169,6 +1229,41 @@ msgstr ""
 msgid "Not available just now."
 msgstr ""
 
+#, python-format
+msgid "Not caught up in the last catch-up: %(reason)s"
+msgstr ""
+
+#, python-format
+msgid "Not caught up yet: %(count)s commit touched %(areas)s."
+msgid_plural "Not caught up yet: %(count)s commits touched %(areas)s."
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
+msgid "Not caught up yet: %(count)s commit."
+msgid_plural "Not caught up yet: %(count)s commits."
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
+msgid "Not caught up yet: %(count)s merge touched %(areas)s."
+msgid_plural "Not caught up yet: %(count)s merges touched %(areas)s."
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
+msgid "Not caught up yet: %(count)s merge."
+msgid_plural "Not caught up yet: %(count)s merges."
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
+msgid "Not caught up: %(reason)s"
+msgstr ""
+
+msgid "Not caught up: you left it out of the last catch-up."
+msgstr ""
+
 msgid "Not explained by any page"
 msgstr ""
 
@@ -1207,6 +1302,9 @@ msgstr ""
 msgid "Nothing inferred"
 msgstr ""
 
+msgid "Nothing new:"
+msgstr ""
+
 msgid "Nothing to learn yet"
 msgstr ""
 
@@ -1222,6 +1320,12 @@ msgid "On this page"
 msgstr ""
 
 #, python-format
+msgid "One couldn’t be."
+msgid_plural "%(count)s couldn’t be."
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
 msgid "One every %(count)s day at the median"
 msgid_plural "One every %(count)s days at the median"
 msgstr[0] ""
@@ -1230,6 +1334,12 @@ msgstr[1] ""
 #, python-format
 msgid "One page wasn’t written."
 msgid_plural "%(count)s pages weren’t written."
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
+msgid "One repository caught up."
+msgid_plural "%(count)s repositories caught up."
 msgstr[0] ""
 msgstr[1] ""
 
@@ -1383,6 +1493,9 @@ msgid "Rationale in its guide page"
 msgstr ""
 
 msgid "Read"
+msgstr ""
+
+msgid "Refreshing every repository (free)…"
 msgstr ""
 
 msgid "Refreshing the facts (free)…"
@@ -1580,6 +1693,10 @@ msgstr ""
 msgid "Since the last update"
 msgstr ""
 
+#, python-format
+msgid "Since you last caught up: %(when)s"
+msgstr ""
+
 msgid "Skip to content"
 msgstr ""
 
@@ -1630,6 +1747,9 @@ msgstr ""
 msgid "That check doesn't exist."
 msgstr ""
 
+msgid "That estimate isn't waiting any more, or doesn't list those repositories."
+msgstr ""
+
 msgid "That estimate isn't waiting any more."
 msgstr ""
 
@@ -1637,6 +1757,9 @@ msgid "That estimate isn't waiting any more; start the update again."
 msgstr ""
 
 msgid "That isn't an Azure DevOps organization's name."
+msgstr ""
+
+msgid "That overview doesn't exist."
 msgstr ""
 
 msgid "That page doesn't exist."
@@ -1667,6 +1790,20 @@ msgstr ""
 msgid ""
 "The branch's whole history, by author date in UTC. Only dates and counts "
 "are read: no author or message."
+msgstr ""
+
+#, python-format
+msgid "The catch-up failed (%(error)s)."
+msgstr ""
+
+msgid "The catch-up failed:"
+msgstr ""
+
+#, python-format
+msgid "The catch-up stops starting calls at the team’s budget of %(budget)s."
+msgstr ""
+
+msgid "The catch-up was cancelled."
 msgstr ""
 
 msgid "The charts need the page's script; their numbers are in the tables below."
@@ -1769,6 +1906,9 @@ msgid ""
 "withheld."
 msgstr ""
 
+msgid "The team overview, while two ticked repositories may write a digest"
+msgstr ""
+
 #, python-format
 msgid ""
 "The timeline shows the latest %(count)s commits; the counts cover them "
@@ -1804,6 +1944,13 @@ msgid "There's nothing here. It may be excluded, or not in the guide yet."
 msgstr ""
 
 msgid "These aren't refreshed any more; their guides stay until you remove them."
+msgstr ""
+
+msgid "These repositories won’t be caught up, since their refresh failed:"
+msgstr ""
+
+#, python-format
+msgid "This catch-up has no overview: %(problem)s"
 msgstr ""
 
 msgid "This file isn't text, or is too large to show."
@@ -1991,6 +2138,9 @@ msgstr ""
 msgid "Writing the digest…"
 msgstr ""
 
+msgid "Writing the team overview…"
+msgstr ""
+
 #, python-format
 msgid "Writing “%(title)s” (a new page)…"
 msgstr ""
@@ -2022,6 +2172,9 @@ msgid "Wrote “%(title)s”."
 msgstr ""
 
 msgid "Year"
+msgstr ""
+
+msgid "You haven't caught up yet."
 msgstr ""
 
 msgid "You're caught up."
@@ -2079,6 +2232,9 @@ msgid "depends on"
 msgstr ""
 
 msgid "documented"
+msgstr ""
+
+msgid "first guide"
 msgstr ""
 
 msgid "free"

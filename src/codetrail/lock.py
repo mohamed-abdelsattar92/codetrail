@@ -162,3 +162,23 @@ def _is_current(descriptor: int, settings: Path) -> bool:
         return False
     opened = os.fstat(descriptor)
     return (opened.st_dev, opened.st_ino) == (current.st_dev, current.st_ino)
+
+
+class TeamBusy(CodetrailError):
+    """Another catch-up holds the team's lock."""
+
+
+@contextmanager
+def team_catch_up_lock(paths: Paths, name: str) -> Iterator[None]:
+    """One catch-up at a time per team, whichever command or page started it."""
+    folder = paths.team_data(validate_team_name(name))
+    folder.mkdir(parents=True, exist_ok=True)
+    with (folder / "catch-up.lock").open("a") as handle:
+        try:
+            fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as error:
+            raise TeamBusy(f"Team {name!r} is already catching up.") from error
+        try:
+            yield
+        finally:
+            fcntl.flock(handle, fcntl.LOCK_UN)

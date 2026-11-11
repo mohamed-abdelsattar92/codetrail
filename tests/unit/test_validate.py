@@ -8,7 +8,13 @@ from codetrail.config import ToolsSettings
 from codetrail.database import connect
 from codetrail.facts import Entity, EntityKind, Relation, RelationKind, Source
 from codetrail.facts.store import FactStore
-from codetrail.generate.validate import ValidationContext, parse_rationale, validate_brief, validate_page
+from codetrail.generate.validate import (
+    ValidationContext,
+    parse_rationale,
+    validate_brief,
+    validate_highlights,
+    validate_page,
+)
 from codetrail.repo.mirror import refresh_mirror
 from codetrail.repo.secrets import SecretScanner
 from codetrail.repo.source import SourceManifest
@@ -155,3 +161,23 @@ def test_a_brief_is_required_and_checked(context: ValidationContext) -> None:
         "In the brief: The fact link [[module:ghost.py]] names no existing fact."
     ]
     assert validate_brief("The key file is app/main.py.", context, 300) == []
+
+
+def test_validate_highlights_count(context: ValidationContext) -> None:
+    problems = validate_highlights(["a", "b", "c", "d"], 3, context)
+    assert problems and "3" in problems[0]
+    assert validate_highlights(["a", "b", "c"], 3, context) == []
+    assert validate_highlights([], 0, context) == []
+
+
+def test_validate_highlights_each_like_a_page(context: ValidationContext) -> None:
+    wrong = documented(f"commit:{COMMITS['fix'][:10]}", "something the commit never said")
+    problems = validate_highlights(["Fine.", wrong], 3, context)
+    assert len(problems) == 1 and problems[0].startswith("In highlight 2:") and "isn't in" in problems[0]
+    assert validate_highlights(["Fine.", ""], 3, context) == ["Highlight 2 is empty."]
+    assert validate_highlights(["  "], 3, context) == ["Highlight 1 is empty."]
+
+
+def test_validate_highlights_refuses_diagrams(context: ValidationContext) -> None:
+    problems = validate_highlights(["{{diagram system}}"], 3, context)
+    assert problems and problems[0].startswith("In highlight 1:") and "diagram" in problems[0]

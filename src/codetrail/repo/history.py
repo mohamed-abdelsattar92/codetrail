@@ -184,6 +184,17 @@ def files_changed_since(mirror: Path, end: str, since: date) -> set[str]:
     return {name for name in output.decode("utf-8", "surrogateescape").split("\0") if name}
 
 
+def authors_between(mirror: Path, start: str, end: str) -> list[str]:
+    """Who merged after `start` up to `end` (design section 24.7): the distinct names of the authors of the merges and
+    direct commits on the branch's first-parent line, not of every commit a merged branch brought, as git records
+    them, sorted case-insensitively. One git call that prints only the names, NUL-separated: no email, message or
+    count; nothing here counts or ranks people."""
+    output = run_git(["log", "-z", "--first-parent", "--format=%an", "--end-of-options", f"{start}..{end}"],
+                     git_dir=mirror)  # fmt: skip
+    names = {name.strip() for name in output.decode("utf-8", "replace").split("\0")} - {""}
+    return sorted(names, key=lambda name: (name.casefold(), name))
+
+
 def merges_between(mirror: Path, start: str, end: str) -> int:
     count = run_git(["rev-list", "--count", "--merges", "--first-parent", "--end-of-options", f"{start}..{end}"],
                     git_dir=mirror)  # fmt: skip
@@ -233,6 +244,12 @@ def _flagged_indexes(texts: Sequence[str], scanner: SecretScanner) -> set[int]:
         index = max(i for i, first in enumerate(first_lines) if first <= finding.line)
         flagged.add(index)
     return flagged
+
+
+def is_ancestor(mirror: Path, commit: str, end: str) -> bool:
+    """Whether `commit` is in `end`'s history; a commit the mirror doesn't hold isn't."""
+    output = run_git(["merge-base", "--end-of-options", commit, end], git_dir=mirror, allowed_exit_codes=(0, 1, 128))
+    return output.decode().strip() == commit
 
 
 def commit_count(mirror: Path, start: str, end: str) -> int:

@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from codetrail.config import TeamConfig, TeamSource
+from codetrail.config import Paths, TeamConfig, TeamSource
 from codetrail.hosting import HostedRepository
+from codetrail.team.settings import team_targets
 
 
 def followed(
@@ -44,3 +45,12 @@ def follows(team: TeamConfig, service: str, source: str, repository_id: str) -> 
         )
         for selection in team.sources
     )
+
+
+def followed_targets(paths: Paths, name: str, team: TeamConfig) -> dict[str, tuple[str, str]]:
+    """Each followed target's repository name, as the service gives it, and branch, by target name."""
+    return {
+        target: (config.remote.name, config.branch)
+        for target, config in sorted(team_targets(paths, name).items())
+        if config.remote is not None and follows(team, config.remote.service, config.remote.source, config.remote.id)
+    }

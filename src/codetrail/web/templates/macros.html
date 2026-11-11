@@ -11,3 +11,27 @@
                  "answer": _("Saved answer"), "decision": _("Decision"), "fact": _("Fact")} -%}
 {{ names.get(kind, kind) }}
 {%- endmacro %}
+
+{# How each provider is signed in, and the latest plan usage, under an estimate (design section 15.4). #}
+{% macro account_notes(sign_ins, plan_usage) -%}
+<ul class="estimate-notes">
+{% for provider, method in sign_ins.items() %}
+  <li>{{ provider }}: {{ method }}{% if "subscription" in method|lower %}: {{ _("no charge; the work counts against your plan's usage limits.") }}{% elif provider != "local" %}: {{ _("billed to that account.") }}{% endif %}</li>
+{% endfor %}
+{% for reading in plan_usage %}
+  <li>{% trans provider=reading.provider, window=reading.window|replace("_", " "), used=(reading.utilization * 100)|round|int, when=reading.observed_at|utc %}Plan usage ({{ provider }}, {{ window }}): {{ used }}%, as of {{ when }}.{% endtrans %}</li>
+{% endfor %}
+</ul>
+{%- endmacro %}
+
+{# A rationale block of guide content, in English (design section 6.4): documented, with its citation and a link to
+   it when there is one, or inferred. #}
+{% macro rationale(segment) -%}
+<aside class="rationale {{ segment.label }}">
+  <p class="rationale-label">
+    {% if segment.label == "documented" %}Documented{% if segment.citation %} · {% if segment.link %}<a href="{{ segment.link }}">{{ segment.citation }}</a>{% else %}{{ segment.citation }}{% endif %}{% endif %}
+    {% else %}Inferred · the assistant's reading of the code{% endif %}
+  </p>
+  {{ segment.html }}
+</aside>
+{%- endmacro %}

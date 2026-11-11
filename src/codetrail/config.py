@@ -237,6 +237,8 @@ class HostingSettings(Settings):
 
 class TeamSettings(Settings):
     active_days: int = Field(default=90, ge=1, le=3650)  # a source's repositories pushed to within this are followed
+    highlights_per_digest: int = Field(default=3, ge=0, le=10)
+    max_overview_words: int = Field(default=250, ge=50, le=1000)
 
 
 class ProvidersSettings(Settings):
@@ -273,9 +275,10 @@ class EstimateSettings(Settings):
     plan: TokenGuess = TokenGuess(input=60_000, output=8_000)
     write: TokenGuess = TokenGuess(input=120_000, output=6_500)
     revise: TokenGuess = TokenGuess(input=40_000, output=2_500)
-    digest: TokenGuess = TokenGuess(input=40_000, output=3_000)
+    digest: TokenGuess = TokenGuess(input=40_000, output=3_500)
     answer: TokenGuess = TokenGuess(input=30_000, output=1_500)
     grade: TokenGuess = TokenGuess(input=4_000, output=500)
+    overview: TokenGuess = TokenGuess(input=15_000, output=1_500)
 
 
 class GlobalConfig(Settings):
@@ -461,8 +464,32 @@ class TeamSource(Settings):
         return self
 
 
+class TeamModels(Settings):
+    """The provider and model of the team's own call, as `provider:model` (design section 24.9)."""
+
+    overview: str = "claude-sonnet-5-5"
+
+    @field_validator("overview")
+    @classmethod
+    def known_provider_without_codex(cls, value: str) -> str:
+        provider = ModelSettings.known_provider(value).partition(":")[0]
+        if provider == "codex":
+            raise ValueError(
+                "The team's overview can't use Codex: Codex can't be confined to read-only work (design section 15.5)."
+            )
+        return value
+
+
+class CatchUpSettings(Settings):
+    max_budget_usd: float = Field(default=20.0, gt=0)  # the whole catch-up's spend, across its repositories
+    concurrency: int = Field(default=2, ge=1, le=8)  # repositories updated at once
+    max_budget_usd_per_call: float = Field(default=1.0, gt=0)  # the overview's one call
+
+
 class TeamConfig(Settings):
     sources: list[TeamSource] = []
+    models: TeamModels = TeamModels()
+    catch_up: CatchUpSettings = CatchUpSettings()
 
 
 class TargetConfig(Settings):

@@ -481,9 +481,10 @@ history_size = 20
 plan = { input = 60_000, output = 8_000 }
 write = { input = 120_000, output = 6_000 }
 revise = { input = 40_000, output = 2_000 }
-digest = { input = 40_000, output = 3_000 }
+digest = { input = 40_000, output = 3_500 }       # grew from 3_000 for the highlights
 answer = { input = 30_000, output = 1_500 }
 grade = { input = 4_000, output = 500 }
+overview = { input = 15_000, output = 1_500 }     # a team's catch-up overview (section 24.9)
 
 [signal]
 cache_seconds = 60
@@ -611,7 +612,7 @@ Each phase is usable on its own, has its own implementation plan, and ends with 
 | 19. The sidebar | Hiding and peeking, the frame and card, folding sections and pinned tiles (section 22) | A sidebar that gets out of the way, with the pages you use most at the top | Phase 11 |
 | 20. Context for coding agents | The map, briefs in the page call, the `agents/` export, `codetrail agents` and the `codetrail mcp` tool server (section 23) | Coding agents start a task from Codetrail's understanding of the repository instead of rediscovering it | ADR 0017 |
 | 21. Teams from hosting services | The spike, the `hosting` interface with the `github`, `azure_devops` and `gitlab` adapters and the fake, remote targets, teams, `codetrail team serve` with the team's server and a plain team page, the add-repositories screen, `codetrail team add`, `list` and `remove` (section 24) | A whole organization's repositories, or a chosen set, followed from GitHub, Azure DevOps or GitLab, each with its own guide | ADR 0020 |
-| 22. Catching up across a team (designed) | The team page's cards, the catch-up with one estimate, highlights in digests, the overview across repositories (section 24) | One page each morning: what the team merged everywhere since you last looked, and why | Phase 21 |
+| 22. Catching up across a team (built) | The team page's cards, the catch-up with one estimate, highlights in digests, the overview across repositories (section 24) | One page each morning: what the team merged everywhere since you last looked, and why | Phase 21 |
 | 16. Decision inventory (planned) | An opt-in paid pass listing the decisions in the code and their documented "why" (section 18.8) | The share of the repository's decisions that are documented, beyond what the guide wrote about | Phase 13 |
 
 ## 14. Answers to the brainstorm's open questions
@@ -1386,6 +1387,7 @@ overview = "claude-sonnet-5-5"
 [catch_up]
 max_budget_usd = 20.0
 concurrency = 2
+max_budget_usd_per_call = 1.0  # the overview's one call
 ```
 
 - **Target names** are `<team>-<repository>`, lower-cased, with characters outside the target-name pattern replaced by `-`; a clash gets the start of the service's id. The page shows the repository's own name.
@@ -1411,7 +1413,7 @@ Routes, all under section 7.4's rules: `GET /team/add`; `GET /team/hosting/sourc
 The page, top to bottom:
 - **The header line:** "Since you last caught up", with the time the last catch-up finished, how many of the team's repositories have new merges, and the **Catch up** button.
 - **"Across the team",** the latest overview (section 24.9), until the reader marks it read.
-- **One card per repository with something new, busiest first:** its name, branch and merge count; the areas touched, from the free signal; the digest's highlights, each with its documented or inferred mark and source; who merged, as git records the authors' names; a link to the digest; and how many guide pages changed. A repository whose new merges aren't caught up yet shows the free part only, with a dashed edge: "Not caught up yet: 2 merges touched Networking." A repository that couldn't be reached shows why.
+- **One card per repository with something new, busiest first:** its name, branch and merge count; the areas touched, from the free signal; the digest's highlights, each with its documented or inferred mark and source; who merged, as git records the authors' names; a link to the digest; and how many guide pages changed. A repository whose new merges aren't caught up yet shows the free part only, with a dashed edge: "Not caught up yet: 2 merges touched Networking." A repository the last catch-up missed (it failed, or the reader left it out) keeps that line and says why; its merges, areas and authors count from the commit its newest digest covered, since its free part moved the snapshot past them. A repository with no guide yet says the same on its row. A repository that couldn't be reached shows why.
 - **One line for the rest:** "Nothing new: docs-site, inventory-service", then archived repositories and those that left their source.
 
 A card shows the repository's unread digests (section 8.3), so a digest read on the repository's own guide counts as read here, and marking it read on the card marks it there.
@@ -1422,7 +1424,7 @@ A card shows the repository's unread digests (section 8.3), so a digest read on 
 **Catch up** on the page, or `codetrail team update <name>`:
 1. **The free part, for every repository,** `catch_up.concurrency` at a time: the source lists are read again (section 24.5), new repositories are cloned, and every target's sources and facts are refreshed, as the start of `codetrail update` does (section 15.4).
 2. **One estimate** for the whole catch-up: each target's update estimate (plan, pages and digest, section 15.4) on its own line with a checkbox, ticked by default, a new repository's first guide marked as such (an unticked first guide is offered again at every catch-up until it runs or the repository is left out; `team update --yes` runs it, within the team's budget, as `codetrail update --yes` runs a first update); the overview, when at least two ticked repositories have new commits; the total, expected and at most; the sign-in in use and the latest plan usage. The reader can untick any repository: it keeps its free part, and its card says it wasn't caught up. Confirming sends the estimate's id with the ticked targets.
-3. **The paid part:** each ticked target's update runs as it does today, with its own lock, its own budget and its own all-or-nothing commit (section 6.8), `catch_up.concurrency` targets at a time, and the whole catch-up stops starting new calls at `catch_up.max_budget_usd`. The update panel shows every step, prefixed by the repository's name. A target that fails (busy with its own update, its sign-in lost, its budget spent) doesn't stop the others; its card says why.
+3. **The paid part:** each ticked target's update runs as it does today, with its own lock, its own budget and its own all-or-nothing commit (section 6.8), `catch_up.concurrency` targets at a time, and the whole catch-up stops starting new calls at `catch_up.max_budget_usd`. The update panel shows every step, prefixed by the repository's name. A target that fails (busy with its own update, its sign-in lost, its budget spent, or its turn coming after the team's budget is spent) doesn't stop the others and commits nothing; its card and the panel say why. Unticking every repository declines the catch-up, as cancelling does.
 4. **The overview** (section 24.9), from the digests this catch-up wrote.
 
 One catch-up runs per team at a time (a team lock), and the page's cooldown and estimate rules (sections 7.4 and 15.4) apply to it as to one target's update.
@@ -1450,7 +1452,7 @@ highlights_per_digest = 3             # 0 to 10
 max_overview_words = 250              # 50 to 1000
 ```
 
-Each team's file holds its sources, `[models] overview`, `catch_up.max_budget_usd` and `catch_up.concurrency` (section 24.5). The starting estimate for `overview` joins `[estimates]`.
+Each team's file holds its sources, `[models] overview`, `catch_up.max_budget_usd`, `catch_up.concurrency` and `catch_up.max_budget_usd_per_call` (1.0 by default, above 0: the overview call's own limit, as `generation.max_budget_usd_per_call` is a page call's) (section 24.5). The starting estimate for `overview` joins `[estimates]`.
 
 ### 24.11 Security
 - **Who can reach it:** the new routes follow section 7.4 unchanged (`127.0.0.1`, `Host`, `Origin`, the token, `Sec-Fetch-Site`, the session). `POST /team/repositories` changes configuration and starts free work (network, disk and time). A local server holding the session cookie (section 7.4) could make the reader follow repositories their own sign-in can already read, but it can't make paid work run without an estimate id, which it can't read.
@@ -1492,3 +1494,13 @@ The founder decided: following teams through `gh`, `az` and `glab`; adding repos
 - First guides are ticked by default in the estimate, offered again when unticked, and run by `team update --yes` within the team's budget.
 - Forks and templates count like any other repository; a followed repository that goes quiet stays followed.
 - Target names `<team>-<repository>`, matched to the service by stable id.
+
+Phase 22's calls, for the founder to check:
+- **No Codex for the overview:** `[models] overview` refuses the `codex` provider, since the overview call has no tools and Codetrail can't confine Codex. Its links may point only at the digests of that catch-up.
+- **No fact links or diagrams** in an overview; it holds only digest blocks, inferred blocks and plain lines.
+- **`team.db`** shares the targets' migrations; migration 0007 adds `catch_ups` (with `failed` and `unticked`) and `overview_reads`.
+- **The overview appears in the estimate** when at least two ticked repositories can write a digest, not only when they're expected to. So the shown maximum includes it whenever it could run, and it runs only if the confirmed estimate showed it.
+- **The team budget** also stops the plan call of a repository with no guide yet, and a page's retry.
+- **"Merged by"** lists first-parent authors since the oldest unread digest, alphabetical and never counted. A first guide's digest names nobody.
+- **A cancelled or unticked estimate** leaves dashed cards, since the free part moved each repository's snapshot.
+- **`codetrail team update`** asks all or nothing, like `codetrail update`.

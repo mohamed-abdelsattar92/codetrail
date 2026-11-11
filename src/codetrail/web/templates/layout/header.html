@@ -4,7 +4,7 @@
           aria-label="{{ _('Hide the sidebar') }}" data-label-hide="{{ _('Hide the sidebar') }}"
           data-label-show="{{ _('Show the sidebar') }}">{{ icon("sidebar") }}</button>
   <button type="button" class="icon-button menu-button" data-menu aria-controls="sidebar" aria-expanded="false" aria-label="{{ _('Menu') }}">{{ icon("menu") }}</button>
-  <a class="brand" href="{{ site_path('/') }}"><img src="/static/brand/mark.svg" alt="" width="24" height="24"><span>codetrail</span></a>
+  <a class="brand" href="{{ site_path('/') }}" aria-label="codetrail"><img src="/static/brand/mark.svg" alt="" width="24" height="24"><span>codetrail</span></a>
   {% if team_repositories is defined %}
   <span class="target" lang="en" dir="ltr">{{ team }}</span>
   {% else %}

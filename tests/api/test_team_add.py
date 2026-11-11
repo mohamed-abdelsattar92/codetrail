@@ -347,7 +347,8 @@ def test_stopping_the_server_lets_no_further_refresh_start(team: Team, monkeypat
     job = TeamRefreshJob(team.paths, concurrency=1)
     assert job.start(["acme-a", "acme-b", "acme-c"])
     assert entered.wait(10)
-    stopper = threading.Thread(target=job.stop)
+    job.request_stop()  # as the server's lifespan does
+    stopper = threading.Thread(target=job.wait_for_stop)
     stopper.start()
     time.sleep(0.1)
     assert stopper.is_alive()  # it waits for the refresh that runs

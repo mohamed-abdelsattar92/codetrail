@@ -1,3 +1,4 @@
+{% from "macros.html" import account_notes %}
 <h2 id="estimate-title">{{ _("Before the update") }}</h2>
 <p>{{ _("The facts are refreshed. Writing the guide will call:") }}</p>
 <table class="estimate">
@@ -38,11 +39,4 @@
 {% if estimate.skipped %}
 <p>{{ _("Skipped, since they failed last time and nothing in them changed:") }} {{ estimate.skipped|join(", ") }}</p>
 {% endif %}
-<ul class="estimate-notes">
-{% for provider, method in estimate.sign_ins.items() %}
-  <li>{{ provider }}: {{ method }}{% if "subscription" in method|lower %}: {{ _("no charge; the work counts against your plan's usage limits.") }}{% elif provider != "local" %}: {{ _("billed to that account.") }}{% endif %}</li>
-{% endfor %}
-{% for reading in estimate.plan_usage %}
-  <li>{% trans provider=reading.provider, window=reading.window|replace("_", " "), used=(reading.utilization * 100)|round|int, when=reading.observed_at|utc %}Plan usage ({{ provider }}, {{ window }}): {{ used }}%, as of {{ when }}.{% endtrans %}</li>
-{% endfor %}
-</ul>
+{{ account_notes(estimate.sign_ins, estimate.plan_usage) }}
