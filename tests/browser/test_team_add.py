@@ -9,8 +9,10 @@ signs in through the real single-use link. The fake service's repositories are f
 import threading
 import time
 from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 from urllib.parse import urlsplit
 
 import pytest
@@ -52,6 +54,7 @@ class TeamSite:
     paths: Paths
     repository_url: str
     services: dict[Service, HostingService]
+    checkout: Path  # served at `repository_url`; publish it again after a commit
 
     def sign_in(self, page: Page, path: str = "/team/add") -> None:
         page.goto(f"{self.url}/login?code={self.session.issue_login_code()}&next={path}")
@@ -65,8 +68,9 @@ class TeamSite:
         updating.join()
 
 
-@pytest.fixture
-def team_site(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TeamSite]:
+@contextmanager
+def serving_team(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, **options: Any) -> Iterator[TeamSite]:
+    """The team app on 127.0.0.1, as `codetrail team serve` builds it; `options` go to `create_team_app`."""
     allow_http_remotes(monkeypatch, tmp_path)
     monkeypatch.setattr("codetrail.hosting.check_clone_url", lambda service, url: url)
     paths = Paths(config_dir=tmp_path / "config", data_dir=tmp_path / "data", state_dir=tmp_path / "state")
@@ -79,7 +83,7 @@ def team_site(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TeamS
         session = SessionState(60)
         hold: Callable[[str], Callable[[], None]] = lambda target: lambda: None  # noqa: E731 - no lock to take here
         services = services_for_test(repository_url, *REPOSITORIES)
-        app = create_team_app(paths, "acme", session, settings, services, hold)
+        app = create_team_app(paths, "acme", session, settings, services, hold, **options)
         server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning", access_log=False))
         thread = threading.Thread(target=server.run, daemon=True)
         thread.start()
@@ -88,9 +92,15 @@ def team_site(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TeamS
                 break
             time.sleep(0.02)
         assert server.started and thread.is_alive(), "The test server didn't start."  # nothing goes to another one
-        yield TeamSite(f"http://127.0.0.1:{port}", session, paths, repository_url, services)
+        yield TeamSite(f"http://127.0.0.1:{port}", session, paths, repository_url, services, checkout)
         server.should_exit = True
         thread.join(30)
+
+
+@pytest.fixture
+def team_site(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TeamSite]:
+    with serving_team(tmp_path, monkeypatch) as site:
+        yield site
 
 
 def choose_the_source(page: Page) -> None:

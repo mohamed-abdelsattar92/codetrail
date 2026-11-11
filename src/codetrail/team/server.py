@@ -24,12 +24,15 @@ from typing import Annotated, Any
 
 import uvicorn
 from fastapi import FastAPI, Query
-from fastapi.responses import HTMLResponse, PlainTextResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 from starlette.types import ASGIApp
 
-from codetrail.config import GlobalConfig, Paths, load_global, load_team
+from codetrail.assistant import Assistant
+from codetrail.config import TARGET_NAME, GlobalConfig, Paths, load_global, load_team
 from codetrail.errors import CodetrailError
+from codetrail.generate.run import Progress
 from codetrail.guide import GuideRepository
 from codetrail.hosting import HostingService
 from codetrail.hosting.names import SERVICE_NAMES, Service
@@ -37,16 +40,27 @@ from codetrail.hosting.services import services_for
 from codetrail.lock import target_in_use, team_in_use
 from codetrail.repo.signal import Signal, behind
 from codetrail.server import HOST
+from codetrail.team.catch_up import run_catch_up
+from codetrail.team.catch_up_job import CatchUpJob
+from codetrail.team.catch_up_job import Confirm as CatchUpConfirm
 from codetrail.team.follow import followed_targets
 from codetrail.team.refresh import TeamRefreshJob
 from codetrail.team.routes import team_router
 from codetrail.team.sync import TeamSync, sync_team
-from codetrail.web.app import LanguageChoice, create_target_app, template_environment
+from codetrail.web.app import EstimateDecision, LanguageChoice, create_target_app, template_environment
 from codetrail.web.i18n import Language, installed_languages
 from codetrail.web.security import SecurityMiddleware, SessionState, login_response
 
 LOGIN_NEXT = ("/", "/team/add")  # where the sign-in link may lead; anything else leads to the team page
 logger = logging.getLogger(__name__)
+
+
+class CatchUpDecision(BaseModel):
+    """Go ahead with the waiting estimate, for the ticked targets only (design section 24.8)."""
+
+    model_config = ConfigDict(extra="forbid")
+    estimate_id: str = Field(max_length=100)
+    targets: list[Annotated[str, StringConstraints(pattern=f"^(?:{TARGET_NAME.pattern})$")]] = Field(max_length=1000)
 
 
 @dataclass(frozen=True)
@@ -94,6 +108,8 @@ def create_team_app(
     locales: Path | None = None,
     *,
     synced: TeamSync | None = None,
+    writer_for: Callable[[str], Assistant | None] = lambda target: None,
+    overview_writer: Assistant | None = None,
 ) -> ASGIApp:
     """The team page, `/login` and the shared static files at the root, and each followed target's page under
     `/repos/<target>/`, all inside one security middleware.
@@ -102,7 +118,8 @@ def create_team_app(
     page finds a followed target it doesn't serve yet, and returns the lock's release. A target whose lock can't be
     taken isn't served, and its row says why. `synced` is the sources' listing taken at the start: the archived and
     gone repositories, and the sources that couldn't be listed; a save on the add-repositories screen replaces it.
-    `services` are what that screen lists, and its saves sync."""
+    `services` are what that screen lists, and its saves sync. `writer_for(target)` and `overview_writer` are the
+    catch-up's assistants (tests' fakes), or None for the real ones."""
     listing = synced or TeamSync()
     mounted: set[str] = set()  # the security middleware reads it on each request
     refused: dict[str, str] = {}  # target: why its lock couldn't be taken
@@ -122,11 +139,31 @@ def create_team_app(
     signals: TimedCache[tuple[Signal | None, str, bool]] = TimedCache(settings.signal.cache_seconds)
     refresh = TeamRefreshJob(paths, settings.hosting.concurrency, _, settings.server.update_log_lines)
 
+    def catch_up_sync() -> TeamSync:
+        """The catch-up lists the sources again, and serves each target that listing adds."""
+        result = list_sources(paths, name, services)
+        record_sync(result)
+        for target in result.added:
+            mount(target)
+        return result
+
+    def run(confirm: CatchUpConfirm, progress: Progress, stop: threading.Event) -> object:
+        return run_catch_up(paths, name, confirm, progress, stop, catch_up_sync, writer_for, overview_writer)
+
+    catch_up = CatchUpJob(
+        run,
+        settings.server.update_cooldown_seconds,
+        settings.server.estimate_ttl_seconds,
+        settings.server.update_log_lines,
+        gettext_of=lambda: language().translations.gettext,
+    )
+
     @asynccontextmanager
     async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         try:
             yield
         finally:  # a mount doesn't run its page's lifespan, so each page's update is stopped here
+            catch_up.stop()
             refresh.stop()
             with mount_lock:
                 stopping = list(stops)
@@ -241,6 +278,40 @@ def create_team_app(
     def record_sync(result: TeamSync) -> None:
         nonlocal listing
         listing = result
+
+    @app.post("/team/catch-up")
+    def start_catch_up() -> Response:
+        refusal = catch_up.start()
+        if refusal is None:
+            return JSONResponse({"state": catch_up.state, "message": ""}, status_code=202)
+        return JSONResponse({"state": catch_up.state, "message": refusal}, status_code=409)
+
+    @app.get("/team/catch-up/status")
+    def catch_up_status(after: Annotated[int, Query(ge=0, le=2**53)] = 0) -> Response:
+        """The catch-up's state, its steps after number `after` rendered for the panel, and, while it waits, its
+        estimate rendered for the dialog, in the reader's language and autoescaped."""
+        status = catch_up.status(after)
+        environment = environments[language().code]
+        if "estimate" in status:
+            status["estimate_html"] = environment.get_template("catch_up_estimate.html").render(
+                estimate=status["estimate"]
+            )
+        steps = status.pop("steps")
+        status["log_html"] = environment.get_template("catch_up_log.html").render(steps=steps) if steps else ""
+        return JSONResponse(status)
+
+    @app.post("/team/catch-up/confirm")
+    def confirm_catch_up(decision: CatchUpDecision) -> Response:
+        if not catch_up.decide(decision.estimate_id, decision.targets):
+            refused = _("That estimate isn't waiting any more, or doesn't list those repositories.")
+            return JSONResponse({"error": refused}, 400)
+        return Response(status_code=204)
+
+    @app.post("/team/catch-up/cancel")
+    def cancel_catch_up(decision: EstimateDecision) -> Response:
+        if not catch_up.decide(decision.estimate_id, None):
+            return JSONResponse({"error": _("That estimate isn't waiting any more.")}, 400)
+        return Response(status_code=204)
 
     app.include_router(team_router(paths, name, settings, services, language, render, mount, refresh, record_sync))
     app.mount("/static", StaticFiles(directory=str(files("codetrail.web").joinpath("static"))), name="static")

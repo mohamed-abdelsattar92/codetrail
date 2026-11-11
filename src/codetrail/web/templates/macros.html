@@ -11,3 +11,15 @@
                  "answer": _("Saved answer"), "decision": _("Decision"), "fact": _("Fact")} -%}
 {{ names.get(kind, kind) }}
 {%- endmacro %}
+
+{# How each provider is signed in, and the latest plan usage, under an estimate (design section 15.4). #}
+{% macro account_notes(sign_ins, plan_usage) -%}
+<ul class="estimate-notes">
+{% for provider, method in sign_ins.items() %}
+  <li>{{ provider }}: {{ method }}{% if "subscription" in method|lower %}: {{ _("no charge; the work counts against your plan's usage limits.") }}{% elif provider != "local" %}: {{ _("billed to that account.") }}{% endif %}</li>
+{% endfor %}
+{% for reading in plan_usage %}
+  <li>{% trans provider=reading.provider, window=reading.window|replace("_", " "), used=(reading.utilization * 100)|round|int, when=reading.observed_at|utc %}Plan usage ({{ provider }}, {{ window }}): {{ used }}%, as of {{ when }}.{% endtrans %}</li>
+{% endfor %}
+</ul>
+{%- endmacro %}
