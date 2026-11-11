@@ -1,16 +1,31 @@
-// Mark as read on the team page (design section 24.7). A card's digest is marked read through its repository's own
+// Mark read on the team page (design section 24.7). A card's digest is marked read through its repository's own
 // route, so it counts as read in that guide too; the overview through the team's. Each leaves the page without a
-// reload, and a card with nothing left (no digest, no commits waiting) leaves with it. Focus moves to the
-// repositories' heading, so a keyboard reader isn't left on a removed button.
+// reload, and a card with nothing left (no digest, nothing waiting) leaves with it. Focus moves to the
+// repositories' heading, so a keyboard reader isn't left on a removed button. A refusal says so beside the button,
+// as text, and the button can be pressed again.
 import { post } from "./api.js";
 
 const repositories = document.getElementById("repositories-title");
+const failedText = document.querySelector("[data-read-failed]")?.dataset.readFailed ?? "";
+
+function sayFailed(button) {
+  let message = button.parentElement.querySelector("[data-read-error]");
+  if (!message) {
+    message = document.createElement("span");
+    message.className = "team-read-error";
+    message.dataset.readError = "";
+    message.setAttribute("role", "status");
+    button.before(message);
+  }
+  message.textContent = failedText;
+}
 
 async function markRead(button, url, data, remove) {
   button.disabled = true;
   const response = await post(url, data).catch(() => null);
+  button.disabled = false;
   if (!response?.ok) {
-    button.disabled = false;
+    sayFailed(button);
     return;
   }
   remove();

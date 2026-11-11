@@ -339,5 +339,18 @@ def test_authors_between_distinct_sorted(tmp_path: Path) -> None:
         commit_by(checkout, author)
     mirror, end = mirror_of(checkout, tmp_path)
     assert authors_between(mirror, start, end) == ["alice", "Bob"]  # names only, no counts, in alphabetical order
-    assert authors_between(mirror, None, end) == ["alice", "Bob", "Test Author"]  # every commit up to the end
     assert authors_between(mirror, end, end) == []
+
+
+def test_authors_between_follows_the_first_parent(tmp_path: Path) -> None:
+    """Who merged: the authors of the merges and direct commits on the branch, not of the merged branch's commits."""
+    checkout = make_repository(tmp_path / "t", [{"a.md": "a\n"}])
+    start = git(checkout, "rev-parse", "HEAD")
+    commit_by(checkout, "Ann")
+    git(checkout, "switch", "-q", "-c", "feature/x")
+    commit_by(checkout, "Bob")
+    git(checkout, "switch", "-q", "develop")
+    git(checkout, "merge", "-q", "--no-ff", "--no-commit", "feature/x")
+    git(checkout, "commit", "-q", "--author", "Cat <cat@example.com>", "-m", "Merge feature/x")
+    mirror, end = mirror_of(checkout, tmp_path)
+    assert authors_between(mirror, start, end) == ["Ann", "Cat"]

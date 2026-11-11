@@ -380,9 +380,11 @@ def run_catch_up(
                 coordinator.step({"step": "overview"})
                 overview = _overview(paths, name, team, settings, connection, digests, budget, stop, overview_writer)
             chosen = [line.target for line in estimate.lines if line.target in ticked] if estimate and ticked else []
-            reasons = {target.name: target.failure for target in targets if target.failure is not None}  # for cards
+            # Each card says why its repository wasn't caught up: its failure, or the reader leaving it out.
+            reasons = {target.name: target.failure for target in targets if target.failure is not None}
+            unticked = [line.target for line in estimate.lines if line.target not in chosen] if estimate else []
             state.finish(catch_up_id, chosen, overview.overview_id if overview else None,
-                         overview.problem if overview else None, reasons)  # fmt: skip
+                         overview.problem if overview else None, reasons, unticked)  # fmt: skip
         finally:
             connection.close()
     updated = [target.name for target in targets if target.result is not None and not target.result.declined]

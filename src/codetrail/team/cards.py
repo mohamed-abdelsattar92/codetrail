@@ -1,15 +1,17 @@
 """The team page's cards and overview (design section 24.7).
 
-A repository has a card when it has something new: an unread digest, or commits since its last update. Cards come
+A repository has a card when it has something new: an unread digest, commits since its last update, or the last
+catch-up failing it or the reader leaving it out (its free part caught its facts up, but not its guide). Cards come
 busiest first (merges since the last update plus unread digests), then by name. A card shows its unread digests'
 highlights, or an older digest's first paragraph, rendered by the guide's renderer with raw HTML off and under the
-repository's prefix, so their links lead into its own guide. Who wrote the commits comes from git, as names only:
-nothing here counts or ranks people.
+repository's prefix, so their links lead into its own guide. Who merged comes from git, as names only: nothing
+here counts or ranks people.
 """
 
 from __future__ import annotations
 
 import re
+from collections.abc import Collection
 from dataclasses import dataclass, field, replace
 
 from codetrail.config import TARGET_NAME, Paths
@@ -37,7 +39,7 @@ class Row:
     served: bool = True  # its guide is mounted
     has_guide: bool = False  # its guide has pages: until then, its signal measures only the facts
     unread: list[Page] = field(default_factory=list)  # its unread digests, newest first
-    authors: list[str] = field(default_factory=list)  # who wrote the commits its card covers, as git records them
+    authors: list[str] = field(default_factory=list)  # who merged what its card covers, as git records them
 
     @property
     def measured(self) -> bool:
@@ -62,7 +64,7 @@ class Card:
     row: Row
     digests: list[DigestSummary]
     authors: list[str]
-    not_caught_up: bool  # commits landed since its last update
+    not_caught_up: bool  # commits landed since its last update, or the last catch-up missed it
 
     @property
     def busyness(self) -> int:
@@ -87,45 +89,51 @@ def unread_digests(paths: Paths, target: str) -> list[Page]:
 
 
 def card_authors(paths: Paths, target: str, signal: Signal, unread: list[Page]) -> list[str]:
-    """Who wrote the commits a card covers: from where its oldest unread digest starts (all of history for the first
-    guide's digest), or since its last update, up to the branch's head. A repository with nothing new reads no git."""
+    """Who merged what a card covers, up to the branch's head: from where its oldest unread digest with a start commit
+    starts, or else from its last update. A digest with no start commit (the first guide's) covers no commits, so it
+    names nobody. A repository with nothing new reads no git."""
     if signal.head is None or (not unread and not signal.commits):
         return []
-    start = signal.updated_commit
-    if unread:
-        since = unread[-1].meta.get("from_commit")
-        start = since if isinstance(since, str) and COMMIT_ID.fullmatch(since) else None
+    starts = [page.meta.get("from_commit") for page in reversed(unread)]  # oldest first
+    start = next((since for since in starts if isinstance(since, str) and COMMIT_ID.fullmatch(since)),
+                 signal.updated_commit)  # fmt: skip
+    if start is None:
+        return []
     return authors_between(paths.target_data(target) / "mirror.git", start, signal.head)
 
 
-def build_cards(rows: list[Row], max_nodes: int) -> tuple[list[Card], list[Row]]:
-    """The cards of the rows with something new, busiest first and then by name, and the other rows in order."""
+def build_cards(rows: list[Row], max_nodes: int, missed: Collection[str] = frozenset()) -> tuple[list[Card], list[Row]]:
+    """The cards of the rows with something new, busiest first and then by name, and the other rows in order.
+    `missed` are the targets the last catch-up failed or the reader left out of it."""
     cards: list[Card] = []
     rest: list[Row] = []
     for row in rows:
         signal = row.signal
-        if row.measured and signal is not None and (signal.commits or row.unread):
-            cards.append(_card(row, signal, max_nodes))
+        if row.measured and signal is not None and (signal.commits or row.unread or row.target in missed):
+            cards.append(_card(row, signal, max_nodes, row.target in missed))
         else:
             rest.append(row)
     cards.sort(key=lambda card: (-card.busyness, card.row.repository.casefold()))
     return cards, rest
 
 
-def _card(row: Row, signal: Signal, max_nodes: int) -> Card:
+def _card(row: Row, signal: Signal, max_nodes: int, missed: bool) -> Card:
     prefix = BASE_PATH.set(f"/repos/{row.target}")  # the highlights' links lead into the repository's own guide
     try:
         digests = [_summary(page, max_nodes) for page in row.unread]
     finally:
         BASE_PATH.reset(prefix)
-    return Card(row, digests, row.authors, signal.commits > 0)
+    return Card(row, digests, row.authors, signal.commits > 0 or missed)
 
 
 def _summary(page: Page, max_nodes: int) -> DigestSummary:
     found = page.meta.get("highlights")
     lines = [line for line in found if isinstance(line, str)] if isinstance(found, list) else []
     highlights = [segments for segments in (render_body(line, None, max_nodes) for line in lines) if segments]
-    first = [] if highlights else render_body(_first_paragraph(page.body), None, max_nodes)
+    # A digest from before highlights shows its first paragraph; the first guide's digest (no start commit) only lists
+    # the new pages, so its title and page count say it all.
+    first_guide = page.meta.get("from_commit") is None
+    first = [] if highlights or first_guide else render_body(_first_paragraph(page.body), None, max_nodes)
     changed = page.meta.get("pages_changed")
     return DigestSummary(page.id, page.title, site_path(f"/pages/{page.id}"), highlights, first,
                          len(changed) if isinstance(changed, list) else 0)  # fmt: skip

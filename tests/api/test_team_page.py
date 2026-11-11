@@ -42,12 +42,13 @@ def finish_catch_up(
     overview_id: str | None = None,
     problem: str | None = None,
     failed: Mapping[str, str] | None = None,
+    unticked: list[str] | None = None,
 ) -> str:
     """Records a finished catch-up in the team's database, and returns when it finished."""
     connection = connect(team_database(paths, "acme"))
     try:
         state = TeamState(connection)
-        state.finish(state.start(), ["acme-web-shop"], overview_id, problem, failed or {})
+        state.finish(state.start(), ["acme-web-shop"], overview_id, problem, failed, unticked)
         record = state.last_finished()
     finally:
         connection.close()
@@ -69,9 +70,10 @@ def write_overview(paths: Paths) -> None:
 
 
 def write_digest(paths: Paths, title: str = "Charges retry twice", highlights: list[str] | None = None) -> None:
+    shown = ["Charges retry **twice** now."] if highlights is None else highlights
     meta: dict[str, object] = {"kind": "digest", "title": title, "from_commit": None, "to_commit": "b" * 40,
                                "written_at": "2026-11-11T10:15:00+00:00", "pages_changed": ["concepts/orders"],
-                               "highlights": highlights or ["Charges retry **twice** now."]}  # fmt: skip
+                               "highlights": shown}  # fmt: skip
     GuideRepository(paths.target_data("acme-web-shop") / "guide").write_page(Page(DIGEST, meta, "Things changed."))
 
 
@@ -137,6 +139,18 @@ def test_overview_shown_until_read(team: Team) -> None:
 ARABIC_INDIC = OVERVIEW.translate({ord(digit): 0x0660 + int(digit) for digit in "0123456789"})
 
 
+def test_an_unreadable_overview_reads_as_none(team: Team) -> None:
+    folder = team.paths.team_data("acme") / "overviews" / "overviews"
+    folder.mkdir(parents=True)
+    (folder / "2026-11-11-101500.md").write_text("---\n: [unclosed\n---\nBody.\n", encoding="utf-8")
+    finish_catch_up(team.paths, OVERVIEW)
+    session = SessionState(60)
+    client = client_for(team, session)
+
+    assert client.get("/").status_code == 200
+    assert post(client, "/team/overview/read", {"overview_id": OVERVIEW}, session.token) == 404
+
+
 @pytest.mark.parametrize(
     "overview_id",
     ["overviews/2026-01-01-000000", "../x", "overviews/../../x", ARABIC_INDIC, "digests/2026-11-11-a"],
@@ -164,7 +178,7 @@ def test_overview_problem_shown(team: Team) -> None:
     overview = section(client_for(team).get("/").text, "overview-title")
 
     problem = "The overview failed its checks twice: &lt;b&gt;too long&lt;/b&gt;"
-    assert f"This catch-up has no overview: {problem}" in overview
+    assert f"This catch-up has no overview: <bdi>{problem}</bdi>" in overview
     assert "data-overview-read" not in overview
 
 
@@ -182,9 +196,43 @@ def test_card_not_caught_up_line(team: Team) -> None:
     card = row(section(page, "repositories-title"), "acme-web-shop")
     assert card.startswith('<article class="team-card not-caught-up"')
     assert 'Not caught up yet: 1 merge touched <span lang="en" dir="ltr">services</span>.' in card
-    assert "Not caught up in the last catch-up: Target &#39;acme-web-shop&#39; is &lt;busy&gt;." in card
+    assert "Not caught up in the last catch-up: <bdi>Target &#39;acme-web-shop&#39; is &lt;busy&gt;.</bdi>" in card
     assert '<h3 class="team-card-title"><a href="/repos/acme-web-shop/"><bdi>web-shop</bdi></a></h3>' in card
     assert "Merged by: <bdi>Test Author</bdi>" in card
+
+
+def test_a_failed_target_with_no_commits_gets_a_card(team: Team) -> None:
+    caught_up(team)  # its free part recorded the snapshot: no commits wait
+    finish_catch_up(team.paths, failed={"acme-web-shop": "The team's budget is spent."})
+
+    card = row(client_for(team).get("/").text, "acme-web-shop")
+
+    assert card.startswith('<article class="team-card not-caught-up"')
+    assert "Not caught up in the last catch-up: <bdi>The team&#39;s budget is spent.</bdi>" in card
+    assert "Not caught up yet" not in card
+
+
+def test_an_unticked_target_with_no_commits_gets_a_card(team: Team) -> None:
+    caught_up(team)
+    finish_catch_up(team.paths, unticked=["acme-web-shop"])
+
+    card = row(client_for(team).get("/").text, "acme-web-shop")
+
+    assert card.startswith('<article class="team-card not-caught-up"')
+    assert "Not caught up: you left it out of the last catch-up." in card
+
+
+def test_a_first_guide_digest_names_no_authors(team: Team, tmp_path: Path) -> None:
+    checkout = tmp_path / "checkout"
+    git(checkout, "commit", "-q", "--allow-empty", "--author", "Earlier Author <e@example.com>", "-m", "Old")
+    publish(checkout, tmp_path / "served")
+    caught_up(team)  # the first guide's facts are at the head: no commits wait
+    write_digest(team.paths, title="The guide was created", highlights=[])  # it covers no commits
+
+    card = row(client_for(team).get("/").text, "acme-web-shop")
+
+    assert "The guide was created" in card
+    assert "Merged by" not in card and "Earlier Author" not in card
 
 
 def test_card_shows_its_unread_digest(team: Team) -> None:

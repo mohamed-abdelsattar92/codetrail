@@ -2551,6 +2551,12 @@ details.more > summary {
   overflow-x: auto;
 }
 
+.team-read-error {
+  margin-inline-start: auto;
+  color: var(--danger);
+  font-size: 0.85rem;
+}
+
 .team-card-authors {
   margin: var(--space-4) 0 0;
   color: var(--text-muted);

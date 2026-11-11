@@ -1,5 +1,5 @@
 """The team page in a real browser (design section 24.7): the header, the overview and the cards, in light and dark,
-at a phone's width, and Mark as read on a card and on the overview.
+at a phone's width, and Mark read on a card and on the overview.
 
 The team app runs as `codetrail team serve` builds it; web-shop and payments-api each have a guide with an unread
 digest, and a commit has landed since. payments-api's facts were refreshed after it, so only web-shop isn't caught up.
@@ -83,7 +83,14 @@ def test_team_page_cards(page: Page, two_guides: TeamSite, errors: list[str], sc
     assert payments.evaluate("card => getComputedStyle(card).borderBlockStartStyle") == "solid"
     expect(page.locator(".team-card")).to_have_count(2)
 
-    payments.get_by_role("button", name="Mark as read").click()
+    mark_read = payments.get_by_role("button", name="Mark read")
+    page.route("**/learn/read", lambda route: route.fulfill(status=500))  # the first try fails: it says so
+    mark_read.click()
+    expect(payments.locator("[data-read-error]")).to_have_text("Couldn't mark it read. Try again.")
+    expect(mark_read).to_be_enabled()
+    page.unroute("**/learn/read")
+
+    mark_read.click()
 
     expect(payments).to_have_count(0)
     page.locator("[data-overview-read]").click()
@@ -94,7 +101,7 @@ def test_team_page_cards(page: Page, two_guides: TeamSite, errors: list[str], sc
     expect(page.locator("[data-overview]")).to_have_count(0)
     expect(page.locator("[data-nothing-new]")).to_contain_text("payments-api")
     expect(web_shop).to_be_visible()  # not caught up: its card stays, without its digest
-    assert errors == []
+    assert errors == ["Failed to load resource: the server responded with a status of 500 (Internal Server Error)"]
 
 
 def test_team_page_at_a_phone_s_width(page: Page, two_guides: TeamSite, errors: list[str]) -> None:

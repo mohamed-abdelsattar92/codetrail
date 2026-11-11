@@ -105,3 +105,22 @@ def test_render_overview_never_links_outside_a_named_target() -> None:
     segments = render_overview(DOCUMENTED + "\n\n" + DOCUMENTED.replace("a.py", "b.py"), ["../elsewhere"])
 
     assert [segment.link for segment in segments] == [None, None]  # an invalid name, then no name at all
+
+
+def test_a_repository_the_last_catch_up_missed_has_a_card() -> None:
+    missed, quiet = row("web-shop"), row("docs-site")  # both caught up by their free part: no commits waiting
+
+    cards, rest = build_cards([missed, quiet], MAX_NODES, missed={"acme-web-shop"})
+
+    assert [(card.row.repository, card.not_caught_up) for card in cards] == [("web-shop", True)]
+    assert rest == [quiet]
+
+
+def test_a_first_guide_digest_shows_only_its_title() -> None:
+    first = digest("2026-11-10-a", body="The guide's first pages:\n\n- [The app](/pages/areas/app)")
+    first.meta["from_commit"] = None
+
+    [card], _rest = build_cards([row("web-shop", unread=[first])], MAX_NODES)
+
+    [summary] = card.digests
+    assert summary.highlights == [] and summary.first_paragraph == [] and summary.pages_changed == 2

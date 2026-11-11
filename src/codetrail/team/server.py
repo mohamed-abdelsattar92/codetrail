@@ -145,7 +145,7 @@ def create_team_app(
     def _(message: str) -> str:
         return language().translations.gettext(message)
 
-    # A target's signal, why it couldn't be read, whether its guide has pages, and who wrote its card's commits: what
+    # A target's signal, why it couldn't be read, whether its guide has pages, and who merged what its card covers: what
     # reads git, at most once per target per `signal.cache_seconds`.
     signals: TimedCache[tuple[Signal | None, str, bool, list[str]]] = TimedCache(settings.signal.cache_seconds)
     # The overviews' files are at `overviews/overviews/<id>.md` in the team's folder: their ids carry the folder.
@@ -222,8 +222,8 @@ def create_team_app(
         return _("Couldn't read this repository's guide (%(error)s).") % {"error": type(error).__name__}
 
     def read_target(target: str) -> tuple[Signal | None, str, bool, list[str]]:
-        """The target's signal, why it couldn't be read, whether its guide has pages yet, and who wrote the commits
-        its card covers."""
+        """The target's signal, why it couldn't be read, whether its guide has pages yet, and who merged what its card
+        covers."""
         signal, reason = read_signal(target)
         try:
             written = GuideRepository(paths.target_data(target) / "guide").has_guide_pages()
@@ -234,10 +234,9 @@ def create_team_app(
             return signal, reason, written, []
         try:
             return signal, reason, written, card_authors(paths, target, signal, unread)
-        except Exception as error:  # a digest's start commit gone from the mirror, say
+        except Exception as error:  # a digest's start commit gone after a force-push, say: the card stays, unnamed
             logger.warning("Couldn't read target %r's authors: %s", target, type(error).__name__)
-            message = _("Couldn't read this repository (%(error)s).") % {"error": type(error).__name__}
-            return signal, reason or message, written, []
+            return signal, reason, written, []
 
     def row(target: str, repository: str, branch: str) -> Row:
         """A page view never clones: a target waiting for its first refresh says so, as one never cloned does,
@@ -325,20 +324,27 @@ def create_team_app(
             rows = list(pool.map(lambda target: row(target, *targets[target]), current))
         stopped = [Row(target, *targets[target], served=target in mounted) for target in targets
                    if target in listing.stopped]  # fmt: skip
-        cards, rest = build_cards(rows, settings.diagrams.max_nodes)
         record, overview = last_catch_up()
+        missed = {*record.failed, *record.unticked} if record is not None else set()
+        cards, rest = build_cards(rows, settings.diagrams.max_nodes, missed)
         return render(
             "team.html", "team", targets, sources=team.sources, unreachable=set(listing.unreachable),
             service_names=SERVICE_NAMES, rows=rows, stopped=stopped, cards=cards,
             nothing_new=[quiet for quiet in rest if quiet.measured],
             other_rows=[other for other in rest if not other.measured],
             with_merges=sum(1 for found in rows if found.signal is not None and found.signal.merges > 0),
-            last_catch_up=record, failed=record.failed if record is not None else {}, overview=overview,
+            last_catch_up=record, failed=record.failed if record is not None else {},
+            unticked=set(record.unticked) if record is not None else set(), overview=overview,
         )  # fmt: skip
 
     @app.post("/team/overview/read")
     def mark_overview_read(mark: OverviewRead) -> Response:
-        if overviews.read(mark.overview_id) is None:  # an id that doesn't match the pattern reads as none
+        try:
+            found = overviews.read(mark.overview_id)  # an id that doesn't match the pattern reads as none
+        except Exception as error:  # an overview edited by hand that no longer parses reads as none too
+            logger.warning("Couldn't read team %r's overview: %s", name, type(error).__name__)
+            found = None
+        if found is None:
             return JSONResponse({"error": _("That overview doesn't exist.")}, 404)
         connection = connect(team_database(paths, name))
         try:

@@ -26,6 +26,7 @@ def test_team_state_round_trip(tmp_path: Path) -> None:
     assert record.overview_id == "overviews/2026-11-11-101500"
     assert record.overview_problem is None
     assert record.failed == {}
+    assert record.unticked == []
     assert record.started_at <= record.finished_at
 
 
@@ -37,6 +38,15 @@ def test_team_state_records_why_targets_failed(tmp_path: Path) -> None:
 
     record = state.last_finished()
     assert record is not None and record.failed == failed
+
+
+def test_team_state_records_the_unticked_targets(tmp_path: Path) -> None:
+    state = TeamState(connect(tmp_path / "team.db"))
+
+    state.finish(state.start(), ["acme-api"], None, None, unticked=["acme-shop", "acme-docs"])
+
+    record = state.last_finished()
+    assert record is not None and record.unticked == ["acme-shop", "acme-docs"] and record.failed == {}
 
 
 def test_last_finished_ignores_unfinished(tmp_path: Path) -> None:

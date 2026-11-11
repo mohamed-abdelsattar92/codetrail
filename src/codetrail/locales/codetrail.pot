@@ -704,6 +704,9 @@ msgstr ""
 msgid "Couldn't list them just now."
 msgstr ""
 
+msgid "Couldn't mark it read. Try again."
+msgstr ""
+
 #, python-format
 msgid "Couldn't read this repository (%(error)s)."
 msgstr ""
@@ -1081,9 +1084,6 @@ msgctxt "month"
 msgid "Mar"
 msgstr ""
 
-msgid "Mark as read"
-msgstr ""
-
 msgid "Mark read"
 msgstr ""
 
@@ -1256,6 +1256,9 @@ msgid "Not caught up yet: %(count)s merge."
 msgid_plural "Not caught up yet: %(count)s merges."
 msgstr[0] ""
 msgstr[1] ""
+
+msgid "Not caught up: you left it out of the last catch-up."
+msgstr ""
 
 msgid "Not explained by any page"
 msgstr ""

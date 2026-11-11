@@ -184,12 +184,13 @@ def files_changed_since(mirror: Path, end: str, since: date) -> set[str]:
     return {name for name in output.decode("utf-8", "surrogateescape").split("\0") if name}
 
 
-def authors_between(mirror: Path, start: str | None, end: str) -> list[str]:
-    """The distinct names of the authors of the commits after `start` up to `end` (all of `end`'s history when `start`
-    is None), as git records them, sorted case-insensitively (design section 24.7). One git call that prints only the
-    names, NUL-separated: no email, message or count; nothing here counts or ranks people."""
-    revision_range = end if start is None else f"{start}..{end}"
-    output = run_git(["log", "-z", "--format=%an", "--end-of-options", revision_range], git_dir=mirror)
+def authors_between(mirror: Path, start: str, end: str) -> list[str]:
+    """Who merged after `start` up to `end` (design section 24.7): the distinct names of the authors of the merges and
+    direct commits on the branch's first-parent line, not of every commit a merged branch brought, as git records
+    them, sorted case-insensitively. One git call that prints only the names, NUL-separated: no email, message or
+    count; nothing here counts or ranks people."""
+    output = run_git(["log", "-z", "--first-parent", "--format=%an", "--end-of-options", f"{start}..{end}"],
+                     git_dir=mirror)  # fmt: skip
     names = {name.strip() for name in output.decode("utf-8", "replace").split("\0")} - {""}
     return sorted(names, key=lambda name: (name.casefold(), name))
 

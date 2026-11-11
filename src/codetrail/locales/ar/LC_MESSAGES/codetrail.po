@@ -923,6 +923,9 @@ msgstr "تعذّر التحقق من commits جديدة الآن."
 msgid "Couldn't list them just now."
 msgstr "تعذّر سردها الآن."
 
+msgid "Couldn't mark it read. Try again."
+msgstr "تعذّر تعليمه مقروءًا. حاول مرة أخرى."
+
 #, python-format
 msgid "Couldn't read this repository (%(error)s)."
 msgstr "تعذّرت قراءة هذا المستودع (%(error)s)."
@@ -1312,9 +1315,6 @@ msgctxt "month"
 msgid "Mar"
 msgstr "مارس"
 
-msgid "Mark as read"
-msgstr "علّمه مقروءًا"
-
 msgid "Mark read"
 msgstr "علّمها مقروءة"
 
@@ -1507,6 +1507,9 @@ msgstr[2] "لم يُواكَب بعد: %(count)s merges."
 msgstr[3] "لم يُواكَب بعد: %(count)s merges."
 msgstr[4] "لم يُواكَب بعد: %(count)s merges."
 msgstr[5] "لم يُواكَب بعد: %(count)s merges."
+
+msgid "Not caught up: you left it out of the last catch-up."
+msgstr "لم يُواكَب: تركته خارج المواكبة الأخيرة."
 
 msgid "Not explained by any page"
 msgstr "لا تشرحها أي صفحة"

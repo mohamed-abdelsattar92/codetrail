@@ -8,7 +8,7 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -37,6 +37,7 @@ class CatchUpRecord:
     overview_id: str | None
     overview_problem: str | None
     failed: dict[str, str]  # why each target that failed wasn't caught up, by target
+    unticked: list[str]  # the targets whose estimate line the reader left unticked
 
 
 class TeamState:
@@ -54,12 +55,21 @@ class TeamState:
         targets: list[str],
         overview_id: str | None,
         overview_problem: str | None,
-        failed: Mapping[str, str] = {},
+        failed: Mapping[str, str] | None = None,
+        unticked: Sequence[str] | None = None,
     ) -> None:
         self.connection.execute(
-            "UPDATE catch_ups SET finished_at = ?, targets = ?, overview_id = ?, overview_problem = ?, failed = ?"
-            " WHERE id = ?",
-            (_now(), json.dumps(targets), overview_id, overview_problem, json.dumps(dict(failed)), catch_up_id),
+            "UPDATE catch_ups SET finished_at = ?, targets = ?, overview_id = ?, overview_problem = ?, failed = ?,"
+            " unticked = ? WHERE id = ?",
+            (
+                _now(),
+                json.dumps(targets),
+                overview_id,
+                overview_problem,
+                json.dumps(dict(failed or {})),
+                json.dumps(list(unticked or [])),
+                catch_up_id,
+            ),
         )
 
     def last_finished(self) -> CatchUpRecord | None:
@@ -76,6 +86,7 @@ class TeamState:
             row["overview_id"],
             row["overview_problem"],
             json.loads(row["failed"]),
+            json.loads(row["unticked"]),
         )
 
     def mark_overview_read(self, overview_id: str) -> None:

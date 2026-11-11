@@ -140,8 +140,12 @@ def test_one_question_for_every_target(tmp_path: Path, monkeypatch: pytest.Monke
 def test_unticked_target_keeps_free_part(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     stand_in = install(monkeypatch, StandIn())
     seen: list[CatchUpEstimate] = []
+    paths = team_paths(tmp_path)
 
-    result = catch_up_of(team_paths(tmp_path), asking(seen, lambda estimate: ["acme-repo-a", "acme-repo-c"]))
+    result = catch_up_of(paths, asking(seen, lambda estimate: ["acme-repo-a", "acme-repo-c"]))
+
+    record = TeamState(connect(team_database(paths, "acme"))).last_finished()
+    assert record is not None and record.unticked == ["acme-repo-b"]  # its card says it was left out
 
     assert stand_in.written.count("acme-repo-b") == 0
     assert "acme-repo-b" not in result.updated
@@ -203,10 +207,13 @@ def test_confirm_naming_a_target_twice_declines_all(tmp_path: Path, monkeypatch:
 
 def test_declining_runs_no_paid_part(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     stand_in = install(monkeypatch, StandIn())
+    paths = team_paths(tmp_path)
 
-    result = catch_up_of(team_paths(tmp_path), asking([], lambda estimate: None))
+    result = catch_up_of(paths, asking([], lambda estimate: None))
 
     assert result.declined and stand_in.written == [] and result.updated == []
+    record = TeamState(connect(team_database(paths, "acme"))).last_finished()
+    assert record is not None and record.unticked == ["acme-repo-a", "acme-repo-b", "acme-repo-c"]
 
 
 def test_no_lines_no_question(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

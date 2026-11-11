@@ -14,7 +14,7 @@
 {% block scripts %}<script type="module" src="/static/js/team_catch_up.js"></script>
 <script type="module" src="/static/js/team_page.js"></script>{% endblock %}
 {% block content %}
-<div class="wide team-page">
+<div class="wide team-page" data-read-failed="{{ _("Couldn't mark it read. Try again.") }}">
 <header class="page-head team-head">
   <p class="card-label">{{ _("Team") }}</p>
   <h1>{{ team }}</h1>
@@ -46,7 +46,8 @@
 {% if last_catch_up and last_catch_up.overview_problem %}
 <section class="team-overview" aria-labelledby="overview-title" data-overview>
   <h2 id="overview-title">{{ _("Across the team") }}</h2>
-  <p class="muted">{{ _("This catch-up has no overview: %(problem)s", problem=last_catch_up.overview_problem) }}</p>
+  {% set problem %}<bdi>{{ last_catch_up.overview_problem }}</bdi>{% endset %}
+  <p class="muted">{{ _("This catch-up has no overview: %(problem)s", problem=problem) }}</p>
 </section>
 {% elif overview %}
 <section class="team-overview" aria-labelledby="overview-title" data-overview>
@@ -54,7 +55,7 @@
   <div class="prose team-overview-body" lang="en" dir="ltr">{{ segment_list(overview.segments) }}</div>
   <div class="team-foot">
     <p class="faint">{{ _("From the digests of") }} {% for target, repository, digest_id in overview.digests %}<a href="/repos/{{ target }}/pages/{{ digest_id }}"><bdi>{{ repository }}</bdi></a>{% if not loop.last %}, {% endif %}{% endfor %}</p>
-    <button type="button" class="button small" data-overview-read="{{ overview.id }}">{{ _("Mark as read") }}</button>
+    <button type="button" class="button small" data-overview-read="{{ overview.id }}">{{ _("Mark read") }}</button>
   </div>
 </section>
 {% endif %}
@@ -70,7 +71,7 @@
         <h3 class="team-card-title"><a href="/repos/{{ row.target }}/"><bdi>{{ row.repository }}</bdi></a></h3>
         <p class="team-card-meta"><span dir="ltr">{{ row.branch }}</span>{% if row.signal.merges %} · {% trans count=row.signal.merges %}{{ count }} merge landed{% pluralize %}{{ count }} merges landed{% endtrans %}{% endif %}</p>
       </header>
-      {% if card.not_caught_up %}{% set areas %}<span lang="en" dir="ltr">{{ row.signal.areas | join(", ") }}</span>{% endset %}
+      {% if row.signal.commits %}{% set areas %}<span lang="en" dir="ltr">{{ row.signal.areas[:3] | join(", ") }}</span>{% endset %}
       <p class="team-card-note">
         {%- if row.signal.merges and row.signal.areas %}{% trans count=row.signal.merges, areas=areas %}Not caught up yet: {{ count }} merge touched {{ areas }}.{% pluralize %}Not caught up yet: {{ count }} merges touched {{ areas }}.{% endtrans %}
         {%- elif row.signal.merges %}{% trans count=row.signal.merges %}Not caught up yet: {{ count }} merge.{% pluralize %}Not caught up yet: {{ count }} merges.{% endtrans %}
@@ -78,8 +79,10 @@
         {%- else %}{% trans count=row.signal.commits %}Not caught up yet: {{ count }} commit.{% pluralize %}Not caught up yet: {{ count }} commits.{% endtrans %}{% endif -%}
       </p>
       {% endif %}
-      {% if failed.get(row.target) %}
-      <p class="team-card-note">{{ _("Not caught up in the last catch-up: %(reason)s", reason=failed[row.target]) }}</p>
+      {% if failed.get(row.target) %}{% set reason %}<bdi>{{ failed[row.target] }}</bdi>{% endset %}
+      <p class="team-card-note">{{ _("Not caught up in the last catch-up: %(reason)s", reason=reason) }}</p>
+      {% elif row.target in unticked %}
+      <p class="team-card-note">{{ _("Not caught up: you left it out of the last catch-up.") }}</p>
       {% endif %}
       {% for digest in card.digests %}
       <div class="team-digest" data-digest="{{ digest.id }}">
@@ -91,7 +94,7 @@
         </div>
         <div class="team-foot">
           <span class="faint">{% trans count=digest.pages_changed %}{{ count }} guide page changed{% pluralize %}{{ count }} guide pages changed{% endtrans %}</span>
-          <button type="button" class="button small" data-digest-read="{{ digest.id }}" data-target="{{ row.target }}">{{ _("Mark as read") }}</button>
+          <button type="button" class="button small" data-digest-read="{{ digest.id }}" data-target="{{ row.target }}">{{ _("Mark read") }}</button>
         </div>
       </div>
       {% endfor %}
