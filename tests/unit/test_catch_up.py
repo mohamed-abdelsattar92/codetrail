@@ -162,6 +162,16 @@ def test_failed_free_part_still_asks_the_rest(tmp_path: Path, monkeypatch: pytes
     assert result.updated == ["acme-repo-a", "acme-repo-b"]
 
 
+def test_the_record_says_why_each_target_failed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    install(monkeypatch, StandIn(failures={"acme-repo-c": CodetrailError("fetch refused")}))
+    paths = team_paths(tmp_path)
+
+    catch_up_of(paths, asking([]))
+
+    record = TeamState(connect(team_database(paths, "acme"))).last_finished()
+    assert record is not None and record.failed == {"acme-repo-c": "fetch refused"}  # by target, for its card
+
+
 def test_an_unexpected_error_fails_its_target_with_a_plain_message(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

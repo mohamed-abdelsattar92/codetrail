@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% from "layout/icons.html" import icon %}
-{% from "macros.html" import cost with context %}
+{% from "macros.html" import cost, rationale with context %}
 {% block title %}{{ page.title }}{% endblock %}
 {% block content %}
 <div class="reading">
@@ -44,13 +44,7 @@
     {% if segment.kind == "html" %}
       {{ segment.html }}
     {% elif segment.kind == "rationale" %}
-      <aside class="rationale {{ segment.label }}">
-        <p class="rationale-label">
-          {% if segment.label == "documented" %}Documented{% if segment.citation %} · {% if segment.link %}<a href="{{ segment.link }}">{{ segment.citation }}</a>{% else %}{{ segment.citation }}{% endif %}{% endif %}
-          {% else %}Inferred · the assistant's reading of the code{% endif %}
-        </p>
-        {{ segment.html }}
-      </aside>
+      {{ rationale(segment) }}
     {% elif segment.kind == "diagram" %}
       {% with diagram=segment.diagram %}{% include "diagram.html" %}{% endwith %}
     {% endif %}

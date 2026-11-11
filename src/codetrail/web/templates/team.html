@@ -1,16 +1,39 @@
 {% extends "base.html" %}
 {% from "layout/icons.html" import icon %}
-{# The team page (design section 24.7), in the guides' shell: its sidebar lists the team page, the add-repositories
-   screen and each followed repository. #}
+{% from "macros.html" import rationale with context %}
+{# The team page (design section 24.7), in the guides' shell: the header line, the latest overview until it is read, a
+   card per repository with something new, busiest first, and one line for the rest. Its sidebar lists the team page,
+   the add-repositories screen and each followed repository. Every name comes from a service or from git, so it is
+   autoescaped and isolated in <bdi>; guide content (highlights, the overview) stays in English. #}
+{% macro segment_list(segments) -%}
+{%- for segment in segments -%}
+{%- if segment.kind == "html" %}{{ segment.html }}{% elif segment.kind == "rationale" %}{{ rationale(segment) }}{% endif -%}
+{%- endfor -%}
+{%- endmacro %}
 {% block title %}{{ team }}{% endblock %}
-{% block scripts %}<script type="module" src="/static/js/team_catch_up.js"></script>{% endblock %}
+{% block scripts %}<script type="module" src="/static/js/team_catch_up.js"></script>
+<script type="module" src="/static/js/team_page.js"></script>{% endblock %}
 {% block content %}
-<div class="wide">
-<header class="page-head">
+<div class="wide team-page">
+<header class="page-head team-head">
   <p class="card-label">{{ _("Team") }}</p>
   <h1>{{ team }}</h1>
+  <p class="team-status">
+    {%- if last_catch_up %}{% set when %}<time datetime="{{ last_catch_up.finished_at }}" dir="ltr">{{ last_catch_up.finished_at|utc }}</time>{% endset %}
+    <span>{{ _("Since you last caught up: %(when)s", when=when) }}</span>
+    {%- else %}
+    <span>{{ _("You haven't caught up yet.") }}</span>
+    {%- endif %}
+    {%- if rows %}
+    <span>{% trans count=with_merges, total=rows|length %}{{ count }} of {{ total }} repositories has new merges{% pluralize %}{{ count }} of {{ total }} repositories have new merges{% endtrans %}</span>
+    {%- endif %}
+  </p>
+  <p class="team-actions">
+    <button type="button" class="button primary" data-catch-up-button>{{ _("Catch up") }}</button>
+    <a class="button" href="/team/add">{{ _("Add repositories") }}</a>
+  </p>
   {% if sources %}
-  <ul class="list">
+  <ul class="list team-sources">
     {% for source in sources %}
     <li><span class="grow">{{ service_names[source.service] }} · <bdi>{{ source.source }}</bdi></span>
       <span class="faint">{% if source.follow == "all" %}{{ _("Every active repository") }}{% else %}{{ _("Chosen repositories") }}{% endif %}{% if source.left_out %}{% trans count=source.left_out|length %}, {{ count }} left out{% pluralize %}, {{ count }} left out{% endtrans %}{% endif %}</span>
@@ -18,17 +41,70 @@
     {% endfor %}
   </ul>
   {% endif %}
-  <p>
-    <button type="button" class="button primary" data-catch-up-button>{{ _("Catch up") }}</button>
-    <a class="button" href="/team/add">{{ _("Add repositories") }}</a>
-  </p>
 </header>
 
+{% if last_catch_up and last_catch_up.overview_problem %}
+<section class="team-overview" aria-labelledby="overview-title" data-overview>
+  <h2 id="overview-title">{{ _("Across the team") }}</h2>
+  <p class="muted">{{ _("This catch-up has no overview: %(problem)s", problem=last_catch_up.overview_problem) }}</p>
+</section>
+{% elif overview %}
+<section class="team-overview" aria-labelledby="overview-title" data-overview>
+  <h2 id="overview-title">{{ _("Across the team") }}</h2>
+  <div class="prose team-overview-body" lang="en" dir="ltr">{{ segment_list(overview.segments) }}</div>
+  <div class="team-foot">
+    <p class="faint">{{ _("From the digests of") }} {% for target, repository, digest_id in overview.digests %}<a href="/repos/{{ target }}/pages/{{ digest_id }}"><bdi>{{ repository }}</bdi></a>{% if not loop.last %}, {% endif %}{% endfor %}</p>
+    <button type="button" class="button small" data-overview-read="{{ overview.id }}">{{ _("Mark as read") }}</button>
+  </div>
+</section>
+{% endif %}
+
 <section aria-labelledby="repositories-title">
-  <h2 id="repositories-title">{{ _("Repositories") }}</h2>
+  <h2 id="repositories-title" tabindex="-1">{{ _("Repositories") }}</h2>
   {% if rows %}
+  {% if cards %}
+  <div class="team-cards">
+    {% for card in cards %}{% set row = card.row %}
+    <article class="team-card{% if card.not_caught_up %} not-caught-up{% endif %}" data-team-card="{{ row.target }}">
+      <header class="team-card-head">
+        <h3 class="team-card-title"><a href="/repos/{{ row.target }}/"><bdi>{{ row.repository }}</bdi></a></h3>
+        <p class="team-card-meta"><span dir="ltr">{{ row.branch }}</span>{% if row.signal.merges %} · {% trans count=row.signal.merges %}{{ count }} merge landed{% pluralize %}{{ count }} merges landed{% endtrans %}{% endif %}</p>
+      </header>
+      {% if card.not_caught_up %}{% set areas %}<span lang="en" dir="ltr">{{ row.signal.areas | join(", ") }}</span>{% endset %}
+      <p class="team-card-note">
+        {%- if row.signal.merges and row.signal.areas %}{% trans count=row.signal.merges, areas=areas %}Not caught up yet: {{ count }} merge touched {{ areas }}.{% pluralize %}Not caught up yet: {{ count }} merges touched {{ areas }}.{% endtrans %}
+        {%- elif row.signal.merges %}{% trans count=row.signal.merges %}Not caught up yet: {{ count }} merge.{% pluralize %}Not caught up yet: {{ count }} merges.{% endtrans %}
+        {%- elif row.signal.areas %}{% trans count=row.signal.commits, areas=areas %}Not caught up yet: {{ count }} commit touched {{ areas }}.{% pluralize %}Not caught up yet: {{ count }} commits touched {{ areas }}.{% endtrans %}
+        {%- else %}{% trans count=row.signal.commits %}Not caught up yet: {{ count }} commit.{% pluralize %}Not caught up yet: {{ count }} commits.{% endtrans %}{% endif -%}
+      </p>
+      {% endif %}
+      {% if failed.get(row.target) %}
+      <p class="team-card-note">{{ _("Not caught up in the last catch-up: %(reason)s", reason=failed[row.target]) }}</p>
+      {% endif %}
+      {% for digest in card.digests %}
+      <div class="team-digest" data-digest="{{ digest.id }}">
+        <h4 class="team-digest-title" lang="en" dir="ltr"><a href="{{ digest.link }}"><bdi>{{ digest.title }}</bdi></a></h4>
+        <div class="team-digest-body" lang="en" dir="ltr">
+          {% if digest.highlights %}
+          <ul class="team-highlights">{% for highlight in digest.highlights %}<li>{{ segment_list(highlight) }}</li>{% endfor %}</ul>
+          {% else %}{{ segment_list(digest.first_paragraph) }}{% endif %}
+        </div>
+        <div class="team-foot">
+          <span class="faint">{% trans count=digest.pages_changed %}{{ count }} guide page changed{% pluralize %}{{ count }} guide pages changed{% endtrans %}</span>
+          <button type="button" class="button small" data-digest-read="{{ digest.id }}" data-target="{{ row.target }}">{{ _("Mark as read") }}</button>
+        </div>
+      </div>
+      {% endfor %}
+      {% if card.authors %}
+      <p class="team-card-authors">{{ _("Merged by:") }} {% for author in card.authors %}<bdi>{{ author }}</bdi>{% if not loop.last %}, {% endif %}{% endfor %}</p>
+      {% endif %}
+    </article>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% if other_rows %}
   <ul class="list spaced">
-    {% for row in rows %}
+    {% for row in other_rows %}
     <li>
       {% if row.served %}<a class="grow" href="/repos/{{ row.target }}/"><bdi>{{ row.repository }}</bdi></a>{% else %}<span class="grow"><bdi>{{ row.repository }}</bdi></span>{% endif %}
       <span class="faint" dir="ltr">{{ row.branch }}</span>
@@ -42,18 +118,17 @@
         <span class="chip">{{ _("Updating") }}</span>
       {% elif row.signal.updated_commit is none %}
         <span class="chip">{{ _("Not updated yet") }}</span>
-      {% elif not row.has_guide %}
+      {% else %}
         <span class="chip">{{ _("No guide yet") }}</span>
         <a class="stat-note" href="/repos/{{ row.target }}/">{{ _("Write its guide") }}</a>
-      {% elif row.signal.commits == 0 %}
-        <span class="chip chip-ok">{{ _("Up to date") }}</span>
-      {% else %}
-        <span class="chip chip-behind">{% trans count=row.signal.commits %}{{ count }} commit behind{% pluralize %}{{ count }} commits behind{% endtrans %}</span>
-        <span class="stat-note">{% trans count=row.signal.merges %}{{ count }} merge landed{% pluralize %}{{ count }} merges landed{% endtrans %}{% if row.signal.areas %} · <span lang="en" dir="ltr">{{ row.signal.areas[:3] | join(", ") }}</span>{% endif %}</span>
       {% endif %}
     </li>
     {% endfor %}
   </ul>
+  {% endif %}
+  {% if nothing_new %}
+  <p class="team-quiet" data-nothing-new>{{ _("Nothing new:") }} {% for row in nothing_new %}<a href="/repos/{{ row.target }}/"><bdi>{{ row.repository }}</bdi></a>{% if not loop.last %}, {% endif %}{% endfor %}</p>
+  {% endif %}
   {% else %}
   <div class="empty">
     <p>{{ _("No repositories yet. Add repositories to follow them here.") }}</p>

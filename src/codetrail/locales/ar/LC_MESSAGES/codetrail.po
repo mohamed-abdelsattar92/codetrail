@@ -173,6 +173,16 @@ msgstr[4] "%(count)s ملف أكبر من أن يُعدّ"
 msgstr[5] "%(count)s ملفًا أكبر من أن يُعدّ"
 
 #, python-format
+msgid "%(count)s guide page changed"
+msgid_plural "%(count)s guide pages changed"
+msgstr[0] "لم تتغيّر أي صفحة في الدليل"
+msgstr[1] "تغيّرت صفحة واحدة في الدليل"
+msgstr[2] "تغيّرت صفحتان في الدليل"
+msgstr[3] "تغيّرت %(count)s صفحات في الدليل"
+msgstr[4] "تغيّرت %(count)s صفحة في الدليل"
+msgstr[5] "تغيّرت %(count)s صفحةً في الدليل"
+
+#, python-format
 msgid "%(count)s inferred, worth documenting"
 msgid_plural "%(count)s inferred, worth documenting"
 msgstr[0] "لا شيء مُستنتَج"
@@ -255,6 +265,16 @@ msgstr[2] "اثنان غير مذكورين"
 msgstr[3] "%(count)s غير مذكورة"
 msgstr[4] "%(count)s غير مذكورة"
 msgstr[5] "%(count)s غير مذكورة"
+
+#, python-format
+msgid "%(count)s of %(total)s repositories has new merges"
+msgid_plural "%(count)s of %(total)s repositories have new merges"
+msgstr[0] "لا مستودع من أصل %(total)s فيه merges جديدة"
+msgstr[1] "مستودع واحد من أصل %(total)s فيه merges جديدة"
+msgstr[2] "مستودعان من أصل %(total)s فيهما merges جديدة"
+msgstr[3] "%(count)s مستودعات من أصل %(total)s فيها merges جديدة"
+msgstr[4] "%(count)s مستودع من أصل %(total)s فيها merges جديدة"
+msgstr[5] "%(count)s مستودعًا من أصل %(total)s فيها merges جديدة"
 
 #, python-format
 msgid "%(count)s other file"
@@ -530,6 +550,9 @@ msgstr "سجلات ADR تحتاج إلى انتباه"
 
 msgid "Accepted, but no page cites them"
 msgstr "مقبولة، لكن لا تستشهد بها أي صفحة"
+
+msgid "Across the team"
+msgstr "على مستوى الفريق"
 
 msgid "Actions"
 msgstr "الإجراءات"
@@ -1120,6 +1143,9 @@ msgstr "الجمعة"
 msgid "From %(start)s to %(end)s"
 msgstr "من %(start)s إلى %(end)s"
 
+msgid "From the digests of"
+msgstr "من ملخصات"
+
 msgid "Getting the new repositories ready (free)…"
 msgstr "جارٍ تجهيز المستودعات الجديدة (مجانًا)…"
 
@@ -1286,6 +1312,9 @@ msgctxt "month"
 msgid "Mar"
 msgstr "مارس"
 
+msgid "Mark as read"
+msgstr "علّمه مقروءًا"
+
 msgid "Mark read"
 msgstr "علّمها مقروءة"
 
@@ -1310,6 +1339,9 @@ msgstr "مذكورة في مستند"
 
 msgid "Menu"
 msgstr "القائمة"
+
+msgid "Merged by:"
+msgstr "دمجها:"
 
 msgctxt "weekday"
 msgid "Mon"
@@ -1432,6 +1464,50 @@ msgstr "لم يُعثر على شيء"
 msgid "Not available just now."
 msgstr "غير متاح الآن."
 
+#, python-format
+msgid "Not caught up in the last catch-up: %(reason)s"
+msgstr "لم يُواكَب في المواكبة الأخيرة: %(reason)s"
+
+#, python-format
+msgid "Not caught up yet: %(count)s commit touched %(areas)s."
+msgid_plural "Not caught up yet: %(count)s commits touched %(areas)s."
+msgstr[0] "لم يُواكَب بعد: لم يمسّ أي commit %(areas)s."
+msgstr[1] "لم يُواكَب بعد: commit واحد مسّ %(areas)s."
+msgstr[2] "لم يُواكَب بعد: %(count)s commits مسّت %(areas)s."
+msgstr[3] "لم يُواكَب بعد: %(count)s commits مسّت %(areas)s."
+msgstr[4] "لم يُواكَب بعد: %(count)s commits مسّت %(areas)s."
+msgstr[5] "لم يُواكَب بعد: %(count)s commits مسّت %(areas)s."
+
+#, python-format
+msgid "Not caught up yet: %(count)s commit."
+msgid_plural "Not caught up yet: %(count)s commits."
+msgstr[0] "لم يُواكَب بعد: لا commits."
+msgstr[1] "لم يُواكَب بعد: commit واحد."
+msgstr[2] "لم يُواكَب بعد: %(count)s commits."
+msgstr[3] "لم يُواكَب بعد: %(count)s commits."
+msgstr[4] "لم يُواكَب بعد: %(count)s commits."
+msgstr[5] "لم يُواكَب بعد: %(count)s commits."
+
+#, python-format
+msgid "Not caught up yet: %(count)s merge touched %(areas)s."
+msgid_plural "Not caught up yet: %(count)s merges touched %(areas)s."
+msgstr[0] "لم يُواكَب بعد: لم يمسّ أي merge %(areas)s."
+msgstr[1] "لم يُواكَب بعد: merge واحد مسّ %(areas)s."
+msgstr[2] "لم يُواكَب بعد: %(count)s merges مسّت %(areas)s."
+msgstr[3] "لم يُواكَب بعد: %(count)s merges مسّت %(areas)s."
+msgstr[4] "لم يُواكَب بعد: %(count)s merges مسّت %(areas)s."
+msgstr[5] "لم يُواكَب بعد: %(count)s merges مسّت %(areas)s."
+
+#, python-format
+msgid "Not caught up yet: %(count)s merge."
+msgid_plural "Not caught up yet: %(count)s merges."
+msgstr[0] "لم يُواكَب بعد: لا merges."
+msgstr[1] "لم يُواكَب بعد: merge واحد."
+msgstr[2] "لم يُواكَب بعد: %(count)s merges."
+msgstr[3] "لم يُواكَب بعد: %(count)s merges."
+msgstr[4] "لم يُواكَب بعد: %(count)s merges."
+msgstr[5] "لم يُواكَب بعد: %(count)s merges."
+
 msgid "Not explained by any page"
 msgstr "لا تشرحها أي صفحة"
 
@@ -1469,6 +1545,9 @@ msgstr "لا شيء في الدليل يطابق «{query}»."
 
 msgid "Nothing inferred"
 msgstr "لا شيء مُستنتَج"
+
+msgid "Nothing new:"
+msgstr "لا جديد:"
 
 msgid "Nothing to learn yet"
 msgstr "لا شيء لتتعلّمه بعد"
@@ -1917,6 +1996,10 @@ msgstr "غير مسجّل الدخول. لتسجيل الدخول، شغّل:"
 msgid "Since the last update"
 msgstr "منذ التحديث السابق"
 
+#, python-format
+msgid "Since you last caught up: %(when)s"
+msgstr "منذ آخر مواكبة: %(when)s"
+
 msgid "Skip to content"
 msgstr "انتقل إلى المحتوى"
 
@@ -1978,6 +2061,9 @@ msgstr "لم يعد هذا التقدير بانتظار ردّك؛ ابدأ ا�
 
 msgid "That isn't an Azure DevOps organization's name."
 msgstr "هذا ليس اسم مؤسسة في Azure DevOps."
+
+msgid "That overview doesn't exist."
+msgstr "هذه النظرة العامة غير موجودة."
 
 msgid "That page doesn't exist."
 msgstr "هذه الصفحة غير موجودة."
@@ -2180,6 +2266,10 @@ msgstr "لم تعد تُحدَّث؛ تبقى أدلتها حتى تزيلها."
 
 msgid "These repositories won’t be caught up, since their refresh failed:"
 msgstr "لن تُواكَب هذه المستودعات، لأن تحديثها فشل:"
+
+#, python-format
+msgid "This catch-up has no overview: %(problem)s"
+msgstr "لا نظرة عامة لهذه المواكبة: %(problem)s"
 
 msgid "This file isn't text, or is too large to show."
 msgstr "هذا الملف ليس نصيًا، أو أكبر من أن يُعرض."
@@ -2419,6 +2509,9 @@ msgstr "كُتبت «%(title)s»."
 
 msgid "Year"
 msgstr "السنة"
+
+msgid "You haven't caught up yet."
+msgstr "لم تُواكِب بعد."
 
 msgid "You're caught up."
 msgstr "أنت على اطلاع بكل جديد."

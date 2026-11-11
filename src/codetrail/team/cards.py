@@ -1,0 +1,155 @@
+"""The team page's cards and overview (design section 24.7).
+
+A repository has a card when it has something new: an unread digest, or commits since its last update. Cards come
+busiest first (merges since the last update plus unread digests), then by name. A card shows its unread digests'
+highlights, or an older digest's first paragraph, rendered by the guide's renderer with raw HTML off and under the
+repository's prefix, so their links lead into its own guide. Who wrote the commits comes from git, as names only:
+nothing here counts or ranks people.
+"""
+
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass, field, replace
+
+from codetrail.config import TARGET_NAME, Paths
+from codetrail.database import connect
+from codetrail.generate.validate import DIAGRAM
+from codetrail.guide import COMMIT_ID, GuideRepository, Page
+from codetrail.learn import LearningState
+from codetrail.repo.history import authors_between
+from codetrail.repo.signal import Signal
+from codetrail.web.links import BASE_PATH, site_path
+from codetrail.web.render import Segment, render_body
+
+BLANK_LINE = re.compile(r"\n[ \t]*\n")
+
+
+@dataclass(frozen=True)
+class Row:
+    """One followed repository on the team page."""
+
+    target: str
+    repository: str  # the name the service gives it
+    branch: str
+    signal: Signal | None = None
+    reason: str = ""  # why its signal couldn't be read, or why it isn't served
+    served: bool = True  # its guide is mounted
+    has_guide: bool = False  # its guide has pages: until then, its signal measures only the facts
+    unread: list[Page] = field(default_factory=list)  # its unread digests, newest first
+    authors: list[str] = field(default_factory=list)  # who wrote the commits its card covers, as git records them
+
+    @property
+    def measured(self) -> bool:
+        """Its signal was read and its guide is written, so it either has something new or nothing new."""
+        signal = self.signal
+        return (self.served and not self.reason and signal is not None and not signal.updating
+                and signal.updated_commit is not None and self.has_guide)  # fmt: skip
+
+
+@dataclass(frozen=True)
+class DigestSummary:
+    id: str
+    title: str
+    link: str
+    highlights: list[list[Segment]]
+    first_paragraph: list[Segment]  # shown by a digest from before highlights, which has none
+    pages_changed: int
+
+
+@dataclass(frozen=True)
+class Card:
+    row: Row
+    digests: list[DigestSummary]
+    authors: list[str]
+    not_caught_up: bool  # commits landed since its last update
+
+    @property
+    def busyness(self) -> int:
+        """Merges since its last update plus unread digests: what orders the cards."""
+        return (self.row.signal.merges if self.row.signal else 0) + len(self.digests)
+
+
+def unread_digests(paths: Paths, target: str) -> list[Page]:
+    """The target's unread digests, newest first. A target that was never updated has no database and no digest; a
+    page view doesn't make one."""
+    database = paths.target_data(target) / "codetrail.db"
+    if not database.exists():
+        return []
+    digests = sorted(GuideRepository(paths.target_data(target) / "guide").pages("digest"),
+                     key=lambda page: str(page.meta.get("written_at", "")), reverse=True)  # fmt: skip
+    connection = connect(database)
+    try:
+        unread = set(LearningState(connection).unread_digests([page.id for page in digests]))
+    finally:
+        connection.close()
+    return [page for page in digests if page.id in unread]
+
+
+def card_authors(paths: Paths, target: str, signal: Signal, unread: list[Page]) -> list[str]:
+    """Who wrote the commits a card covers: from where its oldest unread digest starts (all of history for the first
+    guide's digest), or since its last update, up to the branch's head. A repository with nothing new reads no git."""
+    if signal.head is None or (not unread and not signal.commits):
+        return []
+    start = signal.updated_commit
+    if unread:
+        since = unread[-1].meta.get("from_commit")
+        start = since if isinstance(since, str) and COMMIT_ID.fullmatch(since) else None
+    return authors_between(paths.target_data(target) / "mirror.git", start, signal.head)
+
+
+def build_cards(rows: list[Row], max_nodes: int) -> tuple[list[Card], list[Row]]:
+    """The cards of the rows with something new, busiest first and then by name, and the other rows in order."""
+    cards: list[Card] = []
+    rest: list[Row] = []
+    for row in rows:
+        signal = row.signal
+        if row.measured and signal is not None and (signal.commits or row.unread):
+            cards.append(_card(row, signal, max_nodes))
+        else:
+            rest.append(row)
+    cards.sort(key=lambda card: (-card.busyness, card.row.repository.casefold()))
+    return cards, rest
+
+
+def _card(row: Row, signal: Signal, max_nodes: int) -> Card:
+    prefix = BASE_PATH.set(f"/repos/{row.target}")  # the highlights' links lead into the repository's own guide
+    try:
+        digests = [_summary(page, max_nodes) for page in row.unread]
+    finally:
+        BASE_PATH.reset(prefix)
+    return Card(row, digests, row.authors, signal.commits > 0)
+
+
+def _summary(page: Page, max_nodes: int) -> DigestSummary:
+    found = page.meta.get("highlights")
+    lines = [line for line in found if isinstance(line, str)] if isinstance(found, list) else []
+    highlights = [segments for segments in (render_body(line, None, max_nodes) for line in lines) if segments]
+    first = [] if highlights else render_body(_first_paragraph(page.body), None, max_nodes)
+    changed = page.meta.get("pages_changed")
+    return DigestSummary(page.id, page.title, site_path(f"/pages/{page.id}"), highlights, first,
+                         len(changed) if isinstance(changed, list) else 0)  # fmt: skip
+
+
+def _first_paragraph(body: str) -> str:
+    """The body's first block that isn't a heading or a diagram line."""
+    for block in BLANK_LINE.split(body.strip()):
+        first_line = block.strip().splitlines()[0] if block.strip() else ""
+        if first_line and not first_line.startswith("#") and not DIAGRAM.match(first_line):
+            return block
+    return ""
+
+
+def render_overview(body: str, cited: list[str]) -> list[Segment]:
+    """The overview's segments. A documented block links to its source in the repository whose digest it was copied
+    from (`cited`, one target per documented block, in order). Any other citation in an overview names no
+    repository, so it has no link."""
+    remaining = list(cited)
+    segments = []
+    for segment in render_body(body, None, 0):  # no diagram is drawn without a store, so no node limit applies
+        if segment.kind == "rationale":
+            target = remaining.pop(0) if segment.label == "documented" and remaining else None
+            valid = isinstance(target, str) and TARGET_NAME.fullmatch(target) is not None and segment.link is not None
+            segment = replace(segment, link=f"/repos/{target}{segment.link}" if valid else None)
+        segments.append(segment)
+    return segments

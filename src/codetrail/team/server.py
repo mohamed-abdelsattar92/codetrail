@@ -1,10 +1,12 @@
 """`codetrail team serve`: a team's guides on one server, under one login (design section 24.7).
 
-The plain team page at `/` lists each repository the team follows with its free "you're behind" signal, and each
-repository's own page is mounted under `/repos/<target>/`. One security middleware wraps it all, so the token,
-`Origin`, session and `Sec-Fetch-Site` rules apply under a prefix as at `/`. The server holds the team's in-use lock,
-and every served target's, for as long as it runs. The sources are listed once, at the start, and the targets that
-listing adds get their free first refresh. A page view writes no settings, lists no source and never clones.
+The team page at `/` says when the team last caught up, shows the latest overview until it is read, and gives each
+repository with something new a card (its free "you're behind" signal, its unread digests' highlights, who wrote the
+commits); each repository's own page is mounted under `/repos/<target>/`. One security middleware wraps it all, so
+the token, `Origin`, session and `Sec-Fetch-Site` rules apply under a prefix as at `/`. The server holds the team's
+in-use lock, and every served target's, for as long as it runs. The sources are listed once, at the start, and the
+targets that listing adds get their free first refresh. A page view writes no settings, lists no source, never clones
+and never calls an assistant.
 """
 
 from __future__ import annotations
@@ -16,7 +18,7 @@ import webbrowser
 from collections.abc import AsyncIterator, Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack, asynccontextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from importlib.resources import files
 from pathlib import Path
@@ -31,24 +33,28 @@ from starlette.types import ASGIApp
 
 from codetrail.assistant import Assistant
 from codetrail.config import TARGET_NAME, GlobalConfig, Paths, load_global, load_team
+from codetrail.database import connect
 from codetrail.errors import CodetrailError
 from codetrail.generate.run import Progress
-from codetrail.guide import GuideRepository
+from codetrail.guide import PAGE_ID, GuideRepository
 from codetrail.hosting import HostingService
 from codetrail.hosting.names import SERVICE_NAMES, Service
 from codetrail.hosting.services import services_for
 from codetrail.lock import target_in_use, team_in_use
 from codetrail.repo.signal import Signal, behind
 from codetrail.server import HOST
+from codetrail.team.cards import Row, build_cards, card_authors, render_overview, unread_digests
 from codetrail.team.catch_up import run_catch_up
 from codetrail.team.catch_up_job import CatchUpJob
 from codetrail.team.catch_up_job import Confirm as CatchUpConfirm
 from codetrail.team.follow import followed_targets
 from codetrail.team.refresh import TeamRefreshJob
 from codetrail.team.routes import team_router
+from codetrail.team.state import CatchUpRecord, Overviews, TeamState, team_database
 from codetrail.team.sync import TeamSync, sync_team
 from codetrail.web.app import EstimateDecision, LanguageChoice, UpdateJob, create_target_app, template_environment
 from codetrail.web.i18n import Language, installed_languages
+from codetrail.web.render import Segment
 from codetrail.web.security import SecurityMiddleware, SessionState, login_response
 
 LOGIN_NEXT = ("/", "/team/add")  # where the sign-in link may lead; anything else leads to the team page
@@ -63,17 +69,20 @@ class CatchUpDecision(BaseModel):
     targets: list[Annotated[str, StringConstraints(pattern=f"^(?:{TARGET_NAME.pattern})$")]] = Field(max_length=1000)
 
 
-@dataclass(frozen=True)
-class Row:
-    """One followed repository on the team page."""
+class OverviewRead(BaseModel):
+    """Marks the team's overview read (design section 24.9)."""
 
-    target: str
-    repository: str  # the name the service gives it
-    branch: str
-    signal: Signal | None = None
-    reason: str = ""  # why its signal couldn't be read, or why it isn't served
-    served: bool = True  # its guide is mounted
-    has_guide: bool = False  # its guide has pages: until then, its signal measures only the facts
+    model_config = ConfigDict(extra="forbid")
+    overview_id: str = Field(max_length=100)
+
+
+@dataclass(frozen=True)
+class Overview:
+    """The latest overview as the page shows it: its segments, and the digests it was written from."""
+
+    id: str
+    segments: list[Segment]
+    digests: list[tuple[str, str, str]]  # each digest's target, repository and id
 
 
 class TimedCache[Value]:
@@ -136,7 +145,11 @@ def create_team_app(
     def _(message: str) -> str:
         return language().translations.gettext(message)
 
-    signals: TimedCache[tuple[Signal | None, str, bool]] = TimedCache(settings.signal.cache_seconds)
+    # A target's signal, why it couldn't be read, whether its guide has pages, and who wrote its card's commits: what
+    # reads git, at most once per target per `signal.cache_seconds`.
+    signals: TimedCache[tuple[Signal | None, str, bool, list[str]]] = TimedCache(settings.signal.cache_seconds)
+    # The overviews' files are at `overviews/overviews/<id>.md` in the team's folder: their ids carry the folder.
+    overviews = Overviews(paths.team_data(name) / "overviews")
     refresh = TeamRefreshJob(paths, settings.hosting.concurrency, _, settings.server.update_log_lines)
 
     def catch_up_sync() -> TeamSync:
@@ -204,16 +217,27 @@ def create_team_app(
             logger.warning("Couldn't read target %r's signal: %s", target, type(error).__name__)
             return None, _("Couldn't read this repository (%(error)s).") % {"error": type(error).__name__}
 
-    def read_target(target: str) -> tuple[Signal | None, str, bool]:
-        """The target's signal, why it couldn't be read, and whether its guide has pages yet."""
+    def guide_unreadable(target: str, error: Exception) -> str:
+        logger.warning("Couldn't read target %r's guide: %s", target, type(error).__name__)
+        return _("Couldn't read this repository's guide (%(error)s).") % {"error": type(error).__name__}
+
+    def read_target(target: str) -> tuple[Signal | None, str, bool, list[str]]:
+        """The target's signal, why it couldn't be read, whether its guide has pages yet, and who wrote the commits
+        its card covers."""
         signal, reason = read_signal(target)
         try:
             written = GuideRepository(paths.target_data(target) / "guide").has_guide_pages()
+            unread = unread_digests(paths, target) if written else []
         except Exception as error:  # a page half-written, or edited by hand, mustn't stop the page either
-            logger.warning("Couldn't read target %r's guide: %s", target, type(error).__name__)
-            message = _("Couldn't read this repository's guide (%(error)s).") % {"error": type(error).__name__}
-            return signal, reason or message, False
-        return signal, reason, written
+            return signal, reason or guide_unreadable(target, error), False, []
+        if signal is None or signal.updating or not written:
+            return signal, reason, written, []
+        try:
+            return signal, reason, written, card_authors(paths, target, signal, unread)
+        except Exception as error:  # a digest's start commit gone from the mirror, say
+            logger.warning("Couldn't read target %r's authors: %s", target, type(error).__name__)
+            message = _("Couldn't read this repository (%(error)s).") % {"error": type(error).__name__}
+            return signal, reason or message, written, []
 
     def row(target: str, repository: str, branch: str) -> Row:
         """A page view never clones: a target waiting for its first refresh says so, as one never cloned does,
@@ -224,8 +248,45 @@ def create_team_app(
             return Row(target, repository, branch, Signal(updating=True))
         if not (paths.target_data(target) / "mirror.git" / "HEAD").exists():
             return Row(target, repository, branch, Signal())  # not updated yet
-        signal, reason, written = signals.get(target, lambda: read_target(target))
-        return Row(target, repository, branch, signal, reason, has_guide=written)
+        signal, reason, written, authors = signals.get(target, lambda: read_target(target))
+        found = Row(target, repository, branch, signal, reason, has_guide=written, authors=authors)
+        if not found.measured:
+            return found
+        try:  # read at every view, so a digest marked read leaves its card at once
+            return replace(found, unread=unread_digests(paths, target))
+        except Exception as error:
+            return replace(found, reason=guide_unreadable(target, error))
+
+    def last_catch_up() -> tuple[CatchUpRecord | None, Overview | None]:
+        """The last finished catch-up, and its overview while it isn't read. A team that never caught up has no
+        database yet, and a page view doesn't make one."""
+        database = team_database(paths, name)
+        if not database.exists():
+            return None, None
+        connection = connect(database)
+        try:
+            state = TeamState(connection)
+            record = state.last_finished()
+            overview_id = record.overview_id if record is not None else None
+            if overview_id is None or state.overview_read(overview_id):
+                return record, None
+        finally:
+            connection.close()
+        try:
+            found = overviews.read(overview_id)
+        except Exception as error:  # an overview edited by hand mustn't stop the page
+            logger.warning("Couldn't read team %r's overview: %s", name, type(error).__name__)
+            return record, None
+        if found is None:
+            return record, None
+        meta, body = found
+        cited = meta.get("cited")
+        listed = meta.get("digests")
+        digests = [(str(digest.get("target")), str(digest.get("repository")), str(digest.get("id")))
+                   for digest in (listed if isinstance(listed, list) else []) if isinstance(digest, dict)]  # fmt: skip
+        linked = [digest for digest in digests if TARGET_NAME.fullmatch(digest[0]) and PAGE_ID.fullmatch(digest[2])]
+        segments = render_overview(body, [str(target) for target in cited] if isinstance(cited, list) else [])
+        return record, Overview(overview_id, segments, linked)
 
     def render(
         template: str, active: str, targets: dict[str, tuple[str, str]] | None = None, **context: Any
@@ -264,10 +325,27 @@ def create_team_app(
             rows = list(pool.map(lambda target: row(target, *targets[target]), current))
         stopped = [Row(target, *targets[target], served=target in mounted) for target in targets
                    if target in listing.stopped]  # fmt: skip
+        cards, rest = build_cards(rows, settings.diagrams.max_nodes)
+        record, overview = last_catch_up()
         return render(
             "team.html", "team", targets, sources=team.sources, unreachable=set(listing.unreachable),
-            service_names=SERVICE_NAMES, rows=rows, stopped=stopped,
+            service_names=SERVICE_NAMES, rows=rows, stopped=stopped, cards=cards,
+            nothing_new=[quiet for quiet in rest if quiet.measured],
+            other_rows=[other for other in rest if not other.measured],
+            with_merges=sum(1 for found in rows if found.signal is not None and found.signal.merges > 0),
+            last_catch_up=record, failed=record.failed if record is not None else {}, overview=overview,
         )  # fmt: skip
+
+    @app.post("/team/overview/read")
+    def mark_overview_read(mark: OverviewRead) -> Response:
+        if overviews.read(mark.overview_id) is None:  # an id that doesn't match the pattern reads as none
+            return JSONResponse({"error": _("That overview doesn't exist.")}, 404)
+        connection = connect(team_database(paths, name))
+        try:
+            TeamState(connection).mark_overview_read(mark.overview_id)
+        finally:
+            connection.close()
+        return Response(status_code=204)
 
     @app.post("/settings/language")
     def set_language(choice: LanguageChoice) -> Response:

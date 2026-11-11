@@ -12,6 +12,7 @@ from codetrail.config import ToolsSettings
 from codetrail.errors import CodetrailError
 from codetrail.repo.history import (
     WITHHELD_TAG,
+    authors_between,
     changed_files,
     changed_paths,
     commit_count,
@@ -324,3 +325,19 @@ def test_files_changed_since_keep_a_leading_newline(tmp_path: Path) -> None:
     write_commit(checkout, {"\nlead": "1\n"}, "Later", date=60 * 24 * 40)
     mirror, end = mirror_of(checkout, tmp_path)
     assert files_changed_since(mirror, end, date(2026, 10, 1)) == {"\nlead"}
+
+
+def commit_by(checkout: Path, author: str) -> str:
+    git(checkout, "commit", "-q", "--allow-empty", "--author", f"{author} <someone@example.com>", "-m", "Work")
+    return git(checkout, "rev-parse", "HEAD")
+
+
+def test_authors_between_distinct_sorted(tmp_path: Path) -> None:
+    checkout = make_repository(tmp_path / "t", [{"a.md": "a\n"}])
+    start = git(checkout, "rev-parse", "HEAD")
+    for author in ("Bob", "alice", "Bob"):
+        commit_by(checkout, author)
+    mirror, end = mirror_of(checkout, tmp_path)
+    assert authors_between(mirror, start, end) == ["alice", "Bob"]  # names only, no counts, in alphabetical order
+    assert authors_between(mirror, None, end) == ["alice", "Bob", "Test Author"]  # every commit up to the end
+    assert authors_between(mirror, end, end) == []

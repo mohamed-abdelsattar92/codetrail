@@ -23,3 +23,15 @@
 {% endfor %}
 </ul>
 {%- endmacro %}
+
+{# A rationale block of guide content, in English (design section 6.4): documented, with its citation and a link to
+   it when there is one, or inferred. #}
+{% macro rationale(segment) -%}
+<aside class="rationale {{ segment.label }}">
+  <p class="rationale-label">
+    {% if segment.label == "documented" %}Documented{% if segment.citation %} · {% if segment.link %}<a href="{{ segment.link }}">{{ segment.citation }}</a>{% else %}{{ segment.citation }}{% endif %}{% endif %}
+    {% else %}Inferred · the assistant's reading of the code{% endif %}
+  </p>
+  {{ segment.html }}
+</aside>
+{%- endmacro %}

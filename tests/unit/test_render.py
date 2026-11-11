@@ -95,3 +95,10 @@ def test_aligned_table_columns_use_classes_not_inline_styles() -> None:
     assert " style=" not in html
     assert '<th class="align-left">a</th>' in html and '<th class="align-center">b</th>' in html
     assert '<td class="align-right">3</td>' in html and "<td>4</td>" in html
+
+
+def test_render_body_without_store_drops_diagrams() -> None:
+    segments = render_body("Before.\n\n{{diagram system}}\n\n{{diagram imports scope=app}}\n\nAfter.", None, 25)
+
+    assert [segment.kind for segment in segments] == ["html", "html"]
+    assert "Before." in segments[0].html and "After." in segments[1].html

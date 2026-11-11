@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import re
 import sqlite3
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -16,7 +17,7 @@ from codetrail.config import Paths
 from codetrail.errors import CodetrailError
 from codetrail.guide import GuideRepository, Page, parse_page, render_page
 
-OVERVIEW_ID = re.compile(r"overviews/\d{4}-\d{2}-\d{2}-\d{6}")
+OVERVIEW_ID = re.compile(r"overviews/[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{6}")  # ASCII digits only: ids come from POSTs
 
 
 def team_database(paths: Paths, name: str) -> Path:
@@ -35,6 +36,7 @@ class CatchUpRecord:
     targets: list[str]
     overview_id: str | None
     overview_problem: str | None
+    failed: dict[str, str]  # why each target that failed wasn't caught up, by target
 
 
 class TeamState:
@@ -47,11 +49,17 @@ class TeamState:
         return cursor.lastrowid
 
     def finish(
-        self, catch_up_id: int, targets: list[str], overview_id: str | None, overview_problem: str | None
+        self,
+        catch_up_id: int,
+        targets: list[str],
+        overview_id: str | None,
+        overview_problem: str | None,
+        failed: Mapping[str, str] = {},
     ) -> None:
         self.connection.execute(
-            "UPDATE catch_ups SET finished_at = ?, targets = ?, overview_id = ?, overview_problem = ? WHERE id = ?",
-            (_now(), json.dumps(targets), overview_id, overview_problem, catch_up_id),
+            "UPDATE catch_ups SET finished_at = ?, targets = ?, overview_id = ?, overview_problem = ?, failed = ?"
+            " WHERE id = ?",
+            (_now(), json.dumps(targets), overview_id, overview_problem, json.dumps(dict(failed)), catch_up_id),
         )
 
     def last_finished(self) -> CatchUpRecord | None:
@@ -67,6 +75,7 @@ class TeamState:
             json.loads(row["targets"]),
             row["overview_id"],
             row["overview_problem"],
+            json.loads(row["failed"]),
         )
 
     def mark_overview_read(self, overview_id: str) -> None:
@@ -80,7 +89,9 @@ class TeamState:
 
 
 class Overviews:
-    """The team's overviews: `overviews/<date>-<time>.md` files in a git repository of their own."""
+    """The team's overviews: `overviews/<date>-<time>.md` files in a git repository of their own. Its root is the
+    team's `overviews` folder, so a file is at `<team data>/overviews/overviews/<id>.md`: the id carries the inner
+    folder, as a guide's page ids carry theirs."""
 
     def __init__(self, root: Path) -> None:
         self.root = root

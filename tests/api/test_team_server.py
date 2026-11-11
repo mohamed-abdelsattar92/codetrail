@@ -5,7 +5,7 @@ import re
 import threading
 import time
 from collections.abc import Callable, Iterator
-from contextlib import ExitStack
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -80,10 +80,11 @@ def add_target(team: Team, target: str, identifier: str, repository_name: str) -
     write_remote_target(team.paths, target, remote, "develop", "acme")
 
 
-@pytest.fixture
-def team(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Team]:
+@contextmanager
+def following_team(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Team]:
     """Team acme follows all of acme-org: web-shop is updated and one merge behind, payments-api was never updated,
-    and inventory has left the source. Every target fetches from one repository served on 127.0.0.1."""
+    and inventory has left the source. Every target fetches from one repository served on 127.0.0.1, published from
+    the checkout at `tmp_path / "checkout"`."""
     allow_http_remotes(monkeypatch, tmp_path)
     paths = Paths(config_dir=tmp_path / "config", data_dir=tmp_path / "data", state_dir=tmp_path / "state")
     checkout = make_repository(tmp_path / "checkout", [{"services/api/main.py": "x = 1\n", "README.md": "r\n"}])
@@ -101,6 +102,12 @@ def team(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Team]:
         yield team
 
 
+@pytest.fixture
+def team(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Team]:
+    with following_team(tmp_path, monkeypatch) as followed:
+        yield followed
+
+
 def app_for(team: Team, session: SessionState) -> object:
     """The team's app as serve_team builds it, after listing the sources once."""
     synced = sync_team(team.paths, "acme", team.services, datetime.now(UTC)) if team.services else None
@@ -115,8 +122,10 @@ def client_for(team: Team, session: SessionState | None = None) -> TestClient:
 
 
 def row(html: str, target: str) -> str:
-    """The team page's row for one target: from its link to the next row."""
-    match = re.search(rf'<li[^>]*>\s*<a [^>]*href="/repos/{target}/".*?</li>', html, re.DOTALL)
+    """The team page's card for one target, or its row: from its link to the next row."""
+    match = re.search(rf'<article [^>]*data-team-card="{target}".*?</article>', html, re.DOTALL) or re.search(
+        rf'<li[^>]*>\s*<a [^>]*href="/repos/{target}/".*?</li>', html, re.DOTALL
+    )
     assert match is not None, target
     return match.group(0)
 

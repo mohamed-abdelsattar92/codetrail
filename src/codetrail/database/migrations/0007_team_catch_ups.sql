@@ -1,10 +1,12 @@
--- A team's catch-ups (design section 24): each run's targets and its overview, and which overviews were read.
+-- A team's catch-ups (design section 24): each run's targets, why any failed (a JSON object of target to reason)
+-- and its overview, and which overviews were read.
 -- A target's database gets the tables too, since a team's database shares the schema.
 CREATE TABLE catch_ups (
     id INTEGER PRIMARY KEY,
     started_at TEXT NOT NULL,
     finished_at TEXT,
     targets TEXT NOT NULL,
+    failed TEXT NOT NULL DEFAULT '{}',
     overview_id TEXT,
     overview_problem TEXT
 );

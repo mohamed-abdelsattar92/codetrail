@@ -122,7 +122,8 @@ def body_parts(body: str) -> list[BodyPart]:
     return parts
 
 
-def render_body(body: str, store: FactStore, max_nodes: int) -> list[Segment]:
+def render_body(body: str, store: FactStore | None, max_nodes: int) -> list[Segment]:
+    """The body's segments. Without a store (a card's highlights, the team's overview), diagram lines are dropped."""
     segments: list[Segment] = []
     for part in body_parts(body):
         if part.kind == "markdown":
@@ -130,7 +131,7 @@ def render_body(body: str, store: FactStore, max_nodes: int) -> list[Segment]:
         elif part.kind == "rationale":
             html = render_markdown(part.text)
             segments.append(Segment("rationale", html, part.label, part.citation, _link(part.citation)))
-        else:
+        elif store is not None:
             drawn = _diagram(part.text, store, max_nodes)
             if drawn is not None and drawn.nodes:  # a diagram with nothing to draw is left out, not shown empty
                 segments.append(Segment("diagram", diagram=drawn))
