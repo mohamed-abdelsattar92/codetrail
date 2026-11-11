@@ -24,6 +24,7 @@ from codetrail.config import (
     write_remote_target,
 )
 from codetrail.errors import CodetrailError
+from codetrail.guide import GuideRepository, Page
 from codetrail.hosting import HostingService, HostingStatus, Source
 from codetrail.hosting.fake import FakeHosting
 from codetrail.hosting.names import Service
@@ -34,9 +35,10 @@ from codetrail.team.server import create_team_app, serve_team
 from codetrail.team.settings import existing_target_names, save_selection, write_team
 from codetrail.team.sync import sync_team
 from codetrail.update import run_update
-from codetrail.web.app import create_target_app
+from codetrail.web.app import create_app, create_target_app
 from codetrail.web.security import TOKEN_HEADER, SessionState
 from tests.api.test_update_estimate import ESTIMATE
+from tests.fixtures.catalogs import compiled_locales
 from tests.fixtures.remote import allow_http_remotes, publish, serving_repository
 from tests.fixtures.repos import make_repository
 from tests.unit.test_signal import merge_feature
@@ -44,6 +46,7 @@ from tests.unit.test_team_follow import repository
 
 ORIGIN = "http://127.0.0.1:8765"
 SETTINGS = GlobalConfig(signal=SignalSettings(cache_seconds=0))  # every page reads the signals again
+WRITTEN = Page("concepts/orders", {"kind": "concept", "title": "Orders"}, "How orders flow.")
 TARGETS = {"acme-web-shop": ("R_1", "web-shop"), "acme-payments-api": ("R_2", "payments-api"),
            "acme-inventory": ("R_3", "inventory")}  # fmt: skip
 
@@ -92,6 +95,7 @@ def team(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Team]:
         for target, (identifier, repository_name) in TARGETS.items():
             add_target(team, target, identifier, repository_name)
         run_update(paths, "acme-web-shop", facts_only=True)
+        GuideRepository(paths.target_data("acme-web-shop") / "guide").write_page(WRITTEN)  # its guide has a page
         merge_feature(checkout, "one", {"services/api/orders.py": "y = 2\n"})
         publish(checkout, tmp_path / "served")
         yield team
@@ -439,3 +443,128 @@ def test_a_target_waiting_for_its_first_refresh_is_not_fetched_by_a_page_view(
         repositories = section(client.get("/").text, "repositories-title")
     assert "Not updated yet" in row(repositories, "acme-repo-r-4")  # refreshed (no mirror here), so no longer pending
     assert "acme-repo-r-4" not in fetched and "acme-repo-r-5" not in fetched
+
+
+def header(html: str) -> str:
+    match = re.search(r'<header class="topbar">.*?</header>', html, re.DOTALL)
+    assert match is not None
+    return match.group(0)
+
+
+def sidebar(html: str) -> str:
+    match = re.search(r'<nav class="sidebar".*?</nav>', html, re.DOTALL)
+    assert match is not None
+    return match.group(0)
+
+
+def test_team_page_uses_the_app_s_shell(team: Team) -> None:
+    page = client_for(team).get("/").text
+
+    assert '<div class="shell">' in page and '<main id="content" class="content"' in page
+    assert "/static/js/main.js" in page
+    top = header(page)
+    assert re.search(r'<span class="target"[^>]*>\s*acme\s*</span>', top), top
+    assert "data-theme-toggle" in top and "data-language-form" in top
+    assert "data-search-form" not in top and "data-ask-open" not in top
+    assert "data-ask-panel" not in page and "data-palette" not in page and "data-estimate-dialog" not in page
+    side = sidebar(page)
+    assert re.search(r'<a class="nav-link" href="/" aria-current="page">.*?Team</span></a>', side, re.DOTALL), side
+    assert re.search(r'<a class="nav-link" href="/team/add">.*?Add repositories</span></a>', side, re.DOTALL)
+    for target in TARGETS:  # every followed repository by its own name, the inventory too
+        repository_name = TARGETS[target][1]
+        assert re.search(rf'href="/repos/{target}/"[^>]*>.*?<bdi>{repository_name}</bdi>', side, re.DOTALL), target
+
+
+def test_a_mounted_guide_links_back_to_its_team(team: Team) -> None:
+    client = client_for(team)
+
+    page = client.get("/repos/acme-web-shop/").text
+
+    first = re.search(r'<ul class="nav-list">\s*<li>(.*?)</li>', sidebar(page), re.DOTALL)
+    assert first is not None and 'href="/"' in first.group(1), page
+    assert '<span class="label">← Team <bdi>acme</bdi></span>' in first.group(1)  # as its siblings, ellipsis and all
+    assert re.search(r'<span class="target"[^>]*>web-shop<', header(page))  # the repository's name, not the target's
+    assert "Part of team" not in page
+
+
+def test_a_team_target_served_alone_points_to_its_team(team: Team) -> None:
+    session = SessionState(60)
+    client = TestClient(create_app(team.paths, "acme-web-shop", session, SETTINGS), base_url=ORIGIN)
+    assert client.get(f"/login?code={session.issue_login_code()}", follow_redirects=False).status_code == 303
+
+    page = client.get("/").text
+
+    assert "Part of team acme. Run <code>codetrail team serve acme</code> to see the whole team." in page
+    assert "← Team" not in page
+    assert re.search(r'<span class="target"[^>]*>web-shop<', header(page))
+
+
+def test_the_team_s_language_can_be_switched(team: Team, tmp_path: Path) -> None:
+    session = SessionState(60)
+    locales = compiled_locales(tmp_path / "locales")
+    app = create_team_app(team.paths, "acme", session, SETTINGS, team.services, team.hold, locales)
+    client = TestClient(app, base_url=ORIGIN, follow_redirects=False)
+    assert client.get(f"/login?code={session.issue_login_code()}").status_code == 303
+    headers = {"origin": ORIGIN, TOKEN_HEADER: session.token}
+    assert 'value="ar"' in client.get("/").text
+
+    assert client.post("/settings/language", json={"language": "xx"}, headers=headers).status_code == 400
+    assert client.post("/settings/language", json={"language": "ar"}, headers={"origin": ORIGIN}).status_code == 403
+    assert client.post("/settings/language", json={"language": "ar"}, headers=headers).status_code == 204
+
+    assert '<html lang="ar" dir="rtl">' in client.get("/").text
+    assert '<html lang="ar" dir="rtl">' in client.get("/team/add").text
+
+
+def test_a_target_with_facts_and_no_guide_says_so(team: Team) -> None:
+    run_update(team.paths, "acme-payments-api", facts_only=True)  # its facts, and no page yet
+    client = client_for(team)
+
+    payments = row(section(client.get("/").text, "repositories-title"), "acme-payments-api")
+
+    assert "No guide yet" in payments and "Up to date" not in payments
+    assert re.search(r'<a class="stat-note" href="/repos/acme-payments-api/">Write its guide</a>', payments)
+    for home in (client.get("/repos/acme-payments-api/").text, unmounted_home(team, "acme-payments-api")):
+        update_card = home[home.index('id="update-title"') : home.index("</section>", home.index('id="update-title"'))]
+        assert "No guide yet" in update_card and "Up to date" not in update_card
+        assert "The guide matches the branch." not in update_card
+
+
+def unmounted_home(team: Team, target: str) -> str:
+    """The target's home as `codetrail serve` shows it, at `/`."""
+    session = SessionState(60)
+    client = TestClient(create_app(team.paths, target, session, SETTINGS), base_url=ORIGIN)
+    assert client.get(f"/login?code={session.issue_login_code()}", follow_redirects=False).status_code == 303
+    page: str = client.get("/").text
+    return page
+
+
+@pytest.mark.parametrize(
+    ("selection", "line"),
+    [
+        (TeamSource(service="github", source="acme-org"), "Every active repository<"),
+        (
+            TeamSource(service="github", source="acme-org", left_out=["R_9", "R_8"]),
+            "Every active repository, 2 left out<",
+        ),
+        (TeamSource(service="github", source="acme-org", follow="chosen", chosen=["R_1"]), "Chosen repositories<"),
+    ],
+)
+def test_each_source_says_how_it_is_followed(team: Team, selection: TeamSource, line: str) -> None:
+    save_selection(team.paths, "acme", selection)
+
+    assert line in client_for(team).get("/").text
+
+
+def test_one_guide_that_cannot_be_read_does_not_stop_the_page(team: Team) -> None:
+    broken = team.paths.target_data("acme-web-shop") / "guide" / "concepts" / "a-broken.md"  # read first
+    broken.write_bytes(b"---\nkind: concept\ntitle: \xff\n---\n")  # not UTF-8: a half-written or hand-edited page
+    run_update(team.paths, "acme-payments-api", facts_only=True)
+
+    page = client_for(team).get("/")
+
+    assert page.status_code == 200
+    repositories = section(page.text, "repositories-title")
+    web_shop = row(repositories, "acme-web-shop")
+    assert "Couldn&#39;t read this repository&#39;s guide (UnicodeDecodeError)." in web_shop
+    assert "No guide yet" in row(repositories, "acme-payments-api")

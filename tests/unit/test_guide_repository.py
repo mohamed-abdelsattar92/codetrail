@@ -95,3 +95,16 @@ def test_checking_for_uncommitted_changes_never_takes_the_index_lock(
     assert guide.has_uncommitted_changes() is False
     [arguments] = calls
     assert arguments.index("--no-optional-locks") < arguments.index("status")
+
+
+def test_has_guide_pages_stops_at_the_first_area_or_concept(tmp_path: Path) -> None:
+    guide = GuideRepository(tmp_path / "guide")
+    assert not guide.has_guide_pages()  # no folder yet
+    guide.write_page(Page("paths/start", {"kind": "path", "title": "Start"}, "Steps."))
+    assert not guide.has_guide_pages()  # a path alone teaches nothing
+
+    guide.write_page(Page("areas/app", {"kind": "area", "title": "The app"}, "How it works."))
+    (guide.root / "concepts").mkdir()
+    (guide.root / "concepts" / "broken.md").write_bytes(b"---\n\xff\n---\n")  # read after the area: never parsed
+
+    assert guide.has_guide_pages()

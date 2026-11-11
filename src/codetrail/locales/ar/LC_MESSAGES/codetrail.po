@@ -437,6 +437,14 @@ msgid "%(reason)s The facts were refreshed; the guide wasn't updated."
 msgstr "%(reason)s حُدّثت الحقائق، ولم يُحدَّث الدليل."
 
 #, python-format
+msgid "%(repository)s couldn't be refreshed: %(reason)s"
+msgstr "تعذّر تحديث %(repository)s: %(reason)s"
+
+#, python-format
+msgid "%(repository)s is ready."
+msgstr "%(repository)s جاهز."
+
+#, python-format
 msgid "%(size)s KB"
 msgstr "%(size)s KB"
 
@@ -445,12 +453,14 @@ msgid "%(size)s MB"
 msgstr "%(size)s MB"
 
 #, python-format
-msgid "%(target)s couldn't be refreshed: %(reason)s"
-msgstr "تعذّر تحديث %(target)s: %(reason)s"
-
-#, python-format
-msgid "%(target)s is ready."
-msgstr "%(target)s جاهز."
+msgid ", %(count)s left out"
+msgid_plural ", %(count)s left out"
+msgstr[0] "، %(count)s مستودع مستبعد"
+msgstr[1] "، مستودع واحد مستبعد: %(count)s"
+msgstr[2] "، مستودعان مستبعدان: %(count)s"
+msgstr[3] "، %(count)s مستودعات مستبعدة"
+msgstr[4] "، %(count)s مستودع مستبعد"
+msgstr[5] "، %(count)s مستودعًا مستبعدًا"
 
 msgid ", drawn from the code"
 msgstr "، مرسومة من الكود"
@@ -702,7 +712,7 @@ msgid "Body without a why"
 msgstr "متن دون سبب"
 
 #, python-format
-msgid "Branch of %(name)s"
+msgid "Branch for %(name)s"
 msgstr "الـ branch الخاص بـ %(name)s"
 
 msgid "Breadcrumbs"
@@ -754,8 +764,8 @@ msgid "Chosen repositories"
 msgstr "مستودعات مختارة"
 
 #, python-format
-msgid "Cloning %(target)s and reading its facts…"
-msgstr "جارٍ استنساخ %(target)s وقراءة حقائقه…"
+msgid "Cloning %(repository)s and reading its facts…"
+msgstr "جارٍ استنساخ %(repository)s وقراءة حقائقه…"
 
 msgid "Close"
 msgstr "إغلاق"
@@ -867,6 +877,10 @@ msgid "Couldn't read this repository (%(error)s)."
 msgstr "تعذّرت قراءة هذا المستودع (%(error)s)."
 
 #, python-format
+msgid "Couldn't read this repository's guide (%(error)s)."
+msgstr "تعذّرت قراءة دليل هذا المستودع (%(error)s)."
+
+#, python-format
 msgid "Couldn't refresh this repository (%(error)s)."
 msgstr "تعذّر تحديث هذا المستودع (%(error)s)."
 
@@ -919,8 +933,10 @@ msgstr "المبرّرات الموثّقة"
 msgid "Documents"
 msgstr "المستندات"
 
-msgid "Done. Their first guides wait for the next catch-up's estimate."
-msgstr "تم. تنتظر أدلتها الأولى تقدير اللحاق التالي."
+msgid ""
+"Done. Open a repository and use Update the guide to write its guide; "
+"you'll see the estimate first."
+msgstr "تم. افتح مستودعًا واستخدم «حدّث الدليل» لكتابة دليله؛ سترى التقدير أولًا."
 
 msgid "Drag to resize; double-click to reset"
 msgstr "اسحب لتغيير الحجم، وانقر مرتين للاستعادة"
@@ -1325,6 +1341,9 @@ msgstr "لا حقائق بعد"
 msgid "No file in it changed in the commits read."
 msgstr "لم يتغيّر أي ملف فيه في الـ commits المقروءة."
 
+msgid "No guide yet"
+msgstr "لا دليل بعد"
+
 msgid "No longer in the source"
 msgstr "لم يعد في المصدر"
 
@@ -1518,6 +1537,14 @@ msgstr "الصفحات، بترتيب كتابتها:"
 
 msgid "Part"
 msgstr "الجزء"
+
+#, python-format
+msgid ""
+"Part of team %(team)s. Run <code>codetrail team serve %(team)s</code> to "
+"see the whole team."
+msgstr ""
+"جزء من الفريق %(team)s. شغّل <code>codetrail team serve %(team)s</code> "
+"لترى الفريق كله."
 
 msgid "Partly there"
 msgstr "صحيحة جزئيًا"
@@ -2158,6 +2185,9 @@ msgid ""
 "from it."
 msgstr "حدّث الدليل مرة واحدة: قراءة الكود مجانية، ومنها تأتي الإحصاءات."
 
+msgid "Update the guide to write it; you'll see the estimate first."
+msgstr "حدّث الدليل لكتابته؛ سترى التقدير أولًا."
+
 msgid "Update the guide…"
 msgstr "حدّث الدليل…"
 
@@ -2259,6 +2289,9 @@ msgstr "دون سبب"
 
 msgid "Worth a look"
 msgstr "تستحق نظرة"
+
+msgid "Write its guide"
+msgstr "اكتب دليله"
 
 msgid "Writing the digest…"
 msgstr "يُكتب الملخص…"
@@ -2477,4 +2510,8 @@ msgstr "تنتظر «%(title)s» التحديث القادم: نفدت المي�
 #, python-format
 msgid "“%(title)s” wasn’t written: %(reason)s"
 msgstr "لم تُكتب «%(title)s»: %(reason)s"
+
+#, python-format
+msgid "← Team <bdi>%(team)s</bdi>"
+msgstr "→ الفريق <bdi>%(team)s</bdi>"
 

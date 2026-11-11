@@ -9,6 +9,8 @@
       <span class="chip">—</span>
     {% elif signal.updating %}
       <span class="chip">…</span>
+    {% elif not guide_pages %}
+      <span class="chip">{{ _("No guide yet") }}</span>
     {% elif signal.commits == 0 %}
       <span class="chip chip-ok">{{ _("Up to date") }}</span>
     {% else %}
@@ -19,6 +21,7 @@
   <p class="stat-note">
     {%- if signal is none %}{{ _("Couldn't check for new commits just now.") }}
     {%- elif signal.updating %}{{ _("An update is running.") }}
+    {%- elif not guide_pages %}{{ _("Update the guide to write it; you'll see the estimate first.") }}
     {%- elif signal.commits == 0 %}{{ _("The guide matches the branch.") }}
     {%- else %}{% trans count=signal.merges %}{{ count }} merge landed{% pluralize %}{{ count }} merges landed{% endtrans %}{% if signal.areas %} · <span lang="en" dir="ltr">{{ signal.areas[:3] | join(", ") }}</span>{% endif %}{% endif -%}
   </p>
@@ -101,8 +104,9 @@
 {% endmacro %}
 <div class="wide home">
 <header class="home-head">
-  <h1 lang="en" dir="ltr">{{ target }}</h1>
+  <h1 lang="en" dir="ltr">{{ nav.repository }}</h1>
   <p class="meta" lang="en" dir="ltr">{% if nav.branch %}{{ nav.branch }}{% endif %}{% if snapshot %} · {{ snapshot.commit[:12] }} · {{ snapshot.taken_at | utc }}{% endif %}</p>
+  {% if nav.team and not mounted_team %}<p class="muted">{% trans team=nav.team %}Part of team {{ team }}. Run <code>codetrail team serve {{ team }}</code> to see the whole team.{% endtrans %}</p>{% endif %}
 </header>
 
 <div class="home-columns">

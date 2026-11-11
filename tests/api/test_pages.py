@@ -58,7 +58,7 @@ def client(paths: Paths, session: SessionState, locales: Path) -> TestClient:
 def test_home_shows_areas_counts_and_the_signal(client: TestClient) -> None:
     page = client.get("/").text
     assert '<html lang="en" dir="ltr">' in page
-    assert "Up to date" in page
+    assert "No guide yet" in page and "Up to date" not in page  # facts only: no page written yet
     assert 'href="/areas/services"' in page
     assert '<span lang="en" dir="ltr">module</span> 3' in page
 

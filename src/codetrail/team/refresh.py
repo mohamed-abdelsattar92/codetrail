@@ -11,7 +11,7 @@ from collections import deque
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 
-from codetrail.config import Paths
+from codetrail.config import Paths, load_target
 from codetrail.errors import CodetrailError
 from codetrail.update import run_update
 
@@ -84,17 +84,26 @@ class TeamRefreshJob:
     def _refresh_one(self, target: str) -> None:
         if self._stopping.is_set():
             return
-        self._report({"step": "started", "target": target})
+        named = {"target": target, "repository": self._repository_name(target)}  # the screen shows the repository's
+        self._report({"step": "started", **named})
         try:
             run_update(self._paths, target, facts_only=True)
         except CodetrailError as error:  # its message, as the page's update shows it (it may quote git's)
-            self._report({"step": "failed", "target": target, "message": str(error)})
+            self._report({"step": "failed", **named, "message": str(error)})
         except Exception as error:  # one repository mustn't stop the others; details stay out of the screen
             logger.warning("Couldn't refresh target %r: %s", target, type(error).__name__)
             message = self.gettext("Couldn't refresh this repository (%(error)s).") % {"error": type(error).__name__}
-            self._report({"step": "failed", "target": target, "message": message})
+            self._report({"step": "failed", **named, "message": message})
         else:
-            self._report({"step": "done", "target": target})
+            self._report({"step": "done", **named})
+
+    def _repository_name(self, target: str) -> str:
+        """The name the service gives the target's repository, or the target's own if its settings can't be read."""
+        try:
+            remote = load_target(self._paths, target).remote
+        except CodetrailError:
+            return target
+        return remote.name if remote is not None else target
 
     def _report(self, step: dict[str, object]) -> None:
         with self._lock:

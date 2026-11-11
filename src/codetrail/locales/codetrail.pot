@@ -267,6 +267,14 @@ msgid "%(reason)s The facts were refreshed; the guide wasn't updated."
 msgstr ""
 
 #, python-format
+msgid "%(repository)s couldn't be refreshed: %(reason)s"
+msgstr ""
+
+#, python-format
+msgid "%(repository)s is ready."
+msgstr ""
+
+#, python-format
 msgid "%(size)s KB"
 msgstr ""
 
@@ -275,12 +283,10 @@ msgid "%(size)s MB"
 msgstr ""
 
 #, python-format
-msgid "%(target)s couldn't be refreshed: %(reason)s"
-msgstr ""
-
-#, python-format
-msgid "%(target)s is ready."
-msgstr ""
+msgid ", %(count)s left out"
+msgid_plural ", %(count)s left out"
+msgstr[0] ""
+msgstr[1] ""
 
 msgid ", drawn from the code"
 msgstr ""
@@ -503,7 +509,7 @@ msgid "Body without a why"
 msgstr ""
 
 #, python-format
-msgid "Branch of %(name)s"
+msgid "Branch for %(name)s"
 msgstr ""
 
 msgid "Breadcrumbs"
@@ -555,7 +561,7 @@ msgid "Chosen repositories"
 msgstr ""
 
 #, python-format
-msgid "Cloning %(target)s and reading its facts…"
+msgid "Cloning %(repository)s and reading its facts…"
 msgstr ""
 
 msgid "Close"
@@ -660,6 +666,10 @@ msgid "Couldn't read this repository (%(error)s)."
 msgstr ""
 
 #, python-format
+msgid "Couldn't read this repository's guide (%(error)s)."
+msgstr ""
+
+#, python-format
 msgid "Couldn't refresh this repository (%(error)s)."
 msgstr ""
 
@@ -712,7 +722,9 @@ msgstr ""
 msgid "Documents"
 msgstr ""
 
-msgid "Done. Their first guides wait for the next catch-up's estimate."
+msgid ""
+"Done. Open a repository and use Update the guide to write its guide; "
+"you'll see the estimate first."
 msgstr ""
 
 msgid "Drag to resize; double-click to reset"
@@ -1106,6 +1118,9 @@ msgstr ""
 msgid "No file in it changed in the commits read."
 msgstr ""
 
+msgid "No guide yet"
+msgstr ""
+
 msgid "No longer in the source"
 msgstr ""
 
@@ -1266,6 +1281,12 @@ msgid "Pages, in the order they’re written:"
 msgstr ""
 
 msgid "Part"
+msgstr ""
+
+#, python-format
+msgid ""
+"Part of team %(team)s. Run <code>codetrail team serve %(team)s</code> to "
+"see the whole team."
 msgstr ""
 
 msgid "Partly there"
@@ -1865,6 +1886,9 @@ msgid ""
 "from it."
 msgstr ""
 
+msgid "Update the guide to write it; you'll see the estimate first."
+msgstr ""
+
 msgid "Update the guide…"
 msgstr ""
 
@@ -1959,6 +1983,9 @@ msgid "Without a why"
 msgstr ""
 
 msgid "Worth a look"
+msgstr ""
+
+msgid "Write its guide"
 msgstr ""
 
 msgid "Writing the digest…"
@@ -2161,5 +2188,9 @@ msgstr ""
 
 #, python-format
 msgid "“%(title)s” wasn’t written: %(reason)s"
+msgstr ""
+
+#, python-format
+msgid "← Team <bdi>%(team)s</bdi>"
 msgstr ""
 

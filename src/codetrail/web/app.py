@@ -42,7 +42,7 @@ from codetrail.errors import CodetrailError
 from codetrail.facts import EntityKind
 from codetrail.generate.run import Progress
 from codetrail.generate.scope import sources_changed
-from codetrail.guide import PAGE_ID, GuideRepository, Page, parse_page
+from codetrail.guide import PAGE_ID, GuideRepository, Page, guide_pages, parse_page
 from codetrail.learn import LearningState, page_checks
 from codetrail.learn.routes import learning_router
 from codetrail.lock import TargetBusy, target_in_use
@@ -160,9 +160,11 @@ def create_target_app(
     locales: Path | None = None,
     updater: Callable[[Callable[[UpdateEstimate], bool], Progress], object] | None = None,
     assistant_for: Callable[[], Assistant] | None = None,
+    team: str | None = None,
 ) -> tuple[ASGIApp, Callable[[], None]]:
     """The target's page without the security middleware, to serve at `/` or mount under `/repos/<target>/`, and
-    the function that stops its update.
+    the function that stops its update. `team` names the team whose server mounts it: its sidebar links back to
+    that team's page, at `/`.
 
     Whoever serves it wraps it, once, in the security middleware. Every link it builds goes through `site_path`.
     `updater` runs one update; the Update button runs it in a background thread (tests pass a fake one). Served at
@@ -296,18 +298,22 @@ def create_target_app(
         digests = sorted((page for page in pages if page.kind == "digest"), key=lambda page: str(page.meta.get(
             "written_at", "")), reverse=True)  # fmt: skip
         with learning() as state:
-            statuses = {page.id: state.status(page).state for page in pages if page.kind in ("area", "concept")}
+            statuses = {page.id: state.status(page).state for page in guide_pages(pages)}
             return statuses, state.unread_digests([page.id for page in digests])
 
     def navigation(pages: list[Page]) -> Navigation:
         statuses, unread = statuses_of(pages)
         manifest = view.manifest()
         try:
-            branch = load_target(paths, name).branch
+            target = load_target(paths, name)
         except CodetrailError:
-            branch = ""
-        return build_navigation(pages, statuses, unread, branch, manifest.commit if manifest else "",
-                                pinned=read_pins(setting(PINS_SETTING))[: settings.ui.max_pins])  # fmt: skip
+            target = None
+        return build_navigation(
+            pages, statuses, unread, target.branch if target else "", manifest.commit if manifest else "",
+            pinned=read_pins(setting(PINS_SETTING))[: settings.ui.max_pins],
+            repository=target.remote.name if target and target.remote else name,
+            team=(target.team or "") if target else "",
+        )  # fmt: skip
 
     def render(template: str, status_code: int = 200, **context: Any) -> HTMLResponse:
         current = language()
@@ -319,7 +325,7 @@ def create_target_app(
             environments[current.code]
             .get_template(template)
             .render(language=current, languages=list(languages.values()), token=session.token, target=name,
-                    estimates=call_estimates(), max_pins=settings.ui.max_pins, **context)
+                    estimates=call_estimates(), max_pins=settings.ui.max_pins, mounted_team=team, **context)
         )  # fmt: skip
         return HTMLResponse(html, status_code=status_code)
 
@@ -378,16 +384,16 @@ def create_target_app(
                     repository = repository_summary(store.connection, snapshot.id, snapshot.commit)
         pages = guide.pages() if guide.root.exists() else []
         nav = navigation(pages)
-        guide_pages = [page for page in pages if page.kind in ("area", "concept")]
+        written = guide_pages(pages)
         digests = sorted((page for page in pages if page.kind == "digest"), key=lambda page: str(page.meta.get(
             "written_at", "")), reverse=True)  # fmt: skip
         _, unread = statuses_of(pages)
         unread_digests = [page for page in digests if page.id in set(unread)]
-        learned = sum(1 for page in guide_pages if nav.statuses.get(page.id) == "learned")
-        stale = [page for page in guide_pages if nav.statuses.get(page.id) == "stale"]
+        learned = sum(1 for page in written if nav.statuses.get(page.id) == "learned")
+        stale = [page for page in written if nav.statuses.get(page.id) == "stale"]
         return render(
             "home.html", nav=nav, active="home", signal=current_signal(), areas=view.areas(), counts=counts,
-            snapshot=snapshot, guide_pages=guide_pages, latest_digest=digests[0] if digests else None,
+            snapshot=snapshot, guide_pages=written, latest_digest=digests[0] if digests else None,
             unread_digests=unread_digests, stale_pages=stale, learned=learned, last_update=last_update,
             continue_reading=continue_reading(pages, nav.statuses), system=system, has_system=system is not None,
             documentation=documentation, repository=repository,

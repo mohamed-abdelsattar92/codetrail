@@ -2,6 +2,7 @@
 writes the team and its new targets, mounts them and starts their free first refresh (design section 24.6)."""
 
 import dataclasses
+import re
 import threading
 import time
 from collections.abc import Iterator
@@ -14,6 +15,7 @@ from fastapi.testclient import TestClient
 from codetrail.config import Paths, RemoteSettings, TeamSource, load_target, load_team, write_remote_target
 from codetrail.errors import CodetrailError
 from codetrail.hosting import HostedRepository, HostingError, HostingService, HostingStatus, Source
+from codetrail.hosting.azure_devops import INSTALL as AZURE_INSTALL
 from codetrail.hosting.fake import FakeHosting
 from codetrail.hosting.names import Service
 from codetrail.remove import remove_target
@@ -51,7 +53,7 @@ def services_for_test(url: str, *identifiers: str) -> dict[Service, HostingServi
             {"acme-org": listed}, {"R_1": ["develop", "release"]},
         ),
         "azure_devops": FakeHosting(
-            "azure_devops", [HostingStatus("azure_devops", False, False, None, "brew install azure-cli")],
+            "azure_devops", [HostingStatus("azure_devops", False, False, None, AZURE_INSTALL)],
             [Source("azure_devops", "contoso/Platform", None)], {}, {},
         ),
         "gitlab": FakeHosting(
@@ -116,6 +118,32 @@ def test_the_screen_calls_no_service(team: Team, client: TestClient) -> None:
     assert all(calls(team, service) == [] for service in team.services)
 
 
+def test_the_screen_uses_the_app_s_shell(team: Team) -> None:
+    save_selection(team.paths, "acme", TeamSource(service="github", source="acme-org"))
+    add_target(team, "acme-web-shop", "R_1", "web-shop")  # followed, so served from the start
+
+    with signed_in(team, SessionState(60)) as client:
+        page = client.get("/team/add").text
+
+    assert '<div class="shell">' in page and '<header class="topbar">' in page
+    assert "data-theme-toggle" in page and "data-language-form" in page and "data-search-form" not in page
+    nav = page[page.index('<nav class="sidebar"') : page.index("</nav>")]
+    assert re.search(r'<a class="nav-link" href="/team/add" aria-current="page">', nav), nav
+    assert re.search(r'href="/repos/acme-web-shop/"[^>]*>.*?<bdi>web-shop</bdi>', nav, re.DOTALL), nav
+    assert page.index("/static/js/team_add.js") < page.index("/static/js/main.js")  # main.js marks the page ready
+
+
+def test_the_screen_s_fields_are_labelled_once(team: Team, client: TestClient) -> None:
+    page = client.get("/team/add").text
+
+    source = page[page.index('aria-labelledby="source-title"') : page.index('aria-labelledby="list-title"')]
+    assert source.count(">Source<") == 1  # the heading, which names the picker
+    assert 'id="source-picker" aria-labelledby="source-title"' in source
+    assert '<form class="field" data-organization-form hidden>' in source  # shown once Azure DevOps is signed in
+    assert 'aria-label="Follow the whole source"' in page  # its visible label also counts what's left out
+    assert '<label class="field" for="repository-filter">' in page
+
+
 def test_sources_list_each_service_status_and_fix(team: Team, client: TestClient) -> None:
     listed = client.get("/team/hosting/sources").json()
 
@@ -123,7 +151,7 @@ def test_sources_list_each_service_status_and_fix(team: Team, client: TestClient
         {"service": "github", "installed": True, "signed_in": True, "account": "reader", "fix": None,
          "sources_failed": False},
         {"service": "azure_devops", "installed": False, "signed_in": False, "account": None,
-         "fix": "brew install azure-cli", "sources_failed": False},
+         "fix": AZURE_INSTALL, "sources_failed": False},
         {"service": "gitlab", "installed": True, "signed_in": False, "account": None, "fix": "glab auth login",
          "sources_failed": False},
     ]  # fmt: skip
@@ -243,8 +271,8 @@ def test_saving_writes_team_and_targets_and_starts_the_refresh(team: Team, clien
     assert team.held == ["acme-web-shop"]
     status = finished(client)
     assert status["state"] == "done"
-    assert status["steps"] == [{"step": "started", "target": "acme-web-shop"},
-                               {"step": "done", "target": "acme-web-shop"}]  # fmt: skip
+    assert status["steps"] == [{"step": "started", "target": "acme-web-shop", "repository": "web-shop"},
+                               {"step": "done", "target": "acme-web-shop", "repository": "web-shop"}]  # fmt: skip
     assert (team.paths.target_data("acme-web-shop") / "codetrail.db").exists()  # cloned, scanned and its facts read
     assert client.get("/team/refresh/status", params={"after": status["next"]}).json()["steps"] == []
     guide = client.get("/repos/acme-web-shop/")
@@ -286,8 +314,8 @@ def test_a_failed_refresh_says_why(team: Team, client: TestClient, monkeypatch: 
     steps = finished(client)["steps"]
 
     assert steps == [
-        {"step": "started", "target": "acme-web-shop"},
-        {"step": "failed", "target": "acme-web-shop", "message": FETCH_FAILED},
+        {"step": "started", "target": "acme-web-shop", "repository": "web-shop"},
+        {"step": "failed", "target": "acme-web-shop", "repository": "web-shop", "message": FETCH_FAILED},
     ]
 
 

@@ -1,21 +1,8 @@
-<!doctype html>
-<html lang="{{ language.code }}" dir="{{ language.direction }}">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="light dark">
-  <title>{{ team }} · Codetrail</title>
-  <link rel="icon" href="/static/brand/favicon.svg" type="image/svg+xml">
-  <link rel="preload" href="/static/vendor/inter/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="stylesheet" href="/static/css/tokens.css">
-  <link rel="stylesheet" href="/static/css/base.css">
-  <link rel="stylesheet" href="/static/css/layout.css">
-  <link rel="stylesheet" href="/static/css/components.css">
-  <link rel="stylesheet" href="/static/css/content.css">
-  <script src="/static/js/theme-init.js"></script>
-</head>
-<body>
-<main id="content" class="content">
+{% extends "base.html" %}
+{# The team page (design section 24.7), in the guides' shell: its sidebar lists the team page, the add-repositories
+   screen and each followed repository. #}
+{% block title %}{{ team }}{% endblock %}
+{% block content %}
 <div class="wide">
 <header class="page-head">
   <p class="card-label">{{ _("Team") }}</p>
@@ -24,7 +11,7 @@
   <ul class="list">
     {% for source in sources %}
     <li><span class="grow">{{ service_names[source.service] }} · <bdi>{{ source.source }}</bdi></span>
-      <span class="faint">{% if source.follow == "all" %}{{ _("Every active repository") }}{% else %}{{ _("Chosen repositories") }}{% endif %}</span>
+      <span class="faint">{% if source.follow == "all" %}{{ _("Every active repository") }}{% else %}{{ _("Chosen repositories") }}{% endif %}{% if source.left_out %}{% trans count=source.left_out|length %}, {{ count }} left out{% pluralize %}, {{ count }} left out{% endtrans %}{% endif %}</span>
       {% if source.service ~ ":" ~ source.source in unreachable %}<span class="chip">{{ _("couldn't be listed just now") }}</span>{% endif %}</li>
     {% endfor %}
   </ul>
@@ -50,6 +37,9 @@
         <span class="chip">{{ _("Updating") }}</span>
       {% elif row.signal.updated_commit is none %}
         <span class="chip">{{ _("Not updated yet") }}</span>
+      {% elif not row.has_guide %}
+        <span class="chip">{{ _("No guide yet") }}</span>
+        <a class="stat-note" href="/repos/{{ row.target }}/">{{ _("Write its guide") }}</a>
       {% elif row.signal.commits == 0 %}
         <span class="chip chip-ok">{{ _("Up to date") }}</span>
       {% else %}
@@ -79,6 +69,4 @@
 </section>
 {% endif %}
 </div>
-</main>
-</body>
-</html>
+{% endblock %}

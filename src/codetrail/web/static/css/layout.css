@@ -69,6 +69,7 @@ body {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  margin-inline-start: auto; /* at the end, with or without the search box (the team's pages have none) */
 }
 
 .topbar .menu-button {
