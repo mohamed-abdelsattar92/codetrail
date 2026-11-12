@@ -6,7 +6,14 @@ from pathlib import Path
 
 import pytest
 
-from codetrail.assistant import AssistantError, OverviewDigest, OverviewDraft, OverviewRequest, Usage
+from codetrail.assistant import (
+    AssistantError,
+    OverviewDigest,
+    OverviewDraft,
+    OverviewRequest,
+    PaidCallFailed,
+    Usage,
+)
 from codetrail.assistant.fake import FakeAssistant
 from codetrail.assistant.prompts import digest_link, overview_prompt
 from codetrail.assistant.usage import UsageLog
@@ -280,6 +287,20 @@ async def test_write_overview_assistant_error_is_a_problem(
     writer = FakeAssistant(overviews=[AssistantError("Claude Code ended without a result.")])
     outcome = await run(writer, scanner, overviews, usage_log, None)
     assert outcome == OverviewOutcome(None, "The overview couldn't be written: Claude Code ended without a result.")
+
+
+@pytest.mark.anyio
+async def test_a_failed_overview_still_counts_what_it_cost(
+    scanner: SecretScanner, overviews: Overviews, usage_log: UsageLog
+) -> None:
+    failed = PaidCallFailed("Claude Code didn't finish the task (error_max_turns).", usage(0.3))
+    writer = FakeAssistant(overviews=[failed])
+    budget = SharedBudget(5.0)
+    outcome = await run(writer, scanner, overviews, usage_log, budget)
+    assert outcome.overview_id is None and "error_max_turns" in str(outcome.problem)
+    rows = usage_log.connection.execute("SELECT kind, cost_usd FROM assistant_calls").fetchall()
+    assert [(row[0], row[1]) for row in rows] == [("overview", 0.3)]
+    assert budget.spent_usd == pytest.approx(0.3)
 
 
 @pytest.mark.anyio

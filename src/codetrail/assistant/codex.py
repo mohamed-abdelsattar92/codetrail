@@ -37,6 +37,7 @@ from codetrail.assistant import (
     QuestionRequest,
     Usage,
     Verdict,
+    call_failed,
     runner,
 )
 from codetrail.assistant.environment import child_environment, resolve_program
@@ -140,13 +141,14 @@ class CodexAssistant:
             except _ProgramFailed as error:
                 last_error = error
                 continue
+            usage = self._usage(kind, outcome)
             try:
                 data = json.loads(outcome.message or "")
             except ValueError as error:
-                raise AssistantError("Codex's answer wasn't the JSON it was asked for.") from error
+                raise call_failed("Codex's answer wasn't the JSON it was asked for.", usage) from error
             if not isinstance(data, dict):
-                raise AssistantError("Codex's answer wasn't a JSON object.")
-            return data, outcome, self._usage(kind, outcome)
+                raise call_failed("Codex's answer wasn't a JSON object.", usage)
+            return data, outcome, usage
         raise last_error or AssistantError("Codex couldn't be run.")
 
     async def _call(self, kind: str, rules: str, prompt: str, schema: dict[str, Any] | None) -> _Outcome:
@@ -181,19 +183,25 @@ class CodexAssistant:
                 async with aclosing(lines):
                     async for line in lines:
                         self._note(line, outcome)
-            except _LimitPassed:
-                raise
+            except _LimitPassed as error:
+                raise call_failed(str(error), self._usage(kind, outcome)) from error
             except AssistantError as error:
                 if outcome.failure is not None:
-                    raise _ProgramFailed(f"Codex didn't finish the task: {outcome.failure[:300]}") from error
+                    unfinished = f"Codex didn't finish the task: {outcome.failure[:300]}"
+                    raise self._failure(unfinished, kind, outcome) from error
                 if outcome.message is None:
-                    raise _ProgramFailed(str(error)) from error
-                raise
+                    raise self._failure(str(error), kind, outcome) from error
+                raise call_failed(str(error), self._usage(kind, outcome)) from error
         if outcome.failure is not None:
-            raise AssistantError(f"Codex didn't finish the task: {outcome.failure[:300]}")
+            raise call_failed(f"Codex didn't finish the task: {outcome.failure[:300]}", self._usage(kind, outcome))
         if outcome.message is None:
-            raise _ProgramFailed("Codex ended without an answer.")
+            raise self._failure("Codex ended without an answer.", kind, outcome)
         return outcome
+
+    def _failure(self, message: str, kind: str, outcome: _Outcome) -> AssistantError:
+        """A failure worth another try, unless Codex counted tokens: then it carries them, for the caller's budget."""
+        usage = self._usage(kind, outcome)
+        return call_failed(message, usage) if usage.tokens else _ProgramFailed(message)
 
     def _note(self, line: str, outcome: _Outcome) -> None:
         try:

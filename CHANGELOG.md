@@ -17,6 +17,8 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 - The README, the PyPI page and the banner used as GitHub's social preview present Codetrail as your onboarding guide to any codebase, whether you're new to it or coming back to it after months away, and the PyPI page lists keywords so searches for onboarding find it.
 
 ### Fixed
+- Page titles in the outline, guided paths' titles and goals, and digest titles are scanned for secrets before they reach the guide, like page bodies: a flagged entry or path is left out, and a flagged digest falls back to its list of commits. A guided path's title with a control character is left out, as a page's is.
+- A call to the assistant that fails after the provider counted it, such as Claude Code passing its turns or its budget, now counts against the update's and the team's budget and appears in the usage history, so a run of failed pages can no longer spend past the budget.
 - Codex planning requests include `scope_kinds` among the schema's required properties, as OpenAI strict structured output requires.
 - A failed Codex process reports its structured request error when available, instead of replacing it with the last standard-error diagnostic.
 - Codex signed in with ChatGPT is correctly reported as ready when `codex login status` writes its status to standard error.

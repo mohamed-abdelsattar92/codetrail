@@ -12,6 +12,7 @@ from codetrail.assistant import (
     OverviewDigest,
     OverviewRequest,
     PageRequest,
+    PaidCallFailed,
     PlanRequest,
     QuestionRequest,
 )
@@ -208,6 +209,35 @@ async def test_an_unusable_run_raises(source: Path, tmp_path: Path, events: list
         return
     with pytest.raises(AssistantError):
         await adapter(source, program).write_page(page_request())
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("events", "exit_code"),
+    [
+        ([result(None, error=True, subtype="error_max_budget_usd")], 0),
+        ([result(None, error=True, subtype="error_max_turns")], 1),  # Claude Code exits 1 after an error result
+        ([result(None)], 0),  # paid for, but no structured answer
+    ],
+)
+async def test_a_failed_call_carries_what_it_cost(
+    source: Path, tmp_path: Path, events: list[Any], exit_code: int
+) -> None:
+    program = make_program(tmp_path / "bin", "fake-claude", events, exit_code=exit_code)
+    with pytest.raises(PaidCallFailed) as raised:
+        await adapter(source, program).write_page(page_request())
+    usage = raised.value.usage
+    assert (usage.provider, usage.model, usage.cost_usd) == ("claude_code", "claude-sonnet-5-5", 0.0123)
+    assert (usage.input_tokens, usage.output_tokens) == (120, 50)
+
+
+@pytest.mark.anyio
+async def test_a_failed_answer_carries_what_it_cost(source: Path, tmp_path: Path) -> None:
+    events = [result(None, error=True, subtype="error_max_budget_usd")]
+    program = make_program(tmp_path / "bin", "fake-claude", events, exit_code=1)
+    with pytest.raises(PaidCallFailed) as raised:
+        _ = [chunk async for chunk in adapter(source, program).answer(QuestionRequest("shop", "What?", "en"))]
+    assert raised.value.usage.cost_usd == 0.0123
 
 
 @pytest.mark.anyio

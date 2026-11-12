@@ -4,13 +4,16 @@ from pathlib import Path
 
 import pytest
 
+from codetrail.config import ToolsSettings
 from codetrail.database import connect
 from codetrail.facts import Entity, EntityKind, Relation, RelationKind, Source
 from codetrail.facts.store import FactStore
-from codetrail.generate.outline import OutlineEntry, uncovered_facts, validate_outline
+from codetrail.generate.outline import OutlineEntry, uncovered_facts, validate_outline, validate_paths
 from codetrail.generate.scope import affected_reason, facts_in_scope, page_meta, scope_hash, sources_changed
 from codetrail.guide import Page
+from codetrail.repo.secrets import SecretScanner
 from codetrail.repo.source import SourceManifest
+from tests.fixtures.repos import fake_github_token
 
 
 def module(path: str, name: str) -> Entity:
@@ -37,6 +40,11 @@ def manifest() -> SourceManifest:
     return SourceManifest("c1", FILES)
 
 
+@pytest.fixture
+def scanner() -> SecretScanner:
+    return SecretScanner(ToolsSettings())
+
+
 def entry(**overrides: object) -> OutlineEntry:
     values: dict[str, object] = {
         "id": "areas/api", "kind": "area", "title": "The API", "scope_paths": ["services/api"],
@@ -46,7 +54,9 @@ def entry(**overrides: object) -> OutlineEntry:
     return OutlineEntry(**values)  # type: ignore[arg-type]
 
 
-def test_valid_entries_pass_and_bad_ones_are_dropped_with_reasons(store: FactStore, manifest: SourceManifest) -> None:
+def test_valid_entries_pass_and_bad_ones_are_dropped_with_reasons(
+    store: FactStore, manifest: SourceManifest, scanner: SecretScanner
+) -> None:
     raw = [
         {
             "id": "areas/api",
@@ -60,7 +70,7 @@ def test_valid_entries_pass_and_bad_ones_are_dropped_with_reasons(store: FactSto
         {"id": "concepts/nowhere", "kind": "concept", "title": "x", "scope_paths": ["missing/folder"], "facts": []},
         {"id": "areas/concept-kind", "kind": "concept", "title": "x", "scope_paths": ["services"], "facts": []},
     ]
-    entries, problems = validate_outline(raw, store, manifest)
+    entries, problems = validate_outline(raw, store, manifest, scanner)
     assert [entry.id for entry in entries] == ["areas/api"]
     assert entries[0].facts == ["decision:ADR-0007"]
     assert len(problems) == 5
@@ -121,7 +131,37 @@ def test_stored_paths_must_live_under_paths() -> None:
     assert [path.id for path in outline_paths(stored, {"areas/api"})] == ["paths/ok"]
 
 
-def test_a_title_a_terminal_would_act_on_is_dropped(store: FactStore, manifest: SourceManifest) -> None:
+def test_a_title_a_terminal_would_act_on_is_dropped(
+    store: FactStore, manifest: SourceManifest, scanner: SecretScanner
+) -> None:
     raw = [{"id": "areas/api", "kind": "area", "title": "The API\x1b[2A$0.01", "scope_paths": ["services/api"]}]
-    entries, problems = validate_outline(raw, store, manifest)
+    entries, problems = validate_outline(raw, store, manifest, scanner)
     assert entries == [] and "control character" in problems[0] and "\x1b" not in problems[0]
+
+
+def test_an_entry_holding_a_secret_is_dropped_naming_only_the_rule(
+    store: FactStore, manifest: SourceManifest, scanner: SecretScanner
+) -> None:
+    token = fake_github_token(41)
+    raw = [
+        {"id": "areas/api", "kind": "area", "title": f"The API ({token})", "scope_paths": ["services/api"]},
+        {"id": "concepts/rest", "kind": "concept", "title": "REST", "scope_paths": ["docs"], "facts": [token]},
+        {"id": "concepts/kept", "kind": "concept", "title": "Kept", "scope_paths": ["docs"]},
+    ]
+    entries, problems = validate_outline(raw, store, manifest, scanner)
+    assert [entry.id for entry in entries] == ["concepts/kept"]
+    assert len(problems) == 2 and all("looks like a secret (github-pat)" in problem for problem in problems)
+    assert token not in " ".join(problems)
+
+
+def test_a_path_holding_a_secret_or_a_control_character_is_dropped(scanner: SecretScanner) -> None:
+    token = fake_github_token(42)
+    raw = [
+        {"id": "paths/start", "title": "Start", "goal": f"Learn to use {token}.", "steps": ["areas/api"]},
+        {"id": "paths/escape", "title": "Start\x1b[2A", "goal": "Learn.", "steps": ["areas/api"]},
+        {"id": "paths/kept", "title": "Kept", "goal": "Learn.", "steps": ["areas/api"]},
+    ]
+    paths, problems = validate_paths(raw, {"areas/api"}, scanner)
+    assert [path.id for path in paths] == ["paths/kept"]
+    assert "looks like a secret (github-pat)" in problems[0] and token not in problems[0]
+    assert "control character" in problems[1] and "\x1b" not in problems[1]

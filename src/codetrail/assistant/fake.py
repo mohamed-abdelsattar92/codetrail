@@ -26,10 +26,10 @@ PageScript = Callable[[PageRequest], PageDraft]
 
 @dataclass
 class FakeAssistant:
-    plans: list[PlanDraft] = field(default_factory=list)
+    plans: list[PlanDraft | Exception] = field(default_factory=list)
     pages: dict[str, list[PageDraft | Exception]] = field(default_factory=dict)
     page_writer: PageScript | None = None
-    digests: list[DigestDraft] = field(default_factory=list)
+    digests: list[DigestDraft | Exception] = field(default_factory=list)
     answers: list[list[AnswerChunk] | Exception] = field(default_factory=list)
     verdicts: list[Verdict | Exception] = field(default_factory=list)
     overviews: list[OverviewDraft | Exception] = field(default_factory=list)
@@ -41,7 +41,10 @@ class FakeAssistant:
         self.requests.append(request)
         if not self.plans:
             raise AssistantError("The fake has no plan scripted.")
-        return self.plans.pop(0)
+        plan = self.plans.pop(0)
+        if isinstance(plan, Exception):
+            raise plan
+        return plan
 
     async def write_page(self, request: PageRequest) -> PageDraft:
         self.requests.append(request)
@@ -59,7 +62,10 @@ class FakeAssistant:
         self.requests.append(request)
         if not self.digests:
             return DigestDraft(title="Changes", body="Things changed.")
-        return self.digests.pop(0)
+        digest = self.digests.pop(0)
+        if isinstance(digest, Exception):
+            raise digest
+        return digest
 
     async def answer(self, request: QuestionRequest) -> AsyncIterator[AnswerChunk]:
         self.requests.append(request)
