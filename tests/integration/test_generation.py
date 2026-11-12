@@ -5,7 +5,16 @@ from pathlib import Path
 
 import pytest
 
-from codetrail.assistant import AssistantError, DigestDraft, PageDraft, PageRequest, PlanDraft, PlanRequest, Usage
+from codetrail.assistant import (
+    AssistantError,
+    DigestDraft,
+    PageDraft,
+    PageRequest,
+    PaidCallFailed,
+    PlanDraft,
+    PlanRequest,
+    Usage,
+)
 from codetrail.assistant.fake import FakeAssistant
 from codetrail.config import Paths, write_target
 from codetrail.database import connect
@@ -251,6 +260,61 @@ def test_each_calls_usage_is_recorded_and_counted(paths: Paths) -> None:
     connection = connect(paths.target_data("t") / "codetrail.db")
     rows = connection.execute("SELECT kind, provider, cost_usd FROM assistant_calls").fetchall()
     assert [tuple(row) for row in rows] == [("write", "claude_code", 0.25), ("write", "claude_code", 0.25)]
+
+
+PAID = Usage("claude_code", "claude-sonnet-5-5", 1000, 0, 100, 0.9)
+
+
+def call_rows(paths: Paths) -> list[tuple[str, float]]:
+    connection = connect(paths.target_data("t") / "codetrail.db")
+    try:
+        return [tuple(row) for row in connection.execute("SELECT kind, cost_usd FROM assistant_calls")]
+    finally:
+        connection.close()
+
+
+def test_a_failed_page_still_counts_what_it_cost(paths: Paths) -> None:
+    one_at_a_time(paths, budget_usd=0.5)
+    failed = PaidCallFailed("Claude Code didn't finish the task (error_max_budget_usd).", PAID)
+    claude = FakeAssistant(plans=[PLAN], pages={"areas/api": [failed]}, page_writer=good_page)
+    generation = run_update(paths, "t", claude=claude).generation
+    assert generation is not None
+    assert generation.cost_usd == 0.9 and generation.tokens == 1100
+    assert generation.failed == [("areas/api", str(failed))]
+    assert generation.left_for_later == ["concepts/fastapi"]  # the failed call spent the budget: no second page
+    assert ("write", 0.9) in call_rows(paths)
+
+
+def test_a_failed_first_plan_still_counts_what_it_cost(paths: Paths) -> None:
+    shared = SharedBudget(5.0)
+    claude = FakeAssistant(plans=[PaidCallFailed("Claude Code didn't finish the task (error_max_turns).", PAID)])
+    with pytest.raises(PaidCallFailed):
+        run_update(paths, "t", claude=claude, shared_budget=shared)
+    assert shared.spent_usd == 0.9
+    assert call_rows(paths) == [("plan", 0.9)]
+
+
+def test_a_failed_paths_plan_still_counts_what_it_cost(paths: Paths) -> None:
+    run_update(paths, "t", claude=FakeAssistant(plans=[PLAN], page_writer=good_page))
+    outline = guide(paths).read_outline()
+    assert outline is not None
+    guide(paths).write_outline({"pages": outline["pages"]})  # as written before paths existed
+    guide(paths).commit("An outline from before paths")
+    claude = FakeAssistant(plans=[PaidCallFailed("Claude Code didn't finish the task (error_max_turns).", PAID)])
+    generation = run_update(paths, "t", claude=claude).generation
+    assert generation is not None and generation.cost_usd == 0.9
+    assert ("plan", 0.9) in call_rows(paths)
+
+
+def test_a_failed_digest_still_counts_what_it_cost(paths: Paths, tmp_path: Path) -> None:
+    run_update(paths, "t", claude=FakeAssistant(plans=[PLAN], page_writer=good_page))
+    add_commit(tmp_path / "target", {"services/api/app/routes.py": "x = 1\n"}, "feat(api): routes\n\nWhy: need")
+    failed = PaidCallFailed("Claude Code didn't finish the task (error_max_turns).", PAID)
+    generation = run_update(paths, "t", claude=FakeAssistant(page_writer=good_page, digests=[failed])).generation
+    assert generation is not None and generation.digest is not None
+    assert ("digest", 0.9) in call_rows(paths)
+    digest = guide(paths).read_page(generation.digest)
+    assert digest is not None and "commits since the last update" in digest.title
 
 
 def one_at_a_time(paths: Paths, budget_usd: float = 10.0) -> None:

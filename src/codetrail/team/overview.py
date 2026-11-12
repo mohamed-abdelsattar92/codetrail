@@ -13,7 +13,14 @@ from datetime import UTC, datetime
 
 from markdown_it.token import Token
 
-from codetrail.assistant import Assistant, AssistantError, OverviewDigest, OverviewDraft, OverviewRequest
+from codetrail.assistant import (
+    Assistant,
+    AssistantError,
+    OverviewDigest,
+    OverviewDraft,
+    OverviewRequest,
+    PaidCallFailed,
+)
 from codetrail.assistant.prompts import digest_link
 from codetrail.assistant.usage import UsageLog
 from codetrail.config import GlobalConfig
@@ -118,6 +125,8 @@ async def write_overview(
         try:
             draft = await writer.write_overview(OverviewRequest(team, digests, max_words, problems, previous_body))
         except AssistantError as error:
+            if isinstance(error, PaidCallFailed):  # what the failed call used still counts against the budget
+                _spend(error, usage, budget)
             return OverviewOutcome(None, f"The overview couldn't be written: {error}")
         _spend(draft, usage, budget)
         problems, cited = validate_overview(draft.body, digests, max_words, scanner)
@@ -140,7 +149,7 @@ async def write_overview(
     return OverviewOutcome(None, "The overview failed its checks twice: " + "; ".join(problems[:3]))
 
 
-def _spend(draft: OverviewDraft, usage: UsageLog | None, budget: SharedBudget | None) -> None:
+def _spend(draft: OverviewDraft | PaidCallFailed, usage: UsageLog | None, budget: SharedBudget | None) -> None:
     """Records the call's usage, and counts its cost against the team's budget, as an update's calls do."""
     cost = usage.record("overview", draft.usage) if usage is not None and draft.usage.provider else draft.cost_usd
     if budget is not None:

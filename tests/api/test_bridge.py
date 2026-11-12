@@ -10,7 +10,7 @@ import anyio
 import pytest
 from fastapi.testclient import TestClient
 
-from codetrail.assistant import AnswerChunk, AssistantError, QuestionRequest, Usage
+from codetrail.assistant import AnswerChunk, AssistantError, PaidCallFailed, QuestionRequest, Usage
 from codetrail.assistant.fake import FakeAssistant
 from codetrail.config import GlobalConfig, Paths, write_target
 from codetrail.database import connect
@@ -224,6 +224,17 @@ def test_an_answers_usage_is_recorded(paths: Paths) -> None:
     connection = connect(paths.target_data("t") / "codetrail.db")
     rows = connection.execute("SELECT kind, provider, cost_usd FROM assistant_calls").fetchall()
     assert [tuple(row) for row in rows] == [("answer", "claude_code", 0.02)]
+
+
+def test_a_failed_answers_usage_is_recorded(paths: Paths) -> None:
+    usage = Usage("claude_code", "claude-sonnet-5-5", 500, 0, 50, 0.3)
+    claude = FakeAssistant(answers=[PaidCallFailed("Claude Code didn't finish the task (error_max_turns).", usage)])
+    client, headers = make_client(paths, claude)
+    found = events(client.post("/bridge/questions", json={"question": "Why?"}, headers=headers).text)
+    assert found == [{"type": "error", "message": "Claude Code didn't finish the task (error_max_turns)."}]
+    connection = connect(paths.target_data("t") / "codetrail.db")
+    rows = connection.execute("SELECT kind, provider, cost_usd FROM assistant_calls").fetchall()
+    assert [tuple(row) for row in rows] == [("answer", "claude_code", 0.3)]
 
 
 def test_a_buffered_answer_is_only_shown_after_its_scan(paths: Paths) -> None:

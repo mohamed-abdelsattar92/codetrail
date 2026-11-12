@@ -17,6 +17,27 @@ class AssistantError(CodetrailError):
     """The assistant couldn't complete a task: an error, a limit reached, or no usable answer."""
 
 
+class PaidCallFailed(AssistantError):
+    """The call failed after the provider counted what it used: callers record that usage and count its cost.
+
+    Adapters never retry it, since only the caller knows whether the budget allows another paid call."""
+
+    def __init__(self, message: str, usage: Usage) -> None:
+        super().__init__(message)
+        self.usage = usage
+
+    @property
+    def cost_usd(self) -> float:
+        return self.usage.cost_usd or 0.0
+
+
+def call_failed(message: str, usage: Usage) -> AssistantError:
+    """The error for a failed call: one carrying its usage when the provider counted any tokens or cost."""
+    if usage.tokens or usage.cost_usd:
+        return PaidCallFailed(message, usage)
+    return AssistantError(message)
+
+
 @dataclass(frozen=True)
 class PlanWindow:
     """How much of a subscription's usage window is used (0 to 1), and when it resets (seconds since the epoch)."""
@@ -40,6 +61,10 @@ class Usage:
     output_tokens: int = 0
     cost_usd: float | None = None
     plan_windows: tuple[PlanWindow, ...] = ()
+
+    @property
+    def tokens(self) -> int:
+        return self.input_tokens + self.cached_input_tokens + self.output_tokens
 
 
 @dataclass(frozen=True)
