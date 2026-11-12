@@ -153,3 +153,9 @@ def test_folders_that_collide_on_disk_are_excluded_without_failing(tmp_path: Pat
 
 def test_names_that_are_not_valid_utf8_are_unsafe() -> None:
     assert not safe_path("bad\udcff.md")
+
+
+@pytest.mark.parametrize("path", ["a\nb.md", "docs/\x1b[31mred.md", "tab\there.md", "del\x7f.md"])
+def test_names_with_control_characters_are_unsafe(path: str) -> None:
+    # They reach prompts and the agents' export, where a newline or an escape can pose as structure.
+    assert not safe_path(path)

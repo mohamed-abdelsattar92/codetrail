@@ -129,3 +129,13 @@ def test_the_readers_own_lines_are_not_limited(tmp_path: Path) -> None:
 
 def make_paths(tmp_path: Path) -> Paths:
     return Paths(config_dir=tmp_path / "config", data_dir=tmp_path / "data", state_dir=tmp_path / "state")
+
+
+@pytest.mark.parametrize("path", ["x/" + "a" * 256, "/".join(["a" * 200] * 21)])
+def test_a_path_too_long_for_a_disk_is_unsafe_before_any_pattern_runs(path: str) -> None:
+    # The ignore-line limit was measured on names of up to 255 bytes; longer ones only make the matcher slower.
+    assert ExclusionRules(["*a*b*c"]).reason(path) == Reason.UNSAFE_PATH
+
+
+def test_a_name_of_255_bytes_is_matched_as_usual() -> None:
+    assert ExclusionRules(["*.md"]).reason("docs/" + "a" * 252 + ".md") == Reason.IGNORED

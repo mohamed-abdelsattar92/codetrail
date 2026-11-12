@@ -41,6 +41,8 @@ EXAMPLE_EXCEPTION = "!*.example"
 BUILTIN_DIRECTORY_PATTERNS: tuple[str, ...] = (".terraform/",)
 # gitleaks obeys these from the folder it scans, so they never reach source/.
 SCANNER_SETTINGS_PATTERNS: tuple[str, ...] = (".gitleaksignore", ".gitleaks.toml")
+MAX_NAME_BYTES = 255  # the longest file or folder name APFS, ext4 and NTFS store
+MAX_PATH_BYTES = 4096  # PATH_MAX on Linux; macOS's is 1024, so a longer path fails there when it is written
 
 
 # Code points HFS+ ignores in names, so ".g\u200cit" lands as ".git" (git's is_hfs_dotgit checks the same ones).
@@ -72,6 +74,11 @@ class ExclusionRules:
         self._ignored = GitIgnoreSpec.from_lines([line.lower() for line in ignore_lines])
 
     def reason(self, path: str) -> Reason | None:
+        # Longer than a disk allows, so it can't be written anyway; the ignore-line limit (repo/refresh.py) holds for
+        # names up to that length only, and longer ones would only make the patterns slower.
+        encoded = path.encode("utf-8", "surrogateescape")
+        if len(encoded) > MAX_PATH_BYTES or any(len(part) > MAX_NAME_BYTES for part in encoded.split(b"/")):
+            return Reason.UNSAFE_PATH
         # The built-in patterns are lower-case and match in any case: macOS volumes ignore case.
         folded = path.lower()
         if self._secret_directories.match_file(folded) or self._secret_files.match_file(folded):
