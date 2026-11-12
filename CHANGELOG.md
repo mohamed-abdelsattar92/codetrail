@@ -22,6 +22,9 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 - Codex signed in with ChatGPT is correctly reported as ready when `codex login status` writes its status to standard error.
 - The PyPI page shows the README's screenshots, diagrams and logo, and its links open the files on GitHub, at the release's tag.
 
+### Security
+- A target that commits a bare repository's files at its root (`HEAD`, `config`, `objects/`, `refs/`) can no longer make a provider's own `git status` run a command it planted: providers' git refuses implicit bare repositories.
+
 ## [1.4.1] - 2026-10-27
 
 Release notes: [docs/releases/v1.4.1.md](docs/releases/v1.4.1.md).

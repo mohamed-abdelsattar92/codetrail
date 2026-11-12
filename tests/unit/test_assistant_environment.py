@@ -1,5 +1,8 @@
 """The environment provider programs get: an allowlist, never a key in subscription mode (design section 15.2)."""
 
+import os
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -41,6 +44,9 @@ def test_claude_in_subscription_mode_gets_the_allowlist_and_no_key() -> None:
         "TMPDIR": "/var/folders/reader",
         "TERM": "xterm",
         "CLAUDE_CONFIG_DIR": "/Users/reader/.claude-work",
+        "GIT_CONFIG_COUNT": "1",
+        "GIT_CONFIG_KEY_0": "safe.bareRepository",
+        "GIT_CONFIG_VALUE_0": "explicit",
     }
 
 
@@ -61,6 +67,9 @@ def test_codex_gets_an_empty_home_a_plain_shell_and_its_own_folder(tmp_path: Pat
         "LC_ALL": "en_US.UTF-8",
         "TMPDIR": "/var/folders/reader",
         "TERM": "xterm",
+        "GIT_CONFIG_COUNT": "1",
+        "GIT_CONFIG_KEY_0": "safe.bareRepository",
+        "GIT_CONFIG_VALUE_0": "explicit",
     }
 
 
@@ -92,3 +101,23 @@ def test_programs_resolve_to_absolute_paths_only(tmp_path: Path) -> None:
         resolve_program("claude", "relative")
     with pytest.raises(AssistantError, match="absolute"):
         resolve_program("bin/claude", f"{program.parent}")
+
+
+@pytest.mark.skipif(shutil.which("git") is None, reason="needs git")
+def test_git_refuses_a_bare_repository_committed_at_the_root_of_source(tmp_path: Path) -> None:
+    # A target can commit HEAD, config, objects/ and refs/ at its root: `source/` then looks like a bare repository,
+    # and a provider program's own `git status` there would run the planted core.fsmonitor command.
+    source = tmp_path / "source"
+    (source / "objects").mkdir(parents=True)
+    (source / "refs" / "heads").mkdir(parents=True)
+    (source / "HEAD").write_text("ref: refs/heads/main\n")
+    marker = tmp_path / "ran"
+    (source / "config").write_text(
+        "[core]\n\trepositoryformatversion = 0\n\tbare = false\n\tworktree = .\n"
+        f'\tfsmonitor = "touch {marker}; false"\n'
+    )
+    for provider in ("claude_code", "codex"):
+        environment = child_environment(provider, "subscription", dict(os.environ), empty_home=tmp_path)
+        result = subprocess.run(["git", "status"], cwd=source, env=environment, capture_output=True, check=False)
+        assert result.returncode != 0
+        assert not marker.exists()
