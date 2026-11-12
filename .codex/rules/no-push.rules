@@ -208,6 +208,37 @@ prefix_rule(
     not_match = ["git checkout develop"],
 )
 
+prefix_rule(
+    pattern = ["git", ["checkout", "switch"], ["-f", "--force", "-q", "--quiet", "--discard-changes", "--detach", "-m", "--merge", "--no-guess", "--ignore-other-worktrees"], "main"],
+    decision = "forbidden",
+    justification = "Agents never work on main, with or without a flag before it (AGENTS.md, Never do, rule 4).",
+    match = ["git switch -f main", "git checkout -q main"],
+    not_match = ["git switch -f develop"],
+)
+
+prefix_rule(
+    pattern = ["git", ["checkout", "switch"], ["-B", "-C", "--force-create"], ["develop", "main"]],
+    decision = "forbidden",
+    justification = "Resetting develop or main to another commit is a history rewrite (AGENTS.md, Never do, rule 3).",
+    match = ["git checkout -B develop HEAD~3", "git switch -C main x"],
+)
+
+prefix_rule(
+    pattern = ["git", ["checkout", "switch"], ["-B", "-C", "--force-create"]],
+    decision = "prompt",
+    justification = "-B, -C and --force-create reset an existing branch to another commit (AGENTS.md, Never do, rule 3).",
+    match = ["git switch -C feature/x HEAD~1"],
+    not_match = ["git switch -c feature/x"],
+)
+
+prefix_rule(
+    pattern = ["git", "worktree", "add"],
+    decision = "prompt",
+    justification = "A worktree on main would let later commands commit or merge there, and its path hides the branch from these rules (AGENTS.md, Never do, rule 4).",
+    match = ["git worktree add ../m main"],
+    not_match = ["git worktree list"],
+)
+
 GIT_OPTIONS_WITH_VALUE = ["-C", "-c", "--git-dir", "--work-tree", "--config-env", "--namespace", "--shallow-file", "--attr-source"]
 GIT_OPTIONS_WITHOUT_VALUE = ["-p", "--paginate", "-P", "--no-pager", "--bare", "--no-replace-objects", "--no-lazy-fetch", "--no-optional-locks", "--no-advice", "--literal-pathspecs", "--no-literal-pathspecs", "--glob-pathspecs", "--noglob-pathspecs", "--icase-pathspecs"]
 
@@ -220,7 +251,7 @@ prefix_rule(
 )
 
 prefix_rule(
-    pattern = ["git", GIT_OPTIONS_WITHOUT_VALUE, ["remote", "subtree", "config", "am", "pull", "commit", "merge", "flow", "rebase", "reset", "branch", "tag", "filter-branch", "filter-repo", "replace", "update-ref", "checkout", "switch"]],
+    pattern = ["git", GIT_OPTIONS_WITHOUT_VALUE, ["remote", "subtree", "config", "am", "pull", "commit", "merge", "flow", "rebase", "reset", "branch", "tag", "filter-branch", "filter-repo", "replace", "update-ref", "checkout", "switch", "worktree"]],
     decision = "prompt",
     justification = "An option before the git subcommand hides it from these rules (git -P commit -n, git -P remote set-url). Run it with nothing before the subcommand.",
     match = ["git -P commit -n -m x", "git --no-pager remote set-url origin x"],
