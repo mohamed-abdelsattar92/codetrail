@@ -155,7 +155,16 @@ def test_names_that_are_not_valid_utf8_are_unsafe() -> None:
     assert not safe_path("bad\udcff.md")
 
 
-@pytest.mark.parametrize("path", ["a\nb.md", "docs/\x1b[31mred.md", "tab\there.md", "del\x7f.md"])
+@pytest.mark.parametrize(
+    "path",
+    ["a\nb.md", "docs/\x1b[31mred.md", "tab\there.md", "del\x7f.md", "c1\x85.md", "line\u2028.md", "evil\u202egpj.md"],
+)
 def test_names_with_control_characters_are_unsafe(path: str) -> None:
-    # They reach prompts and the agents' export, where a newline or an escape can pose as structure.
+    # They reach prompts and the agents' export, where a newline, an escape or a bidi override can pose as structure.
     assert not safe_path(path)
+
+
+@pytest.mark.parametrize("path", ["docs/\u0645\u0644\u0641.md", "notes/\u0645\u06cc\u200c\u0634\u0648\u062f.md"])
+def test_names_in_other_scripts_stay_safe(path: str) -> None:
+    # A zero-width non-joiner is part of ordinary Persian spelling.
+    assert safe_path(path)

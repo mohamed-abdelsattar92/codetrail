@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import re
 import shutil
+import unicodedata
 from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass, field
 from pathlib import Path, PurePosixPath
@@ -61,10 +62,20 @@ def safe_path(path: str) -> bool:
         return False
     if any("\udc80" <= character <= "\udcff" for character in path):  # bytes that aren't UTF-8 (surrogateescape)
         return False
-    if any(character < " " or character == "\x7f" for character in path):  # a newline or escape posing as structure
+    if any(_poses_as_structure(character) for character in path):
         return False
     parts = path.split("/")
     return all(part and part not in (".", "..") and on_disk_key(part) != ".git" for part in parts)
+
+
+BIDI_CONTROLS = frozenset("\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069")
+
+
+def _poses_as_structure(character: str) -> bool:
+    """A control character (C0, DEL or C1), a line or paragraph separator, or a bidi embedding, override or isolate:
+    in a prompt or the agents' export it can start a line or reorder text. Zero-width joiners stay, since ordinary
+    Persian spelling and emoji use them."""
+    return unicodedata.category(character) in ("Cc", "Zl", "Zp") or character in BIDI_CONTROLS
 
 
 def allowed_reader(source: Path, files: Mapping[str, str], max_bytes: int) -> Callable[[str], bytes | None]:
