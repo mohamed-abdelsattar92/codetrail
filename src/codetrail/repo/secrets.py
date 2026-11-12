@@ -112,8 +112,15 @@ class SecretScanner:
         return findings
 
     def scan_text(self, text: str) -> list[Finding]:
-        """Every finding in the text, with an empty path and the line within the text."""
-        return self._run(["stdin"], text.encode("utf-8", "surrogateescape"))
+        """Every finding in the text, with an empty path and the line within the text.
+
+        The text goes after the batches' header line too, so one that starts like a binary file ("SQLite: …",
+        "MZ-123 …") is still scanned.
+        """
+        return [
+            Finding(path="", rule=str(item["RuleID"]), line=int(item["StartLine"]) - 1)
+            for item in self._report(["stdin"], BATCH_HEADER + text.encode("utf-8", "surrogateescape"))
+        ]
 
     def flagged_texts(self, texts: Sequence[str]) -> dict[int, str]:
         """The indexes of the texts holding a finding, each with its first finding's rule, from one gitleaks run."""

@@ -159,6 +159,19 @@ def test_scans_text(scanner: SecretScanner) -> None:
     assert [(finding.rule, finding.line) for finding in findings] == [("github-pat", 2)]
 
 
+@pytest.mark.parametrize(
+    "opening", ["SQLite: enable WAL", "MZ-123 fix the build", "%PDF export", "BZh9 notes", "{\\rtf1"]
+)
+def test_a_text_that_starts_like_a_binary_file_is_scanned(scanner: SecretScanner, opening: str) -> None:
+    text = f"{opening}\nTOKEN = '{fake_github_token()}'\n"
+    assert [(finding.rule, finding.line) for finding in scanner.scan_text(text)] == [("github-pat", 2)]
+
+
+def test_a_commit_message_that_starts_like_a_binary_file_hides_no_other_message(scanner: SecretScanner) -> None:
+    messages = ["SQLite: enable WAL", "Add the client", f"Configure it\n\nTOKEN = '{fake_github_token()}'"]
+    assert scanner.flagged_texts(messages) == {2: "github-pat"}
+
+
 def test_findings_never_carry_the_value(scanner: SecretScanner, tmp_path: Path) -> None:
     token = fake_github_token()
     (tmp_path / "settings.py").write_text(f'TOKEN = "{token}"\n')
