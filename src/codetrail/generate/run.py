@@ -203,12 +203,12 @@ async def _outline(context: GenerationContext, claude: Assistant, result: Genera
             raise CodetrailError(TEAM_BUDGET_SPENT)
         request = PlanRequest(context.target, facts_summary(store, context.manifest), "")
         draft, spent = await _plan(context, claude, result, request)
-        entries, problems = validate_outline(draft.pages, store, context.manifest)
+        entries, problems = validate_outline(draft.pages, store, context.manifest, context.scanner)
         context.progress({"step": "planned", "pages": len(entries), **spent})
         result.outline_problems += problems
         if not entries:
             raise CodetrailError("The assistant's outline had no page Codetrail could use: " + "; ".join(problems[:3]))
-        paths, problems = validate_paths(draft.paths, {entry.id for entry in entries})
+        paths, problems = validate_paths(draft.paths, {entry.id for entry in entries}, context.scanner)
         result.outline_problems += problems
     else:
         paths = outline_paths(stored, {entry.id for entry in entries})
@@ -218,7 +218,7 @@ async def _outline(context: GenerationContext, claude: Assistant, result: Genera
             current = json.dumps(outline_data(entries, paths), indent=1)
             request = PlanRequest(context.target, facts_summary(store, context.manifest), current, uncovered[:200])
             draft, spent = await _plan(context, claude, result, request)
-            added, problems = validate_outline(draft.pages, store, context.manifest, existing=entries)
+            added, problems = validate_outline(draft.pages, store, context.manifest, context.scanner, entries)
             context.progress({"step": "planned", "pages": len(added), **spent})
             result.outline_problems += problems
             entries = [*entries, *added]
@@ -232,7 +232,7 @@ async def _outline(context: GenerationContext, claude: Assistant, result: Genera
                 result.outline_problems.append(f"Guided paths couldn't be planned: {error}")
             else:
                 context.progress({"step": "planned", "pages": 0, **spent})
-                paths, problems = validate_paths(draft.paths, {entry.id for entry in entries})
+                paths, problems = validate_paths(draft.paths, {entry.id for entry in entries}, context.scanner)
                 result.outline_problems += problems
     if outline_data(entries, paths) != stored:
         guide.write_outline(outline_data(entries, paths))
@@ -400,8 +400,10 @@ async def _write_digest(
         draft = await claude.write_digest(request)
         _spend(context, result, "digest", draft)
         highlights = draft.highlights if context.max_highlights else []  # none asked for: any returned are dropped
-        if validate_page(draft.body, None, validation) or validate_highlights(
-            highlights, context.max_highlights, validation
+        if (
+            validate_page(draft.body, None, validation)
+            or validate_highlights(highlights, context.max_highlights, validation)
+            or validation.scanner.scan_text(draft.title)  # the title is shown too
         ):
             raise AssistantError("the digest failed validation")
         meta["title"], body = draft.title, draft.body

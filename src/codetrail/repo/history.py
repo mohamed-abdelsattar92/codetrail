@@ -117,7 +117,7 @@ def read_tags(mirror: Path, end: str, scanner: SecretScanner) -> list[Tag]:
             date = date or commit_date  # a tag made before git recorded taggers has no date of its own
             message = f"{subject}\n\n{body.strip()}" if body.strip() else subject
             tags.append(Tag(name, peeled, int(date), message.strip()))
-    flagged = _flagged_indexes([f"{tag.name}\n{tag.message}" for tag in tags], scanner)
+    flagged = scanner.flagged_texts([f"{tag.name}\n{tag.message}" for tag in tags])
     return [Tag(WITHHELD_TAG, tag.commit, tag.date, "") if index in flagged else tag for index, tag in enumerate(tags)]
 
 
@@ -215,7 +215,7 @@ def diff_between(
         ).decode("utf-8", "replace")
         for _status, path in changes
     ]
-    flagged = _flagged_indexes(patches, scanner)
+    flagged = scanner.flagged_texts(patches)
     return [
         FileDiff(path, status, None if index in flagged else patch)
         for index, ((status, path), patch) in enumerate(zip(changes, patches, strict=True))
@@ -223,27 +223,11 @@ def diff_between(
 
 
 def _withhold_flagged_messages(commits: list[Commit], scanner: SecretScanner) -> list[Commit]:
-    flagged = _flagged_indexes([f"{commit.subject}\n{commit.body}" for commit in commits], scanner)
+    flagged = scanner.flagged_texts([f"{commit.subject}\n{commit.body}" for commit in commits])
     return [
         Commit(c.sha, c.author, c.date, WITHHELD_MESSAGE, "", c.files, c.is_merge) if index in flagged else c
         for index, c in enumerate(commits)
     ]
-
-
-def _flagged_indexes(texts: Sequence[str], scanner: SecretScanner) -> set[int]:
-    """Scans all texts in one gitleaks run and returns the indexes of those holding a finding."""
-    if not texts:
-        return set()
-    first_lines, line = [], 1
-    for text in texts:
-        first_lines.append(line)
-        line += text.count("\n") + 1
-    combined = "\n".join(texts)
-    flagged = set()
-    for finding in scanner.scan_text(combined):
-        index = max(i for i, first in enumerate(first_lines) if first <= finding.line)
-        flagged.add(index)
-    return flagged
 
 
 def is_ancestor(mirror: Path, commit: str, end: str) -> bool:

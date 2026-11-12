@@ -22,7 +22,7 @@ from codetrail.errors import CodetrailError
 from codetrail.generate.run import SharedBudget
 from codetrail.guide import GuideRepository, Page
 from codetrail.update import run_update
-from tests.fixtures.repos import Commit, add_commit, make_repository
+from tests.fixtures.repos import Commit, add_commit, fake_github_token, make_repository
 
 ADR = "# 0001. Use FastAPI\n\n- Status: accepted\n\n## Decision\nWe use FastAPI for the API.\n"
 FILES: Commit = {
@@ -400,6 +400,30 @@ def test_digest_without_highlights_drops_returned_ones(paths: Paths, tmp_path: P
     (paths.config_dir / "config.toml").write_text("[team]\nhighlights_per_digest = 0\n")
     page = update_with_digest(paths, tmp_path, DigestDraft("Routes", "Routes added.", highlights=["One."]))
     assert page is not None and page.title == "Routes" and page.meta["highlights"] == []  # the digest itself stays
+
+
+def guide_text(paths: Paths) -> str:
+    folder = paths.target_data("t") / "guide"
+    return "\n".join(file.read_text() for file in folder.rglob("*") if file.is_file() and ".git" not in file.parts)
+
+
+def test_a_secret_in_a_planned_title_or_goal_never_reaches_the_guide(paths: Paths) -> None:
+    token = fake_github_token(43)
+    pages = [{**PLAN.pages[0], "title": f"The API, key {token}"}, PLAN.pages[1]]
+    plan = PlanDraft(pages, paths=[{"id": "paths/start-here", "title": "Start here", "goal": f"Use {token}.",
+                                    "steps": ["concepts/fastapi"]}])  # fmt: skip
+    generation = run_update(paths, "t", claude=FakeAssistant(plans=[plan], page_writer=good_page)).generation
+    assert generation is not None and generation.written == ["concepts/fastapi"]
+    assert token not in guide_text(paths)
+    flagged = [problem for problem in generation.outline_problems if "looks like a secret" in problem]
+    assert len(flagged) == 2 and token not in " ".join(generation.outline_problems)
+
+
+def test_a_digest_title_holding_a_secret_falls_back(paths: Paths, tmp_path: Path) -> None:
+    token = fake_github_token(44)
+    page = update_with_digest(paths, tmp_path, DigestDraft(f"Routes for {token}", "Routes added."))
+    assert page is not None and "commits since the last update" in page.title
+    assert token not in guide_text(paths)
 
 
 def test_digest_with_bad_highlights_falls_back(paths: Paths, tmp_path: Path) -> None:

@@ -15,6 +15,7 @@ import shutil
 import signal
 import subprocess
 import tempfile
+from collections.abc import Sequence
 from contextlib import suppress
 from dataclasses import dataclass
 from importlib.resources import as_file, files
@@ -60,6 +61,20 @@ class SecretScanner:
     def scan_text(self, text: str) -> list[Finding]:
         """Every finding in the text, with an empty path and the line within the text."""
         return self._run(["stdin"], text.encode("utf-8", "surrogateescape"))
+
+    def flagged_texts(self, texts: Sequence[str]) -> dict[int, str]:
+        """The indexes of the texts holding a finding, each with its first finding's rule, from one gitleaks run."""
+        if not texts:
+            return {}
+        first_lines, line = [], 1
+        for text in texts:
+            first_lines.append(line)
+            line += text.count("\n") + 1
+        flagged: dict[int, str] = {}
+        for finding in self.scan_text("\n".join(texts)):
+            index = max(i for i, first in enumerate(first_lines) if first <= finding.line)
+            flagged.setdefault(index, finding.rule)
+        return flagged
 
     def _run(self, arguments: list[str], input: bytes | None) -> list[Finding]:
         environment = {key: value for key, value in os.environ.items() if not key.startswith("GITLEAKS_")}
