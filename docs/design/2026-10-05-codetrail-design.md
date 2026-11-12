@@ -148,6 +148,8 @@ Three layers decide whether a tracked file exists for Codetrail:
    - `~/.config/codetrail/targets/<name>.ignore`, the founder's file.
 
    A `!` line can re-include something an earlier ignore line excluded, but never a built-in secret pattern.
+
+   A line of the target's file with more than three `*` in one segment of its path (not counting a `**` segment) fails the refresh, naming the line: pathspec's patterns backtrack, so six of them take minutes to match one long name, and a target could otherwise hang every update, the page's "behind" signal and a team's catch-up. Dropping the line instead would show files the target meant to hide. The founder's own file isn't limited.
 3. **Files gitleaks flags** (section 3.4).
 
 Patterns are matched with `pathspec`'s `GitIgnoreSpec` ([ADR 0001](../adr/0001-pathspec-for-exclusion-rules.md)). If the rules can't be loaded, the refresh fails.

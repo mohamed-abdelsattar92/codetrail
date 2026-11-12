@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from codetrail.config import Paths, check_containment, load_global, load_target
+from codetrail.errors import CodetrailError
 from codetrail.lock import target_in_use, target_lock
 from codetrail.repo.mirror import read_file_at
 from codetrail.repo.remote import fetch_target
@@ -11,11 +12,24 @@ from codetrail.repo.secrets import SecretScanner
 from codetrail.repo.source import SourceManifest, build_source
 
 TARGET_IGNORE_FILE = ".codetrailignore"
+# pathspec turns each `*` into a backtracking `[^/]*`: one long name takes 2 ms against three in a segment, 0.25 s
+# against four and minutes against six (pathspec 1.1.1). A property of the matcher, not a reader's choice.
+MAX_WILDCARDS_PER_SEGMENT = 3
 
 
 def ignore_lines(paths: Paths, name: str, target_file: bytes | None) -> list[str]:
-    """The target's own .codetrailignore (from the commit), then the founder's ignore file."""
+    """The target's own .codetrailignore (from the commit), then the founder's ignore file.
+
+    A target line with more `*` in one segment than the matcher handles quickly fails the refresh, naming the line:
+    dropping it would show files the target meant to hide."""
     lines = target_file.decode("utf-8", "replace").splitlines() if target_file else []
+    for number, line in enumerate(lines, start=1):
+        if any(segment != "**" and segment.count("*") > MAX_WILDCARDS_PER_SEGMENT for segment in line.split("/")):
+            raise CodetrailError(
+                f"The target's {TARGET_IGNORE_FILE}, line {number}, has more than {MAX_WILDCARDS_PER_SEGMENT} `*` "
+                f"in one part of its path; Codetrail matches at most {MAX_WILDCARDS_PER_SEGMENT} quickly. Ask for "
+                "the line to be simplified, for example by splitting it."
+            )
     founder_file = paths.ignore_file(name)
     if founder_file.exists():
         lines += founder_file.read_text(encoding="utf-8").splitlines()
