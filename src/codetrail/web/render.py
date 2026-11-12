@@ -1,9 +1,10 @@
 """Rendering a guide page (design sections 6.4 and 7.4).
 
-Markdown is rendered by markdown-it-py with raw HTML disabled and its link validation on (no `javascript:`,
-`vbscript:`, `file:` or `data:` links). Rationale blocks become labelled boxes, `[[fact]]` links point at the fact's
-view, and diagram placeholders are replaced by diagrams drawn from facts. Links to the page's own routes get its
-prefix (section 24.7).
+Markdown is rendered by markdown-it-py with raw HTML disabled, and links and images keep only `http`, `https` or no
+scheme (relative links and anchors): markdown-it's own check refuses only a few schemes, and a link such as `vscode:` or
+`smb:` hands its address to the operating system. Rationale blocks become labelled boxes, `[[fact]]` links point at the
+fact's view, and diagram placeholders are replaced by diagrams drawn from facts. Links to the page's own routes get
+its prefix (section 24.7).
 """
 
 from __future__ import annotations
@@ -11,7 +12,7 @@ from __future__ import annotations
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 from markdown_it import MarkdownIt
 from markdown_it.renderer import RendererHTML
@@ -32,6 +33,17 @@ from codetrail.web.links import site_path
 
 FACT_LINK = re.compile(r"\[\[([a-z_]+:[^\]\s]+)\]\]")
 MARKDOWN = MarkdownIt("commonmark", {"html": False, "linkify": False}).enable("table")
+LINK_SCHEMES = ("", "http", "https")
+
+
+def _allowed_link(url: str) -> bool:
+    try:
+        return urlsplit(url).scheme.lower() in LINK_SCHEMES
+    except ValueError:  # an address urllib can't split, such as an unclosed IPv6 bracket
+        return False
+
+
+MARKDOWN.validateLink = _allowed_link  # type: ignore[method-assign]
 
 
 def _aligned_cell(
