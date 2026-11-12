@@ -1,13 +1,14 @@
-# Codex rules for codetrail: coding agents never push (AGENTS.md, Never do, rule 1).
-# Codex loads project rules once the project is trusted. The strictest matching rule wins.
-# Codex treats compound shell commands (for example "cd x && git push") as one call that prefix
-# rules may not match, so the git pre-push hook (tools/git-hooks/pre-push) is the backstop.
-# Rules match literal tokens from the start of a command, so an option placed before the
-# subcommand ("git -C . push", "git -P -P push") would hide it; the rules at the end refuse
-# those or make Codex ask first, and Codex asks before every gh and glab command, whose
-# leading flags can't be listed ("gh --hostname x auth token"). A flag placed later ("git commit -m x
-# --no-verify") or an "=" form ("git --git-dir=.git push", "git --exec-path=x fetch") still
-# isn't matched: the rules in AGENTS.md hold regardless.
+# Codex rules for codetrail: the commands that break AGENTS.md's "Never do" rules (pushing,
+# credentials, history, releases, hooks). Codex loads project rules once the project is
+# trusted, and the strictest matching rule wins.
+# Rules match literal tokens from the start of a command. An option placed before the
+# subcommand ("git -C . push", "git -P -P push") would hide it, so the rules at the end refuse
+# those or make Codex ask first; Codex also asks before every git config, gh and glab
+# command, whose keys and leading flags can't be listed. Still unmatched: a flag placed later
+# ("git commit -m x --no-verify"), an "=" form ("git --git-dir=.git push"), an alias that
+# already exists, and compound commands ("cd x && git push"). The git pre-push hook
+# (tools/git-hooks/pre-push) refuses pushes from Codex sessions unless it is skipped, and the
+# rules in AGENTS.md hold regardless.
 # Check changes with: codex execpolicy check --rules <this file> <command>
 
 prefix_rule(
@@ -122,7 +123,6 @@ prefix_rule(
 
 GIT_CONFIG_HOOKS_KEYS = ["core.hooksPath", "core.hookspath", "core.HooksPath", "core.Hookspath", "CORE.HOOKSPATH"]
 GIT_CONFIG_OPTIONS_WITHOUT_VALUE = ["--local", "--worktree", "--global", "--system", "set", "--add", "--replace-all", "--append", "--all", "--path"]
-GIT_CONFIG_OPTIONS_WITH_VALUE = ["-f", "--file", "--blob", "--comment", "--type"]
 
 prefix_rule(
     pattern = ["git", "config", GIT_CONFIG_HOOKS_KEYS],
@@ -141,19 +141,71 @@ prefix_rule(
 )
 
 prefix_rule(
-    pattern = ["git", "config", GIT_CONFIG_OPTIONS_WITHOUT_VALUE, GIT_CONFIG_OPTIONS_WITHOUT_VALUE + GIT_CONFIG_OPTIONS_WITH_VALUE],
-    decision = "prompt",
-    justification = "A second option before the key would hide a core.hooksPath change from the rule above.",
-    match = ["git config set --local core.hooksPath x", "git config set --append core.hooksPath x", "git config --local -f x core.hooksPath y"],
-    not_match = ["git config --get user.name"],
+    pattern = ["git", "config", ["remote.origin.url", "remote.origin.pushurl", "credential.helper"]],
+    decision = "forbidden",
+    justification = "Agents never change git remotes or credential helpers in codetrail (AGENTS.md, Never do, rule 2).",
+    match = ["git config remote.origin.url x", "git config credential.helper store"],
 )
 
 prefix_rule(
-    pattern = ["git", "config", GIT_CONFIG_OPTIONS_WITH_VALUE],
+    pattern = ["git", "config", GIT_CONFIG_OPTIONS_WITHOUT_VALUE, ["remote.origin.url", "remote.origin.pushurl", "credential.helper"]],
+    decision = "forbidden",
+    justification = "Agents never change git remotes or credential helpers in codetrail (AGENTS.md, Never do, rule 2).",
+    match = ["git config --local remote.origin.pushurl x", "git config set credential.helper x"],
+)
+
+prefix_rule(
+    pattern = ["git", "config"],
     decision = "prompt",
-    justification = "An option with a value before the key would hide a core.hooksPath change from the rules above.",
-    match = ["git config -f .git/config core.hooksPath /dev/null", "git config --file x core.hooksPath y"],
-    not_match = ["git config -l"],
+    justification = "Any git config key can turn a rule here off (alias.p = push --no-verify, a hooks path, a remote's URL), and keys can't be listed, so Codex asks before every git config.",
+    match = ["git config alias.p 'push --no-verify'", "git config -f .git/config core.hooksPath x", "git config user.name"],
+    not_match = ["git status"],
+)
+
+prefix_rule(
+    pattern = ["git", ["filter-branch", "filter-repo", "replace", "update-ref", "rebase"]],
+    decision = "forbidden",
+    justification = "Agents never rewrite history or move refs by hand in codetrail (AGENTS.md, Never do, rule 3).",
+    match = ["git filter-branch --all", "git rebase develop", "git update-ref refs/heads/x y"],
+)
+
+prefix_rule(
+    pattern = ["git", "reset", ["--hard", "--merge", "--keep"]],
+    decision = "forbidden",
+    justification = "Agents never reset away commits in codetrail (AGENTS.md, Never do, rule 3).",
+    match = ["git reset --hard origin/develop"],
+    not_match = ["git reset x.py"],
+)
+
+prefix_rule(
+    pattern = ["git", "branch", ["-d", "-D", "--delete", "-f", "--force", "-m", "-M", "--move", "-c", "-C", "--copy"]],
+    decision = "forbidden",
+    justification = "Agents never delete, move or force branches in codetrail; git flow feature finish removes a finished branch (AGENTS.md, Never do, rule 3).",
+    match = ["git branch -D feature/x", "git branch -f develop HEAD"],
+    not_match = ["git branch --show-current"],
+)
+
+prefix_rule(
+    pattern = ["git", "tag", ["-d", "--delete", "-f", "--force", "-a", "--annotate", "-s", "--sign", "-m", "--message"]],
+    decision = "forbidden",
+    justification = "Agents never create, move or delete tags; the founder releases (AGENTS.md, Never do, rules 3 and 4).",
+    match = ["git tag -d v1.0.0", "git tag -a v1.0.0 -m x"],
+    not_match = ["git tag -l"],
+)
+
+prefix_rule(
+    pattern = ["git", "tag"],
+    decision = "prompt",
+    justification = "git tag <name> creates a tag (AGENTS.md, Never do, rule 4); use git tag -l to list them.",
+    match = ["git tag v1.0.0"],
+)
+
+prefix_rule(
+    pattern = ["git", ["checkout", "switch", "merge"], "main"],
+    decision = "forbidden",
+    justification = "Agents never work on or merge into main; the founder releases (AGENTS.md, Never do, rule 4).",
+    match = ["git checkout main", "git merge main"],
+    not_match = ["git checkout develop"],
 )
 
 GIT_OPTIONS_WITH_VALUE = ["-C", "-c", "--git-dir", "--work-tree", "--config-env", "--namespace", "--shallow-file", "--attr-source"]
@@ -168,7 +220,7 @@ prefix_rule(
 )
 
 prefix_rule(
-    pattern = ["git", GIT_OPTIONS_WITHOUT_VALUE, ["remote", "subtree", "config", "am", "pull", "commit", "merge", "flow"]],
+    pattern = ["git", GIT_OPTIONS_WITHOUT_VALUE, ["remote", "subtree", "config", "am", "pull", "commit", "merge", "flow", "rebase", "reset", "branch", "tag", "filter-branch", "filter-repo", "replace", "update-ref", "checkout", "switch"]],
     decision = "prompt",
     justification = "An option before the git subcommand hides it from these rules (git -P commit -n, git -P remote set-url). Run it with nothing before the subcommand.",
     match = ["git -P commit -n -m x", "git --no-pager remote set-url origin x"],
