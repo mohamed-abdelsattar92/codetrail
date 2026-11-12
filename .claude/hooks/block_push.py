@@ -23,8 +23,8 @@ GIT_OPTS_WITH_VALUE = {'-C', '-c', '--git-dir', '--work-tree', '--namespace', '-
 WRAPPERS = {'env', 'command', 'exec', 'sudo', 'nohup', 'time', 'nice', 'xcrun', 'caffeinate', 'timeout'}
 SHELLS = {'bash', 'sh', 'zsh', 'dash', 'fish', 'ksh'}
 GH_WRITE = {
-    'pr': {'create', 'merge', 'close', 'reopen', 'edit', 'comment', 'review', 'ready'},
-    'repo': {'sync', 'create', 'delete', 'edit', 'rename', 'archive', 'fork'},
+    'pr': {'create', 'new', 'merge', 'close', 'reopen', 'edit', 'comment', 'review', 'ready'},  # new: create's alias
+    'repo': {'sync', 'create', 'new', 'delete', 'edit', 'rename', 'archive', 'fork'},
     'release': {'create', 'delete', 'edit', 'upload'},
     'auth': {'token', 'git-credential', 'setup-git', 'login', 'logout', 'refresh'},
     'workflow': {'run', 'enable', 'disable'},
@@ -204,11 +204,15 @@ def current_branch():
     return result.stdout.strip() or None
 
 
+def skips_verify(args):
+    """--no-verify, or a prefix of it: git reads a long option from any unambiguous prefix (--no-veri)."""
+    return any(len(a.split('=', 1)[0]) >= len('--no-ver') and '--no-verify'.startswith(a.split('=', 1)[0]) for a in args)
+
 def check_flow(args):
     words = [a for a in args if not a.startswith('-')]
     flags = {a.split('=', 1)[0] for a in args if a.startswith('-')}
     if 'publish' in words: return 'git flow publish'
-    if '--no-verify' in flags: return f'{HOOK_SKIP}: git flow with --no-verify'
+    if skips_verify(flags): return f'{HOOK_SKIP}: git flow with --no-verify'
     bad = flags & FLOW_BAD_FLAGS
     if bad: return f'git flow with {sorted(bad)[0]}'
     if 'delete' in words: return 'git flow delete (finish removes a finished branch)'
@@ -235,7 +239,7 @@ def check_git(args):
         i += 2 if (opt in GIT_OPTS_WITH_VALUE and '=' not in args[i]) else 1
     if i >= len(args): return None
     sub, rest = args[i], args[i + 1:]
-    if '--no-verify' in rest: return f'{HOOK_SKIP}: git {sub} --no-verify'
+    if skips_verify(rest): return f'{HOOK_SKIP}: git {sub} --no-verify'
     if any(a.startswith('--output') for a in rest): return f'{REF_MOVE}: git {sub} --output (git writing a file)'
     if sub == 'checkout-index': return f'{REF_MOVE}: git checkout-index (git writing files)'
     if sub == 'config' and any(a in CONFIG_SECTION_WORDS for a in rest): return 'git config renaming or removing a section'
@@ -270,7 +274,7 @@ def check_git(args):
     if sub == 'fetch' and any('refs/remotes' in t or t == '.' for t in rest): return f'{REF_MOVE}: git fetch into refs/remotes'
     if sub == 'flow': return check_flow(rest)
     if sub in VERIFYING_COMMANDS:
-        if '--no-verify' in rest: return f'{HOOK_SKIP}: git {sub} --no-verify'
+        if skips_verify(rest): return f'{HOOK_SKIP}: git {sub} --no-verify'
         if sub == 'commit':
             prev = ''
             for t in rest:
