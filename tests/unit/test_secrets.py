@@ -67,6 +67,15 @@ def test_allowlisted_files_keep_their_own_line_numbers(scanner: SecretScanner, t
     assert findings == [("node_modules/two.js", 2), ("yarn.lock", 1)]
 
 
+def test_a_match_that_spans_two_skipped_files_flags_both(scanner: SecretScanner, tmp_path: Path) -> None:
+    # Skipped files are scanned as one text, so a multi-line rule can match across the end of one and into the next.
+    body = "MIIEowIBAAKCAQEAu1SU1LfVLPHCozMxH2Mo4lgOEePzNm0tRgeLezV6ffAt0gun\n"
+    (tmp_path / "node_modules").mkdir()
+    (tmp_path / "node_modules" / "a.js").write_text("-----BEGIN " + "RSA PRIVATE KEY-----\n" + body)
+    (tmp_path / "node_modules" / "b.js").write_text(body + "-----END RSA PRIVATE " + "KEY-----\n")
+    assert {finding.path for finding in scanner.scan_directory(tmp_path)} == {"node_modules/a.js", "node_modules/b.js"}
+
+
 def test_a_target_cannot_switch_the_scan_off(scanner: SecretScanner, tmp_path: Path) -> None:
     token = fake_github_token()
     (tmp_path / "settings.py").write_text(f'TOKEN = "{token}"  # gitleaks:allow\n')

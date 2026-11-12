@@ -23,6 +23,7 @@ from contextlib import suppress
 from dataclasses import dataclass
 from importlib.resources import as_file, files
 from pathlib import Path
+from typing import Any
 
 from codetrail.config import ToolsSettings
 from codetrail.errors import CodetrailError
@@ -120,28 +121,41 @@ class SecretScanner:
         return findings
 
     def _scan_batch(self, batch: list[tuple[str, bytes]]) -> list[Finding]:
-        """Scans the files as one text, each starting on a new line, and maps each finding back to its file's line."""
-        starts: list[tuple[int, str]] = []  # (the text's line where the file starts, the file)
+        """Scans the files as one text, each starting on a new line, and maps each finding back to its files' lines."""
+        spans: list[tuple[int, int, str]] = []  # (the text's first and last line of a file, the file)
         pieces: list[bytes] = []
         line = 1
         for path, content in batch:
-            if content and not content.endswith(b"\n"):
+            if not content:
+                continue  # an empty file holds nothing and takes no line
+            if not content.endswith(b"\n"):
                 content += b"\n"
-            starts.append((line, path))
+            lines = content.count(b"\n")
+            spans.append((line, line + lines - 1, path))
             pieces.append(content)
-            line += content.count(b"\n")
-        findings = self._run(["stdin"], b"".join(pieces))
-        mapped: list[Finding] = []
-        for finding in findings:
-            start, path = next((start, path) for start, path in reversed(starts) if start <= finding.line)
-            mapped.append(Finding(path=path, rule=finding.rule, line=finding.line - start + 1))
-        return mapped
+            line += lines
+        # A multi-line rule can match from one file into the next, so every file the match covers is flagged.
+        findings: list[Finding] = []
+        for item in self._report(["stdin"], b"".join(pieces)):
+            first = int(item["StartLine"])
+            last = max(first, int(item["EndLine"]))
+            for start, end, path in spans:
+                if start <= last and first <= end:
+                    findings.append(Finding(path=path, rule=str(item["RuleID"]), line=max(first, start) - start + 1))
+        return findings
 
     def scan_text(self, text: str) -> list[Finding]:
         """Every finding in the text, with an empty path and the line within the text."""
         return self._run(["stdin"], text.encode("utf-8", "surrogateescape"))
 
     def _run(self, arguments: list[str], input: bytes | None) -> list[Finding]:
+        return [
+            Finding(path=item["File"], rule=item["RuleID"], line=int(item["StartLine"]))
+            for item in self._report(arguments, input)
+        ]
+
+    def _report(self, arguments: list[str], input: bytes | None) -> list[dict[str, Any]]:
+        """gitleaks' report items for one run."""
         environment = {key: value for key, value in os.environ.items() if not key.startswith("GITLEAKS_")}
         executable = self._binary(environment)
         with as_file(files("codetrail.repo") / "gitleaks.toml") as config, tempfile.TemporaryDirectory() as folder:
@@ -163,8 +177,8 @@ class SecretScanner:
                     f"gitleaks failed (exit code {result.returncode}); the scan didn't complete. "
                     f"It said: {_explanation(result.stderr)}. {POINT_AT_ANOTHER}"
                 )
-            items = json.loads(report.read_text() or "[]")
-        return [Finding(path=item["File"], rule=item["RuleID"], line=int(item["StartLine"])) for item in items]
+            items: list[dict[str, Any]] = json.loads(report.read_text() or "[]")
+        return items
 
     def _binary(self, environment: dict[str, str]) -> str:
         """The gitleaks to run; for a mise shim, the one mise picks in the folder Codetrail was started from."""
