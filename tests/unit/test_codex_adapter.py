@@ -93,6 +93,11 @@ async def test_a_page_runs_codex_read_only_and_isolated(source: Path, tmp_path: 
         "notify=[]",
         "project_doc_max_bytes=0",
         'shell_environment_policy.inherit="none"',
+        # the commands Codex runs start from an empty environment, so they get git's guard against a bare repository
+        # committed at source/'s root here (section 15.5)
+        'shell_environment_policy.set.GIT_CONFIG_COUNT="1"',
+        'shell_environment_policy.set.GIT_CONFIG_KEY_0="safe.bareRepository"',
+        'shell_environment_policy.set.GIT_CONFIG_VALUE_0="explicit"',
     ]
     assert record["schema"]["required"] == ["body", "checks", "brief"]
     assert f"{FULLWIDTH_AT}app/main.py" in record["stdin"]

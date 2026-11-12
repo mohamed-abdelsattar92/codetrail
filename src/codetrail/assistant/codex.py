@@ -40,7 +40,7 @@ from codetrail.assistant import (
     call_failed,
     runner,
 )
-from codetrail.assistant.environment import child_environment, resolve_program
+from codetrail.assistant.environment import GIT_GUARD, child_environment, resolve_program
 from codetrail.assistant.prompts import (
     ANSWER_RULES,
     DIGEST_SCHEMA,
@@ -60,7 +60,14 @@ from codetrail.config import CodexSettings, GenerationSettings
 
 PROVIDER: Final = "codex"
 # Switch off what the reader's Codex configuration and the target's instructions could add (design section 15.5).
-ISOLATION = ("mcp_servers={}", "notify=[]", "project_doc_max_bytes=0", 'shell_environment_policy.inherit="none"')
+# The commands Codex runs start from an empty environment, so they get git's guard against a bare repository too.
+ISOLATION = (
+    "mcp_servers={}",
+    "notify=[]",
+    "project_doc_max_bytes=0",
+    'shell_environment_policy.inherit="none"',
+    *(f"shell_environment_policy.set.{name}={json.dumps(value)}" for name, value in GIT_GUARD.items()),
+)
 
 
 class _ProgramFailed(AssistantError):
