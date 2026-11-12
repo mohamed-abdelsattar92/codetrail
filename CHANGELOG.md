@@ -23,6 +23,7 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 - The PyPI page shows the README's screenshots, diagrams and logo, and its links open the files on GitHub, at the release's tag.
 
 ### Security
+- Dependencies with known vulnerabilities are updated: certifi 2026.10.23 (it dropped root certificates whose intermediate keys were compromised), opentelemetry-api 1.45.2 (unbounded `tracestate` parsing), and, in the commit-message tooling, fast-uri 3.1.9.
 - A target that commits a bare repository's files at its root (`HEAD`, `config`, `objects/`, `refs/`) can no longer make a provider's own `git status` run a command it planted: providers' git refuses implicit bare repositories.
 - Links and images in guide pages, digests, overviews and answers keep only `http`, `https` or relative addresses, so text a target plants can no longer make a link that opens another app (`vscode:`, `smb:`, `ssh:` and the like).
 - Every file is scanned for secrets before it reaches `source/`, including those gitleaks' defaults skip: lock files, `node_modules/` and other folders on its allowlist, images, paths holding `gitleaks.toml`, and files that start like a binary one.
