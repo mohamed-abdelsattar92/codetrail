@@ -40,9 +40,9 @@ TOKEN_PRINTERS = (('az', 'account', 'get-access-token'), ('glab', 'config', 'get
 def prints_token(toks):
     prog = os.path.basename(toks[0])
     words = [t for t in toks[1:] if not t.startswith('-')]
-    for printer in TOKEN_PRINTERS:  # anywhere in the words: a global option's value can come first
-        size = len(printer) - 1
-        if printer[0] == prog and any(tuple(words[i:i + size]) == printer[1:] for i in range(len(words))):
+    for printer in TOKEN_PRINTERS:  # in order, with anything between: an option's value can come before or among them
+        remaining = iter(words)
+        if printer[0] == prog and all(word in remaining for word in printer[1:]):
             return f'a token ({" ".join(printer)})'
     if prog in ('gh', 'glab') and words[:2] == ['auth', 'status']:
         flags = [t.split('=', 1)[0] for t in toks[1:] if t.startswith('-')]

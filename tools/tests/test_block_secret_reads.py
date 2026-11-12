@@ -48,6 +48,8 @@ BLOCKED = [
     "gh auth status -ht github.com",
     "glab config get token",
     "glab config get token --host gitlab.example.com",
+    "glab config get -h gitlab.example.com token",
+    "az account --subscription example get-access-token",
     "cat ~/.config/gcloud/application_default_credentials.json",
     "cat ~/Library/Preferences/.wrangler/config/default.toml",
     "cat ~/.netrc",
