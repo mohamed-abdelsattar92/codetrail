@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import tempfile
@@ -85,9 +86,11 @@ def _models_text(models: TeamModels) -> str:
 
 
 def _catch_up_text(catch_up: CatchUpSettings) -> str:
+    """Every field, so a setting added later can't be dropped on a save and quietly go back to its default."""
     if catch_up == CatchUpSettings():
         return ""
-    return f"\n[catch_up]\nmax_budget_usd = {catch_up.max_budget_usd!r}\nconcurrency = {catch_up.concurrency}\n"
+    lines = "".join(f"{key} = {json.dumps(value)}\n" for key, value in catch_up.model_dump().items())  # numbers only
+    return f"\n[catch_up]\n{lines}"
 
 
 def existing_target_names(paths: Paths) -> list[str]:

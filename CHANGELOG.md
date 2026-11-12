@@ -27,6 +27,7 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 - Links and images in guide pages, digests, overviews and answers keep only `http`, `https` or relative addresses, so text a target plants can no longer make a link that opens another app (`vscode:`, `smb:`, `ssh:` and the like).
 - Files that gitleaks' default configuration skips (lock files, `node_modules/`, images, paths holding `gitleaks.toml` and others) are scanned for secrets too before they reach `source/`.
 - A target's `.codetrailignore` line with more than three `*` in one part of its path now fails the update with the line's number, instead of letting the line hang updates, the page's "behind" count and a team's catch-up.
+- Saving on a team's Add repositories screen keeps every `[catch_up]` setting; it used to drop `max_budget_usd_per_call`, which went back to $1.00.
 
 ## [1.4.1] - 2026-10-27
 
