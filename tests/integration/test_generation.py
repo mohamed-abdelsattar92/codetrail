@@ -5,7 +5,16 @@ from pathlib import Path
 
 import pytest
 
-from codetrail.assistant import AssistantError, DigestDraft, PageDraft, PageRequest, PlanDraft, PlanRequest, Usage
+from codetrail.assistant import (
+    AssistantError,
+    DigestDraft,
+    PageDraft,
+    PageRequest,
+    PaidCallFailed,
+    PlanDraft,
+    PlanRequest,
+    Usage,
+)
 from codetrail.assistant.fake import FakeAssistant
 from codetrail.config import Paths, write_target
 from codetrail.database import connect
@@ -13,7 +22,7 @@ from codetrail.errors import CodetrailError
 from codetrail.generate.run import SharedBudget
 from codetrail.guide import GuideRepository, Page
 from codetrail.update import run_update
-from tests.fixtures.repos import Commit, add_commit, make_repository
+from tests.fixtures.repos import Commit, add_commit, fake_github_token, make_repository
 
 ADR = "# 0001. Use FastAPI\n\n- Status: accepted\n\n## Decision\nWe use FastAPI for the API.\n"
 FILES: Commit = {
@@ -253,6 +262,61 @@ def test_each_calls_usage_is_recorded_and_counted(paths: Paths) -> None:
     assert [tuple(row) for row in rows] == [("write", "claude_code", 0.25), ("write", "claude_code", 0.25)]
 
 
+PAID = Usage("claude_code", "claude-sonnet-5-5", 1000, 0, 100, 0.9)
+
+
+def call_rows(paths: Paths) -> list[tuple[str, float]]:
+    connection = connect(paths.target_data("t") / "codetrail.db")
+    try:
+        return [tuple(row) for row in connection.execute("SELECT kind, cost_usd FROM assistant_calls")]
+    finally:
+        connection.close()
+
+
+def test_a_failed_page_still_counts_what_it_cost(paths: Paths) -> None:
+    one_at_a_time(paths, budget_usd=0.5)
+    failed = PaidCallFailed("Claude Code didn't finish the task (error_max_budget_usd).", PAID)
+    claude = FakeAssistant(plans=[PLAN], pages={"areas/api": [failed]}, page_writer=good_page)
+    generation = run_update(paths, "t", claude=claude).generation
+    assert generation is not None
+    assert generation.cost_usd == 0.9 and generation.tokens == 1100
+    assert generation.failed == [("areas/api", str(failed))]
+    assert generation.left_for_later == ["concepts/fastapi"]  # the failed call spent the budget: no second page
+    assert ("write", 0.9) in call_rows(paths)
+
+
+def test_a_failed_first_plan_still_counts_what_it_cost(paths: Paths) -> None:
+    shared = SharedBudget(5.0)
+    claude = FakeAssistant(plans=[PaidCallFailed("Claude Code didn't finish the task (error_max_turns).", PAID)])
+    with pytest.raises(PaidCallFailed):
+        run_update(paths, "t", claude=claude, shared_budget=shared)
+    assert shared.spent_usd == 0.9
+    assert call_rows(paths) == [("plan", 0.9)]
+
+
+def test_a_failed_paths_plan_still_counts_what_it_cost(paths: Paths) -> None:
+    run_update(paths, "t", claude=FakeAssistant(plans=[PLAN], page_writer=good_page))
+    outline = guide(paths).read_outline()
+    assert outline is not None
+    guide(paths).write_outline({"pages": outline["pages"]})  # as written before paths existed
+    guide(paths).commit("An outline from before paths")
+    claude = FakeAssistant(plans=[PaidCallFailed("Claude Code didn't finish the task (error_max_turns).", PAID)])
+    generation = run_update(paths, "t", claude=claude).generation
+    assert generation is not None and generation.cost_usd == 0.9
+    assert ("plan", 0.9) in call_rows(paths)
+
+
+def test_a_failed_digest_still_counts_what_it_cost(paths: Paths, tmp_path: Path) -> None:
+    run_update(paths, "t", claude=FakeAssistant(plans=[PLAN], page_writer=good_page))
+    add_commit(tmp_path / "target", {"services/api/app/routes.py": "x = 1\n"}, "feat(api): routes\n\nWhy: need")
+    failed = PaidCallFailed("Claude Code didn't finish the task (error_max_turns).", PAID)
+    generation = run_update(paths, "t", claude=FakeAssistant(page_writer=good_page, digests=[failed])).generation
+    assert generation is not None and generation.digest is not None
+    assert ("digest", 0.9) in call_rows(paths)
+    digest = guide(paths).read_page(generation.digest)
+    assert digest is not None and "commits since the last update" in digest.title
+
+
 def one_at_a_time(paths: Paths, budget_usd: float = 10.0) -> None:
     file = paths.target_file("t")
     file.write_text(file.read_text() + f"[generation]\nconcurrency = 1\nmax_budget_usd_per_update = {budget_usd}\n")
@@ -336,6 +400,30 @@ def test_digest_without_highlights_drops_returned_ones(paths: Paths, tmp_path: P
     (paths.config_dir / "config.toml").write_text("[team]\nhighlights_per_digest = 0\n")
     page = update_with_digest(paths, tmp_path, DigestDraft("Routes", "Routes added.", highlights=["One."]))
     assert page is not None and page.title == "Routes" and page.meta["highlights"] == []  # the digest itself stays
+
+
+def guide_text(paths: Paths) -> str:
+    folder = paths.target_data("t") / "guide"
+    return "\n".join(file.read_text() for file in folder.rglob("*") if file.is_file() and ".git" not in file.parts)
+
+
+def test_a_secret_in_a_planned_title_or_goal_never_reaches_the_guide(paths: Paths) -> None:
+    token = fake_github_token(43)
+    pages = [{**PLAN.pages[0], "title": f"The API, key {token}"}, PLAN.pages[1]]
+    plan = PlanDraft(pages, paths=[{"id": "paths/start-here", "title": "Start here", "goal": f"Use {token}.",
+                                    "steps": ["concepts/fastapi"]}])  # fmt: skip
+    generation = run_update(paths, "t", claude=FakeAssistant(plans=[plan], page_writer=good_page)).generation
+    assert generation is not None and generation.written == ["concepts/fastapi"]
+    assert token not in guide_text(paths)
+    flagged = [problem for problem in generation.outline_problems if "looks like a secret" in problem]
+    assert len(flagged) == 2 and token not in " ".join(generation.outline_problems)
+
+
+def test_a_digest_title_holding_a_secret_falls_back(paths: Paths, tmp_path: Path) -> None:
+    token = fake_github_token(44)
+    page = update_with_digest(paths, tmp_path, DigestDraft(f"Routes for {token}", "Routes added."))
+    assert page is not None and "commits since the last update" in page.title
+    assert token not in guide_text(paths)
 
 
 def test_digest_with_bad_highlights_falls_back(paths: Paths, tmp_path: Path) -> None:

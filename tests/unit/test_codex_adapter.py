@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-from codetrail.assistant import AssistantError, OverviewRequest, PageRequest, QuestionRequest
+from codetrail.assistant import AssistantError, OverviewRequest, PageRequest, PaidCallFailed, QuestionRequest
 from codetrail.assistant.codex import CodexAssistant
 from codetrail.assistant.prompts import FULLWIDTH_AT
 from codetrail.config import CodexSettings, GenerationSettings
@@ -93,6 +93,11 @@ async def test_a_page_runs_codex_read_only_and_isolated(source: Path, tmp_path: 
         "notify=[]",
         "project_doc_max_bytes=0",
         'shell_environment_policy.inherit="none"',
+        # the commands Codex runs start from an empty environment, so they get git's guard against a bare repository
+        # committed at source/'s root here (section 15.5)
+        'shell_environment_policy.set.GIT_CONFIG_COUNT="1"',
+        'shell_environment_policy.set.GIT_CONFIG_KEY_0="safe.bareRepository"',
+        'shell_environment_policy.set.GIT_CONFIG_VALUE_0="explicit"',
     ]
     assert record["schema"]["required"] == ["body", "checks", "brief"]
     assert f"{FULLWIDTH_AT}app/main.py" in record["stdin"]
@@ -132,6 +137,25 @@ async def test_passing_the_token_limit_stops_the_call(source: Path, tmp_path: Pa
     program = make_program(tmp_path / "bin", "fake-codex", [turn(5000, 0, 100), message(json.dumps(PAGE)), turn()])
     with pytest.raises(AssistantError, match="token limit"):
         await adapter(source, program, max_tokens=1000).write_page(page_request())
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("events", "exit_code"),
+    [
+        ([turn(5000, 0, 100), message(json.dumps(PAGE))], 0),  # past the token limit
+        ([turn(), {"type": "turn.failed", "error": {"message": "usage limit reached"}}], 1),
+        ([message("not json"), turn()], 0),
+    ],
+)
+async def test_a_failed_call_carries_the_tokens_it_counted(
+    source: Path, tmp_path: Path, events: list[Any], exit_code: int
+) -> None:
+    program = make_program(tmp_path / "bin", "fake-codex", events, exit_code=exit_code)
+    with pytest.raises(PaidCallFailed) as raised:
+        await adapter(source, program, max_tokens=4000).write_page(page_request())
+    usage = raised.value.usage
+    assert usage.provider == "codex" and usage.input_tokens + usage.output_tokens > 0
 
 
 @pytest.mark.anyio

@@ -51,16 +51,29 @@ def test_save_selection_keeps_models_and_catch_up(paths: Paths) -> None:
     file = paths.team_file("acme")
     file.write_text(
         file.read_text(encoding="utf-8") + '\n[models]\noverview = "local:qwen3"\n\n'
-        "[catch_up]\nmax_budget_usd = 5.5\nconcurrency = 3\n",
+        "[catch_up]\nmax_budget_usd = 5.5\nconcurrency = 3\nmax_budget_usd_per_call = 0.1\n",
         encoding="utf-8",
     )
+    before = load_team(paths, "acme")
 
     save_selection(paths, "acme", TeamSource(service="gitlab", source="example-group"))
 
     team = load_team(paths, "acme")
     assert len(team.sources) == 2
-    assert team.models.overview == "local:qwen3"
-    assert (team.catch_up.max_budget_usd, team.catch_up.concurrency) == (5.5, 3)
+    assert team.models == before.models
+    assert team.catch_up == before.catch_up  # every field: a dropped one would quietly go back to its default
+
+
+def test_save_selection_keeps_a_lone_catch_up_setting(paths: Paths) -> None:
+    team_following(paths)
+    file = paths.team_file("acme")
+    file.write_text(
+        file.read_text(encoding="utf-8") + "\n[catch_up]\nmax_budget_usd_per_call = 0.2\n", encoding="utf-8"
+    )
+
+    save_selection(paths, "acme", TeamSource(service="gitlab", source="example-group"))
+
+    assert load_team(paths, "acme").catch_up.max_budget_usd_per_call == 0.2
 
 
 def test_save_selection_writes_no_default_tables(paths: Paths) -> None:

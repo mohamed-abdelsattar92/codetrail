@@ -38,6 +38,29 @@ def test_hostile_markdown_renders_inert(store: FactStore, hostile: str) -> None:
     assert 'href="javascript:' not in html and 'href="data:' not in html and 'href="vbscript:' not in html
 
 
+@pytest.mark.parametrize(
+    "link",
+    [
+        "[a](vscode://file/x)",
+        "[b](smb://attacker.example/share)",
+        "<ssh://attacker.example>",
+        "[c](mailto:x@example.com)",
+        "[d](x-apple.systempreferences:com.apple.preference)",
+        "![i](data:image/png;base64,AA==)",
+        "[e](VSCODE://file/x)",
+    ],
+)
+def test_only_http_and_relative_links_are_kept(store: FactStore, link: str) -> None:
+    # A link handed to an operating system's protocol handler can open an app or mount a share (design 15.3).
+    html = html_of(link, store)
+    assert "href=" not in html and "src=" not in html
+
+
+def test_relative_anchor_and_https_links_are_kept(store: FactStore) -> None:
+    html = html_of("[a](https://example.com/x) [b](/facts/x) [c](#top) [d](other) ![i](/static/x.png)", store)
+    assert html.count("href=") == 4 and 'src="/static/x.png"' in html
+
+
 def test_ordinary_markdown_and_links(store: FactStore) -> None:
     html = html_of(
         "# Title\n\nSee [the docs](https://example.com/x) and [[module:app/a.py]].\n\n"

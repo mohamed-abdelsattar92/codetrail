@@ -25,7 +25,7 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse
 from markupsafe import escape
 from pydantic import BaseModel, ConfigDict, Field
 
-from codetrail.assistant import AnswerChunk, Assistant, AssistantError, QuestionRequest, Usage
+from codetrail.assistant import AnswerChunk, Assistant, AssistantError, PaidCallFailed, QuestionRequest, Usage
 from codetrail.assistant.usage import UsageLog
 from codetrail.config import Paths, Price, ToolsSettings
 from codetrail.database import connect
@@ -165,6 +165,8 @@ def bridge_router(
                             {"type": "done", "answer_id": answer_id, "html": _html(answer.body), "usage": used}
                         )
             except AssistantError as error:
+                if isinstance(error, PaidCallFailed):  # what the failed call used is recorded all the same
+                    _record(error)
                 yield _event({"type": "error", "message": str(error)})
             except Exception as error:  # details stay out of the page
                 failed = _("The answer failed (%(error)s).") % {"error": type(error).__name__}
@@ -172,7 +174,7 @@ def bridge_router(
         finally:
             state.release(token)
 
-    def _record(chunk: AnswerChunk) -> float:
+    def _record(chunk: AnswerChunk | PaidCallFailed) -> float:
         connection = connect(data / "codetrail.db")
         try:
             return UsageLog(connection, prices).record("answer", chunk.usage) or chunk.cost_usd

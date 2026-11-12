@@ -3,7 +3,9 @@
 With `subscription`, no key variable is passed, so the program can only use its own saved sign-in. With `api_key`, the
 provider's key variables pass by name; Codetrail never reads their values. Codex also gets an empty `HOME` and a plain
 shell, so no profile runs and `~` leads nowhere (section 15.5). Relative `PATH` entries are dropped, and programs are
-resolved to absolute paths before they start.
+resolved to absolute paths before they start. Git refuses implicit bare repositories: a target that commits `HEAD`,
+`config`, `objects/` and `refs/` at its root makes `source/` look like one, and a program's own `git status` there would
+run the `core.fsmonitor` command it plants.
 """
 
 from __future__ import annotations
@@ -26,6 +28,7 @@ KEY_NAMES: dict[Provider, tuple[str, ...]] = {
     "claude_code": ("ANTHROPIC_API_KEY",),
     "codex": ("OPENAI_API_KEY", "CODEX_API_KEY"),
 }
+GIT_GUARD = {"GIT_CONFIG_COUNT": "1", "GIT_CONFIG_KEY_0": "safe.bareRepository", "GIT_CONFIG_VALUE_0": "explicit"}
 
 
 def safe_path(value: str) -> str:
@@ -40,6 +43,7 @@ def child_environment(
     environment = {name: environ[name] for name in names if name in environ}
     environment |= {name: value for name, value in environ.items() if name.startswith("LC_")}
     environment["PATH"] = safe_path(environ.get("PATH", ""))
+    environment |= GIT_GUARD
     if provider == "codex":
         if empty_home is None:
             raise AssistantError("Codex needs an empty folder for its HOME.")

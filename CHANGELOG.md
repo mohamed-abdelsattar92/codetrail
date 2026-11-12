@@ -22,6 +22,15 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 - Codex signed in with ChatGPT is correctly reported as ready when `codex login status` writes its status to standard error.
 - The PyPI page shows the README's screenshots, diagrams and logo, and its links open the files on GitHub, at the release's tag.
 
+### Security
+- A target that commits a bare repository's files at its root (`HEAD`, `config`, `objects/`, `refs/`) can no longer make a provider's own `git status` run a command it planted: providers' git refuses implicit bare repositories.
+- Links and images in guide pages, digests, overviews and answers keep only `http`, `https` or relative addresses, so text a target plants can no longer make a link that opens another app (`vscode:`, `smb:`, `ssh:` and the like).
+- Every file is scanned for secrets before it reaches `source/`, including those gitleaks' defaults skip: lock files, `node_modules/` and other folders on its allowlist, images, paths holding `gitleaks.toml`, and files that start like a binary one.
+- A target's `.codetrailignore` line with more wildcards than Codetrail can match quickly (more than two `**` parts and extra `*` within one part, together) now fails the update with the line's number, instead of letting the line hang updates, the page's "behind" count and a team's catch-up.
+- Saving on a team's Add repositories screen keeps every `[catch_up]` setting; it used to drop `max_budget_usd_per_call`, which went back to $1.00.
+- Page titles in the outline, guided paths' titles and goals, and digest titles are scanned for secrets before they reach the guide, like page bodies: a flagged entry or path is left out, and a flagged digest falls back to its list of commits. A guided path's title with a control character is left out, as a page's is.
+- A call to the assistant that fails after the provider counted it, such as Claude Code passing its turns or its budget, now counts against the update's and the team's budget and appears in the usage history, so a run of failed pages can no longer spend past the budget.
+
 ## [1.4.1] - 2026-10-27
 
 Release notes: [docs/releases/v1.4.1.md](docs/releases/v1.4.1.md).

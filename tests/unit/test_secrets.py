@@ -31,6 +31,86 @@ def test_finds_a_token_in_a_file(scanner: SecretScanner, tmp_path: Path) -> None
     ]
 
 
+@pytest.mark.parametrize(
+    "path",
+    [
+        "yarn.lock",
+        "web/package-lock.json",
+        "node_modules/p/index.js",
+        "ci/gitleaks.toml",
+        "x/gitleaks.toml.py",
+        "env/lib/settings.py",
+        "docs/a.svg",
+        "vendor/bundle/x.rb",
+        "go.sum",
+        "lib/jquery-3.min.js",
+    ],
+)
+def test_files_on_gitleaks_own_path_allowlist_are_scanned_too(
+    scanner: SecretScanner, tmp_path: Path, path: str
+) -> None:
+    # gitleaks' default configuration skips these paths in `dir` mode; a target can commit a token in any of them.
+    (tmp_path / path).parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / path).write_text(f'first = 1\nsecond = 2\nTOKEN = "{fake_github_token()}"\n')
+    (tmp_path / "README.md").write_text("Nothing secret here.\n")
+    findings = scanner.scan_directory(tmp_path)
+    assert [(finding.path, finding.rule, finding.line) for finding in findings] == [(path, "github-pat", 3)]
+
+
+def test_allowlisted_files_keep_their_own_line_numbers(scanner: SecretScanner, tmp_path: Path) -> None:
+    (tmp_path / "deno.lock").write_text("no newline at the end")
+    (tmp_path / "node_modules").mkdir()
+    (tmp_path / "node_modules" / "one.js").write_text("x\n" * 5)
+    (tmp_path / "node_modules" / "two.js").write_text(f"y\nTOKEN = '{fake_github_token()}'\nz\n")
+    (tmp_path / "yarn.lock").write_text(f"TOKEN = '{fake_github_token()}'")
+    findings = sorted((finding.path, finding.line) for finding in scanner.scan_directory(tmp_path))
+    assert findings == [("node_modules/two.js", 2), ("yarn.lock", 1)]
+
+
+@pytest.mark.parametrize("path", ["scripts/.bin/deploy.sh", "go.mod/a.txt", "x.exe/notes.txt"])
+def test_files_under_a_folder_gitleaks_skips_are_scanned(scanner: SecretScanner, tmp_path: Path, path: str) -> None:
+    # gitleaks' `dir` mode skips a whole folder whose path matches its allowlist, though the files' own paths don't.
+    (tmp_path / path).parent.mkdir(parents=True)
+    (tmp_path / path).write_text(f'TOKEN = "{fake_github_token()}"\n')
+    assert [finding.path for finding in scanner.scan_directory(tmp_path)] == [path]
+
+
+def test_a_text_file_that_starts_like_a_binary_one_is_scanned(scanner: SecretScanner, tmp_path: Path) -> None:
+    # gitleaks skips a file whose first bytes carry a binary signature, whatever follows.
+    (tmp_path / "notes.txt").write_bytes(b"%PDF-1.4\n" + f'TOKEN = "{fake_github_token()}"\n'.encode())
+    assert [(finding.path, finding.line) for finding in scanner.scan_directory(tmp_path)] == [("notes.txt", 2)]
+
+
+@pytest.mark.parametrize(
+    "first",
+    [
+        b"%PDF-1.4\n%\xe2\xe3\xcf\xd3\n" + bytes(300),
+        b"wOF2\x00\x01\x00\x00" + bytes(300),
+        b"a" * 257 + b"ustar\x0000" + bytes(300),  # a tar header, as a .gem is
+        b"\x7fELF\x02\x01\x01" + bytes(250_000),  # longer than one of gitleaks' chunks
+    ],
+    ids=["pdf", "woff2", "tar", "long-elf"],
+)
+def test_a_binary_file_never_hides_the_files_scanned_after_it(
+    scanner: SecretScanner, tmp_path: Path, first: bytes
+) -> None:
+    (tmp_path / "a.bin").write_bytes(first)
+    (tmp_path / "node_modules").mkdir()
+    (tmp_path / "node_modules" / "b.js").write_text(f"x\nTOKEN = '{fake_github_token()}'\n")
+    (tmp_path / "package-lock.json").write_text(f'{{"resolved": "{fake_github_token(9)}"}}\n')
+    findings = sorted((finding.path, finding.line) for finding in scanner.scan_directory(tmp_path))
+    assert findings == [("node_modules/b.js", 2), ("package-lock.json", 1)]
+
+
+def test_a_match_that_spans_two_skipped_files_flags_both(scanner: SecretScanner, tmp_path: Path) -> None:
+    # Skipped files are scanned as one text, so a multi-line rule can match across the end of one and into the next.
+    body = "MIIEowIBAAKCAQEAu1SU1LfVLPHCozMxH2Mo4lgOEePzNm0tRgeLezV6ffAt0gun\n"
+    (tmp_path / "node_modules").mkdir()
+    (tmp_path / "node_modules" / "a.js").write_text("-----BEGIN " + "RSA PRIVATE KEY-----\n" + body)
+    (tmp_path / "node_modules" / "b.js").write_text(body + "-----END RSA PRIVATE " + "KEY-----\n")
+    assert {finding.path for finding in scanner.scan_directory(tmp_path)} == {"node_modules/a.js", "node_modules/b.js"}
+
+
 def test_a_target_cannot_switch_the_scan_off(scanner: SecretScanner, tmp_path: Path) -> None:
     token = fake_github_token()
     (tmp_path / "settings.py").write_text(f'TOKEN = "{token}"  # gitleaks:allow\n')

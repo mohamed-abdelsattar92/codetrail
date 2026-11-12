@@ -12,6 +12,10 @@
       "Bash(gh auth token:*)",
       "Bash(gh auth git-credential:*)",
       "Bash(gh auth setup-git:*)",
+      "Bash(gh pr new:*)",
+      "Bash(gh repo new:*)",
+      "Bash(az account get-access-token:*)",
+      "Bash(glab config get token:*)",
       "Read(./.env)",
       "Read(./.env.local)",
       "Read(./**/.env)",
@@ -47,6 +51,10 @@
       "Read(./**/*.tfvars.json)",
       "Read(./**/*.key)",
       "Read(~/.pypirc)",
+      "Read(~/.codex/auth.json)",
+      "Read(~/.azure/**)",
+      "Read(~/.config/glab-cli/**)",
+      "Read(~/Library/Application Support/glab-cli/**)",
       "Edit(./.git/**)",
       "Write(./.git/**)"
     ]

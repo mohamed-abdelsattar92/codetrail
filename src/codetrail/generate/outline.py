@@ -1,11 +1,12 @@
 """The outline: every page's id, kind, title and scope (design section 6.2).
 
 Claude proposes it; Codetrail keeps only entries it can check: a valid id for the kind, a scope that holds visible
-files, and fact ids that exist. The founder may edit `outline.yaml`; Claude only adds to it.
+files, fact ids that exist, and nothing gitleaks flags. The founder may edit `outline.yaml`; Claude only adds to it.
 """
 
 from __future__ import annotations
 
+import json
 import unicodedata
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import asdict, dataclass, field
@@ -14,12 +15,15 @@ from typing import Any
 from codetrail.facts import EntityKind
 from codetrail.facts.store import FactStore
 from codetrail.guide import PAGE_ID
+from codetrail.repo.secrets import SecretScanner
 from codetrail.repo.source import SourceManifest
 
 KIND_FOLDERS = {"area": "areas", "concept": "concepts"}
 
 
 CONTROL_CATEGORIES = ("Cc", "Cf", "Cs", "Zl", "Zp")  # characters a terminal acts on, or that hide text
+# Named by its rule only: the other problems quote the item, which reach the command line and the update panel.
+FLAGGED_ITEM = "{what} was left out: it contains something that looks like a secret ({rule})."
 
 
 @dataclass(frozen=True)
@@ -41,14 +45,22 @@ def in_scope(path: str, scope_paths: Iterable[str]) -> bool:
 
 
 def validate_outline(
-    raw: Sequence[Mapping[str, Any]], store: FactStore, manifest: SourceManifest, existing: Sequence[OutlineEntry] = ()
+    raw: Sequence[Mapping[str, Any]],
+    store: FactStore,
+    manifest: SourceManifest,
+    scanner: SecretScanner,
+    existing: Sequence[OutlineEntry] = (),
 ) -> tuple[list[OutlineEntry], list[str]]:
     """The entries that pass, and a problem for each one dropped or trimmed."""
     entries: list[OutlineEntry] = []
     problems: list[str] = []
     seen = {entry.id for entry in existing}
     kinds = {str(kind) for kind in EntityKind}
-    for item in raw:
+    flagged = scanner.flagged_texts([_scanned(item) for item in raw])
+    for index, item in enumerate(raw):
+        if index in flagged:
+            problems.append(FLAGGED_ITEM.format(what="An outline entry", rule=flagged[index]))
+            continue
         page_id = str(item.get("id", "")).strip().lower()
         kind = str(item.get("kind", ""))
         if (
@@ -72,7 +84,7 @@ def validate_outline(
             problems.append(f"{page_id}: dropped facts that don't exist: {sorted(set(facts) - set(known))}.")
         scope_kinds = [str(kind) for kind in item.get("scope_kinds", []) if str(kind) in kinds]
         title = str(item.get("title", page_id)).strip()
-        if any(unicodedata.category(character) in CONTROL_CATEGORIES for character in title):
+        if _has_control_character(title):
             problems.append(f"{page_id}: the title holds a control character.")  # a terminal would act on it
             continue
         entries.append(OutlineEntry(page_id, kind, title, scope, scope_kinds, known))
@@ -111,13 +123,18 @@ def outline_data(entries: Iterable[OutlineEntry], paths: Iterable[OutlinePath] =
 
 
 def validate_paths(
-    raw: Sequence[Mapping[str, Any]], page_ids: set[str], existing: Sequence[OutlinePath] = ()
+    raw: Sequence[Mapping[str, Any]], page_ids: set[str], scanner: SecretScanner, existing: Sequence[OutlinePath] = ()
 ) -> tuple[list[OutlinePath], list[str]]:
-    """Paths whose id is valid and that keep at least one step naming an existing page."""
+    """Paths whose id is valid, whose title holds no control character, that gitleaks doesn't flag, and that keep at
+    least one step naming an existing page."""
     paths: list[OutlinePath] = []
     problems: list[str] = []
     seen = {path.id for path in existing}
-    for item in raw:
+    flagged = scanner.flagged_texts([_scanned(item) for item in raw])
+    for index, item in enumerate(raw):
+        if index in flagged:
+            problems.append(FLAGGED_ITEM.format(what="A guided path", rule=flagged[index]))
+            continue
         path_id = str(item.get("id", "")).strip().lower()
         if not path_id.startswith("paths/") or not PAGE_ID.fullmatch(path_id) or path_id in seen:
             problems.append(f"{path_id!r}: a path id must be a new paths/<slug>.")
@@ -129,9 +146,24 @@ def validate_paths(
         if not kept:
             problems.append(f"{path_id}: no step names an existing page.")
             continue
-        paths.append(OutlinePath(path_id, str(item.get("title", path_id)), str(item.get("goal", "")), kept))
+        title = str(item.get("title", path_id))
+        if _has_control_character(title):
+            problems.append(f"{path_id}: the title holds a control character.")  # a terminal would act on it
+            continue
+        paths.append(OutlinePath(path_id, title, str(item.get("goal", "")), kept))
         seen.add(path_id)
     return paths, problems
+
+
+def _scanned(item: Mapping[str, Any]) -> str:
+    """What gitleaks scans of a planned item: all of it as JSON, since problems quote its fields, then its title and
+    goal as written, since those reach the guide."""
+    whole = json.dumps(item, ensure_ascii=False, default=str)
+    return "\n".join([whole, str(item.get("title", "")), str(item.get("goal", ""))])
+
+
+def _has_control_character(text: str) -> bool:
+    return any(unicodedata.category(character) in CONTROL_CATEGORIES for character in text)
 
 
 def outline_paths(data: Mapping[str, Any] | None, page_ids: set[str]) -> list[OutlinePath]:

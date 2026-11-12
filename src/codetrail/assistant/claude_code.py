@@ -38,6 +38,7 @@ from codetrail.assistant import (
     QuestionRequest,
     Usage,
     Verdict,
+    call_failed,
     runner,
 )
 from codetrail.assistant.environment import child_environment, resolve_program
@@ -153,13 +154,18 @@ class ClaudeCodeAssistant:
             lines = runner.run_program(
                 command, neutralize(answer_prompt(request)), self.root, self.environment, self.settings.timeout_seconds
             )
-            async with aclosing(lines):
-                async for event in _events(lines):
-                    text = _text_delta(event)
-                    if text:
-                        yield AnswerChunk(text=text)
-                    _note(event, outcome)
-            result = _finished(outcome)
+            try:
+                async with aclosing(lines):
+                    async for event in _events(lines):
+                        text = _text_delta(event)
+                        if text:
+                            yield AnswerChunk(text=text)
+                        _note(event, outcome)
+            except AssistantError as error:
+                if outcome.result is None:
+                    raise
+                raise _failed_after_result(error, outcome, model) from error
+            result = _finished(outcome, model)
             usage = _usage(result, model, outcome)
             yield AnswerChunk(done=True, files_read=_read(read_log), cost_usd=_cost(usage), usage=usage)
 
@@ -192,14 +198,15 @@ class ClaudeCodeAssistant:
                             _note(event, outcome)
                 except AssistantError as error:
                     if outcome.result is not None:
-                        raise
+                        raise _failed_after_result(error, outcome, model) from error
                     last_error = _ProgramFailed(str(error))
                     continue
-                result = _finished(outcome)
+                result = _finished(outcome, model)
+                usage = _usage(result, model, outcome)
                 data = result.get("structured_output")
                 if not isinstance(data, dict):
-                    raise AssistantError("Claude Code finished without a structured answer.")
-                return data, _read(read_log), _usage(result, model, outcome)
+                    raise call_failed("Claude Code finished without a structured answer.", usage)
+                return data, _read(read_log), usage
         raise last_error or AssistantError("Claude Code couldn't be run.")
 
     def _command(
@@ -311,13 +318,21 @@ def _text_delta(event: dict[str, Any]) -> str:
     return ""
 
 
-def _finished(outcome: _Outcome) -> dict[str, Any]:
+def _finished(outcome: _Outcome, model: str) -> dict[str, Any]:
+    """The run's result; an error result fails with what the call used, which the caller still counts."""
     result = outcome.result
     if result is None:
         raise AssistantError("Claude Code ended without a result.")
     if result.get("is_error"):
-        raise AssistantError(f"Claude Code didn't finish the task ({result.get('subtype', 'error')}).")
+        message = f"Claude Code didn't finish the task ({result.get('subtype', 'error')})."
+        raise call_failed(message, _usage(result, model, outcome))
     return result
+
+
+def _failed_after_result(error: AssistantError, outcome: _Outcome, model: str) -> AssistantError:
+    """The program failed after its result (Claude Code exits 1 after an error result): the error, with the usage."""
+    result = _finished(outcome, model)  # an error result raises its own failure
+    return call_failed(str(error), _usage(result, model, outcome))
 
 
 def _usage(result: dict[str, Any], model: str, outcome: _Outcome) -> Usage:

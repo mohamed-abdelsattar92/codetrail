@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from codetrail.config import Paths, check_containment, load_global, load_target
+from codetrail.errors import CodetrailError
 from codetrail.lock import target_in_use, target_lock
 from codetrail.repo.mirror import read_file_at
 from codetrail.repo.remote import fetch_target
@@ -11,11 +12,30 @@ from codetrail.repo.secrets import SecretScanner
 from codetrail.repo.source import SourceManifest, build_source
 
 TARGET_IGNORE_FILE = ".codetrailignore"
+# pathspec turns `*` into a backtracking `[^/]*` and a `**` part into `.*`, and the ways to match multiply: each `*`
+# after the first in one part of a path, and each `**` part, is one more choice. Measured (pathspec 1.1.1): two choices
+# take milliseconds on any path; three take a quarter of a second on one long name, and more take minutes. A property
+# of the matcher, not a reader's choice.
+MAX_WILDCARD_CHOICES = 2
+
+
+def wildcard_choices(line: str) -> int:
+    return sum(1 if part == "**" else max(0, part.count("*") - 1) for part in line.split("/"))
 
 
 def ignore_lines(paths: Paths, name: str, target_file: bytes | None) -> list[str]:
-    """The target's own .codetrailignore (from the commit), then the founder's ignore file."""
+    """The target's own .codetrailignore (from the commit), then the founder's ignore file.
+
+    A target line the matcher can't match quickly fails the refresh, naming the line: dropping it would show files the
+    target meant to hide."""
     lines = target_file.decode("utf-8", "replace").splitlines() if target_file else []
+    for number, line in enumerate(lines, start=1):
+        if wildcard_choices(line) > MAX_WILDCARD_CHOICES:
+            raise CodetrailError(
+                f"The target's {TARGET_IGNORE_FILE}, line {number}, is too slow to match: Codetrail allows at most "
+                f"{MAX_WILDCARD_CHOICES} of `**` parts and extra `*` in one part of a path, together. Ask for the "
+                "line to be simplified, for example by splitting it into several lines."
+            )
     founder_file = paths.ignore_file(name)
     if founder_file.exists():
         lines += founder_file.read_text(encoding="utf-8").splitlines()

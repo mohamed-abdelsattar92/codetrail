@@ -17,7 +17,7 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 
-from codetrail.assistant import Assistant, AssistantError, GradeRequest
+from codetrail.assistant import Assistant, AssistantError, GradeRequest, PaidCallFailed
 from codetrail.assistant.usage import UsageLog
 from codetrail.config import Paths, Price, ToolsSettings
 from codetrail.database import connect
@@ -110,6 +110,12 @@ def learning_router(
             )  # fmt: skip
             verdict = await assistant_for().grade(request)
         except AssistantError as error:
+            if isinstance(error, PaidCallFailed):  # what the failed call used is recorded all the same
+                connection = connect(data / "codetrail.db")
+                try:
+                    UsageLog(connection, prices or {}).record("grade", error.usage)
+                finally:
+                    connection.close()
             return JSONResponse({"error": str(error)}, 502)
         finally:
             grading["busy"] = False

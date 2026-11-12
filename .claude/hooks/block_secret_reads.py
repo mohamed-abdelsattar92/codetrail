@@ -7,7 +7,10 @@ refuses Bash commands that name one:
   .keystore, .jks, .key, .pfx, .ppk, id_rsa, id_ed25519), Terraform state (.tfstate) and variables (.tfvars);
 - credential stores in the home folder: ~/.ssh, gh's configuration, gcloud, wrangler, .netrc, .npmrc, .git-credentials,
   Terraform's credentials, Docker and AWS, named with or without a trailing slash;
-- the Keychain (security find-*-password, dump-keychain, export) and `gcloud secrets versions access`.
+- the sign-ins of the programs Codetrail drives: Codex's auth.json, az's ~/.azure and glab's glab-cli folders;
+- the Keychain (security find-*-password, dump-keychain, export), `gcloud secrets versions access`, and commands that
+  print a token (`az account get-access-token`, `gh` or `glab auth status --show-token`);
+- a file at a revision (git show HEAD:.env) by the file's name.
 A glob naming one of these (.dev.vars*) counts, and so does a shell's -c command (bash -lc) behind wrappers such as env.
 Commands that only look at a file's existence or metadata (ls, test, stat, git check-ignore) are allowed.
 It guards against mistakes: a command built to hide a name, such as a quoted heredoc fed to a shell, gets past it.
@@ -27,7 +30,25 @@ SECRET_NAME = re.compile(
 SECRET_PATH = re.compile(
     r'(^|/)\.ssh(/|$)|\.config/gh(/|$)|\.config/gcloud(/|$)|\.wrangler/config|Preferences/\.wrangler'
     r'|(^|/)\.netrc$|(^|/)\.npmrc$|(^|/)\.git-credentials$|\.terraform\.d/credentials|\.docker/config\.json'
-    r'|\.aws(/|$)|(^|/)\.pypirc$')
+    r'|\.aws(/|$)|(^|/)\.pypirc$'
+    r'|\.codex/auth\.json$|CODEX_HOME\}?/auth\.json$|(^|/)\.azure(/|$)|(^|/)glab-cli(/|$)')
+# Commands that print a token: the sign-ins of the hosting programs Codetrail drives (ADR 0020), as the program and
+# its words with options left out.
+TOKEN_PRINTERS = (('az', 'account', 'get-access-token'), ('glab', 'config', 'get', 'token'))
+
+
+def prints_token(toks):
+    prog = os.path.basename(toks[0])
+    words = [t for t in toks[1:] if not t.startswith('-')]
+    for printer in TOKEN_PRINTERS:  # in order, with anything between: an option's value can come before or among them
+        remaining = iter(words)
+        if printer[0] == prog and all(word in remaining for word in printer[1:]):
+            return f'a token ({" ".join(printer)})'
+    if prog in ('gh', 'glab') and words[:2] == ['auth', 'status']:
+        flags = [t.split('=', 1)[0] for t in toks[1:] if t.startswith('-')]
+        if '--show-token' in flags or any(not f.startswith('--') and 't' in f[1:] for f in flags):
+            return f'a token ({prog} auth status --show-token)'
+    return None
 METADATA_ONLY = {'ls', 'test', '[', 'stat'}
 KEYCHAIN = {'find-generic-password', 'find-internet-password', 'dump-keychain', 'export', 'export-item'}
 
@@ -35,8 +56,12 @@ KEYCHAIN = {'find-generic-password', 'find-internet-password', 'dump-keychain', 
 def secret_in(token):
     # A token may carry the path after an option or a redirection: --env-file=.env, <.dev.vars, 2>~/.netrc.
     path = re.sub(r'^\d*[<>]+&?', '', token.split('=', 1)[-1]).strip('\'"')
-    if re.search(r'\s', path): return None  # prose, such as a commit message; no secret path here has spaces
+    if re.search(r'Library/Application Support/glab-cli(/|$)', path): return path  # the one secret path with a space
+    if re.search(r'\s', path): return None  # prose, such as a commit message; no other secret path here has spaces
     if SECRET_PATH.search(path): return path
+    if re.match(r'^[^\s:/]*(/[^\s:/]+)*:[^/]', path):  # a revision and a path, as git show HEAD:.env names them
+        path = path.split(':', 1)[1]
+        if SECRET_PATH.search(path): return path
     name = os.path.basename(path)
     if SECRET_NAME.match(name) or SECRET_NAME.match(re.split(r'[*?\[]', name)[0]): return path
     return None
@@ -60,6 +85,8 @@ def check(cmd, depth=0):
         if prog in METADATA_ONLY or toks[:2] == ['git', 'check-ignore']: continue
         if prog == 'security' and len(toks) > 1 and toks[1] in KEYCHAIN: return f'the Keychain (security {toks[1]})'
         if prog == 'gcloud' and toks[1:4] == ['secrets', 'versions', 'access']: return 'a Secret Manager value'
+        token = prints_token(toks)
+        if token: return token
         command_option = next((i for i, t in enumerate(toks[1:-1], 1) if re.fullmatch(r'-[a-zA-Z]*c[a-zA-Z]*', t)), None)
         if prog in SHELLS and command_option:
             r = check(toks[command_option + 1], depth + 1)

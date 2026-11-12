@@ -25,6 +25,7 @@ from codetrail.assistant import (
     DigestRequest,
     PageDraft,
     PageRequest,
+    PaidCallFailed,
     PlanDraft,
     PlanRequest,
 )
@@ -200,15 +201,14 @@ async def _outline(context: GenerationContext, claude: Assistant, result: Genera
     if not entries:
         if context.shared_budget is not None and context.shared_budget.exhausted:
             raise CodetrailError(TEAM_BUDGET_SPENT)
-        context.progress({"step": "plan"})
-        draft = await claude.plan(PlanRequest(context.target, facts_summary(store, context.manifest), ""))
-        spent = _spend(context, result, "plan", draft)
-        entries, problems = validate_outline(draft.pages, store, context.manifest)
+        request = PlanRequest(context.target, facts_summary(store, context.manifest), "")
+        draft, spent = await _plan(context, claude, result, request)
+        entries, problems = validate_outline(draft.pages, store, context.manifest, context.scanner)
         context.progress({"step": "planned", "pages": len(entries), **spent})
         result.outline_problems += problems
         if not entries:
             raise CodetrailError("The assistant's outline had no page Codetrail could use: " + "; ".join(problems[:3]))
-        paths, problems = validate_paths(draft.paths, {entry.id for entry in entries})
+        paths, problems = validate_paths(draft.paths, {entry.id for entry in entries}, context.scanner)
         result.outline_problems += problems
     else:
         paths = outline_paths(stored, {entry.id for entry in entries})
@@ -216,26 +216,23 @@ async def _outline(context: GenerationContext, claude: Assistant, result: Genera
         uncovered = [fact for fact in uncovered_facts(store, entries) if fact in new_facts]
         if uncovered and not _budget_spent(context, result):
             current = json.dumps(outline_data(entries, paths), indent=1)
-            context.progress({"step": "plan"})
-            draft = await claude.plan(PlanRequest(context.target, facts_summary(store, context.manifest), current,
-                                                  uncovered[:200]))  # fmt: skip
-            spent = _spend(context, result, "plan", draft)
-            added, problems = validate_outline(draft.pages, store, context.manifest, existing=entries)
+            request = PlanRequest(context.target, facts_summary(store, context.manifest), current, uncovered[:200])
+            draft, spent = await _plan(context, claude, result, request)
+            added, problems = validate_outline(draft.pages, store, context.manifest, context.scanner, entries)
             context.progress({"step": "planned", "pages": len(added), **spent})
             result.outline_problems += problems
             entries = [*entries, *added]
         # an outline written before paths existed: plan them once
         if stored is not None and "paths" not in stored and not _budget_spent(context, result):
             current = json.dumps(outline_data(entries), indent=1)
-            context.progress({"step": "plan"})
             try:
-                draft = await claude.plan(PlanRequest(context.target, "", current, paths_only=True))
+                request = PlanRequest(context.target, "", current, paths_only=True)
+                draft, spent = await _plan(context, claude, result, request)
             except AssistantError as error:
                 result.outline_problems.append(f"Guided paths couldn't be planned: {error}")
             else:
-                spent = _spend(context, result, "plan", draft)
                 context.progress({"step": "planned", "pages": 0, **spent})
-                paths, problems = validate_paths(draft.paths, {entry.id for entry in entries})
+                paths, problems = validate_paths(draft.paths, {entry.id for entry in entries}, context.scanner)
                 result.outline_problems += problems
     if outline_data(entries, paths) != stored:
         guide.write_outline(outline_data(entries, paths))
@@ -249,10 +246,27 @@ def _budget_spent(context: GenerationContext, result: GenerationResult) -> bool:
     return result.cost_usd >= context.max_budget_usd or over_tokens or over_shared
 
 
+async def _plan(
+    context: GenerationContext, claude: Assistant, result: GenerationResult, request: PlanRequest
+) -> tuple[PlanDraft, dict[str, object]]:
+    """Asks for a plan and counts what it used, also when the call fails after the provider counted it."""
+    context.progress({"step": "plan"})
+    try:
+        draft = await claude.plan(request)
+    except PaidCallFailed as error:
+        _spend(context, result, "plan", error)
+        raise
+    return draft, _spend(context, result, "plan", draft)
+
+
 def _spend(
-    context: GenerationContext, result: GenerationResult, kind: str, draft: PlanDraft | PageDraft | DigestDraft
+    context: GenerationContext,
+    result: GenerationResult,
+    kind: str,
+    draft: PlanDraft | PageDraft | DigestDraft | PaidCallFailed,
 ) -> dict[str, object]:
-    """Records the call's usage, and adds its cost (which counts against the update's budget) and tokens.
+    """Records the call's usage, and adds its cost (which counts against the update's budget) and tokens. A call
+    that failed after the provider counted it is recorded and counted the same way.
 
     Returns what the call used, for the progress report: its provider, model, tokens and counted cost."""
     usage = draft.usage
@@ -354,6 +368,8 @@ async def _write_page(
             context.failed_pages.record(entry.id, scope_hash(context.store, entry))
     except AssistantError as error:
         reason = str(error)
+        if isinstance(error, PaidCallFailed):  # what it used still counts against the budget
+            _spend(context, result, "revise" if revising else "write", error)
     result.failed.append((entry.id, reason))
     context.progress({"step": "page_failed", "id": entry.id, "title": entry.title, "reason": reason})
 
@@ -384,13 +400,17 @@ async def _write_digest(
         draft = await claude.write_digest(request)
         _spend(context, result, "digest", draft)
         highlights = draft.highlights if context.max_highlights else []  # none asked for: any returned are dropped
-        if validate_page(draft.body, None, validation) or validate_highlights(
-            highlights, context.max_highlights, validation
+        if (
+            validate_page(draft.body, None, validation)
+            or validate_highlights(highlights, context.max_highlights, validation)
+            or validation.scanner.scan_text(draft.title)  # the title is shown too
         ):
             raise AssistantError("the digest failed validation")
         meta["title"], body = draft.title, draft.body
         meta["highlights"] = highlights
-    except AssistantError:
+    except AssistantError as error:
+        if isinstance(error, PaidCallFailed):  # what it used still counts against the budget
+            _spend(context, result, "digest", error)
         meta["title"] = f"{len(commits)} commits since the last update"
         body = "The assistant's digest couldn't be checked, so here are the commits:\n\n" + "\n".join(
             f"- {commit.subject}" for commit in commits

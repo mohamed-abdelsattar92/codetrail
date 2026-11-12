@@ -30,13 +30,13 @@ prefix_rule(
 )
 
 prefix_rule(
-    pattern = ["gh", "pr", ["create", "merge", "close", "reopen", "edit", "comment", "review", "ready"]],
+    pattern = ["gh", "pr", ["create", "new", "merge", "close", "reopen", "edit", "comment", "review", "ready"]],
     decision = "forbidden",
     justification = "Agents never open, merge or change pull requests; the founder does.",
 )
 
 prefix_rule(
-    pattern = ["gh", "repo", ["sync", "create", "delete", "edit", "rename", "archive", "fork"]],
+    pattern = ["gh", "repo", ["sync", "create", "new", "delete", "edit", "rename", "archive", "fork"]],
     decision = "forbidden",
     justification = "Agents never change GitHub repositories.",
 )
@@ -45,6 +45,30 @@ prefix_rule(
     pattern = ["gh", "auth", ["token", "git-credential", "setup-git", "login", "logout", "refresh"]],
     decision = "forbidden",
     justification = "Agents never read or change GitHub credentials.",
+)
+
+prefix_rule(
+    pattern = ["gh", "auth", "status", ["-t", "--show-token"]],
+    decision = "forbidden",
+    justification = "Agents never print a hosting service's token.",
+)
+
+prefix_rule(
+    pattern = ["glab", "auth", "status", ["-t", "--show-token"]],
+    decision = "forbidden",
+    justification = "Agents never print a hosting service's token.",
+)
+
+prefix_rule(
+    pattern = ["glab", "config", "get", "token"],
+    decision = "forbidden",
+    justification = "Agents never print a hosting service's token.",
+)
+
+prefix_rule(
+    pattern = ["az", "account", "get-access-token"],
+    decision = "forbidden",
+    justification = "Agents never print an Azure token.",
 )
 
 prefix_rule(

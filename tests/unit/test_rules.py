@@ -1,7 +1,12 @@
 """The exclusion rules: built-in secret patterns and gitignore-style ignore lines (design section 3.3)."""
 
+from pathlib import Path
+
 import pytest
 
+from codetrail.config import Paths
+from codetrail.errors import CodetrailError
+from codetrail.repo.refresh import ignore_lines
 from codetrail.repo.rules import ExclusionRules, Reason
 
 SECRETS = [
@@ -95,3 +100,42 @@ def test_scanner_settings_never_reach_the_scan(path: str) -> None:
 def test_ignore_lines_match_in_any_case() -> None:
     # git on macOS matches .gitignore without regard to case; Codetrail's ignore files do the same.
     assert ExclusionRules(["docs/private/"]).reason("Docs/Private/notes.md") is Reason.IGNORED
+
+
+@pytest.mark.parametrize(
+    "line", ["*?*?*?*?*?*Z", "src/*a*a*a*b", "*a*b*c*d.txt", "*a*/*a*/*a*/*a*/*a*/*b", "**/a/**/a/**/b", "**/*a*/**"]
+)
+def test_a_target_line_too_slow_to_match_fails_the_refresh(tmp_path: Path, line: str) -> None:
+    # pathspec's patterns backtrack: six `*` in one segment take minutes on one long name, and so do six one-`*`
+    # segments like `*a*` on a wide path, so a target could hang every update, the page's "behind" signal and a
+    # team's catch-up with one committed line.
+    with pytest.raises(CodetrailError, match=r"line 2, .*at most 2"):
+        ignore_lines(make_paths(tmp_path), "app", f"build/\n{line}\n".encode())
+
+
+@pytest.mark.parametrize(
+    "line", ["*.log", "**/*.min.js", "a*/b*/c*/d*/e*", "*a*b*c", "**/cache/**", "docs/**/*.md", "**/test/**/*.snap"]
+)
+def test_ordinary_target_lines_pass(tmp_path: Path, line: str) -> None:
+    assert ignore_lines(make_paths(tmp_path), "app", f"{line}\n".encode()) == [line]
+
+
+def test_the_readers_own_lines_are_not_limited(tmp_path: Path) -> None:
+    paths = make_paths(tmp_path)
+    paths.ignore_file("app").parent.mkdir(parents=True)
+    paths.ignore_file("app").write_text("*a*a*a*a*b\n")
+    assert ignore_lines(paths, "app", None) == ["*a*a*a*a*b"]
+
+
+def make_paths(tmp_path: Path) -> Paths:
+    return Paths(config_dir=tmp_path / "config", data_dir=tmp_path / "data", state_dir=tmp_path / "state")
+
+
+@pytest.mark.parametrize("path", ["x/" + "a" * 256, "/".join(["a" * 200] * 21)])
+def test_a_path_too_long_for_a_disk_is_unsafe_before_any_pattern_runs(path: str) -> None:
+    # The ignore-line limit was measured on names of up to 255 bytes; longer ones only make the matcher slower.
+    assert ExclusionRules(["*a*b*c"]).reason(path) == Reason.UNSAFE_PATH
+
+
+def test_a_name_of_255_bytes_is_matched_as_usual() -> None:
+    assert ExclusionRules(["*.md"]).reason("docs/" + "a" * 252 + ".md") == Reason.IGNORED
