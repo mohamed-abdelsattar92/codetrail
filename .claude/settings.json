@@ -15,6 +15,7 @@
       "Bash(gh pr new:*)",
       "Bash(gh repo new:*)",
       "Bash(az account get-access-token:*)",
+      "Bash(glab config get token:*)",
       "Read(./.env)",
       "Read(./.env.local)",
       "Read(./**/.env)",

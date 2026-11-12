@@ -60,6 +60,12 @@ prefix_rule(
 )
 
 prefix_rule(
+    pattern = ["glab", "config", "get", "token"],
+    decision = "forbidden",
+    justification = "Agents never print a hosting service's token.",
+)
+
+prefix_rule(
     pattern = ["az", "account", "get-access-token"],
     decision = "forbidden",
     justification = "Agents never print an Azure token.",

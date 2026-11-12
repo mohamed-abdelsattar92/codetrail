@@ -205,8 +205,9 @@ def current_branch():
 
 
 def skips_verify(args):
-    """--no-verify, or a prefix of it: git reads a long option from any unambiguous prefix (--no-veri)."""
-    return any(len(a.split('=', 1)[0]) >= len('--no-ver') and '--no-verify'.startswith(a.split('=', 1)[0]) for a in args)
+    """--no-verify, or a prefix of it: git reads a long option from any unambiguous prefix (--no-veri), and which
+    prefixes are unambiguous depends on the command, so every one from --no-v counts."""
+    return any(len(a.split('=', 1)[0]) >= len('--no-v') and '--no-verify'.startswith(a.split('=', 1)[0]) for a in args)
 
 def check_flow(args):
     words = [a for a in args if not a.startswith('-')]
@@ -281,6 +282,8 @@ def check_git(args):
                 if t.startswith('-') and not t.startswith('--') and 'n' in t[1:] and prev not in COMMIT_VALUE_OPTS:
                     return f'{HOOK_SKIP}: git commit -n'
                 prev = t
+        if sub == 'am' and any(t.startswith('-') and not t.startswith('--') and 'n' in t[1:] for t in rest):
+            return f'{HOOK_SKIP}: git am -n'
     if sub == 'remote' and rest and rest[0] in ('add', 'set-url', 'rename', 'remove', 'rm'): return f'git remote {rest[0]}'
     operands = [a for a in rest if not a.startswith('-')]
     reads_config = (sub == 'config' and any(a in ('--get', '--get-all', '--get-regexp', '-l', '--list') for a in rest)

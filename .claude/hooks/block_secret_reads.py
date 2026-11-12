@@ -32,9 +32,23 @@ SECRET_PATH = re.compile(
     r'|(^|/)\.netrc$|(^|/)\.npmrc$|(^|/)\.git-credentials$|\.terraform\.d/credentials|\.docker/config\.json'
     r'|\.aws(/|$)|(^|/)\.pypirc$'
     r'|\.codex/auth\.json$|CODEX_HOME\}?/auth\.json$|(^|/)\.azure(/|$)|(^|/)glab-cli(/|$)')
-# Commands that print a token: the sign-ins of the hosting programs Codetrail drives (ADR 0020).
-TOKEN_PRINTERS = (('az', 'account', 'get-access-token'),)
-SHOW_TOKEN = {'-t', '--show-token'}
+# Commands that print a token: the sign-ins of the hosting programs Codetrail drives (ADR 0020), as the program and
+# its words with options left out.
+TOKEN_PRINTERS = (('az', 'account', 'get-access-token'), ('glab', 'config', 'get', 'token'))
+
+
+def prints_token(toks):
+    prog = os.path.basename(toks[0])
+    words = [t for t in toks[1:] if not t.startswith('-')]
+    for printer in TOKEN_PRINTERS:  # anywhere in the words: a global option's value can come first
+        size = len(printer) - 1
+        if printer[0] == prog and any(tuple(words[i:i + size]) == printer[1:] for i in range(len(words))):
+            return f'a token ({" ".join(printer)})'
+    if prog in ('gh', 'glab') and words[:2] == ['auth', 'status']:
+        flags = [t.split('=', 1)[0] for t in toks[1:] if t.startswith('-')]
+        if '--show-token' in flags or any(not f.startswith('--') and 't' in f[1:] for f in flags):
+            return f'a token ({prog} auth status --show-token)'
+    return None
 METADATA_ONLY = {'ls', 'test', '[', 'stat'}
 KEYCHAIN = {'find-generic-password', 'find-internet-password', 'dump-keychain', 'export', 'export-item'}
 
@@ -47,6 +61,7 @@ def secret_in(token):
     if SECRET_PATH.search(path): return path
     if re.match(r'^[^\s:/]*(/[^\s:/]+)*:[^/]', path):  # a revision and a path, as git show HEAD:.env names them
         path = path.split(':', 1)[1]
+        if SECRET_PATH.search(path): return path
     name = os.path.basename(path)
     if SECRET_NAME.match(name) or SECRET_NAME.match(re.split(r'[*?\[]', name)[0]): return path
     return None
@@ -70,9 +85,8 @@ def check(cmd, depth=0):
         if prog in METADATA_ONLY or toks[:2] == ['git', 'check-ignore']: continue
         if prog == 'security' and len(toks) > 1 and toks[1] in KEYCHAIN: return f'the Keychain (security {toks[1]})'
         if prog == 'gcloud' and toks[1:4] == ['secrets', 'versions', 'access']: return 'a Secret Manager value'
-        if any(tuple(toks[:len(printer)]) == printer for printer in TOKEN_PRINTERS): return f'a token ({" ".join(toks[:3])})'
-        if prog in ('gh', 'glab') and toks[1:3] == ['auth', 'status'] and SHOW_TOKEN & set(toks[3:]):
-            return f'a token ({prog} auth status --show-token)'
+        token = prints_token(toks)
+        if token: return token
         command_option = next((i for i, t in enumerate(toks[1:-1], 1) if re.fullmatch(r'-[a-zA-Z]*c[a-zA-Z]*', t)), None)
         if prog in SHELLS and command_option:
             r = check(toks[command_option + 1], depth + 1)

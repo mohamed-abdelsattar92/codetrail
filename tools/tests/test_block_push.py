@@ -39,6 +39,8 @@ BLOCKED = [
     "git commit --no-veri -m x",
     "git commit --no-verif -m x",
     "git merge --no-veri feature/x",
+    "git commit --no-v -m x",
+    "git am -n patch.mbox",
     "gh pr merge 1",
     "gh repo sync",
     "gh auth token",
