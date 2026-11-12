@@ -5,9 +5,10 @@ files, and never sees GITLEAKS_* settings, so nothing in a target can switch the
 the rule and the line, never the value. A missing, failing or stuck gitleaks raises, so callers fail closed, with what
 it printed. A mise shim is resolved to its binary first, since gitleaks runs in an empty folder where no version is set.
 
-gitleaks' default configuration, which Codetrail's extends, skips a list of paths in `dir` mode (lock files,
-`node_modules/`, images, any path holding `gitleaks.toml`, ...). A directory scan therefore also reads the files on
-that list through `stdin`, where no path is skipped, so every file under the folder is scanned.
+gitleaks' `dir` mode skips files and whole folders whose paths are on its default allowlist (lock files,
+`node_modules/`, images, any path holding `gitleaks.toml`, ...), and any file whose first bytes look binary. A
+directory scan therefore also reads every file through `stdin`, in batches that start with one long line of text,
+so no batch looks binary and no path is skipped; `dir` mode still runs for the rules that depend on a path.
 """
 
 from __future__ import annotations
@@ -38,41 +39,10 @@ POINT_AT_ANOTHER = "To run a particular gitleaks, set [tools] gitleaks in the co
 RAISE_THE_TIMEOUT = "For a large repository, raise [tools] gitleaks_timeout_seconds in the configuration."
 ESCAPE_SEQUENCES = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]|[^\x20-\x7e]")
 MAX_EXPLANATION = 300
-# The global path allowlist of gitleaks 8.30.1's default configuration (`[allowlist] paths`, read from the binary
-# pinned in .mise.toml). Update it with the pin.
-SKIPPED_BY_GITLEAKS = re.compile(
-    "|".join(
-        f"(?:{pattern})"
-        for pattern in (
-            r"gitleaks\.toml",
-            r"(?i:\.(?:bmp|gif|jpe?g|png|svg|tiff?)$)",
-            r"(?i:\.(?:eot|[ot]tf|woff2?)$)",
-            r"(?i:\.(?:docx?|xlsx?|pdf|bin|socket|vsidx|v2|suo|wsuo|.dll|pdb|exe|gltf)$)",
-            r"go\.(?:mod|sum|work(?:\.sum)?)$",
-            r"(?:^|/)vendor/modules\.txt$",
-            r"(?:^|/)vendor/(?:github\.com|golang\.org/x|google\.golang\.org|gopkg\.in|istio\.io|k8s\.io|sigs\.k8s\.io)"
-            r"(?:/.*)?$",
-            r"(?:^|/)gradlew(?:\.bat)?$",
-            r"(?:^|/)gradle\.lockfile$",
-            r"(?:^|/)mvnw(?:\.cmd)?$",
-            r"(?:^|/)\.mvn/wrapper/MavenWrapperDownloader\.java$",
-            r"(?:^|/)node_modules(?:/.*)?$",
-            r"(?:^|/)(?:deno\.lock|npm-shrinkwrap\.json|package-lock\.json|pnpm-lock\.yaml|yarn\.lock)$",
-            r"(?:^|/)bower_components(?:/.*)?$",
-            r"(?:^|/)(?:angular|bootstrap|jquery(?:-?ui)?|plotly|swagger-?ui)[a-zA-Z0-9.-]*(?:\.min)?\.js(?:\.map)?$",
-            r"(?:^|/)javascript\.json$",
-            r"(?:^|/)(?:Pipfile|poetry)\.lock$",
-            r"(?i:(?:^|/)(?:v?env|virtualenv)/lib(?:64)?(?:/.*)?$)",
-            r"(?i:(?:^|/)(?:lib(?:64)?/python[23](?:\.\d{1,2})+|python/[23](?:\.\d{1,2})+/lib(?:64)?)(?:/.*)?$)",
-            r"(?i:(?:^|/)[a-z0-9_.]+-[0-9.]+\.dist-info(?:/.+)?$)",
-            r"(?:^|/)vendor/(?:bundle|ruby)(?:/.*?)?$",
-            r"\.gem$",
-            r"verification-metadata\.xml",
-            r"Database.refactorlog",
-        )
-    )
-)
-SKIPPED_BATCH_BYTES = 32 * 1024 * 1024  # what one `stdin` run of skipped files reads at most, unless one file is larger
+BATCH_BYTES = 32 * 1024 * 1024  # what one `stdin` run reads at most, unless one file is larger
+# gitleaks takes a whole `stdin` text for a binary file, and skips it, when its first bytes carry a binary
+# signature; one line of text longer than any signature's offset opens every batch.
+BATCH_HEADER = b"#" * 65535 + b"\n"
 
 
 @dataclass(frozen=True)
@@ -91,31 +61,27 @@ class SecretScanner:
         """Every finding under `root`, with paths relative to it."""
         if any(on_disk_key(child.name) == ".gitleaksignore" for child in root.iterdir()):
             raise CodetrailError(f"{root} holds a .gitleaksignore, which gitleaks would obey; refusing to scan it.")
-        findings = self._run(["dir", str(root)], None)
         resolved = root.resolve()
-        return [
+        findings = [
             Finding(path=str(Path(item.path).resolve().relative_to(resolved)), rule=item.rule, line=item.line)
-            for item in findings
-        ] + self._scan_skipped(root)
+            for item in self._run(["dir", str(root)], None)
+        ]
+        return list(dict.fromkeys(findings + self._scan_every_file(root)))
 
-    def _scan_skipped(self, root: Path) -> list[Finding]:
-        """Findings in the files gitleaks' `dir` mode skips, read through `stdin` in batches."""
-        skipped = sorted(
-            path.relative_to(root).as_posix()
-            for path in root.rglob("*")
-            if path.is_file()
-            and not path.is_symlink()
-            and SKIPPED_BY_GITLEAKS.search(path.relative_to(root).as_posix())
+    def _scan_every_file(self, root: Path) -> list[Finding]:
+        """Findings in every file under `root`, read through `stdin` in batches."""
+        paths = sorted(
+            path.relative_to(root).as_posix() for path in root.rglob("*") if path.is_file() and not path.is_symlink()
         )
         findings: list[Finding] = []
         batch: list[tuple[str, bytes]] = []
         size = 0
-        for path in skipped:
-            content = (root / path).read_bytes()
-            if batch and size + len(content) > SKIPPED_BATCH_BYTES:
+        for relative in paths:
+            content = (root / relative).read_bytes()
+            if batch and size + len(content) > BATCH_BYTES:
                 findings += self._scan_batch(batch)
                 batch, size = [], 0
-            batch.append((path, content))
+            batch.append((relative, content))
             size += len(content)
         if batch:
             findings += self._scan_batch(batch)
@@ -124,8 +90,8 @@ class SecretScanner:
     def _scan_batch(self, batch: list[tuple[str, bytes]]) -> list[Finding]:
         """Scans the files as one text, each starting on a new line, and maps each finding back to its files' lines."""
         spans: list[tuple[int, int, str]] = []  # (the text's first and last line of a file, the file)
-        pieces: list[bytes] = []
-        line = 1
+        pieces: list[bytes] = [BATCH_HEADER]
+        line = 2  # after the header's one line
         for path, content in batch:
             if not content:
                 continue  # an empty file holds nothing and takes no line

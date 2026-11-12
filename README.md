@@ -257,7 +257,7 @@ Codetrail runs an assistant over repositories that hold secrets, so what it can 
 
 ![What the assistant can see: every tracked file passes the built-in secret patterns, your ignore files and gitleaks; what's left is source/, read through read-only tools, and everything written is scanned for secrets again](docs/diagrams/secrets.svg)
 
-An excluded file is as if it weren't in the repository: it isn't extracted, readable by the assistant, shown in the page, or included in diffs, digests or the "you're behind" counts. Symlinks are never copied. gitleaks reads every file, lock files and vendored folders included, though its defaults skip them. `codetrail files <target>` shows exactly what's visible and what's hidden, and why.
+An excluded file is as if it weren't in the repository: it isn't extracted, readable by the assistant, shown in the page, or included in diffs, digests or the "you're behind" counts. Symlinks are never copied. gitleaks reads every file, though its defaults skip lock files, vendored folders and files that look binary. `codetrail files <target>` shows exactly what's visible and what's hidden, and why.
 
 **The local page is locked down too.** It listens on `127.0.0.1` only, checks `Host` and `Origin`, signs you in with a one-time code that becomes a strict session cookie, requires a per-session token on every write, renders Markdown with raw HTML disabled and only `http(s)` and relative links, sends a strict Content Security Policy, and tells the browser never to store its pages.
 
