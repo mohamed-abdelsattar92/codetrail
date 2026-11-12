@@ -102,15 +102,20 @@ def test_ignore_lines_match_in_any_case() -> None:
     assert ExclusionRules(["docs/private/"]).reason("Docs/Private/notes.md") is Reason.IGNORED
 
 
-@pytest.mark.parametrize("line", ["*?*?*?*?*?*Z", "src/*a*a*a*b", "*a*b*c*d.txt"])
+@pytest.mark.parametrize(
+    "line", ["*?*?*?*?*?*Z", "src/*a*a*a*b", "*a*b*c*d.txt", "*a*/*a*/*a*/*a*/*a*/*b", "**/a/**/a/**/b", "**/*a*/**"]
+)
 def test_a_target_line_too_slow_to_match_fails_the_refresh(tmp_path: Path, line: str) -> None:
-    # pathspec's patterns backtrack: six `*` in one segment take minutes on one long name, so a target could hang
-    # every update, the page's "behind" signal and a team's catch-up with one committed line.
-    with pytest.raises(CodetrailError, match=r"line 2, .*at most 3"):
+    # pathspec's patterns backtrack: six `*` in one segment take minutes on one long name, and so do six one-`*`
+    # segments like `*a*` on a wide path, so a target could hang every update, the page's "behind" signal and a
+    # team's catch-up with one committed line.
+    with pytest.raises(CodetrailError, match=r"line 2, .*at most 2"):
         ignore_lines(make_paths(tmp_path), "app", f"build/\n{line}\n".encode())
 
 
-@pytest.mark.parametrize("line", ["*.log", "**/*.min.js", "a*/b*/c*/d*/e*", "*a*b*c", "**/cache/**", "docs/**/*.md"])
+@pytest.mark.parametrize(
+    "line", ["*.log", "**/*.min.js", "a*/b*/c*/d*/e*", "*a*b*c", "**/cache/**", "docs/**/*.md", "**/test/**/*.snap"]
+)
 def test_ordinary_target_lines_pass(tmp_path: Path, line: str) -> None:
     assert ignore_lines(make_paths(tmp_path), "app", f"{line}\n".encode()) == [line]
 

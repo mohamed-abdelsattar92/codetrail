@@ -12,23 +12,29 @@ from codetrail.repo.secrets import SecretScanner
 from codetrail.repo.source import SourceManifest, build_source
 
 TARGET_IGNORE_FILE = ".codetrailignore"
-# pathspec turns each `*` into a backtracking `[^/]*`: one long name takes 2 ms against three in a segment, 0.25 s
-# against four and minutes against six (pathspec 1.1.1). A property of the matcher, not a reader's choice.
-MAX_WILDCARDS_PER_SEGMENT = 3
+# pathspec turns `*` into a backtracking `[^/]*` and a `**` part into `.*`, and the ways to match multiply: each `*`
+# after the first in one part of a path, and each `**` part, is one more choice. Measured (pathspec 1.1.1): two choices
+# take milliseconds on any path; three take a quarter of a second on one long name, and more take minutes. A property
+# of the matcher, not a reader's choice.
+MAX_WILDCARD_CHOICES = 2
+
+
+def wildcard_choices(line: str) -> int:
+    return sum(1 if part == "**" else max(0, part.count("*") - 1) for part in line.split("/"))
 
 
 def ignore_lines(paths: Paths, name: str, target_file: bytes | None) -> list[str]:
     """The target's own .codetrailignore (from the commit), then the founder's ignore file.
 
-    A target line with more `*` in one segment than the matcher handles quickly fails the refresh, naming the line:
-    dropping it would show files the target meant to hide."""
+    A target line the matcher can't match quickly fails the refresh, naming the line: dropping it would show files the
+    target meant to hide."""
     lines = target_file.decode("utf-8", "replace").splitlines() if target_file else []
     for number, line in enumerate(lines, start=1):
-        if any(segment != "**" and segment.count("*") > MAX_WILDCARDS_PER_SEGMENT for segment in line.split("/")):
+        if wildcard_choices(line) > MAX_WILDCARD_CHOICES:
             raise CodetrailError(
-                f"The target's {TARGET_IGNORE_FILE}, line {number}, has more than {MAX_WILDCARDS_PER_SEGMENT} `*` "
-                f"in one part of its path; Codetrail matches at most {MAX_WILDCARDS_PER_SEGMENT} quickly. Ask for "
-                "the line to be simplified, for example by splitting it."
+                f"The target's {TARGET_IGNORE_FILE}, line {number}, is too slow to match: Codetrail allows at most "
+                f"{MAX_WILDCARD_CHOICES} of `**` parts and extra `*` in one part of a path, together. Ask for the "
+                "line to be simplified, for example by splitting it into several lines."
             )
     founder_file = paths.ignore_file(name)
     if founder_file.exists():
