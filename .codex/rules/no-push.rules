@@ -3,8 +3,9 @@
 # Codex treats compound shell commands (for example "cd x && git push") as one call that prefix
 # rules may not match, so the git pre-push hook (tools/git-hooks/pre-push) is the backstop.
 # Rules match literal tokens from the start of a command, so an option placed before the
-# subcommand ("git -C . push", "gh --hostname x auth token") would hide it; the rules at the
-# end refuse those or make Codex ask first. A flag placed later ("git commit -m x
+# subcommand ("git -C . push", "git -P -P push") would hide it; the rules at the end refuse
+# those or make Codex ask first, and Codex asks before every gh and glab command, whose
+# leading flags can't be listed ("gh --hostname x auth token"). A flag placed later ("git commit -m x
 # --no-verify") or an "=" form ("git --git-dir=.git push", "git --exec-path=x fetch") still
 # isn't matched: the rules in AGENTS.md hold regardless.
 # Check changes with: codex execpolicy check --rules <this file> <command>
@@ -119,16 +120,20 @@ prefix_rule(
     not_match = ["git pull -n"],
 )
 
+GIT_CONFIG_HOOKS_KEYS = ["core.hooksPath", "core.hookspath", "core.HooksPath", "core.Hookspath", "CORE.HOOKSPATH"]
+GIT_CONFIG_OPTIONS_WITHOUT_VALUE = ["--local", "--worktree", "--global", "--system", "set", "--add", "--replace-all", "--append", "--all", "--path"]
+GIT_CONFIG_OPTIONS_WITH_VALUE = ["-f", "--file", "--blob", "--comment", "--type"]
+
 prefix_rule(
-    pattern = ["git", "config", ["core.hooksPath", "core.hookspath"]],
+    pattern = ["git", "config", GIT_CONFIG_HOOKS_KEYS],
     decision = "forbidden",
     justification = "Changing core.hooksPath turns off every git hook, the pre-push agent guard included (AGENTS.md, Never do, rule 8).",
-    match = ["git config core.hooksPath /dev/null"],
+    match = ["git config core.hooksPath /dev/null", "git config core.HooksPath x"],
     not_match = ["git config user.name"],
 )
 
 prefix_rule(
-    pattern = ["git", "config", ["--local", "--worktree", "--global", "--system", "set", "--add", "--replace-all"], ["core.hooksPath", "core.hookspath"]],
+    pattern = ["git", "config", GIT_CONFIG_OPTIONS_WITHOUT_VALUE, GIT_CONFIG_HOOKS_KEYS],
     decision = "forbidden",
     justification = "Changing core.hooksPath turns off every git hook, the pre-push agent guard included (AGENTS.md, Never do, rule 8).",
     match = ["git config --local core.hooksPath /dev/null", "git config set core.hooksPath x"],
@@ -136,13 +141,22 @@ prefix_rule(
 )
 
 prefix_rule(
-    pattern = ["git", "config", ["--local", "--worktree", "--global", "--system", "set", "--add", "--replace-all"], ["--local", "--worktree", "--global", "--system"]],
+    pattern = ["git", "config", GIT_CONFIG_OPTIONS_WITHOUT_VALUE, GIT_CONFIG_OPTIONS_WITHOUT_VALUE + GIT_CONFIG_OPTIONS_WITH_VALUE],
     decision = "prompt",
     justification = "A second option before the key would hide a core.hooksPath change from the rule above.",
-    match = ["git config set --local core.hooksPath x"],
+    match = ["git config set --local core.hooksPath x", "git config set --append core.hooksPath x", "git config --local -f x core.hooksPath y"],
     not_match = ["git config --get user.name"],
 )
 
+prefix_rule(
+    pattern = ["git", "config", GIT_CONFIG_OPTIONS_WITH_VALUE],
+    decision = "prompt",
+    justification = "An option with a value before the key would hide a core.hooksPath change from the rules above.",
+    match = ["git config -f .git/config core.hooksPath /dev/null", "git config --file x core.hooksPath y"],
+    not_match = ["git config -l"],
+)
+
+GIT_OPTIONS_WITH_VALUE = ["-C", "-c", "--git-dir", "--work-tree", "--config-env", "--namespace", "--shallow-file", "--attr-source"]
 GIT_OPTIONS_WITHOUT_VALUE = ["-p", "--paginate", "-P", "--no-pager", "--bare", "--no-replace-objects", "--no-lazy-fetch", "--no-optional-locks", "--no-advice", "--literal-pathspecs", "--no-literal-pathspecs", "--glob-pathspecs", "--noglob-pathspecs", "--icase-pathspecs"]
 
 prefix_rule(
@@ -162,6 +176,14 @@ prefix_rule(
 )
 
 prefix_rule(
+    pattern = ["git", GIT_OPTIONS_WITHOUT_VALUE, GIT_OPTIONS_WITHOUT_VALUE + GIT_OPTIONS_WITH_VALUE],
+    decision = "prompt",
+    justification = "Two or more options before the git subcommand hide it from these rules (git -P -P push, git --no-pager -C . push).",
+    match = ["git -P -P push --no-verify origin develop", "git --no-pager -C . push", "git -P --bare credential fill"],
+    not_match = ["git --no-pager log", "git -P diff"],
+)
+
+prefix_rule(
     pattern = ["git", "am", ["--no-verify", "-n"]],
     decision = "forbidden",
     justification = "Agents never skip the git hooks (AGENTS.md, Never do, rule 8). Fix what the hook reports.",
@@ -170,7 +192,7 @@ prefix_rule(
 )
 
 prefix_rule(
-    pattern = ["git", ["-C", "-c", "--git-dir", "--work-tree", "--config-env", "--namespace", "--shallow-file", "--attr-source"]],
+    pattern = ["git", GIT_OPTIONS_WITH_VALUE],
     decision = "prompt",
     justification = "An option with a value before the git subcommand hides it from these rules (git -C . push, git -c core.hooksPath=x commit). Run git from the folder, with nothing before the subcommand.",
     match = ["git -C . push", "git -c core.hooksPath=/dev/null commit -m x", "git --git-dir .git push"],
@@ -178,27 +200,11 @@ prefix_rule(
 )
 
 prefix_rule(
-    pattern = ["gh", ["-R", "--repo", "--hostname", "-h", "--user", "-u", "--title", "-t", "--body", "-b", "--body-file", "-F", "--base", "-B", "--head", "-H", "--field", "-f", "--raw-field", "--method", "-X", "--input"]],
+    pattern = [["gh", "glab"]],
     decision = "prompt",
-    justification = "gh finds its subcommand past a flag and its value placed first, which hides it from these rules (gh --hostname github.com auth token, gh -R x/y pr create).",
-    match = ["gh -R x/y pr create", "gh --repo x/y pr merge 1", "gh --hostname github.com auth token", "gh --title t --body b pr create"],
-    not_match = ["gh pr view 1 -R x/y"],
-)
-
-prefix_rule(
-    pattern = ["glab", ["-R", "--repo", "--hostname", "-h", "--host"]],
-    decision = "prompt",
-    justification = "glab finds its subcommand past a flag and its value placed first, which hides it from these rules (glab --host gitlab.com config get token).",
-    match = ["glab --host gitlab.com config get token", "glab --hostname x auth status -t"],
-    not_match = ["glab mr list"],
-)
-
-prefix_rule(
-    pattern = [["gh", "glab"], "auth", "status"],
-    decision = "prompt",
-    justification = "auth status prints the token with -t or --show-token, which an option placed first would hide (gh auth status --hostname x -t).",
-    match = ["gh auth status --hostname github.com -t", "glab auth status --hostname x -t", "gh auth status"],
-    not_match = ["gh auth switch"],
+    justification = "gh and glab find their subcommand past any flag placed first (gh --hostname x auth token, gh --visibility public repo edit), which no list of flags can cover; Codex asks before each one, and the rules above still refuse the writes and token printers they name.",
+    match = ["gh --hostname github.com auth token", "gh --visibility public repo edit", "gh --subject s pr merge 1", "glab --host gitlab.com config get token", "gh pr view 1"],
+    not_match = ["git status"],
 )
 
 prefix_rule(
