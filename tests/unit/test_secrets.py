@@ -31,6 +31,42 @@ def test_finds_a_token_in_a_file(scanner: SecretScanner, tmp_path: Path) -> None
     ]
 
 
+@pytest.mark.parametrize(
+    "path",
+    [
+        "yarn.lock",
+        "web/package-lock.json",
+        "node_modules/p/index.js",
+        "ci/gitleaks.toml",
+        "x/gitleaks.toml.py",
+        "env/lib/settings.py",
+        "docs/a.svg",
+        "vendor/bundle/x.rb",
+        "go.sum",
+        "lib/jquery-3.min.js",
+    ],
+)
+def test_files_on_gitleaks_own_path_allowlist_are_scanned_too(
+    scanner: SecretScanner, tmp_path: Path, path: str
+) -> None:
+    # gitleaks' default configuration skips these paths in `dir` mode; a target can commit a token in any of them.
+    (tmp_path / path).parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / path).write_text(f'first = 1\nsecond = 2\nTOKEN = "{fake_github_token()}"\n')
+    (tmp_path / "README.md").write_text("Nothing secret here.\n")
+    findings = scanner.scan_directory(tmp_path)
+    assert [(finding.path, finding.rule, finding.line) for finding in findings] == [(path, "github-pat", 3)]
+
+
+def test_allowlisted_files_keep_their_own_line_numbers(scanner: SecretScanner, tmp_path: Path) -> None:
+    (tmp_path / "deno.lock").write_text("no newline at the end")
+    (tmp_path / "node_modules").mkdir()
+    (tmp_path / "node_modules" / "one.js").write_text("x\n" * 5)
+    (tmp_path / "node_modules" / "two.js").write_text(f"y\nTOKEN = '{fake_github_token()}'\nz\n")
+    (tmp_path / "yarn.lock").write_text(f"TOKEN = '{fake_github_token()}'")
+    findings = sorted((finding.path, finding.line) for finding in scanner.scan_directory(tmp_path))
+    assert findings == [("node_modules/two.js", 2), ("yarn.lock", 1)]
+
+
 def test_a_target_cannot_switch_the_scan_off(scanner: SecretScanner, tmp_path: Path) -> None:
     token = fake_github_token()
     (tmp_path / "settings.py").write_text(f'TOKEN = "{token}"  # gitleaks:allow\n')
