@@ -2,6 +2,11 @@
 # Codex loads project rules once the project is trusted. The strictest matching rule wins.
 # Codex treats compound shell commands (for example "cd x && git push") as one call that prefix
 # rules may not match, so the git pre-push hook (tools/git-hooks/pre-push) is the backstop.
+# Rules match literal tokens from the start of a command, so an option placed before the
+# subcommand ("git -C . push", "gh auth status --hostname x -t") would hide it; the "prompt"
+# rules at the end make Codex ask first for those. A flag placed later ("git commit -m x
+# --no-verify") or an "=" form ("git --git-dir=.git push") still isn't matched: the rules in
+# AGENTS.md hold regardless. Check changes with: codex execpolicy check --rules <this file> <command>
 
 prefix_rule(
     pattern = ["git", "push"],
@@ -95,6 +100,38 @@ prefix_rule(
     pattern = ["git", ["commit", "merge"], ["--no-verify", "-n"]],
     decision = "forbidden",
     justification = "Agents never skip the git hooks (AGENTS.md, Never do, rule 8). Fix what the hook reports.",
+)
+
+prefix_rule(
+    pattern = ["git", "am", ["--no-verify", "-n"]],
+    decision = "forbidden",
+    justification = "Agents never skip the git hooks (AGENTS.md, Never do, rule 8). Fix what the hook reports.",
+    match = ["git am -n x.patch", "git am --no-verify x.patch"],
+    not_match = ["git am x.patch"],
+)
+
+prefix_rule(
+    pattern = ["git", ["-C", "-c", "--git-dir", "--work-tree", "--config-env", "--exec-path"]],
+    decision = "prompt",
+    justification = "An option before the git subcommand hides it from these rules (git -C . push, git -c core.hooksPath=x commit). Run git from the folder, with nothing before the subcommand.",
+    match = ["git -C . push", "git -c core.hooksPath=/dev/null commit -m x", "git --git-dir .git push"],
+    not_match = ["git status", "git log -C"],
+)
+
+prefix_rule(
+    pattern = ["gh", ["-R", "--repo"]],
+    decision = "prompt",
+    justification = "An option before the gh subcommand hides it from these rules (gh -R x/y pr create).",
+    match = ["gh -R x/y pr create", "gh --repo x/y pr merge 1"],
+    not_match = ["gh pr view 1 -R x/y"],
+)
+
+prefix_rule(
+    pattern = [["gh", "glab"], "auth", "status"],
+    decision = "prompt",
+    justification = "auth status prints the token with -t or --show-token, which an option placed first would hide (gh auth status --hostname x -t).",
+    match = ["gh auth status --hostname github.com -t", "glab auth status --hostname x -t", "gh auth status"],
+    not_match = ["gh auth switch"],
 )
 
 prefix_rule(
