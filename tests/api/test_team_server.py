@@ -250,8 +250,10 @@ def test_stopping_the_team_server_stops_each_guide_s_update(team: Team, monkeypa
         assert client.get(f"/login?code={session.issue_login_code()}").status_code == 303
         started = client.post(f"{prefix}/update", headers={"origin": ORIGIN, TOKEN_HEADER: session.token})
         assert started.status_code == 202
+        assert client.get(f"{prefix}/update/status").status_code == 403  # it holds the waiting estimate's id
         for _ in range(100):
-            if client.get(f"{prefix}/update/status").json()["state"] == "waiting":
+            status = client.get(f"{prefix}/update/status", headers={TOKEN_HEADER: session.token})
+            if status.json()["state"] == "waiting":
                 break
             time.sleep(0.05)
         else:

@@ -56,6 +56,7 @@ TOKEN_READS = (
     "/team/hosting/branches",
     "/team/refresh/status",
     "/team/catch-up/status",  # it holds the waiting estimate's id (design 24.11)
+    "/update/status",  # likewise for the page's update (design 15.4)
 )
 TARGET_PREFIX = re.compile(r"/repos/([^/]+)(?=/|\Z)")
 

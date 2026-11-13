@@ -84,10 +84,10 @@ def test_the_update_button_runs_one_update_at_a_time(paths: Paths) -> None:
     assert client.post("/update", headers=headers).status_code == 202
     assert client.post("/update", headers=headers).status_code == 409
     for _ in range(50):
-        if client.get("/update/status").json()["state"] == "done":
+        if client.get("/update/status", headers=headers).json()["state"] == "done":
             break
         time.sleep(0.05)
-    status = client.get("/update/status").json()
+    status = client.get("/update/status", headers=headers).json()
     assert (status["state"], status["message"]) == ("done", "")
     assert calls == ["run"]
 
@@ -98,9 +98,10 @@ def test_a_failed_update_reports_without_details(paths: Paths) -> None:
 
     session = SessionState(60)
     client = client_for(paths, session, updater=updater)
-    client.post("/update", headers={"origin": ORIGIN, TOKEN_HEADER: session.token})
+    headers = {"origin": ORIGIN, TOKEN_HEADER: session.token}
+    client.post("/update", headers=headers)
     for _ in range(50):
-        status = client.get("/update/status").json()
+        status = client.get("/update/status", headers=headers).json()
         if status["state"] not in ("preparing", "running"):
             break
         time.sleep(0.05)
@@ -119,7 +120,7 @@ def test_updates_from_the_page_wait_for_the_cooldown(paths: Paths) -> None:
     headers = {"origin": ORIGIN, TOKEN_HEADER: session.token}
     assert client.post("/update", headers=headers).status_code == 202
     for _ in range(50):
-        if client.get("/update/status").json()["state"] == "done":
+        if client.get("/update/status", headers=headers).json()["state"] == "done":
             break
         time.sleep(0.05)
     assert client.post("/update", headers=headers).status_code == 429

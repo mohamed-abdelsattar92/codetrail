@@ -24,9 +24,9 @@ def recording_updater(decisions: list[bool]) -> Callable[[Callable[[UpdateEstima
     return updater
 
 
-def wait_for(client: object, states: set[str]) -> dict[str, object]:
+def wait_for(client: object, token: str, states: set[str]) -> dict[str, object]:
     for _ in range(100):
-        status = client.get("/update/status").json()  # type: ignore[attr-defined]
+        status = client.get("/update/status", headers={TOKEN_HEADER: token}).json()  # type: ignore[attr-defined]
         if status["state"] in states:
             return dict(status)
         time.sleep(0.05)
@@ -39,7 +39,7 @@ def test_the_update_waits_with_its_estimate_and_goes_on_with_its_id(paths: Paths
     client = client_for(paths, session, updater=recording_updater(decisions))
     headers = {"origin": ORIGIN, TOKEN_HEADER: session.token}
     assert client.post("/update", headers=headers).status_code == 202
-    status = wait_for(client, {"waiting"})
+    status = wait_for(client, session.token, {"waiting"})
     estimate = status["estimate"]
     assert isinstance(estimate, dict) and estimate["expected_tokens"] == 2 * 126_000
     assert estimate["sign_ins"] == {"claude_code": "Claude subscription (max)"}
@@ -49,7 +49,7 @@ def test_the_update_waits_with_its_estimate_and_goes_on_with_its_id(paths: Paths
     assert client.post("/update/confirm", json={"estimate_id": estimate_id}).status_code == 403  # no token
     assert client.post("/update/confirm", json={"estimate_id": estimate_id}, headers=headers).status_code == 200
     assert client.post("/update/confirm", json={"estimate_id": estimate_id}, headers=headers).status_code == 428
-    status = wait_for(client, {"done"})
+    status = wait_for(client, session.token, {"done"})
     assert (status["state"], status["message"]) == ("done", "")
     assert decisions == [True]
 
@@ -60,9 +60,9 @@ def test_cancelling_spends_nothing(paths: Paths) -> None:
     client = client_for(paths, session, updater=recording_updater(decisions))
     headers = {"origin": ORIGIN, TOKEN_HEADER: session.token}
     client.post("/update", headers=headers)
-    estimate_id = wait_for(client, {"waiting"})["estimate_id"]
+    estimate_id = wait_for(client, session.token, {"waiting"})["estimate_id"]
     assert client.post("/update/cancel", json={"estimate_id": estimate_id}, headers=headers).status_code == 200
-    status = wait_for(client, {"declined"})
+    status = wait_for(client, session.token, {"declined"})
     assert "wasn't updated" in str(status["message"]) and "estimate" not in status
     assert decisions == [False]
 
@@ -79,7 +79,7 @@ def test_an_unanswered_estimate_expires(paths: Paths) -> None:
     client = TestClient(app, base_url=ORIGIN, follow_redirects=False)
     assert client.get(f"/login?code={session.issue_login_code()}").status_code == 303
     client.post("/update", headers={"origin": ORIGIN, TOKEN_HEADER: session.token})
-    assert "expired" in str(wait_for(client, {"declined"})["message"])
+    assert "expired" in str(wait_for(client, session.token, {"declined"})["message"])
     assert decisions == [False]
 
 
@@ -92,7 +92,7 @@ def test_nothing_to_estimate_means_no_question(paths: Paths) -> None:
     session = SessionState(60)
     client = client_for(paths, session, updater=updater)
     client.post("/update", headers={"origin": ORIGIN, TOKEN_HEADER: session.token})
-    assert wait_for(client, {"done"})["state"] == "done"
+    assert wait_for(client, session.token, {"done"})["state"] == "done"
     assert decisions == [True]
 
 
@@ -100,7 +100,7 @@ def test_the_status_carries_the_estimate_rendered_for_the_dialog(paths: Paths) -
     session = SessionState(60)
     client = client_for(paths, session, updater=recording_updater([]))
     client.post("/update", headers={"origin": ORIGIN, TOKEN_HEADER: session.token})
-    html = str(wait_for(client, {"waiting"})["estimate_html"])
+    html = str(wait_for(client, session.token, {"waiting"})["estimate_html"])
     assert "claude_code · claude-sonnet-5-5" in html and "2 to 5" in html
     # Each estimate is isolated, so its leading ~ stays with its number in a right-to-left language.
     assert '<bdi dir="ltr">~126k</bdi>' in html and '<bdi dir="ltr">~$0.30</bdi>' in html and "a starting guess" in html
@@ -130,7 +130,7 @@ def test_stopping_the_server_declines_a_waiting_estimate_and_waits_for_the_updat
     with TestClient(app, base_url=ORIGIN, follow_redirects=False) as client:  # leaving it stops the server
         assert client.get(f"/login?code={session.issue_login_code()}").status_code == 303
         client.post("/update", headers={"origin": ORIGIN, TOKEN_HEADER: session.token})
-        wait_for(client, {"waiting"})
+        wait_for(client, session.token, {"waiting"})
     assert decisions == [False]
     assert finished == [True]
 
@@ -155,3 +155,11 @@ def test_an_update_preparing_when_the_server_stops_asks_nothing(paths: Paths) ->
         stopping = time.monotonic()
     assert decisions == [False]
     assert time.monotonic() - stopping < 5  # not the estimate's time to live
+
+
+def test_the_status_needs_the_token(paths: Paths) -> None:
+    session = SessionState(60)
+    client = client_for(paths, session, updater=recording_updater([]))
+    assert client.get("/update/status").status_code == 403  # it holds the waiting estimate's id
+    assert client.get("/update/status", headers={TOKEN_HEADER: "wrong"}).status_code == 403
+    assert client.get("/update/status", headers={TOKEN_HEADER: session.token}).status_code == 200
