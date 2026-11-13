@@ -105,3 +105,19 @@ def test_hooks_refuse_settings_that_skip_checks(tmp_path: pathlib.Path, setting:
                             env=clean_env(**setting), capture_output=True, text=True)
     assert result.returncode == 1
     assert next(iter(setting)) in result.stderr
+
+
+
+@pytest.mark.parametrize("name", [".gitleaks.toml", ".gitleaksignore"])
+def test_hooks_refuse_an_untracked_gitleaks_setting(tmp_path: pathlib.Path, name: str) -> None:
+    # The pre-commit gitleaks job reads these from the repository's root, so an untracked one could hide a leak.
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    (tmp_path / "lefthook.yml").write_text("pre-commit:\n  jobs: []\n")
+    (tmp_path / name).write_text("x\n")
+    run = ["sh", str(HOOKS / "run-lefthook"), "pre-commit"]
+    result = subprocess.run(run, cwd=tmp_path, env=clean_env(), capture_output=True, text=True)
+    assert result.returncode == 1
+    assert name in result.stderr
+    subprocess.run(["git", "-C", str(tmp_path), "add", name], check=True)
+    tracked = subprocess.run(run, cwd=tmp_path, env=clean_env(), capture_output=True, text=True)
+    assert name not in tracked.stderr  # a tracked one is reviewed; lefthook may be missing here

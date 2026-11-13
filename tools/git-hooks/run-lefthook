@@ -4,7 +4,7 @@
 # reinstall hooks, and fails closed when lefthook can't be found. It refuses to run with any
 # configuration but the tracked lefthook.yml: a local one (lefthook-local.yml and the other names
 # lefthook 2.1.14 loads) or LEFTHOOK_CONFIG could skip a check, the gitleaks scan included, and
-# so could LEFTHOOK=0 or LEFTHOOK_EXCLUDE.
+# so could LEFTHOOK=0, LEFTHOOK_EXCLUDE, or an untracked .gitleaks.toml or .gitleaksignore.
 hook="$1"
 shift
 root=$(git rev-parse --show-toplevel)
@@ -38,6 +38,13 @@ if [ -n "${LEFTHOOK_EXCLUDE:-}" ]; then
   echo "$hook: LEFTHOOK_EXCLUDE skips some of the checks; unset it before committing or pushing." >&2
   exit 1
 fi
+
+for name in .gitleaks.toml .gitleaksignore; do
+  if [ -e "$root/$name" ] && ! git -C "$root" ls-files --error-unmatch -- "$name" >/dev/null 2>&1; then
+    echo "$hook: an untracked $name changes what the gitleaks scan reports; remove it before committing or pushing." >&2
+    exit 1
+  fi
+done
 
 if [ -n "${LEFTHOOK_CONFIG:-}" ]; then
   echo "$hook: LEFTHOOK_CONFIG replaces lefthook.yml and its checks; unset it before committing or pushing." >&2
