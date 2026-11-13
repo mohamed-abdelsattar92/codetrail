@@ -93,3 +93,15 @@ def test_hooks_refuse_another_lefthook_config(tmp_path: pathlib.Path) -> None:
                             env=clean_env(LEFTHOOK_CONFIG="other.yml"), capture_output=True, text=True)
     assert result.returncode == 1
     assert "LEFTHOOK_CONFIG" in result.stderr
+
+
+
+@pytest.mark.parametrize("setting", [{"LEFTHOOK": "0"}, {"LEFTHOOK": "false"}, {"LEFTHOOK": "False"},
+                                     {"LEFTHOOK_EXCLUDE": "secrets"}])
+def test_hooks_refuse_settings_that_skip_checks(tmp_path: pathlib.Path, setting: dict[str, str]) -> None:
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    (tmp_path / "lefthook.yml").write_text("pre-commit:\n  jobs: []\n")
+    result = subprocess.run(["sh", str(HOOKS / "run-lefthook"), "pre-commit"], cwd=tmp_path,
+                            env=clean_env(**setting), capture_output=True, text=True)
+    assert result.returncode == 1
+    assert next(iter(setting)) in result.stderr
