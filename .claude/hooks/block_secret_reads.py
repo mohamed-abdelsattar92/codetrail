@@ -35,7 +35,7 @@ SECRET_PATH = re.compile(
     r'(^|/)\.ssh(/|$)|\.config/gh(/|$)|\.config/gcloud(/|$)|\.wrangler/config|Preferences/\.wrangler'
     r'|(^|/)\.netrc$|(^|/)\.npmrc$|(^|/)\.git-credentials$|\.terraform\.d/credentials|\.docker/config\.json'
     r'|\.aws(/|$)|(^|/)\.pypirc$'
-    r'|(^~|HOME\}?|^/Users/[^/]+|^/home/[^/]+)/\.codex(/|$)|CODEX_HOME\}?/|(^|/)\.azure(/|$)|(^|/)glab-cli(/|$)')
+    r'|(^~|HOME\}?|^/Users/[^/]+|^/home/[^/]+)/\.codex(/|$)|(^|/)\.codex/auth\.json$|CODEX_HOME\}?/|(^|/)\.azure(/|$)|(^|/)glab-cli(/|$)')
 # Commands that print a token: the sign-ins of the hosting programs Codetrail drives (ADR 0020), as the program and
 # its words with options left out.
 TOKEN_PRINTERS = (('az', 'account', 'get-access-token'), ('glab', 'config', 'get', 'token'))
@@ -62,11 +62,15 @@ GREP_SHORT_WITH_VALUE = 'efmABCdD'
 GREP_LONG_WITH_VALUE = {'--regexp', '--file', '--max-count', '--after-context', '--before-context', '--context',
                         '--include', '--exclude', '--exclude-dir', '--exclude-from', '--label', '--binary-files',
                         '--directories', '--devices', '--color', '--colour'}
+GREP_NAMES = {'grep', 'egrep', 'fgrep', 'ggrep'}
+# rg options that reach ignored or hidden files: any --no-ignore option, --hidden, --unrestricted, -u, -.
+RG_REACHES_EVERY_FILE = re.compile(r'--(no-ignore.*|hidden|unrestricted)|-[A-Za-z]*[u.][A-Za-z.]*')
 # Folders a search walks without the guard looking for secret files in them: git's own, and installed packages, whose
 # certificate bundles (cacert.pem) aren't the reader's secrets.
 NOT_SEARCHED_FOR_SECRETS = {'.git', '.venv', 'node_modules'}
 # The files a search may walk before the guard gives up and refuses, rather than take too long.
 MAX_FILES_SEARCHED = 200_000
+UNKNOWN_FOLDER = 'a search from a folder only the shell can work out'
 
 
 def grep_folders(args):
@@ -101,34 +105,82 @@ def grep_folders(args):
     return (operands if pattern_given else operands[1:]) or ['.']
 
 
-def rg_folders(args, base):
-    """The folders an rg that shows hidden files searches (--hidden, -., -uu, --unrestricted twice), or None.
-
-    rg skips hidden and ignored files by default. Its many options with values aren't listed here, so any word that
-    names an existing path counts as a folder, and the working folder when none does."""
-    hidden = sum(2 if a in ('--hidden', '--unrestricted') else 0 for a in args)
-    hidden += sum(a.count('u') + 2 * a.count('.') for a in args if re.fullmatch(r'-[A-Za-z.]+', a))
-    if hidden < 2: return None
-    return [a for a in args if not a.startswith('-') and os.path.exists(os.path.join(base, a))] or ['.']
+def existing_folders(args, base):
+    """For a search whose options with values aren't listed here: every word naming an existing path, else '.'."""
+    return [a for a in args if not a.startswith('-') and base and os.path.exists(os.path.join(base, a))] or ['.']
 
 
-def secret_file_under(folders, base):
-    """The first secret file under the folders, or a reason the guard can't tell; None when there is none."""
-    searched = 0
+def searched_folders(toks, base):
+    """What a command searches in the working tree, as (every_file, folders), or None for any other command.
+
+    every_file is False for rg's default, which skips hidden files and folders (and ignored ones, which the guard
+    doesn't read, so it counts them as searched)."""
+    prog, args = os.path.basename(toks[0]), toks[1:]
+    if prog in GREP_NAMES:
+        folders = grep_folders(args)
+        return (True, folders) if folders else None
+    if prog == 'rg':
+        return any(RG_REACHES_EVERY_FILE.fullmatch(a) for a in args), existing_folders(args, base)
+    if prog in ('ag', 'ack'):
+        return True, existing_folders(args, base)
+    if prog == 'git' and args[:1] == ['grep'] and any(a in ('--no-index', '--untracked') for a in args):
+        return True, existing_folders(args[1:], base)
+    return None
+
+
+def codex_homes():
+    homes = [os.path.expanduser('~/.codex')] + ([os.environ['CODEX_HOME']] if os.environ.get('CODEX_HOME') else [])
+    return [os.path.realpath(home) for home in homes]
+
+
+def in_codex_home(path):
+    """An absolute path inside Codex's home (~/.codex or $CODEX_HOME), however it was named."""
+    real = os.path.realpath(path)
+    return any(real == home or real.startswith(home + '/') for home in codex_homes())
+
+
+def moved_to(prog, args, base):
+    """The folder a cd or pushd moves to, or None when only the shell can work it out."""
+    targets = [a for a in args if a == '-' or not a.startswith('-')]
+    if prog == 'popd' or (prog == 'pushd' and not targets): return None
+    target = targets[0].strip('\'"') if targets else '~'
+    if target == '-' or re.search(r'[$`*?\[]', target): return None
+    target = os.path.expanduser(target)
+    if target.startswith('~') or not (base or os.path.isabs(target)): return None
+    folder = os.path.join(base or '/', target)
+    return os.path.realpath(folder) if os.path.isdir(folder) else None
+
+
+def secret_file_under(every_file, folders, base):
+    """The first secret file under the folders, or a reason the guard can't tell; None when there is none.
+
+    It follows symbolic links, as grep -R and rg -L do, and visits each real folder once."""
+    if base is None: return UNKNOWN_FOLDER
+    searched, visited = 0, set()
     for folder in folders:
-        folder = os.path.expanduser(os.path.expandvars(folder.strip('\'"')))
-        if '$' in folder or re.search(r'[*?\[]', folder): return f'a search of {folder}, which only the shell can resolve'
-        for root, dirs, files in os.walk(os.path.join(base, folder)):
-            dirs[:] = [name for name in dirs if name not in NOT_SEARCHED_FOR_SECRETS]
+        folder = folder.strip('\'"')
+        if re.search(r'[$`*?\[]', folder): return f'a search of {folder}, which only the shell can resolve'
+        top = os.path.join(base, os.path.expanduser(folder))
+        if not os.path.exists(top):
+            if folder.startswith(('~', '/')): return f'a search of {folder}, which the guard can\'t find'
+            continue  # a relative folder that isn't there: the search finds nothing
+        for root, dirs, files in os.walk(top, followlinks=True):
+            real = os.path.realpath(root)
+            if real in visited:
+                dirs[:] = []
+                continue
+            visited.add(real)
+            dirs[:] = [name for name in dirs if name not in NOT_SEARCHED_FOR_SECRETS and (every_file or name[0] != '.')]
+            files = [name for name in files if every_file or name[0] != '.']
             searched += len(files)
             if searched > MAX_FILES_SEARCHED: return f'a search of {folder}, too large to check for secret files'
             for name in files + dirs:
                 found = os.path.join(root, name)
-                if SECRET_NAME.match(name) or SECRET_PATH.search(found): return found
+                if SECRET_NAME.match(name) or SECRET_PATH.search(found) or in_codex_home(found): return found
     return None
 
 
-def secret_in(token):
+def secret_in(token, base=None):
     # A token may carry the path after an option or a redirection: --env-file=.env, <.dev.vars, 2>~/.netrc.
     path = re.sub(r'^\d*[<>]+&?', '', token.split('=', 1)[-1]).strip('\'"')
     if re.search(r'Library/Application Support/glab-cli(/|$)', path): return path  # the one secret path with a space
@@ -139,10 +191,13 @@ def secret_in(token):
         if SECRET_PATH.search(path): return path
     name = os.path.basename(path)
     if SECRET_NAME.match(name) or SECRET_NAME.match(re.split(r'[*?\[]', name)[0]): return path
+    absolute = os.path.expanduser(path)
+    if path and '$' not in path and (os.path.isabs(absolute) or base) and in_codex_home(os.path.join(base or '/', absolute)):
+        return path  # .codex/config.toml from the home folder, ../../.codex/history.jsonl
     return None
 
 
-def check(cmd, depth=0, base='.'):
+def check(cmd, depth=0, base=None):
     if depth > 4: return 'a command nested too deeply to read'
     try:
         cmd, bodies = strip_heredocs(cmd)
@@ -157,11 +212,9 @@ def check(cmd, depth=0, base='.'):
         while len(toks) > 1 and (os.path.basename(toks[0]) in WRAPPERS or toks[0].startswith('-') or toks[0].isdigit()):
             toks = toks[1:]  # env, timeout 5, nice -n 5 and the like run the command after them
         prog = os.path.basename(toks[0])
-        if prog in ('cd', 'pushd') and len(toks) == 2:
-            base = os.path.join(base, os.path.expanduser(toks[1]))  # a later search runs there
-        folders = grep_folders(toks[1:]) if prog == 'grep' else rg_folders(toks[1:], base) if prog == 'rg' else None
-        if folders:
-            found = secret_file_under(folders, base)
+        search = searched_folders(toks, base)
+        if search:
+            found = secret_file_under(*search, base)
             if found: return found
         if prog in METADATA_ONLY or toks[:2] == ['git', 'check-ignore']: continue
         if prog == 'security' and len(toks) > 1 and toks[1] in KEYCHAIN: return f'the Keychain (security {toks[1]})'
@@ -176,8 +229,10 @@ def check(cmd, depth=0, base='.'):
             r = check(' '.join(toks[1:]), depth + 1, base)
             if r: return r
         for t in seg:
-            found = secret_in(t)
+            found = secret_in(t, base)
             if found: return found
+        if prog in ('cd', 'pushd', 'popd'):
+            base = moved_to(prog, toks[1:], base)  # the commands after it run there
     return None
 
 
@@ -191,7 +246,7 @@ def main():
         print('Blocked: the secrets guard could not read its input, so it refuses the call.', file=sys.stderr)
         return 2
     if data.get('tool_name') != 'Bash': return 0
-    found = check((data.get('tool_input') or {}).get('command') or '', base=data.get('cwd') or os.getcwd())
+    found = check((data.get('tool_input') or {}).get('command') or '', base=os.path.realpath(data.get('cwd') or os.getcwd()))
     if found:
         print(f'Blocked: this command would touch a secret ({found}). Coding agents never read, print or copy secrets '
               f'in codetrail (AGENTS.md, Never do, rule 2). If a task seems to need one, stop and tell the '

@@ -1,5 +1,6 @@
 """Tests for the Claude Code secrets guard, .claude/hooks/block_secret_reads.py (AGENTS.md, Never do, rule 2)."""
 import json
+import os
 import pathlib
 import subprocess
 import sys
@@ -199,3 +200,84 @@ def test_blocks_recursive_searches_that_reach_an_env_file(checkout: pathlib.Path
 @pytest.mark.parametrize("command", RECURSIVE_SEARCHES_OF_SOURCE)
 def test_allows_recursive_searches_of_folders_without_one(checkout: pathlib.Path, command: str) -> None:
     assert run_hook_in(checkout, command) == 0
+
+
+def run_hook_with(folder: pathlib.Path, command: str, **env: str) -> int:
+    """The hook for a shell in `folder`, with HOME and CODEX_HOME as given (CODEX_HOME unset unless given)."""
+    payload = json.dumps({"tool_name": "Bash", "tool_input": {"command": command}, "cwd": str(folder)})
+    environment = {name: value for name, value in os.environ.items() if name != "CODEX_HOME"} | env
+    return subprocess.run([sys.executable, str(HOOK)], input=payload, capture_output=True, text=True,
+                          env=environment).returncode
+
+
+def test_follows_symlinked_folders_and_their_loops(checkout: pathlib.Path) -> None:
+    # grep -R and rg -L follow symbolic links, so a secret file behind one is searched too (G2 review, finding 1).
+    outside = checkout.parent / f"{checkout.name}-outside"
+    outside.mkdir()
+    (outside / "deploy.pem").write_text("placeholder\n")
+    (checkout / "lib").mkdir()
+    (checkout / "lib" / "shared").symlink_to(outside)
+    (checkout / "looped").mkdir()
+    (checkout / "looped" / "self").symlink_to(checkout / "looped")
+    assert run_hook_in(checkout, "grep -Rn API_KEY lib") == 2
+    assert run_hook_in(checkout, "rg -L API_KEY lib") == 2
+    assert run_hook_in(checkout, "grep -Rn API_KEY looped") == 0
+
+
+# A search from a folder the guard can't work out is refused, not taken as clean (G2 review, finding 2).
+UNRESOLVED_FOLDERS = [
+    "cd && grep -rn API_KEY .",  # cd alone goes home
+    "cd $SOMEWHERE && grep -rn API_KEY .",
+    "cd ~no-such-reader && grep -rn API_KEY .",
+    "cd -P services && grep -rn API_KEY .",
+    "cd missing-folder && grep -rn API_KEY .",
+    "grep -rn API_KEY /no/such/folder",
+    "grep -rn API_KEY ~/no-such-folder",
+]
+
+
+@pytest.mark.parametrize("command", UNRESOLVED_FOLDERS)
+def test_refuses_searches_from_folders_it_cant_work_out(checkout: pathlib.Path, command: str) -> None:
+    assert run_hook_with(checkout, command, HOME=str(checkout)) == 2
+
+
+# rg reaches ignored files with any no-ignore option or -u, hidden ones with --hidden, and, by default, secret files
+# that are neither (G2 review, finding 3). grep's other names, git grep outside the index, ag and ack search the
+# working tree too (finding 4).
+OTHER_SEARCHES_REACHING_AN_ENV_FILE = [
+    "rg --no-ignore API_KEY",
+    "rg --no-ignore-vcs API_KEY",
+    "rg -u API_KEY",
+    "rg --unrestricted API_KEY",
+    "egrep -rn API_KEY .",
+    "fgrep -r API_KEY .",
+    "ggrep -r API_KEY .",
+    "git grep --no-index API_KEY",
+    "git grep --untracked API_KEY",
+    "ag API_KEY",
+    "ack API_KEY",
+]
+
+
+@pytest.mark.parametrize("command", OTHER_SEARCHES_REACHING_AN_ENV_FILE)
+def test_blocks_other_searches_that_reach_an_env_file(checkout: pathlib.Path, command: str) -> None:
+    assert run_hook_in(checkout, command) == 2
+
+
+def test_blocks_rg_reaching_a_visible_secret_file(checkout: pathlib.Path) -> None:
+    (checkout / "certs").mkdir()
+    (checkout / "certs" / "deploy.pem").write_text("placeholder\n")
+    assert run_hook_in(checkout, "rg API_KEY certs") == 2
+    assert run_hook_in(checkout, "ag API_KEY src") == 0
+
+
+def test_codex_home_is_matched_however_it_is_named(tmp_path: pathlib.Path) -> None:
+    # A relative path into Codex's home, or any .codex/auth.json, is a secret (G2 review, finding 5).
+    home = tmp_path / "home"
+    (home / "work" / "repo").mkdir(parents=True)
+    codex_home = tmp_path / "elsewhere"
+    assert run_hook_with(home, "cat .codex/config.toml", HOME=str(home)) == 2
+    assert run_hook_with(home / "work" / "repo", "cat ../../.codex/history.jsonl", HOME=str(home)) == 2
+    assert run_hook_with(tmp_path, "cat backup/.codex/auth.json", HOME=str(home)) == 2
+    assert run_hook_with(tmp_path, f"cat {codex_home}/config.toml", HOME=str(home), CODEX_HOME=str(codex_home)) == 2
+    assert run_hook_with(home / "work" / "repo", "cat .codex/rules/no-push.rules", HOME=str(home)) == 0
