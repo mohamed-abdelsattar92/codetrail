@@ -42,7 +42,7 @@ from codetrail.assistant import (
     runner,
 )
 from codetrail.assistant.environment import child_environment, resolve_program
-from codetrail.assistant.guard import ALLOWED_TOOLS
+from codetrail.assistant.guard import ALLOWED_TOOLS, RENDERED_SUFFIXES
 from codetrail.assistant.prompts import (
     ANSWER_RULES,
     DIGEST_SCHEMA,
@@ -255,9 +255,11 @@ class ClaudeCodeAssistant:
             "--setting-sources",
             "",
             "--strict-mcp-config",
-            # Should the guard hook fail to run, Claude Code runs the tool anyway: no MCP tool is there to reach.
+            # Should the guard hook fail to run, Claude Code runs the tool anyway: no MCP tool is there to reach, and
+            # no PDF or image is there to render (the guard refuses those, by any case of name and by content).
             "--disallowedTools",
             "mcp__*",
+            *(f"Read(./**/*{suffix})" for known in sorted(RENDERED_SUFFIXES) for suffix in (known, known.upper())),
             "--disable-slash-commands",
             "--no-session-persistence",
             "--settings",

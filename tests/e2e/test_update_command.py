@@ -1,5 +1,7 @@
 """`codetrail update` end to end: facts recorded with validity ranges, and the target never touched."""
 
+import os
+import stat
 from pathlib import Path
 
 import pytest
@@ -185,3 +187,30 @@ def test_the_terminal_estimate_quotes_a_title_with_control_characters(
     main(["update", "api", "--yes"])
     out = capsys.readouterr().out
     assert "\x1b" not in out and "\\x1b[2A" in out  # shown, escaped
+
+
+def test_codetrail_keeps_its_folders_and_files_private(environment: Path) -> None:
+    """The mirror holds the whole history, excluded secrets too; other accounts can't read anything Codetrail writes,
+    git's own files included, and a data folder an older version made readable is closed again."""
+    checkout = make_repository(environment / "target", [{"services/api/pyproject.toml": PYPROJECT}])
+    (environment / "data" / "codetrail").mkdir(parents=True, mode=0o755)
+    (environment / "data" / "codetrail").chmod(0o755)
+    (environment / "state" / "codetrail").mkdir(parents=True, mode=0o755)
+    (environment / "state" / "codetrail").chmod(0o755)
+    umask = os.umask(0o022)
+    try:
+        assert main(["target", "add", "api", str(checkout)]) == 0
+        assert main(["update", "api", "--facts-only"]) == 0
+        assert os.umask(0o022) == 0o022  # restored once the command returns
+    finally:
+        os.umask(umask)
+
+    data = environment / "data" / "codetrail"
+    assert (data / "api" / "mirror.git" / "objects").is_dir() and (data / "api" / "codetrail.db").is_file()
+    for folder in (data, environment / "state" / "codetrail", environment / "config" / "codetrail"):
+        readable = [
+            str(path.relative_to(environment))
+            for path in [folder, *folder.rglob("*")]
+            if not path.is_symlink() and stat.S_IMODE(path.lstat().st_mode) & 0o077
+        ]
+        assert readable == []

@@ -2,6 +2,7 @@
 
 import os
 import shutil
+import stat
 import subprocess
 import time
 from pathlib import Path
@@ -10,7 +11,7 @@ import pytest
 
 from codetrail.config import ToolsSettings
 from codetrail.errors import CodetrailError
-from codetrail.repo.secrets import SecretScanner
+from codetrail.repo.secrets import SecretScanner, remove_stale_scans
 from tests.fixtures.repos import fake_github_token
 
 GITLEAKS = "gitleaks"
@@ -360,3 +361,54 @@ def test_a_scan_off_the_event_loop_runs_in_a_thread_the_interpreter_waits_for() 
     import anyio.to_thread
 
     assert anyio.run(anyio.to_thread.run_sync, lambda: threading.current_thread().daemon) is False
+
+
+def test_gitleaks_reads_its_text_from_a_regular_file(tmp_path: Path) -> None:
+    """gitleaks checks each read of its input for a binary signature until it has seen a line's end. From a pipe, a
+    short first read could end inside the header line, and a later read start where the text's own bytes put a
+    signature (tar's, at offset 257) in place, which skips the rest unscanned. A regular file's first read is whole."""
+    fake = write_script(
+        tmp_path / "bin" / "gitleaks",
+        'mode="$1"; while [ $# -gt 0 ]; do [ "$1" = --report-path ] && report="$2"; shift; done\n'
+        '[ "$mode" = dir ] || [ -f /dev/stdin ] || { echo "stdin is not a regular file" >&2; exit 3; }\n'
+        'echo "[]" > "$report"\n',
+    )
+    scanner = SecretScanner(ToolsSettings(gitleaks=str(fake)))
+    assert scanner.scan_text("x") == []
+    (tmp_path / "source").mkdir()
+    (tmp_path / "source" / "a.txt").write_text("a\n")
+    assert scanner.scan_directory(tmp_path / "source") == []
+
+
+def test_gitleaks_input_stays_in_a_private_folder_of_codetrails_own(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A crash mustn't leave target text in the shared temporary folder; the scan's folder is under the state folder."""
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
+    seen = tmp_path / "seen.txt"
+    fake = write_script(
+        tmp_path / "bin" / "gitleaks",
+        f'pwd > "{seen}"; ls -ld . >> "{seen}"\n'
+        'while [ $# -gt 0 ]; do [ "$1" = --report-path ] && report="$2"; shift; done\necho "[]" > "$report"\n',
+    )
+    SecretScanner(ToolsSettings(gitleaks=str(fake))).scan_text("x")
+    folder, listing = seen.read_text().splitlines()
+    scans = (tmp_path / "state" / "codetrail" / "scans").resolve()
+    assert Path(folder).resolve().parent == scans
+    assert Path(folder).name.startswith(f"{os.getpid()}-")
+    assert listing.startswith("drwx------")
+    assert not Path(folder).exists()  # removed after the run
+    assert stat.S_IMODE(scans.stat().st_mode) == 0o700
+
+
+def test_scan_folders_of_processes_that_ended_are_removed(tmp_path: Path) -> None:
+    scans = tmp_path / "scans"
+    ended = subprocess.Popen(["true"])  # a process id that is no longer running
+    ended.wait()
+    (scans / f"{ended.pid}-left").mkdir(parents=True)
+    (scans / f"{ended.pid}-left" / "input.txt").write_text("target text")
+    (scans / f"{os.getpid()}-running").mkdir()
+    (scans / "notes").mkdir()
+    remove_stale_scans(scans)
+    assert sorted(path.name for path in scans.iterdir()) == [f"{os.getpid()}-running", "notes"]
+    remove_stale_scans(tmp_path / "missing")  # no folder yet: nothing to do

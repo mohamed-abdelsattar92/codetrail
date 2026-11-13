@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import os
 import signal
+import stat
 import sys
 import threading
 import unicodedata
@@ -42,6 +44,7 @@ from codetrail.remove import remove_target, remove_team
 from codetrail.repo.mirror import check_branch
 from codetrail.repo.refresh import refresh_source
 from codetrail.repo.rules import Reason
+from codetrail.repo.secrets import SCANS_FOLDER, remove_stale_scans
 from codetrail.server import serve
 from codetrail.team.catch_up import CatchUpEstimate, describe_catch_up, run_catch_up
 from codetrail.team.server import serve_team
@@ -119,6 +122,9 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+PRIVATE_UMASK = 0o077  # folders 0700, files 0600
+
+
 def main(argv: list[str] | None = None) -> int:
     for signal_number in (signal.SIGHUP, signal.SIGTERM):
         if signal.getsignal(signal_number) == signal.SIG_DFL:  # one ignored at start (nohup) stays ignored
@@ -129,7 +135,12 @@ def main(argv: list[str] | None = None) -> int:
         parser.print_help(file=sys.stderr)
         return 2
     paths = Paths.from_environment()
+    # Codetrail's folders hold a target's whole history, excluded secrets included: everything it creates, and
+    # everything git creates for it, is the reader's alone. Restored on return, for callers in the same process.
+    previous_umask = os.umask(PRIVATE_UMASK)
     try:
+        close_folders(paths)
+        remove_stale_scans(paths.state_dir / SCANS_FOLDER)
         if arguments.command == "target" and arguments.target_command == "remove":
             return remove_target_command(paths, arguments.name, yes=arguments.yes)
         if arguments.command == "team":
@@ -156,6 +167,18 @@ def main(argv: list[str] | None = None) -> int:
     except CodetrailError as error:
         print(f"codetrail: {error}", file=sys.stderr)
         return 1
+    finally:
+        os.umask(previous_umask)
+
+
+def close_folders(paths: Paths) -> None:
+    """Makes the data and state folders the reader's alone, when an older version left them readable to others."""
+    for folder in (paths.data_dir, paths.state_dir):
+        if not folder.is_dir() or folder.is_symlink():
+            continue
+        status = folder.stat()
+        if status.st_uid == os.getuid() and stat.S_IMODE(status.st_mode) & 0o077:
+            folder.chmod(0o700)
 
 
 def connect_agents(paths: Paths, name: str) -> int:
@@ -332,7 +355,7 @@ def _remove(what: str, reassurance: str, yes: bool, remove: Callable[[Callable[[
 
 
 def printable(path: str) -> str:
-    """A path from a target, quoted with escapes if it holds characters a terminal would act on."""
+    """Text from a target or a provider, quoted with escapes if it holds characters a terminal would act on."""
     if any(unicodedata.category(character) in ("Cc", "Cf", "Cs", "Zl", "Zp") for character in path):
         return repr(path)
     return path
@@ -361,13 +384,14 @@ def show_providers(paths: Paths) -> int:
         status = provider_status(provider, settings)
         state = "ready" if status.ready else "not ready"
         how = " · ".join(part for part in (status.method, status.program) if part)
-        print(f"{provider:<12} {state:<10} {how}")
+        # The sign-in method, models and messages come from the provider's own output.
+        print(f"{provider:<12} {state:<10} {printable(how)}")
         if status.models:
-            print(f"{'':<12} models: {', '.join(status.models)}")
+            print(f"{'':<12} models: {printable(', '.join(status.models))}")
         if status.fix:
-            print(f"{'':<12} {status.fix}")
+            print(f"{'':<12} {printable(status.fix)}")
         if status.warning:
-            print(f"{'':<12} Note: {status.warning}")
+            print(f"{'':<12} Note: {printable(status.warning)}")
     return 0
 
 
@@ -392,8 +416,8 @@ def update_target(
         if not estimate.lines:
             print("Nothing for the assistant to do in this update.")
             return True
-        for line in describe(estimate):
-            print(printable(line) if line.startswith("  ") or line.startswith("Skipped") else line)
+        for line in describe(estimate):  # page titles come from the target, account lines from the providers
+            print(printable(line))
         answer = ask_to_continue(yes)
         no_terminal = answer is None
         return bool(answer)
