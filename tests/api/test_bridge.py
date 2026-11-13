@@ -16,6 +16,7 @@ from codetrail.config import GlobalConfig, Paths, write_target
 from codetrail.database import connect
 from codetrail.guide import GuideRepository
 from codetrail.lock import target_lock
+from codetrail.repo.secrets import SecretScanner
 from codetrail.update import run_update
 from codetrail.web.app import create_app
 from codetrail.web.security import TOKEN_HEADER, SessionState
@@ -343,3 +344,20 @@ def test_a_failing_diagram_list_neither_blocks_the_answer_nor_holds_the_slot(
         response = client.post("/bridge/questions", json={"question": question}, headers=headers)
         assert response.status_code == 200
         assert events(response.text)[-1]["type"] == "done"
+
+
+def test_an_answers_usage_is_recorded_before_its_scan(paths: Paths, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A scan that fails, or a reader who leaves while it runs, can't lose the usage of a call that finished."""
+
+    def failing_scan(self: SecretScanner, text: str) -> list[object]:
+        raise RuntimeError("gitleaks stopped")
+
+    monkeypatch.setattr(SecretScanner, "scan_text", failing_scan)
+    usage = Usage("claude_code", "claude-sonnet-5-5", 500, 0, 50, 0.04)
+    claude = FakeAssistant(answers=[[AnswerChunk("Fine."), AnswerChunk(done=True, cost_usd=0.04, usage=usage)]])
+    client, headers = make_client(paths, claude)
+    found = events(client.post("/bridge/questions", json={"question": "Why?"}, headers=headers).text)
+    assert found[-1]["type"] == "error"
+    connection = connect(paths.target_data("t") / "codetrail.db")
+    rows = connection.execute("SELECT kind, provider, cost_usd FROM assistant_calls").fetchall()
+    assert [tuple(row) for row in rows] == [("answer", "claude_code", 0.04)]

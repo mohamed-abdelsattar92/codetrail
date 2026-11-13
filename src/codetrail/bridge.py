@@ -140,8 +140,8 @@ def bridge_router(
                         if not chunk.done:  # streamed text; a buffered answer arrives with done, after the scan
                             yield _event({"type": "text", "text": chunk.text})
                     if chunk.done:
+                        cost = _record(chunk)  # before the scan, which can fail or be cancelled by a reader leaving
                         findings = await anyio.to_thread.run_sync(scanner.scan_text, "".join(parts))
-                        cost = _record(chunk)
                         if findings:
                             yield _event(
                                 {
