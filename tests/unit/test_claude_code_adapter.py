@@ -98,6 +98,10 @@ async def test_a_page_runs_claude_read_only_with_the_prompt_on_stdin(source: Pat
     assert "--bare" not in argv
     # if the guard hook can't run, no MCP tool, memory or claude.ai connector is there for Claude to reach for
     assert argv[argv.index("--disallowedTools") + 1] == "mcp__*"
+    # and Claude Code's own rules refuse to read PDFs and images, which the guard refuses too
+    denied = argv[argv.index("--disallowedTools") + 1 : argv.index("--disable-slash-commands")]
+    for suffix in (".pdf", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff", ".ico", ".heic", ".avif"):
+        assert f"Read(./**/*{suffix})" in denied and f"Read(./**/*{suffix.upper()})" in denied
     settings = record["settings"]
     assert (settings["autoMemoryEnabled"], settings["disableClaudeAiConnectors"]) == (False, True)
     assert (settings["syncClaudeAiSkills"], settings["syncClaudeAiPlugins"]) == (False, False)

@@ -1,11 +1,14 @@
 """Materializing a target's allowed files into source/ (design sections 3.2 to 3.4)."""
 
+import io
 import shutil
+import zipfile
+import zlib
 from pathlib import Path
 
 import pytest
 
-from codetrail.config import ToolsSettings
+from codetrail.config import SourceSettings, ToolsSettings
 from codetrail.errors import CodetrailError
 from codetrail.repo.mirror import TreeEntry, refresh_mirror
 from codetrail.repo.rules import ExclusionRules, Reason
@@ -35,11 +38,14 @@ def hostile(tmp_path: Path) -> Path:
     )
 
 
-def build(hostile: Path, tmp_path: Path, scanner: SecretScanner | None = None) -> SourceManifest:
+def build(
+    hostile: Path, tmp_path: Path, scanner: SecretScanner | None = None, limits: SourceSettings | None = None
+) -> SourceManifest:
     mirror = tmp_path / "data" / "mirror.git"
     commit = refresh_mirror(mirror, hostile, "develop")
     rules = ExclusionRules(["docs/private/", "**/*.png"])
-    return build_source(mirror, commit, rules, scanner or SecretScanner(ToolsSettings()), tmp_path / "data")
+    scanner = scanner or SecretScanner(ToolsSettings())
+    return build_source(mirror, commit, rules, scanner, tmp_path / "data", limits or SourceSettings())
 
 
 def test_only_allowed_files_are_materialized(hostile: Path, tmp_path: Path) -> None:
@@ -168,3 +174,61 @@ def test_names_with_control_characters_are_unsafe(path: str) -> None:
 def test_names_in_other_scripts_stay_safe(path: str) -> None:
     # A zero-width non-joiner is part of ordinary Persian spelling.
     assert safe_path(path)
+
+
+def test_a_file_over_the_size_cap_is_excluded_and_never_written(tmp_path: Path) -> None:
+    """Sizes come from the tree, before any blob is read, so a huge committed file never reaches memory or disk."""
+    target = make_repository(
+        tmp_path / "target", [{"big.bin": "x" * 101, "small.md": "s\n", "same.md": "s\n", "edge.txt": "y" * 100}]
+    )
+    manifest = build(target, tmp_path, limits=SourceSettings(max_file_bytes=100))
+    assert {item.path: item.reason for item in manifest.excluded} == {"big.bin": Reason.TOO_LARGE}
+    assert sorted(manifest.files) == ["edge.txt", "same.md", "small.md"]
+    assert not (tmp_path / "data" / "source" / "big.bin").exists()
+    assert (tmp_path / "data" / "source" / "edge.txt").read_text() == "y" * 100
+
+
+def test_blobs_are_read_in_groups_within_the_cap(tmp_path: Path) -> None:
+    files = {f"f{index}.txt": f"{index}\n" * 20 for index in range(12)}
+    target = make_repository(tmp_path / "target", [dict(files)])
+    manifest = build(target, tmp_path, limits=SourceSettings(max_file_bytes=100))
+    assert sorted(manifest.files) == sorted(files)
+    for path, text in files.items():
+        assert (tmp_path / "data" / "source" / path).read_text() == text
+
+
+def zipped(members: dict[str, bytes]) -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for name, data in members.items():
+            archive.writestr(name, data)
+    return buffer.getvalue()
+
+
+def test_a_secret_stored_compressed_is_found(tmp_path: Path) -> None:
+    """gitleaks reads raw bytes; a token inside a .docx or a PDF's text is scanned in its inflated form."""
+    token = f'TOKEN = "{fake_github_token()}"\n'.encode()
+    pdf = b"%PDF-1.7\n1 0 obj\n<< /Filter /FlateDecode >>\nstream\n" + zlib.compress(token) + b"\nendstream\nendobj\n"
+    target = make_repository(
+        tmp_path / "target",
+        [{"docs/report.docx": zipped({"word/document.xml": token}), "docs/manual.pdf": pdf,
+          "docs/clean.docx": zipped({"word/document.xml": b"nothing here"})}],
+    )  # fmt: skip
+    manifest = build(target, tmp_path)
+    reasons = {item.path: (item.reason, item.rule) for item in manifest.excluded}
+    assert reasons == {
+        "docs/report.docx": (Reason.GITLEAKS, "github-pat"),
+        "docs/manual.pdf": (Reason.GITLEAKS, "github-pat"),
+    }
+    assert sorted(manifest.files) == ["docs/clean.docx"]
+    assert not (tmp_path / "data" / "source.inflated").exists()
+
+
+def test_a_container_that_cant_be_inflated_is_excluded(tmp_path: Path) -> None:
+    bomb = zipped({"zeros.bin": bytes(2_000_000)})
+    target = make_repository(tmp_path / "target", [{"bomb.zip": bomb, "a.md": "a\n"}])
+    manifest = build(target, tmp_path, limits=SourceSettings(max_inflated_bytes=1_000_000))
+    assert [(item.path, item.reason) for item in manifest.excluded] == [("bomb.zip", Reason.UNSCANNABLE)]
+    assert "1000000 bytes" in (manifest.excluded[0].rule or "")
+    assert sorted(manifest.files) == ["a.md"]
+    assert not (tmp_path / "data" / "source" / "bomb.zip").exists()

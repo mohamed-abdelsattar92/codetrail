@@ -1,10 +1,12 @@
 """The mirror: a bare clone of the target, fetched over file:// so the target is only read (design section 3.2)."""
 
+import subprocess
 from pathlib import Path
 
 import pytest
 
 from codetrail.errors import CodetrailError
+from codetrail.repo import mirror as mirror_module
 from codetrail.repo.git import run_git
 from codetrail.repo.mirror import check_branch, list_tree, read_file_at, refresh_mirror, repository_url
 from tests.fixtures.repos import Symlink, add_commit, git, make_repository, snapshot_tree
@@ -16,6 +18,9 @@ def checkout(tmp_path: Path) -> Path:
         tmp_path / "target",
         [{"README.md": "# Hello\n", "app/main.py": "print('hi')\n", "link": Symlink("README.md")}],
     )
+
+
+SETTING = "[source] max_file_bytes"
 
 
 def test_the_url_uses_the_file_transport(checkout: Path) -> None:
@@ -66,8 +71,16 @@ def test_the_tree_lists_modes_blobs_and_paths(checkout: Path, tmp_path: Path) ->
     assert set(entries) == {"README.md", "app/main.py", "link"}
     assert entries["link"].mode == "120000"
     assert entries["README.md"].mode == "100644"
-    assert read_file_at(mirror, commit, "README.md") == b"# Hello\n"
-    assert read_file_at(mirror, commit, "missing.txt") is None
+    assert entries["README.md"].size == len(b"# Hello\n")
+    assert read_file_at(mirror, commit, "README.md", max_bytes=100, setting=SETTING) == b"# Hello\n"
+    assert read_file_at(mirror, commit, "missing.txt", max_bytes=100, setting=SETTING) is None
+
+
+def test_a_file_over_the_cap_is_never_read(checkout: Path, tmp_path: Path) -> None:
+    mirror = tmp_path / "mirror.git"
+    commit = refresh_mirror(mirror, checkout, "develop")
+    with pytest.raises(CodetrailError, match=r"README.md is 8 bytes.*at most 7 \(\[source\] max_file_bytes\)"):
+        read_file_at(mirror, commit, "README.md", max_bytes=7, setting=SETTING)
 
 
 def tags_in(mirror: Path) -> list[str]:
@@ -137,3 +150,90 @@ def test_a_failed_tag_fetch_never_names_the_tag(checkout: Path, tmp_path: Path) 
         refresh_mirror(mirror, checkout, "develop")
     assert "another-unscanned-name" not in str(raised.value)
     assert "tags" in str(raised.value)
+
+
+def write_object(repository: Path, kind: str, data: bytes) -> str:
+    """Writes an object as given, malformed or not, and returns its id."""
+    written = subprocess.run(
+        ["git", "-C", str(repository), "hash-object", "-t", kind, "-w", "--literally", "--stdin"],
+        input=data, capture_output=True, check=True,
+    )  # fmt: skip
+    return written.stdout.decode().strip()
+
+
+def commit_tree(repository: Path, entries: list[tuple[bytes, bytes, str]], parent: str | None = None) -> str:
+    """Points develop at a new commit of a tree written byte for byte from (mode, name, object id) entries."""
+    tree = write_object(repository, "tree", b"".join(mode + b" " + name + b"\0" + bytes.fromhex(oid)
+                                                    for mode, name, oid in entries))  # fmt: skip
+    header = f"tree {tree}\n" + (f"parent {parent}\n" if parent else "")
+    commit = write_object(repository, "commit", f"{header}author A <a@x> 1700000000 +0000\n"
+                                                f"committer A <a@x> 1700000000 +0000\n\nx\n".encode())  # fmt: skip
+    git(repository, "update-ref", "refs/heads/develop", commit)
+    return commit
+
+
+def test_an_object_git_considers_dangerous_is_refused(checkout: Path, tmp_path: Path) -> None:
+    """git checks every object it receives (transfer.fsckObjects): a tree entry named .git never lands."""
+    blob = write_object(checkout, "blob", b"x\n")
+    commit_tree(checkout, [(b"100644", b".git", blob)])
+    with pytest.raises(CodetrailError, match="hasDotgit"):
+        refresh_mirror(tmp_path / "mirror.git", checkout, "develop")
+
+
+def test_a_fetch_checks_objects_too(checkout: Path, tmp_path: Path) -> None:
+    mirror = tmp_path / "mirror.git"
+    refresh_mirror(mirror, checkout, "develop")
+    blob = write_object(checkout, "blob", b"x\n")
+    commit_tree(checkout, [(b"100644", b".git", blob)], parent=git(checkout, "rev-parse", "HEAD"))
+    with pytest.raises(CodetrailError, match="hasDotgit"):
+        refresh_mirror(mirror, checkout, "develop")
+
+
+def test_a_malformed_gitmodules_is_refused(tmp_path: Path) -> None:
+    target = make_repository(tmp_path / "target", [{".gitmodules": '[submodule "x"]\n\tpath = x\n\turl = -u./evil\n'}])
+    with pytest.raises(CodetrailError, match="gitmodulesUrl"):
+        refresh_mirror(tmp_path / "mirror.git", target, "develop")
+
+
+def test_cosmetic_flaws_of_old_repositories_still_mirror(checkout: Path, tmp_path: Path) -> None:
+    """A zero-padded file mode and an author with no email or a bad date are common in old histories, and harmless."""
+    blob = write_object(checkout, "blob", b"old\n")
+    tree = write_object(checkout, "tree", b"0100644 old.txt\0" + bytes.fromhex(blob))
+    commit = write_object(checkout, "commit", f"tree {tree}\nauthor Someone 99999999999999999999 +0000\n"
+                                              f"committer Someone <s@x>1700000000 +99\n\nold\n".encode())  # fmt: skip
+    git(checkout, "update-ref", "refs/heads/develop", commit)
+    assert refresh_mirror(tmp_path / "mirror.git", checkout, "develop") == commit
+
+
+def test_a_readers_own_git_settings_cant_switch_the_checks_off(
+    checkout: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """fetch.fsckObjects in a reader's global configuration overrides transfer.fsckObjects; both are set."""
+    home = tmp_path / "home"
+    home.mkdir()
+    (home / ".gitconfig").write_text("[fetch]\n\tfsckObjects = false\n[transfer]\n\tfsckObjects = false\n")
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(home / ".config"))
+    blob = write_object(checkout, "blob", b"x\n")
+    commit_tree(checkout, [(b"100644", b".git", blob)])
+    with pytest.raises(CodetrailError, match="hasDotgit"):
+        refresh_mirror(tmp_path / "mirror.git", checkout, "develop")
+
+
+def test_a_file_that_cant_be_read_is_an_error_not_an_absent_file(
+    checkout: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    mirror = tmp_path / "mirror.git"
+    commit = refresh_mirror(mirror, checkout, "develop")
+    real = run_git  # the function mirror.py imports
+
+    def failing_cat_file(arguments: list[str], **keywords: object) -> bytes:
+        if arguments[0] == "cat-file":
+            raise CodetrailError("git cat-file failed: a broken object")
+        return real(arguments, **keywords)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(mirror_module, "run_git", failing_cat_file)
+    with pytest.raises(CodetrailError, match="broken object"):
+        read_file_at(mirror, commit, "README.md", max_bytes=100, setting=SETTING)
+    assert read_file_at(mirror, commit, "missing.txt", max_bytes=100, setting=SETTING) is None
+    assert read_file_at(mirror, commit, "app", max_bytes=100, setting=SETTING) is None  # a folder, not a file

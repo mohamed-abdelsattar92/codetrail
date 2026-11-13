@@ -16,7 +16,7 @@ from typing import Any
 
 from codetrail.agents.convert import derived_brief, to_agent_markdown
 from codetrail.assistant.prompts import neutralize
-from codetrail.config import GlobalConfig, Paths, TargetConfig, load_global, load_target
+from codetrail.config import GlobalConfig, Paths, TargetConfig, check_containment, load_global, load_target
 from codetrail.database import connect
 from codetrail.errors import CodetrailError
 from codetrail.facts import EntityKind, RelationKind
@@ -145,6 +145,8 @@ def refresh_export(paths: Paths, name: str) -> Path:
     """Rebuilds the target's export from its current guide and facts, and returns its folder."""
     with target_in_use(paths, name):
         target = load_target(paths, name)
+        if target.repository is not None:  # the lock creates the data folder, which must not be inside the target
+            check_containment(paths, target.repository)
         settings = load_global(paths)
         data = paths.target_data(name)
         with target_lock(paths, name):

@@ -1,6 +1,7 @@
 """The command line exists and reports its version."""
 
 import signal
+import subprocess
 from collections.abc import Collection
 from pathlib import Path
 from typing import Any
@@ -8,7 +9,8 @@ from typing import Any
 import pytest
 
 from codetrail import __version__, cli
-from codetrail.assistant.estimate import CallEstimate, EstimateLine, UpdateEstimate
+from codetrail.assistant.estimate import CallEstimate, EstimateLine, PlanUsageReading, UpdateEstimate
+from codetrail.assistant.status import ProviderStatus
 from codetrail.cli import main, stop_on_signal
 from codetrail.config import Paths, RemoteSettings, TeamSource, write_remote_target
 from codetrail.errors import CodetrailError
@@ -258,3 +260,55 @@ def test_team_update_busy(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsy
         assert main(["team", "update", "acme", "--yes"]) == 1
 
     assert "already catching up" in capsys.readouterr().err
+
+
+def test_the_update_estimate_escapes_what_providers_report(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """How a provider is signed in and its plan's usage window come from the provider's own output."""
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    call = CallEstimate("write", "claude_code", "claude-sonnet-5-5", 1000, 0, 0.5, False)
+    reading = PlanUsageReading("claude_code", "five\x1b[2J_hour", 0.5, 0, "2026-11-13T00:00:00+00:00")
+    estimate = UpdateEstimate(
+        [EstimateLine(call, 1, 1)], {"claude_code": "Claude subscription\x1b]52;c;eA==\x07"}, [reading], 5.0, 1000
+    )
+
+    def run_update(paths: Paths, name: str, **keywords: Any) -> None:
+        keywords["confirm"](estimate)
+        raise CodetrailError("stopped after the estimate")
+
+    monkeypatch.setattr("codetrail.cli.run_update", run_update)
+
+    assert main(["update", "api", "--yes"]) == 1
+
+    output = capsys.readouterr().out
+    assert "\x1b" not in output and "\x07" not in output
+    assert "\\x1b]52;c;eA==\\x07" in output and "\\x1b[2J" in output
+
+
+def test_providers_escapes_what_each_provider_reports(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path / "config"))
+    status = ProviderStatus(
+        "claude_code", True, program="claude", method="pro\x1b[2J", fix="run\x07", warning="old\x1b]0;x\x07",
+        models=("model\x1b[1m",),
+    )  # fmt: skip
+    monkeypatch.setattr("codetrail.cli.provider_status", lambda provider, settings: status)
+
+    assert main(["providers"]) == 0
+
+    output = capsys.readouterr().out
+    assert "\x1b" not in output and "\x07" not in output
+    assert "\\x1b[2J" in output
+
+
+def test_every_command_removes_scan_folders_a_crash_left(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    for variable, folder in (("XDG_CONFIG_HOME", "config"), ("XDG_DATA_HOME", "data"), ("XDG_STATE_HOME", "state")):
+        monkeypatch.setenv(variable, str(tmp_path / folder))
+    ended = subprocess.Popen(["true"])  # a process id that is no longer running
+    ended.wait()
+    left = tmp_path / "state" / "codetrail" / "scans" / f"{ended.pid}-left"
+    left.mkdir(parents=True)
+    assert main(["files", "missing"]) == 1
+    assert not left.exists()

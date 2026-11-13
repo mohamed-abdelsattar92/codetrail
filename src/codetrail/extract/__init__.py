@@ -66,17 +66,46 @@ class Extraction:
 
 
 DEFAULT_MAX_FILE_BYTES = 1_000_000
-URL_CREDENTIALS = re.compile(r"(://)[^/\s]*@")
+HOST = r"(?:[A-Za-z0-9.-]+|\[[0-9A-Fa-f:.]+\])"  # a name or an IPv6 address
+SCP_USERINFO_END = re.compile(rf"@(?={HOST}:)")  # user:pass@host:path
+QUERY_PARAMETER = re.compile(r"([?&;][^=&#;?]*=)([^&#;]*)")
+# A query parameter whose name holds one of these holds a credential: its value goes.
+SECRET_PARAMETER_WORDS = ("token", "key", "pass", "pwd", "pat", "secret", "sig", "auth", "credential")
 LOCAL_SPECIFIERS = ("npm:", "workspace:", "file:", "link:", "portal:", "patch:")
 
 
 def without_credentials(text: str) -> str:
-    """A specifier or URL without user or password: scheme://user:pass@host and user:pass@host:path."""
-    text = URL_CREDENTIALS.sub(r"\1", text)
-    authority = text.split("/", 1)[0]
-    if "://" not in text and "@" in authority and ":" in authority and not text.startswith(LOCAL_SPECIFIERS):
-        text = text[authority.rindex("@") + 1 :]
-    return text
+    """A specifier or URL without user, password or credential-like query values.
+
+    It fails closed: a user or password can hold `/`, `?`, `#`, `@` or `://`, so in a word holding `://`, everything
+    from its first `://` through its last `@` goes, whatever path, ref or second URL that takes with it. Without
+    `://`, everything through the last `@` before the first `/` goes, and through the last `@` that a host and `:`
+    follow (user:pass@host:path). Credential-like query values go in both."""
+    if "://" in text:
+        return re.sub(r"\S+", _url_without_credentials, text)
+    if not text.startswith(LOCAL_SPECIFIERS):
+        ends = [match.end() for match in SCP_USERINFO_END.finditer(text)]
+        authority = text.split("/", 1)[0]
+        if "@" in authority:
+            ends.append(authority.rindex("@") + 1)
+        text = text[max(ends) :] if ends else text
+    return QUERY_PARAMETER.sub(_parameter_without_secret, text)
+
+
+def _url_without_credentials(match: re.Match[str]) -> str:
+    word = match[0]
+    if "://" not in word:
+        return word
+    start = word.index("://") + 3
+    last_at = word.rfind("@")
+    if last_at >= start:
+        word = word[:start] + word[last_at + 1 :]
+    return QUERY_PARAMETER.sub(_parameter_without_secret, word)
+
+
+def _parameter_without_secret(match: re.Match[str]) -> str:
+    name = match[1].lower()
+    return match[1] if any(word in name for word in SECRET_PARAMETER_WORDS) else match[0]
 
 
 class _NoAliases(yaml.SafeLoader):

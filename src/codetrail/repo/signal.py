@@ -14,10 +14,8 @@ from codetrail.database import connect
 from codetrail.facts.store import FactStore
 from codetrail.lock import TargetBusy, target_lock
 from codetrail.repo.history import changed_paths, commit_count, is_ancestor, merges_between
-from codetrail.repo.mirror import read_file_at
-from codetrail.repo.refresh import TARGET_IGNORE_FILE, ignore_lines
+from codetrail.repo.refresh import target_rules
 from codetrail.repo.remote import fetch_target
-from codetrail.repo.rules import ExclusionRules
 from codetrail.repo.source import SourceManifest
 
 
@@ -41,13 +39,14 @@ def behind(paths: Paths, name: str, since: str | None = None) -> Signal:
     try:
         with target_lock(paths, name):
             mirror = data / "mirror.git"
-            head = fetch_target(mirror, target, stall_seconds=load_global(paths).hosting.timeout_seconds)
+            settings = load_global(paths)
+            head = fetch_target(mirror, target, stall_seconds=settings.hosting.timeout_seconds)
             snapshot = _latest_snapshot_commit(paths, name)
             if snapshot is None:
                 return Signal(head=head)
             if since is not None and is_ancestor(mirror, since, head):
                 snapshot = since
-            rules = ExclusionRules(ignore_lines(paths, name, read_file_at(mirror, head, TARGET_IGNORE_FILE)))
+            rules = target_rules(paths, name, mirror, head, settings.source)
             manifest = SourceManifest.load(data / "source.json")
             flagged = manifest.excluded_paths() if manifest else set()
             visible = [path for path in changed_paths(mirror, snapshot, head)
