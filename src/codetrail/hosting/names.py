@@ -46,7 +46,9 @@ def _azure_name(name: str) -> bool:
         1 <= len(name) <= 64
         and not AZURE_FORBIDDEN.search(name)
         and name[0] not in "._-"
-        and not any(unicodedata.category(character) in ("Cc", "Cf") for character in name)
+        # Controls, format characters (bidirectional overrides), lone surrogates (which can't be written as UTF-8) and
+        # private-use characters.
+        and not any(unicodedata.category(character) in ("Cc", "Cf", "Cs", "Co") for character in name)
         and not name.endswith(".")
         and name == name.strip()
     )
