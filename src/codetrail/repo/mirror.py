@@ -22,6 +22,7 @@ class TreeEntry:
     mode: str
     blob: str
     path: str
+    size: int | None = None  # a blob's, from the tree listing; None for a submodule
 
 
 def repository_url(path: Path) -> str:
@@ -122,19 +123,31 @@ def head_commit(mirror: Path, branch: str) -> str:
 
 
 def list_tree(mirror: Path, commit: str) -> list[TreeEntry]:
-    output = run_git(["ls-tree", "-r", "-z", "--full-tree", commit], git_dir=mirror)
+    """Every entry of the commit's tree, with each blob's size, read from the objects' headers without their
+    content."""
+    output = run_git(["ls-tree", "-r", "-z", "--long", "--full-tree", commit], git_dir=mirror)
     entries = []
     for record in output.split(b"\0"):
         if not record:
             continue
         header, path = record.split(b"\t", 1)
-        mode, _kind, blob = header.decode().split(" ")
-        entries.append(TreeEntry(mode=mode, blob=blob, path=path.decode("utf-8", "surrogateescape")))
+        mode, _kind, blob, size = header.decode().split()
+        entries.append(TreeEntry(mode=mode, blob=blob, path=path.decode("utf-8", "surrogateescape"),
+                                 size=None if size == "-" else int(size)))  # fmt: skip
     return entries
 
 
-def read_file_at(mirror: Path, commit: str, path: str) -> bytes | None:
-    """The file's content at the commit, or None when it doesn't exist there."""
+def read_file_at(mirror: Path, commit: str, path: str, *, max_bytes: int) -> bytes | None:
+    """The file's content at the commit, or None when it doesn't exist there; a file over `max_bytes` raises, unread."""
+    try:
+        size = int(run_git(["cat-file", "-s", f"{commit}:{path}"], git_dir=mirror))
+    except CodetrailError:
+        return None
+    if size > max_bytes:
+        raise CodetrailError(
+            f"The target's {path} is {size} bytes at commit {commit[:12]}; Codetrail reads at most {max_bytes} "
+            "([source] max_file_bytes)."
+        )
     try:
         return run_git(["cat-file", "blob", f"{commit}:{path}"], git_dir=mirror)
     except CodetrailError:

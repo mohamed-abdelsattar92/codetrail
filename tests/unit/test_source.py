@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from codetrail.config import ToolsSettings
+from codetrail.config import SourceSettings, ToolsSettings
 from codetrail.errors import CodetrailError
 from codetrail.repo.mirror import TreeEntry, refresh_mirror
 from codetrail.repo.rules import ExclusionRules, Reason
@@ -35,11 +35,14 @@ def hostile(tmp_path: Path) -> Path:
     )
 
 
-def build(hostile: Path, tmp_path: Path, scanner: SecretScanner | None = None) -> SourceManifest:
+def build(
+    hostile: Path, tmp_path: Path, scanner: SecretScanner | None = None, limits: SourceSettings | None = None
+) -> SourceManifest:
     mirror = tmp_path / "data" / "mirror.git"
     commit = refresh_mirror(mirror, hostile, "develop")
     rules = ExclusionRules(["docs/private/", "**/*.png"])
-    return build_source(mirror, commit, rules, scanner or SecretScanner(ToolsSettings()), tmp_path / "data")
+    scanner = scanner or SecretScanner(ToolsSettings())
+    return build_source(mirror, commit, rules, scanner, tmp_path / "data", limits or SourceSettings())
 
 
 def test_only_allowed_files_are_materialized(hostile: Path, tmp_path: Path) -> None:
@@ -168,3 +171,24 @@ def test_names_with_control_characters_are_unsafe(path: str) -> None:
 def test_names_in_other_scripts_stay_safe(path: str) -> None:
     # A zero-width non-joiner is part of ordinary Persian spelling.
     assert safe_path(path)
+
+
+def test_a_file_over_the_size_cap_is_excluded_and_never_written(tmp_path: Path) -> None:
+    """Sizes come from the tree, before any blob is read, so a huge committed file never reaches memory or disk."""
+    target = make_repository(
+        tmp_path / "target", [{"big.bin": "x" * 101, "small.md": "s\n", "same.md": "s\n", "edge.txt": "y" * 100}]
+    )
+    manifest = build(target, tmp_path, limits=SourceSettings(max_file_bytes=100))
+    assert {item.path: item.reason for item in manifest.excluded} == {"big.bin": Reason.TOO_LARGE}
+    assert sorted(manifest.files) == ["edge.txt", "same.md", "small.md"]
+    assert not (tmp_path / "data" / "source" / "big.bin").exists()
+    assert (tmp_path / "data" / "source" / "edge.txt").read_text() == "y" * 100
+
+
+def test_blobs_are_read_in_groups_within_the_cap(tmp_path: Path) -> None:
+    files = {f"f{index}.txt": f"{index}\n" * 20 for index in range(12)}
+    target = make_repository(tmp_path / "target", [dict(files)])
+    manifest = build(target, tmp_path, limits=SourceSettings(max_file_bytes=100))
+    assert sorted(manifest.files) == sorted(files)
+    for path, text in files.items():
+        assert (tmp_path / "data" / "source" / path).read_text() == text

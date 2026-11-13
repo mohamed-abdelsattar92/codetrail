@@ -66,8 +66,16 @@ def test_the_tree_lists_modes_blobs_and_paths(checkout: Path, tmp_path: Path) ->
     assert set(entries) == {"README.md", "app/main.py", "link"}
     assert entries["link"].mode == "120000"
     assert entries["README.md"].mode == "100644"
-    assert read_file_at(mirror, commit, "README.md") == b"# Hello\n"
-    assert read_file_at(mirror, commit, "missing.txt") is None
+    assert entries["README.md"].size == len(b"# Hello\n")
+    assert read_file_at(mirror, commit, "README.md", max_bytes=100) == b"# Hello\n"
+    assert read_file_at(mirror, commit, "missing.txt", max_bytes=100) is None
+
+
+def test_a_file_over_the_cap_is_never_read(checkout: Path, tmp_path: Path) -> None:
+    mirror = tmp_path / "mirror.git"
+    commit = refresh_mirror(mirror, checkout, "develop")
+    with pytest.raises(CodetrailError, match=r"README.md is 8 bytes.*at most 7 \(\[source\] max_file_bytes\)"):
+        read_file_at(mirror, commit, "README.md", max_bytes=7)
 
 
 def tags_in(mirror: Path) -> list[str]:

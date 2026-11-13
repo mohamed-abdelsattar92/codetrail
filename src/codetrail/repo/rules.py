@@ -61,6 +61,7 @@ class Reason(StrEnum):
     SCANNER_SETTINGS = "scanner settings"
     NOT_A_FILE = "symlink or submodule"
     UNSAFE_PATH = "unsafe path"
+    TOO_LARGE = "too large"
 
 
 class ExclusionRules:

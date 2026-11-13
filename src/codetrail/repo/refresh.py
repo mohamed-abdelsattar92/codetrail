@@ -28,7 +28,12 @@ def wildcard_choices(line: str) -> int:
 def target_rules(paths: Paths, name: str, mirror: Path, commit: str, limits: SourceSettings) -> ExclusionRules:
     """The exclusion rules at the commit: the target's own .codetrailignore there, then the founder's ignore file."""
     return ExclusionRules(
-        ignore_lines(paths, name, read_file_at(mirror, commit, TARGET_IGNORE_FILE), limits.max_ignore_lines)
+        ignore_lines(
+            paths,
+            name,
+            read_file_at(mirror, commit, TARGET_IGNORE_FILE, max_bytes=limits.max_file_bytes),
+            limits.max_ignore_lines,
+        )
     )
 
 
@@ -81,4 +86,4 @@ def refresh_while_locked(paths: Paths, name: str) -> SourceManifest:
     mirror = data / "mirror.git"
     commit = fetch_target(mirror, target, stall_seconds=settings.hosting.timeout_seconds)
     rules = target_rules(paths, name, mirror, commit, settings.source)
-    return build_source(mirror, commit, rules, scanner, data)
+    return build_source(mirror, commit, rules, scanner, data, settings.source)

@@ -135,6 +135,7 @@ Unknown keys are refused. Model names and every limit live here or in the global
 - `mirror.git` is a bare clone of the founder's checkout, made with `--no-local` over the `file://` transport and refreshed by fetching the configured branch the same way. Only git's `upload-pack` reads the checkout: no command runs inside it, and no file of it is hardlinked (a plain local clone would hardlink its objects). A `git worktree` is not used, because it writes metadata into the target's `.git`. Every clone and fetch, local or remote, runs with `transfer.fsckObjects`, so git refuses a malformed object instead of storing it in the mirror. A test snapshots every file under a checkout, `.git` included (size, times, inode, link count, hash), and proves it unchanged.
 - `source/` holds only the allowed files (section 3.3) at the snapshot commit, written from git objects. It has no `.git` directory. Each refresh rebuilds it in full into `source.next/`, scans it (section 3.4) and renames it into place, so a failed refresh leaves the previous `source/` intact. `source.json`, beside it, records the commit, every file with its blob, and every exclusion with its reason. Its commit must be a full SHA-1 or SHA-256 object name, or loading it fails with a message to run the update again. Every revision Codetrail reads from its data (`source.json`, the snapshots, the guide) and passes to git is either checked as a commit id or follows `--end-of-options`, so none can be read as an option. Diffs between commits use `git diff-tree`, since `git diff` compares two files on disk instead when its arguments name files outside the repository or include `--no-index`, even after `--end-of-options`. At large scale, reusing unchanged files and scanning only changed ones would make this incremental.
 - Symlinks and submodules are never materialized.
+- A file larger than `[source] max_file_bytes` (50 MB by default) is excluded as too large. Its size comes from the tree listing (`git ls-tree --long`), so its content is never read, written or scanned; the other blobs are read in groups of at most that size, so memory holds one group at a time. The target's `.codetrailignore` is read only within the same limit, and a larger one fails the refresh, naming the setting. gitleaks' own `--max-target-megabytes` isn't used: it would skip a larger file silently instead of excluding it.
 - A path holding a control character (a newline or an escape could pose as structure in a prompt or the agents' export), a name longer than 255 bytes or a path longer than 4,096 bytes is excluded as an unsafe path, the last two before any ignore pattern runs on it.
 - The mirror also keeps the target's tags that point into the branch's history, for the repository statistics (section 19.2); nothing else reads them.
 - Extractors, Claude's tools and the page's source views read only `source/`. Only `repo` reads `mirror.git`.
@@ -519,7 +520,8 @@ gitleaks = "gitleaks"
 gitleaks_timeout_seconds = 600   # each gitleaks run, and `mise which` for a mise shim
 
 [source]
-max_ignore_lines = 200   # lines with a pattern in a target's .codetrailignore (section 3.3)
+max_file_bytes = 50_000_000   # a larger committed file is excluded as too large (section 3.2)
+max_ignore_lines = 200        # lines with a pattern in a target's .codetrailignore (section 3.3)
 
 [log]
 level = "INFO"

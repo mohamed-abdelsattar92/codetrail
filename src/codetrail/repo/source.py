@@ -15,6 +15,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass, field
 from pathlib import Path, PurePosixPath
 
+from codetrail.config import SourceSettings
 from codetrail.errors import CodetrailError
 from codetrail.repo.mirror import list_tree, read_blobs
 from codetrail.repo.rules import ExclusionRules, Reason, on_disk_key
@@ -100,7 +101,7 @@ def allowed_reader(source: Path, files: Mapping[str, str], max_bytes: int) -> Ca
 
 
 def build_source(
-    mirror: Path, commit: str, rules: ExclusionRules, scanner: SecretScanner, data_dir: Path
+    mirror: Path, commit: str, rules: ExclusionRules, scanner: SecretScanner, data_dir: Path, limits: SourceSettings
 ) -> SourceManifest:
     source, next_source = data_dir / "source", data_dir / "source.next"
     shutil.rmtree(next_source, ignore_errors=True)
@@ -110,20 +111,25 @@ def build_source(
         excluded: list[Excluded] = []
         entries = list_tree(mirror, commit)
         colliding = _colliding_paths([entry.path for entry in entries])
+        sizes: dict[str, int] = {}
         for entry in entries:
             reason = Reason.UNSAFE_PATH if entry.path in colliding else _reason(entry.mode, entry.path, rules)
+            if reason is None and (entry.size or 0) > limits.max_file_bytes:
+                reason = Reason.TOO_LARGE
             if reason is None:
                 files[entry.path] = entry.blob
+                sizes[entry.blob] = entry.size or 0
             else:
                 excluded.append(Excluded(entry.path, reason))
         paths_by_blob: dict[str, list[str]] = {}
         for path, blob in files.items():
             paths_by_blob.setdefault(blob, []).append(path)
-        for blob, content in read_blobs(mirror, list(paths_by_blob)):
-            for path in paths_by_blob[blob]:
-                destination = next_source / PurePosixPath(path)
-                destination.parent.mkdir(parents=True, exist_ok=True)
-                destination.write_bytes(content)
+        for group in _groups(list(paths_by_blob), sizes, limits.max_file_bytes):
+            for blob, content in read_blobs(mirror, group):
+                for path in paths_by_blob[blob]:
+                    destination = next_source / PurePosixPath(path)
+                    destination.parent.mkdir(parents=True, exist_ok=True)
+                    destination.write_bytes(content)
         flagged: dict[str, str] = {}
         for finding in scanner.scan_directory(next_source):
             flagged.setdefault(finding.path, finding.rule)
@@ -140,6 +146,20 @@ def build_source(
     except BaseException:
         shutil.rmtree(next_source, ignore_errors=True)
         raise
+
+
+def _groups(blobs: list[str], sizes: Mapping[str, int], max_bytes: int) -> list[list[str]]:
+    """The blobs in groups of at most `max_bytes` together, each read with one `git cat-file`, so memory holds one
+    group's content at a time."""
+    groups: list[list[str]] = [[]]
+    total = 0
+    for blob in blobs:
+        if groups[-1] and total + sizes[blob] > max_bytes:
+            groups.append([])
+            total = 0
+        groups[-1].append(blob)
+        total += sizes[blob]
+    return groups
 
 
 def _colliding_paths(paths: list[str]) -> set[str]:

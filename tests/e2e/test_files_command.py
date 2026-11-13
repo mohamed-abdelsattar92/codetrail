@@ -106,3 +106,27 @@ def test_a_target_ignore_file_over_the_line_limit_fails(
     capsys.readouterr()
     assert main(["files", "lines"]) == 1
     assert "[source] max_ignore_lines" in capsys.readouterr().err
+
+
+def test_a_file_over_the_size_cap_is_listed_as_too_large(
+    environment: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    checkout = make_repository(tmp_path / "sizes", [{"a.md": "a\n", "big.txt": "b" * 200}])
+    assert main(["target", "add", "sizes", str(checkout)]) == 0
+    (environment / "config" / "codetrail" / "config.toml").write_text("[source]\nmax_file_bytes = 100\n")
+    capsys.readouterr()
+    assert main(["files", "sizes"]) == 0
+    output = capsys.readouterr().out
+    assert "too large\tbig.txt\n" in output
+    assert "1 visible, 1 excluded (1 too large)" in output
+
+
+def test_a_target_ignore_file_over_the_size_cap_fails(
+    environment: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    checkout = make_repository(tmp_path / "ignore", [{"a.md": "a\n", ".codetrailignore": "#" * 200 + "\n"}])
+    assert main(["target", "add", "ignore", str(checkout)]) == 0
+    (environment / "config" / "codetrail" / "config.toml").write_text("[source]\nmax_file_bytes = 100\n")
+    capsys.readouterr()
+    assert main(["files", "ignore"]) == 1
+    assert ".codetrailignore is 201 bytes" in capsys.readouterr().err
