@@ -89,3 +89,37 @@ async def test_the_hook_fails_closed_on_strange_input(source: Path) -> None:
     guard = ToolGuard(source)
     denied = await guard.hook({"tool_name": "Read", "tool_input": ["not", "a", "mapping"]}, None, {})
     assert denied["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+
+@pytest.mark.parametrize(
+    ("name", "content"),
+    [
+        ("docs/manual.pdf", b"%PDF-1.7\n"),
+        ("docs/Manual.PDF", b"plain text"),  # by its name, whatever it holds
+        ("docs/logo.png", b"plain text"),
+        ("docs/photo.jpeg", b"plain text"),
+        ("docs/scan.webp", b"plain text"),
+        ("docs/notes.txt", b"\x89PNG\r\n\x1a\n...."),  # by its content, whatever its name
+        ("docs/notes.md", b"junk %PDF-1.4\n"),
+        ("docs/data.bin", b"\xff\xd8\xff\xe0JFIF"),
+        ("docs/anim", b"GIF89a...."),
+        ("docs/pic.dat", b"RIFF\x00\x00\x00\x00WEBPVP8 "),
+        ("docs/pic.raw", b"II*\x00...."),
+        ("docs/pic.heic", b"\x00\x00\x00\x18ftypheic...."),
+    ],
+)
+def test_pdfs_and_images_are_never_read(source: Path, name: str, content: bytes) -> None:
+    """Claude Code's Read renders PDFs and images for the model; the secret scan can't read text drawn in them."""
+    (source / name).parent.mkdir(parents=True, exist_ok=True)
+    (source / name).write_bytes(content)
+    guard = ToolGuard(source)
+    reason = guard.decide("Read", {"file_path": name})
+    assert reason is not None and "PDF or an image" in reason
+    assert guard.files_read == []
+
+
+@pytest.mark.parametrize("name", ["docs/diagram.svg", "docs/BMW.md", "docs/readme.txt"])
+def test_text_files_are_still_read(source: Path, name: str) -> None:
+    (source / name).parent.mkdir(parents=True, exist_ok=True)
+    (source / name).write_text("BM text that starts like a bitmap\n")
+    assert ToolGuard(source).decide("Read", {"file_path": name}) is None

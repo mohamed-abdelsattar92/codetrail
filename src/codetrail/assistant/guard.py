@@ -6,6 +6,7 @@ place inside `source/` is refused; every file Read opens is recorded, and become
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -13,6 +14,18 @@ from typing import Any
 ALLOWED_TOOLS = ("Read", "Grep", "Glob")
 # The channel structured answers come back through; it reads nothing and takes no path.
 ANSWER_TOOL = "StructuredOutput"
+# Claude Code's Read renders PDFs and images for the model, and the secret scan can't read the text they draw (a font's
+# glyph codes, pixels), so Read never opens one, known by its name or by its first bytes (design section 3.4).
+RENDERED_SUFFIXES = frozenset(
+    {".pdf", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff", ".ico", ".heic", ".heif", ".avif"}
+)
+RENDERED_SIGNATURES = re.compile(
+    rb"\x89PNG\r\n\x1a\n|\xff\xd8\xff|GIF8[79]a|RIFF....WEBP|BM....\x00\x00\x00\x00|II\*\x00|MM\x00\*"
+    rb"|\x00\x00\x01\x00|....ftyp(?:heic|heix|heif|mif1|msf1|avif)",
+    re.DOTALL,
+)
+PDF_HEADER = b"%PDF-"
+SIGNATURE_WINDOW = 1024  # a PDF's header may sit anywhere in its first kilobyte
 
 
 class ToolGuard:
@@ -39,6 +52,11 @@ class ToolGuard:
             inside = self._inside(path)
             if inside is None or not inside.is_file():
                 return f"{path} isn't a file in the repository."
+            if _rendered(inside):
+                return (
+                    f"{path} is a PDF or an image: the secret scan can't read the text drawn in it, so it isn't read. "
+                    "Answer from the other files."
+                )
             relative = inside.relative_to(self.root).as_posix()
             if relative not in self.files_read:
                 self.files_read.append(relative)
@@ -78,3 +96,12 @@ class ToolGuard:
                 "permissionDecisionReason": reason,
             }
         }
+
+
+def _rendered(file: Path) -> bool:
+    """A PDF or an image, which Read would render rather than read as text."""
+    if file.suffix.lower() in RENDERED_SUFFIXES:
+        return True
+    with file.open("rb") as handle:
+        start = handle.read(SIGNATURE_WINDOW)
+    return PDF_HEADER in start or RENDERED_SIGNATURES.match(start) is not None
