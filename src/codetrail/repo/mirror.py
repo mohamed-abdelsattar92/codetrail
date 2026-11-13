@@ -22,7 +22,7 @@ COSMETIC_FSCK_MESSAGES = (
 # git checks every object a clone or fetch receives and refuses a malformed one rather than storing it in the mirror;
 # the security checks (.gitmodules, .git-like names, symlinks, paths) stay errors.
 CHECK_OBJECTS = (
-    "-c", "transfer.fsckObjects=true",
+    "-c", "transfer.fsckObjects=true", "-c", "fetch.fsckObjects=true",  # a reader's fetch setting overrides transfer's
     *(option for message in COSMETIC_FSCK_MESSAGES for option in ("-c", f"fetch.fsck.{message}=ignore")),
 )  # fmt: skip
 
@@ -148,21 +148,21 @@ def list_tree(mirror: Path, commit: str) -> list[TreeEntry]:
 
 
 def read_file_at(mirror: Path, commit: str, path: str, *, max_bytes: int, setting: str) -> bytes | None:
-    """The file's content at the commit, or None when it doesn't exist there; a file over `max_bytes` raises, unread,
-    naming the `setting` that sets it."""
-    try:
-        size = int(run_git(["cat-file", "-s", f"{commit}:{path}"], git_dir=mirror))
-    except CodetrailError:
+    """The file's content at the commit, or None when it isn't a file there; a file over `max_bytes` raises, unread,
+    naming the `setting` that sets it. A file that is there but can't be read raises too, rather than reading as
+    absent, which would drop the rules it holds."""
+    listed = run_git(["ls-tree", "-z", "--end-of-options", commit, "--", path], git_dir=mirror)
+    header, _, _name = listed.partition(b"\t")
+    if not header or header.split()[1] != b"blob":
         return None
+    blob = header.split()[2].decode()
+    size = int(run_git(["cat-file", "-s", blob], git_dir=mirror))
     if size > max_bytes:
         raise CodetrailError(
             f"The target's {path} is {size} bytes at commit {commit[:12]}; Codetrail reads at most {max_bytes} "
             f"({setting})."
         )
-    try:
-        return run_git(["cat-file", "blob", f"{commit}:{path}"], git_dir=mirror)
-    except CodetrailError:
-        return None
+    return run_git(["cat-file", "blob", blob], git_dir=mirror)
 
 
 def read_blobs(mirror: Path, blobs: list[str]) -> Iterator[tuple[str, bytes]]:

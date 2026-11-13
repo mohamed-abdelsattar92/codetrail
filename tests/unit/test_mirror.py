@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from codetrail.errors import CodetrailError
+from codetrail.repo import mirror as mirror_module
 from codetrail.repo.git import run_git
 from codetrail.repo.mirror import check_branch, list_tree, read_file_at, refresh_mirror, repository_url
 from tests.fixtures.repos import Symlink, add_commit, git, make_repository, snapshot_tree
@@ -202,3 +203,37 @@ def test_cosmetic_flaws_of_old_repositories_still_mirror(checkout: Path, tmp_pat
                                               f"committer Someone <s@x>1700000000 +99\n\nold\n".encode())  # fmt: skip
     git(checkout, "update-ref", "refs/heads/develop", commit)
     assert refresh_mirror(tmp_path / "mirror.git", checkout, "develop") == commit
+
+
+def test_a_readers_own_git_settings_cant_switch_the_checks_off(
+    checkout: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """fetch.fsckObjects in a reader's global configuration overrides transfer.fsckObjects; both are set."""
+    home = tmp_path / "home"
+    home.mkdir()
+    (home / ".gitconfig").write_text("[fetch]\n\tfsckObjects = false\n[transfer]\n\tfsckObjects = false\n")
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(home / ".config"))
+    blob = write_object(checkout, "blob", b"x\n")
+    commit_tree(checkout, [(b"100644", b".git", blob)])
+    with pytest.raises(CodetrailError, match="hasDotgit"):
+        refresh_mirror(tmp_path / "mirror.git", checkout, "develop")
+
+
+def test_a_file_that_cant_be_read_is_an_error_not_an_absent_file(
+    checkout: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    mirror = tmp_path / "mirror.git"
+    commit = refresh_mirror(mirror, checkout, "develop")
+    real = run_git  # the function mirror.py imports
+
+    def failing_cat_file(arguments: list[str], **keywords: object) -> bytes:
+        if arguments[0] == "cat-file":
+            raise CodetrailError("git cat-file failed: a broken object")
+        return real(arguments, **keywords)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(mirror_module, "run_git", failing_cat_file)
+    with pytest.raises(CodetrailError, match="broken object"):
+        read_file_at(mirror, commit, "README.md", max_bytes=100, setting=SETTING)
+    assert read_file_at(mirror, commit, "missing.txt", max_bytes=100, setting=SETTING) is None
+    assert read_file_at(mirror, commit, "app", max_bytes=100, setting=SETTING) is None  # a folder, not a file

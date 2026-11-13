@@ -44,6 +44,7 @@ from codetrail.remove import remove_target, remove_team
 from codetrail.repo.mirror import check_branch
 from codetrail.repo.refresh import refresh_source
 from codetrail.repo.rules import Reason
+from codetrail.repo.secrets import SCANS_FOLDER, remove_stale_scans
 from codetrail.server import serve
 from codetrail.team.catch_up import CatchUpEstimate, describe_catch_up, run_catch_up
 from codetrail.team.server import serve_team
@@ -139,6 +140,7 @@ def main(argv: list[str] | None = None) -> int:
     previous_umask = os.umask(PRIVATE_UMASK)
     try:
         close_folders(paths)
+        remove_stale_scans(paths.state_dir / SCANS_FOLDER)
         if arguments.command == "target" and arguments.target_command == "remove":
             return remove_target_command(paths, arguments.name, yes=arguments.yes)
         if arguments.command == "team":

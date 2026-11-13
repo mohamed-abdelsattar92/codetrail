@@ -2,6 +2,7 @@
 
 import os
 import shutil
+import stat
 import subprocess
 import time
 from pathlib import Path
@@ -10,7 +11,7 @@ import pytest
 
 from codetrail.config import ToolsSettings
 from codetrail.errors import CodetrailError
-from codetrail.repo.secrets import SecretScanner
+from codetrail.repo.secrets import SecretScanner, remove_stale_scans
 from tests.fixtures.repos import fake_github_token
 
 GITLEAKS = "gitleaks"
@@ -377,3 +378,37 @@ def test_gitleaks_reads_its_text_from_a_regular_file(tmp_path: Path) -> None:
     (tmp_path / "source").mkdir()
     (tmp_path / "source" / "a.txt").write_text("a\n")
     assert scanner.scan_directory(tmp_path / "source") == []
+
+
+def test_gitleaks_input_stays_in_a_private_folder_of_codetrails_own(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A crash mustn't leave target text in the shared temporary folder; the scan's folder is under the state folder."""
+    monkeypatch.setenv("XDG_STATE_HOME", str(tmp_path / "state"))
+    seen = tmp_path / "seen.txt"
+    fake = write_script(
+        tmp_path / "bin" / "gitleaks",
+        f'pwd > "{seen}"; ls -ld . >> "{seen}"\n'
+        'while [ $# -gt 0 ]; do [ "$1" = --report-path ] && report="$2"; shift; done\necho "[]" > "$report"\n',
+    )
+    SecretScanner(ToolsSettings(gitleaks=str(fake))).scan_text("x")
+    folder, listing = seen.read_text().splitlines()
+    scans = (tmp_path / "state" / "codetrail" / "scans").resolve()
+    assert Path(folder).resolve().parent == scans
+    assert Path(folder).name.startswith(f"{os.getpid()}-")
+    assert listing.startswith("drwx------")
+    assert not Path(folder).exists()  # removed after the run
+    assert stat.S_IMODE(scans.stat().st_mode) == 0o700
+
+
+def test_scan_folders_of_processes_that_ended_are_removed(tmp_path: Path) -> None:
+    scans = tmp_path / "scans"
+    ended = subprocess.Popen(["true"])  # a process id that is no longer running
+    ended.wait()
+    (scans / f"{ended.pid}-left").mkdir(parents=True)
+    (scans / f"{ended.pid}-left" / "input.txt").write_text("target text")
+    (scans / f"{os.getpid()}-running").mkdir()
+    (scans / "notes").mkdir()
+    remove_stale_scans(scans)
+    assert sorted(path.name for path in scans.iterdir()) == [f"{os.getpid()}-running", "notes"]
+    remove_stale_scans(tmp_path / "missing")  # no folder yet: nothing to do

@@ -30,7 +30,7 @@ from importlib.resources import as_file, files
 from pathlib import Path
 from typing import Any
 
-from codetrail.config import ToolsSettings
+from codetrail.config import Paths, ToolsSettings
 from codetrail.errors import CodetrailError
 from codetrail.repo.rules import on_disk_key
 
@@ -46,6 +46,9 @@ BATCH_BYTES = 32 * 1024 * 1024  # what one `stdin` run reads at most, unless one
 # gitleaks takes a whole `stdin` text for a binary file, and skips it, when its first bytes carry a binary
 # signature; one line of text longer than any signature's offset opens every batch.
 BATCH_HEADER = b"#" * 65535 + b"\n"
+# Under the state folder: each gitleaks run's input and report, in a private folder named for its process, so a crash
+# leaves the target's text in Codetrail's own folder, not the shared temporary one, and the next command removes it.
+SCANS_FOLDER = "scans"
 
 
 @dataclass(frozen=True)
@@ -149,7 +152,13 @@ class SecretScanner:
         """gitleaks' report items for one run."""
         environment = {key: value for key, value in os.environ.items() if not key.startswith("GITLEAKS_")}
         executable = self._binary(environment)
-        with as_file(files("codetrail.repo") / "gitleaks.toml") as config, tempfile.TemporaryDirectory() as folder:
+        scans = Paths.from_environment().state_dir / SCANS_FOLDER
+        scans.mkdir(mode=0o700, parents=True, exist_ok=True)
+        scans.chmod(0o700)
+        with (
+            as_file(files("codetrail.repo") / "gitleaks.toml") as config,
+            tempfile.TemporaryDirectory(prefix=f"{os.getpid()}-", dir=scans) as folder,
+        ):
             report = Path(folder) / "report.json"
             command = [executable, *arguments, "--config", str(config), *COMMON_FLAGS, "--report-path", str(report)]
             # gitleaks checks each read for a binary signature until it has seen a line's end, and a pipe can return
@@ -227,6 +236,26 @@ class SecretScanner:
                 f"in {installs}; Codetrail won't run it. {POINT_AT_ANOTHER}"
             )
         return str(resolved)
+
+
+def remove_stale_scans(scans: Path) -> None:
+    """Removes the scan folders of processes that are no longer running, which a crash or a kill left behind."""
+    if not scans.is_dir():
+        return
+    for folder in scans.iterdir():
+        process = folder.name.partition("-")[0]
+        if process.isdigit() and int(process) > 0 and not _running(int(process)):
+            shutil.rmtree(folder, ignore_errors=True)
+
+
+def _running(process: int) -> bool:
+    try:
+        os.kill(process, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:  # another account's process
+        return True
+    return True
 
 
 def _explanation(stderr: bytes, prefix: str = "") -> str:

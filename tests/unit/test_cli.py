@@ -1,6 +1,7 @@
 """The command line exists and reports its version."""
 
 import signal
+import subprocess
 from collections.abc import Collection
 from pathlib import Path
 from typing import Any
@@ -300,3 +301,14 @@ def test_providers_escapes_what_each_provider_reports(
     output = capsys.readouterr().out
     assert "\x1b" not in output and "\x07" not in output
     assert "\\x1b[2J" in output
+
+
+def test_every_command_removes_scan_folders_a_crash_left(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    for variable, folder in (("XDG_CONFIG_HOME", "config"), ("XDG_DATA_HOME", "data"), ("XDG_STATE_HOME", "state")):
+        monkeypatch.setenv(variable, str(tmp_path / folder))
+    ended = subprocess.Popen(["true"])  # a process id that is no longer running
+    ended.wait()
+    left = tmp_path / "state" / "codetrail" / "scans" / f"{ended.pid}-left"
+    left.mkdir(parents=True)
+    assert main(["files", "missing"]) == 1
+    assert not left.exists()
