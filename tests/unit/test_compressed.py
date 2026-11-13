@@ -131,6 +131,8 @@ def test_a_method_codetrail_doesnt_inflate_is_unscannable() -> None:
         make_pdf((b"/FlateDecode", b"not deflate data")),
         b"%PDF-1.7\n1 0 obj\n<< /Filter /FlateDecode >>\nstream\nx",  # no endstream
     ],
+    # A zip carries the time it was built, so test ids drawn from the bytes would differ between test workers.
+    ids=["zip-cut-short", "zip-bad-crc", "pdf-stream-cut-short", "pdf-not-deflate", "pdf-no-endstream"],
 )
 def test_a_malformed_container_is_unscannable(content: bytes) -> None:
     with pytest.raises(Unscannable):
