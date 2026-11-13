@@ -129,6 +129,24 @@ def test_a_name_clash_gets_the_start_of_the_id(paths: Paths) -> None:
     assert result.added == ["acme-repo-a1", "acme-repo-a1-zz9876"]
 
 
+def test_a_third_repository_with_the_same_name_gets_a_free_name(paths: Paths) -> None:
+    # GitHub ids start alike, so the start of the id doesn't tell three repositories apart.
+    team_following(paths)
+    listed = [
+        HostedRepository(**{**repository(identifier).__dict__, "name": name})
+        for identifier, name in (("R_kgDOAAA1", "x.y"), ("R_kgDOAAA2", "x-y"), ("R_kgDOAAA3", "x_y"))
+    ]
+
+    result = sync_team(paths, "acme", {"github": fake("acme-org", listed)}, NOW)
+
+    assert result.added == ["acme-x-y", "acme-x-y-rkgdoa", "acme-x-y-rkgdoa-2"]
+    assert {target.remote.id for target in team_targets(paths, "acme").values() if target.remote} == {
+        "R_kgDOAAA1",
+        "R_kgDOAAA2",
+        "R_kgDOAAA3",
+    }
+
+
 def test_one_unreachable_source_does_not_stop_the_others(paths: Paths) -> None:
     team_following(paths)
     save_selection(paths, "acme", TeamSource(service="gitlab", source="example-group"))
