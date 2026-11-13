@@ -115,6 +115,7 @@ The rules that keep coding agents safe live in the repository, so a branch could
   - the tools and package settings: any mise file, `justfile`, `package.json`, `.npmrc`, `uv.toml` and the `[tool.uv]` sections;
   - `.gitignore`, `.gitattributes`, `.gitleaks.toml` and `.gitleaksignore`.
 - A change that removes or relaxes a Never-do rule, a permission rule, a hook check or an item of this checklist is **high**, unless the founder asked for it in the task.
+- The guardrails guard themselves: Claude Code's ask rules cover every edit to `.claude/hooks`, `.claude/agents`, `.claude`'s settings files, `.codex`, `tools/git-hooks` and `lefthook.yml`, and the Bash hook lets only read-only programs name them. The git hooks refuse a local lefthook configuration and `LEFTHOOK_CONFIG`, and CI lets a commit skip the message rules for Dependabot's sign-off only when GitHub reports it verified and authored by `dependabot[bot]`.
 - Agents get the fewest tools and permissions their job needs.
 
 ### Supply chain and CI (A03, A08)
