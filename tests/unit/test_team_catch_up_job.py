@@ -5,7 +5,6 @@ import time
 
 import pytest
 
-from codetrail.team import catch_up_job
 from codetrail.team.catch_up_job import CatchUpJob
 
 
@@ -23,7 +22,7 @@ def test_a_catch_up_that_just_finished_is_never_seen_without_its_finish_time(mon
             starter[0].join(0.5)  # under the lock, the start waits until the finish time is set
         return real_monotonic()
 
-    monkeypatch.setattr(catch_up_job.time, "monotonic", monotonic)
+    monkeypatch.setattr(time, "monotonic", monotonic)  # the job reads time.monotonic
     assert job.start() is None
     assert job._thread is not None
     job._thread.join(5)
