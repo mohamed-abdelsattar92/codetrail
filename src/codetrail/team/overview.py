@@ -17,11 +17,12 @@ from codetrail.assistant import (
     Assistant,
     AssistantError,
     OverviewDigest,
-    OverviewDraft,
     OverviewRequest,
     PaidCallFailed,
+    Usage,
 )
 from codetrail.assistant.prompts import digest_link
+from codetrail.assistant.routing import CallBound
 from codetrail.assistant.usage import UsageLog
 from codetrail.config import GlobalConfig
 from codetrail.generate.run import SharedBudget
@@ -111,28 +112,32 @@ async def write_overview(
     overviews: Overviews,
     usage: UsageLog | None,
     budget: SharedBudget | None,
-    max_budget_usd_per_call: float,
+    bound: CallBound,
     now: Callable[[], datetime] = lambda: datetime.now(UTC),
 ) -> OverviewOutcome:
     """Writes, checks and stores the overview of a catch-up's digests; a draft that fails gets one retry. Each call
-    reserves `max_budget_usd_per_call`, the call's own cap, in the team's budget before it starts."""
+    reserves its bound, the most it can cost, in the team's budget before it starts."""
     if len(digests) < 2:
         return OverviewOutcome(None, None)  # nothing to connect
     max_words = settings.team.max_overview_words
     problems: list[str] = []
     previous_body = ""
     for _attempt in range(ATTEMPTS):
-        if budget is not None and not budget.reserve(max_budget_usd_per_call):
+        if budget is not None and not budget.reserve(bound.cap_usd):
             return OverviewOutcome(None, BUDGET_SPENT)
         try:
             draft = await writer.write_overview(OverviewRequest(team, digests, max_words, problems, previous_body))
-        except BaseException as error:
-            # What a call that failed after the provider counted it used still counts; any other failure, nothing.
-            _spend(error if isinstance(error, PaidCallFailed) else None, usage, budget, max_budget_usd_per_call)
-            if isinstance(error, AssistantError):
-                return OverviewOutcome(None, f"The overview couldn't be written: {error}")
+        except PaidCallFailed as error:  # what it used, which the provider counted
+            _spend(error.usage, error.cost_usd, usage, budget, bound)
+            return OverviewOutcome(None, f"The overview couldn't be written: {error}")
+        except AssistantError as error:  # it used nothing, as when the program couldn't start
+            _spend(None, 0.0, usage, budget, bound)
+            return OverviewOutcome(None, f"The overview couldn't be written: {error}")
+        except BaseException:  # cancelled while its program ran: no result says what it used, so its whole bound
+            spent = Usage(bound.provider, bound.model, cost_usd=bound.cap_usd) if bound.cap_usd else None
+            _spend(spent, bound.cap_usd, usage, budget, bound)
             raise
-        _spend(draft, usage, budget, max_budget_usd_per_call)
+        _spend(draft.usage, draft.cost_usd, usage, budget, bound)
         problems, cited = validate_overview(draft.body, digests, max_words, scanner)
         if not problems:
             moment = now()
@@ -154,12 +159,12 @@ async def write_overview(
 
 
 def _spend(
-    draft: OverviewDraft | PaidCallFailed | None, usage: UsageLog | None, budget: SharedBudget | None, cap_usd: float
+    used: Usage | None, cost_usd: float, usage: UsageLog | None, budget: SharedBudget | None, bound: CallBound
 ) -> None:
-    """Records the call's usage, and settles its reservation in the team's budget with its cost, as an update's calls
-    do; None is a call that used nothing."""
+    """Records the call's usage, and settles its reservation in the team's budget with its cost (`cost_usd` when no
+    log prices it), as an update's calls do; None is a call that used nothing."""
     cost = 0.0
-    if draft is not None:
-        cost = usage.record("overview", draft.usage) if usage is not None and draft.usage.provider else draft.cost_usd
+    if used is not None:
+        cost = usage.record("overview", used) if usage is not None and used.provider else cost_usd
     if budget is not None:
-        budget.settle(cap_usd, cost)
+        budget.settle(bound.cap_usd, cost)

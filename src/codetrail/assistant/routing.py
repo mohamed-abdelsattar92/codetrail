@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import AsyncIterator, Mapping
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
@@ -30,6 +31,38 @@ from codetrail.assistant import (
 from codetrail.config import GenerationSettings, GlobalConfig, TargetConfig, model_choice
 
 KINDS: Final = ("plan", "write", "digest", "answer", "grade")
+UPDATE_KINDS: Final = ("plan", "write", "digest")
+PER_MILLION: Final = 1_000_000
+
+
+@dataclass(frozen=True)
+class CallBound:
+    """The most one call can cost in dollars, which a budget reserves before the call starts (design section 6.7),
+    and the provider and model a call stopped without a result is counted under."""
+
+    provider: str
+    model: str
+    cap_usd: float
+
+
+def call_bound(choice: str, cap_usd: float, settings: GlobalConfig) -> CallBound:
+    """The bound of a call to `choice`, a `[models]` value, whose own dollar cap is `cap_usd`: that cap for Claude
+    Code (which can pass it only by its last turn), nothing for a local model, and for Codex, which has no dollar
+    limit, its token limit at the model's dearest configured rate when that is higher than the cap."""
+    provider, model = model_choice(choice)
+    if provider == "local":
+        return CallBound(provider, model, 0.0)
+    price = settings.prices.get(model)
+    if provider == "codex" and price is not None:
+        rate = max(price.input, price.output, price.cached_input or 0.0)
+        cap_usd = max(cap_usd, settings.providers.codex.max_tokens_per_call * rate / PER_MILLION)
+    return CallBound(provider, model, cap_usd)
+
+
+def update_call_bounds(target: TargetConfig, settings: GlobalConfig) -> dict[str, CallBound]:
+    """The bound of each kind of call an update makes, from the target's models and its per-call cap."""
+    cap = target.generation.max_budget_usd_per_call
+    return {kind: call_bound(getattr(target.models, kind), cap, settings) for kind in UPDATE_KINDS}
 
 
 class RoutedAssistant:

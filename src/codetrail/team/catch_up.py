@@ -30,7 +30,7 @@ from codetrail.assistant.estimate import (
     plan_usage,
     tokens_text,
 )
-from codetrail.assistant.routing import build_overview_assistant
+from codetrail.assistant.routing import build_overview_assistant, call_bound
 from codetrail.assistant.status import provider_status, require_provider_ready
 from codetrail.assistant.usage import UsageLog
 from codetrail.config import GlobalConfig, Paths, TeamConfig, load_global, load_team, model_choice
@@ -455,9 +455,9 @@ def _overview(
         overviews = Overviews(paths.team_data(name) / "overviews")
         usage = UsageLog(connection, settings.prices)
         scanner = SecretScanner(settings.tools)
+        bound = call_bound(team.models.overview, team.catch_up.max_budget_usd_per_call, settings)
         return anyio.run(until_stopped, lambda: write_overview(name, digests, writer, settings, scanner, overviews,
-                                                               usage, budget, team.catch_up.max_budget_usd_per_call),
-                         stop)  # fmt: skip
+                                                               usage, budget, bound), stop)  # fmt: skip
     except CodetrailError as error:  # a provider that isn't ready, or the overview's commit failing
         return OverviewOutcome(None, OVERVIEW_STOPPED if stop.is_set() else str(error))
     except Exception as error:  # the catch-up is still recorded; details stay in the log

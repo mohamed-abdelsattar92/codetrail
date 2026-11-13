@@ -19,12 +19,21 @@ from codetrail.assistant import (
 from codetrail.assistant.claude_code import ClaudeCodeAssistant
 from codetrail.assistant.fake import FakeAssistant
 from codetrail.assistant.local import LocalAssistant
-from codetrail.assistant.routing import RoutedAssistant, build_assistant, build_overview_assistant
+from codetrail.assistant.routing import (
+    CallBound,
+    RoutedAssistant,
+    build_assistant,
+    build_overview_assistant,
+    call_bound,
+    update_call_bounds,
+)
 from codetrail.config import (
     ClaudeCodeSettings,
+    CodexSettings,
     GenerationSettings,
     GlobalConfig,
     ModelSettings,
+    Price,
     ProvidersSettings,
     TargetConfig,
 )
@@ -94,3 +103,24 @@ def test_build_overview_assistant_refuses_codex(tmp_path: Path) -> None:
     nothing_installed = {"PATH": str(tmp_path / "empty")}
     with pytest.raises(AssistantError, match="can't use Codex"):
         build_overview_assistant(tmp_path, GlobalConfig(), "codex:gpt-5.5-codex", 1.0, nothing_installed)
+
+
+def test_a_calls_bound_is_the_most_it_can_cost_in_dollars() -> None:
+    """Reserved in a budget before the call starts (design 6.7): Claude Code's own cap, nothing for a free local
+    model, and for a priced Codex model its token limit at the model's dearest rate when that is higher."""
+    settings = GlobalConfig(
+        providers=ProvidersSettings(codex=CodexSettings(max_tokens_per_call=200_000)),
+        prices={"gpt-dear": Price(input=5.0, output=20.0), "gpt-cheap": Price(input=0.1, output=0.4)},
+    )
+    assert call_bound("claude-sonnet-5-5", 0.5, settings) == CallBound("claude_code", "claude-sonnet-5-5", 0.5)
+    assert call_bound("local:qwen3:14b", 0.5, settings) == CallBound("local", "qwen3:14b", 0.0)
+    assert call_bound("codex:gpt-dear", 0.5, settings) == CallBound("codex", "gpt-dear", 4.0)  # 200k at $20/M
+    assert call_bound("codex:gpt-cheap", 0.5, settings) == CallBound("codex", "gpt-cheap", 0.5)
+    assert call_bound("codex:gpt-unpriced", 0.5, settings) == CallBound("codex", "gpt-unpriced", 0.5)
+
+
+def test_an_updates_bounds_follow_its_models(tmp_path: Path) -> None:
+    target = TargetConfig(repository=tmp_path, branch="main", models=ModelSettings(write="local:qwen3"),
+                          generation=GenerationSettings(max_budget_usd_per_call=0.3))  # fmt: skip
+    bounds = update_call_bounds(target, GlobalConfig())
+    assert (bounds["plan"].cap_usd, bounds["write"].cap_usd, bounds["digest"].cap_usd) == (0.3, 0.0, 0.3)

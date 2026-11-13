@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import json
 import threading
-from collections.abc import Awaitable, Callable, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from functools import partial
@@ -29,9 +29,10 @@ from codetrail.assistant import (
     PaidCallFailed,
     PlanDraft,
     PlanRequest,
+    Usage,
 )
+from codetrail.assistant.routing import CallBound
 from codetrail.assistant.usage import UsageLog
-from codetrail.config import GenerationSettings
 from codetrail.errors import CodetrailError
 from codetrail.facts import EntityKind, FactDiff
 from codetrail.facts.store import FactStore
@@ -82,7 +83,8 @@ def no_progress(event: dict[str, object]) -> None:
 TEAM_BUDGET_SPENT = "The team's budget is spent, so this repository wasn't updated."
 BUDGET_BELOW_CAP = (
     "The update's budget (${budget:.2f}) is smaller than one call's cap (${cap:.2f}), so no call can start; raise "
-    "generation.max_budget_usd_per_update or lower generation.max_budget_usd_per_call."
+    "generation.max_budget_usd_per_update, or lower generation.max_budget_usd_per_call (for a priced Codex model, "
+    "providers.codex.max_tokens_per_call)."
 )
 ROUNDING_USD = 1e-9  # so caps that add up to the limit exactly still fit, whatever floating point makes of the sum
 
@@ -137,6 +139,9 @@ class GenerationContext:
     max_budget_usd: float
     previous_commit: str | None  # the snapshot before this update, or None on the first
     diff: FactDiff
+    # Each kind of call's bound (plan, write, digest), reserved in the update's budget and the team's before it starts,
+    # so a call can't start past either (6.7).
+    call_bounds: Mapping[str, CallBound]
     learned: set[str] = field(default_factory=set)  # pages the reader has learned: rewritten first
     usage: UsageLog | None = None  # records each call's usage; its costs count against the update's budget
     max_tokens: int | None = None  # the update's token budget, which counts every provider, priced or not
@@ -147,8 +152,6 @@ class GenerationContext:
     shared_budget: SharedBudget | None = None  # a team catch-up's budget, which every update in it counts against
     max_highlights: int = 0  # the highlights a digest carries for the team page (24)
     max_brief_words: int = 300  # the brief for coding agents each page carries (23.3)
-    # Reserved in the update's budget and the team's before each call, so neither is ever passed (6.7).
-    max_budget_usd_per_call: float = GenerationSettings().max_budget_usd_per_call
     budget: SharedBudget = field(init=False)  # the update's own, from max_budget_usd
 
     def __post_init__(self) -> None:
@@ -175,6 +178,7 @@ async def generate_guide(context: GenerationContext, claude: Assistant) -> Gener
         raise CodetrailError(
             f"The guide at {guide.root} has uncommitted edits; commit or discard them before updating."
         )
+    _check_budget(context)
     result = GenerationResult()
     try:
         entries = await _outline(context, claude, result)
@@ -222,10 +226,7 @@ async def _outline(context: GenerationContext, claude: Assistant, result: Genera
     if not entries:
         if context.shared_budget is not None and context.shared_budget.exhausted:
             raise CodetrailError(TEAM_BUDGET_SPENT)
-        if not _reserve(context, result):
-            cap = context.max_budget_usd_per_call
-            if context.max_budget_usd < cap:
-                raise CodetrailError(BUDGET_BELOW_CAP.format(budget=context.max_budget_usd, cap=cap))
+        if not _reserve(context, result, "plan"):  # the update's own budget holds it: _check_budget made sure
             raise CodetrailError(TEAM_BUDGET_SPENT)
         request = PlanRequest(context.target, facts_summary(store, context.manifest), "")
         draft, spent = await _plan(context, claude, result, request)
@@ -240,7 +241,7 @@ async def _outline(context: GenerationContext, claude: Assistant, result: Genera
         paths = outline_paths(stored, {entry.id for entry in entries})
         new_facts = set(context.diff.added_entities)
         uncovered = [fact for fact in uncovered_facts(store, entries) if fact in new_facts]
-        if uncovered and _reserve(context, result):
+        if uncovered and _reserve(context, result, "plan"):
             current = json.dumps(outline_data(entries, paths), indent=1)
             request = PlanRequest(context.target, facts_summary(store, context.manifest), current, uncovered[:200])
             draft, spent = await _plan(context, claude, result, request)
@@ -249,7 +250,7 @@ async def _outline(context: GenerationContext, claude: Assistant, result: Genera
             result.outline_problems += problems
             entries = [*entries, *added]
         # an outline written before paths existed: plan them once
-        if stored is not None and "paths" not in stored and _reserve(context, result):
+        if stored is not None and "paths" not in stored and _reserve(context, result, "plan"):
             current = json.dumps(outline_data(entries), indent=1)
             try:
                 request = PlanRequest(context.target, "", current, paths_only=True)
@@ -266,13 +267,28 @@ async def _outline(context: GenerationContext, claude: Assistant, result: Genera
     return entries
 
 
-def _reserve(context: GenerationContext, result: GenerationResult) -> bool:
-    """Reserves one call's cap in the update's budget and in the team's, before the call starts; False, reserving
+def _check_budget(context: GenerationContext) -> None:
+    """Refuses, before anything is called, an update that would make a paid call its own budget can't hold even once
+    (design section 6.7)."""
+    work = planned_work(context)
+    kinds = [kind for kind, due in (("plan", work.plan_calls), ("write", work.page_calls_max),
+                                    ("digest", work.digest_possible)) if due]  # fmt: skip
+    cap = max((context.call_bounds[kind].cap_usd for kind in kinds), default=0.0)
+    if cap > context.max_budget_usd + ROUNDING_USD:
+        raise CodetrailError(BUDGET_BELOW_CAP.format(budget=context.max_budget_usd, cap=cap))
+
+
+def _bound(context: GenerationContext, kind: str) -> CallBound:
+    return context.call_bounds["write" if kind == "revise" else kind]  # a revision is a write call
+
+
+def _reserve(context: GenerationContext, result: GenerationResult, kind: str) -> bool:
+    """Reserves one call's bound in the update's budget and in the team's, before the call starts; False, reserving
     nothing, when it doesn't fit in either or the update's tokens are spent. Every reserved call is settled, by
     `_paid`, with what it cost."""
     if context.max_tokens is not None and result.tokens >= context.max_tokens:
         return False
-    cap = context.max_budget_usd_per_call
+    cap = _bound(context, kind).cap_usd
     if not context.budget.reserve(cap):
         return False
     if context.shared_budget is not None and not context.shared_budget.reserve(cap):
@@ -281,26 +297,35 @@ def _reserve(context: GenerationContext, result: GenerationResult) -> bool:
     return True
 
 
-def _settle(context: GenerationContext, cost_usd: float) -> None:
-    context.budget.settle(context.max_budget_usd_per_call, cost_usd)
+def _settle(context: GenerationContext, kind: str, cost_usd: float) -> None:
+    cap = _bound(context, kind).cap_usd
+    context.budget.settle(cap, cost_usd)
     if context.shared_budget is not None:
-        context.shared_budget.settle(context.max_budget_usd_per_call, cost_usd)
+        context.shared_budget.settle(cap, cost_usd)
 
 
 async def _paid[Draft: (PlanDraft, PageDraft, DigestDraft)](
     context: GenerationContext, result: GenerationResult, kind: str, call: Callable[[], Awaitable[Draft]]
 ) -> tuple[Draft, dict[str, object]]:
-    """Makes a call whose cap `_reserve` reserved, and settles it: with its cost, with what a call that failed after
-    the provider counted it used, or with nothing when it failed before."""
+    """Makes a call whose bound `_reserve` reserved, and settles it: with its cost; with what a call that failed after
+    the provider counted it used; with nothing when it failed before using anything (it couldn't start, say); and
+    with its whole bound when it was cancelled while its program ran, since no result says what it used."""
     try:
         draft = await call()
     except PaidCallFailed as error:
-        _spend(context, result, kind, error)
+        _spend(context, result, kind, error.usage, error.cost_usd)
+        raise
+    except AssistantError:
+        _settle(context, kind, 0.0)
         raise
     except BaseException:
-        _settle(context, 0.0)
+        bound = _bound(context, kind)
+        if bound.cap_usd:
+            _spend(context, result, kind, Usage(bound.provider, bound.model, cost_usd=bound.cap_usd), bound.cap_usd)
+        else:
+            _settle(context, kind, 0.0)
         raise
-    return draft, _spend(context, result, kind, draft)
+    return draft, _spend(context, result, kind, draft.usage, draft.cost_usd)
 
 
 async def _plan(
@@ -312,20 +337,16 @@ async def _plan(
 
 
 def _spend(
-    context: GenerationContext,
-    result: GenerationResult,
-    kind: str,
-    draft: PlanDraft | PageDraft | DigestDraft | PaidCallFailed,
+    context: GenerationContext, result: GenerationResult, kind: str, usage: Usage, cost_usd: float
 ) -> dict[str, object]:
     """Records the call's usage, settles its reservation with its cost, and adds its cost and tokens to the update's.
-    A call that failed after the provider counted it is recorded and counted the same way.
+    `cost_usd` is the draft's own figure, used when no usage log prices it.
 
     Returns what the call used, for the progress report: its provider, model, tokens and counted cost."""
-    usage = draft.usage
-    cost = context.usage.record(kind, usage) if context.usage is not None and usage.provider else draft.cost_usd
+    cost = context.usage.record(kind, usage) if context.usage is not None and usage.provider else cost_usd
     tokens = usage.input_tokens + usage.cached_input_tokens + usage.output_tokens
     result.cost_usd += cost
-    _settle(context, cost)
+    _settle(context, kind, cost)
     result.tokens += tokens
     return {"provider": usage.provider, "model": usage.model, "tokens": tokens, "cost_usd": cost}
 
@@ -373,7 +394,7 @@ async def _write_page(
     problems: list[str] = []
     try:
         for attempt in range(1, PAGE_ATTEMPTS + 1):
-            if not _reserve(context, result):  # the budget can't hold another call: no page, or no retry
+            if not _reserve(context, result, "write"):  # the budget can't hold another call: no page, or no retry
                 result.left_for_later.append(entry.id)
                 context.progress({"step": "page_later", "id": entry.id, "title": entry.title})
                 return
@@ -447,7 +468,7 @@ async def _write_digest(
     request = DigestRequest(context.target, commits_text(commits), fact_changes_text(context.diff), result.written,
                             context.max_highlights)  # fmt: skip
     try:
-        if not _reserve(context, result):
+        if not _reserve(context, result, "digest"):
             raise AssistantError("the update's budget is spent")
         draft, _spent = await _paid(context, result, "digest", partial(claude.write_digest, request))
         highlights = draft.highlights if context.max_highlights else []  # none asked for: any returned are dropped

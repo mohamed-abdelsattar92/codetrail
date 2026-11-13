@@ -479,3 +479,46 @@ def test_digest_with_bad_highlights_falls_back(paths: Paths, tmp_path: Path) -> 
     draft = DigestDraft("Routes", "Routes added.", highlights=[f"Item {number}." for number in range(5)])
     page = update_with_digest(paths, tmp_path, draft)  # the default maximum is three
     assert page is not None and "commits since the last update" in page.title and "highlights" not in page.meta
+
+
+def test_a_free_local_model_reserves_nothing(paths: Paths) -> None:
+    """A local model costs nothing, so a budget below the per-call cap doesn't stop its update."""
+    file = paths.target_file("t")
+    file.write_text(file.read_text() + '[models]\nplan = "local:qwen3"\nwrite = "local:qwen3"\ndigest = "local:qwen3"\n'
+                    "\n[generation]\nmax_budget_usd_per_update = 0.5\n")  # fmt: skip
+    generation = run_update(paths, "t", claude=FakeAssistant(plans=[PLAN], page_writer=good_page)).generation
+    assert generation is not None and generation.written == ["areas/api", "concepts/fastapi"]
+
+
+def test_an_update_with_pages_to_write_refuses_a_budget_below_one_calls_cap(paths: Paths, tmp_path: Path) -> None:
+    """Not only a first outline: any update that would make a paid call refuses, before calling anything."""
+    run_update(paths, "t", claude=FakeAssistant(plans=[PLAN], page_writer=good_page))
+    add_commit(tmp_path / "target", {"services/api/app/routes.py": "from app import db\n"}, "feat(api): routes")
+    file = paths.target_file("t")
+    file.write_text(file.read_text() + "[generation]\nmax_budget_usd_per_update = 0.5\n")  # the cap is 1.0
+    claude = FakeAssistant(page_writer=good_page)
+    with pytest.raises(CodetrailError, match="smaller than one call's cap"):
+        run_update(paths, "t", claude=claude)
+    assert claude.requests == []
+
+
+class Stopped(BaseException):
+    """Stands in for the update being cancelled, as when the server stops, while a call runs."""
+
+
+class StoppedPage(FakeAssistant):
+    async def write_page(self, request: PageRequest) -> PageDraft:
+        self.requests.append(request)
+        raise Stopped
+
+
+def test_a_call_cancelled_while_it_runs_counts_its_cap(paths: Paths) -> None:
+    """Its program ran and no result says what it used, so its cap counts, as for a call stopped at its time limit."""
+    one_at_a_time(paths, per_call_usd=0.5)
+    shared = SharedBudget(5.0)
+    claude = StoppedPage(plans=[PLAN])
+    with pytest.raises((Stopped, BaseExceptionGroup)):
+        run_update(paths, "t", claude=claude, shared_budget=shared)
+    started = sum(1 for request in claude.requests if isinstance(request, PageRequest))
+    assert started >= 1 and shared.spent_usd == pytest.approx(0.5 * started)
+    assert call_rows(paths).count(("write", 0.5)) == started

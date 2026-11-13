@@ -235,7 +235,7 @@ Continue? [y/N]
 - **An update** refreshes the facts first, which costs nothing, then estimates and asks, in the terminal or in a dialog on the page. In a script it spends nothing unless you pass `--yes`.
 - **A question or a check** shows its estimate on its button, and what it used afterwards.
 - **Estimates** start from sensible guesses, then use the median of your own recent calls. Dollars are API list prices, kept in configuration because they change. On a subscription you pay nothing extra, and the estimate shows how much of your plan's usage windows you've used.
-- **Hard limits** stop any update at its dollar or token budget, and every question and check at its own budget. Each call reserves its own cap before it starts, so calls running together never pass the update's or the team's dollar budget, and a call stopped at its time limit counts as its whole cap.
+- **Hard limits** stop any update at its dollar or token budget, and every question and check at its own budget. Each paid call reserves its own cap before it starts, so no call can start past the update's or the team's dollar budget, and a running call can pass its own cap only by its last turn. A call stopped at its time limit, or cancelled while it runs, counts as its whole cap.
 
 ## Grounded, not guessed
 
