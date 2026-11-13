@@ -181,9 +181,11 @@ def bridge_router(
         finally:
             # Closed or cancelled before the answer finished: its program ran and no result says what it used, so
             # the answer's budget counts, as for a call stopped at its time limit (design section 15.3).
-            if not counted and bound.cap_usd:
-                _record_usage(Usage(bound.provider, bound.model, cost_usd=bound.cap_usd))
-            state.release(token)
+            try:
+                if not counted and bound.cap_usd:
+                    _record_usage(Usage(bound.provider, bound.model, cost_usd=bound.cap_usd))
+            finally:  # a write that fails (a busy or full database) mustn't hold the question slot
+                state.release(token)
 
     def _record(chunk: AnswerChunk | PaidCallFailed) -> float:
         return _record_usage(chunk.usage) or chunk.cost_usd

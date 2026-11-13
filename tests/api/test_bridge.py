@@ -1,6 +1,7 @@
 """The bridge: streamed answers, limits, errors and saving to the guide (design section 7.3)."""
 
 import json
+import sqlite3
 import threading
 import time
 from collections.abc import AsyncIterator
@@ -393,3 +394,32 @@ def test_a_stopped_answer_counts_the_budget_the_page_runs_with(paths: Paths) -> 
     connection = connect(paths.target_data("t") / "codetrail.db")
     rows = connection.execute("SELECT kind, provider, cost_usd FROM assistant_calls").fetchall()
     assert [tuple(row) for row in rows] == [("answer", "claude_code", 0.3)]
+
+
+class StopsOnce(FakeAssistant):
+    """Stopped mid-answer the first time, as StoppedAnswer is; answers the next question."""
+
+    async def answer(self, request: QuestionRequest) -> AsyncIterator[AnswerChunk]:
+        self.requests.append(request)
+        yield AnswerChunk("Half an ans" if len(self.requests) == 1 else "A whole answer.")
+        if len(self.requests) == 1:
+            raise Stopped
+        yield AnswerChunk(done=True)
+
+
+def test_the_question_slot_is_freed_even_when_the_usage_cant_be_written(
+    paths: Paths, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A database that refuses the write (busy, disk full) mustn't keep every later question waiting."""
+    from codetrail.assistant.usage import UsageLog
+
+    def failing_record(self: UsageLog, kind: str, usage: Usage) -> float:
+        raise sqlite3.OperationalError("database is locked")
+
+    client, headers = make_client(paths, StopsOnce())
+    with monkeypatch.context() as patched:
+        patched.setattr(UsageLog, "record", failing_record)
+        with pytest.raises(BaseException):  # noqa: B017  # however the server's task group reports it
+            client.post("/bridge/questions", json={"question": "Why?"}, headers=headers)
+    response = client.post("/bridge/questions", json={"question": "Again?"}, headers=headers)
+    assert response.status_code == 200 and events(response.text)[-1]["type"] == "done"
