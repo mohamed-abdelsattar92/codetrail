@@ -130,3 +130,16 @@ def test_a_target_ignore_file_over_the_size_cap_fails(
     capsys.readouterr()
     assert main(["files", "ignore"]) == 1
     assert ".codetrailignore is 201 bytes" in capsys.readouterr().err
+
+
+def test_a_target_ignore_file_too_slow_to_match_fails(
+    environment: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    deep = "/".join(["a" * 255] * 3) + "/z.md"
+    checkout = make_repository(tmp_path / "slow", [{".codetrailignore": "*a*a*b\n", deep: "z\n"}])
+    assert main(["target", "add", "slow", str(checkout)]) == 0
+    (environment / "config" / "codetrail" / "config.toml").write_text("[source]\nmax_ignore_match_seconds = 1e-9\n")
+    capsys.readouterr()
+    assert main(["files", "slow"]) == 1
+    error = capsys.readouterr().err
+    assert ".codetrailignore is too slow to match" in error and "[source] max_ignore_match_seconds" in error

@@ -9,11 +9,10 @@ from codetrail.errors import CodetrailError
 from codetrail.lock import target_in_use, target_lock
 from codetrail.repo.mirror import read_file_at
 from codetrail.repo.remote import fetch_target
-from codetrail.repo.rules import ExclusionRules
+from codetrail.repo.rules import TARGET_IGNORE_FILE, ExclusionRules
 from codetrail.repo.secrets import SecretScanner
 from codetrail.repo.source import SourceManifest, build_source
 
-TARGET_IGNORE_FILE = ".codetrailignore"
 # pathspec turns `*` into a backtracking `[^/]*` and a `**` part into `.*`, and the ways to match multiply: each `*`
 # after the first in one part of a path, and each `**` part, is one more choice. Measured (pathspec 1.1.1): two choices
 # take milliseconds on any path; three take a quarter of a second on one long name, and more take minutes. A property
@@ -26,15 +25,13 @@ def wildcard_choices(line: str) -> int:
 
 
 def target_rules(paths: Paths, name: str, mirror: Path, commit: str, limits: SourceSettings) -> ExclusionRules:
-    """The exclusion rules at the commit: the target's own .codetrailignore there, then the founder's ignore file."""
-    return ExclusionRules(
-        ignore_lines(
-            paths,
-            name,
-            read_file_at(mirror, commit, TARGET_IGNORE_FILE, max_bytes=limits.max_file_bytes),
-            limits.max_ignore_lines,
-        )
-    )
+    """The exclusion rules at the commit: the target's own .codetrailignore there, then the founder's ignore file.
+
+    Matching is timed against `max_ignore_match_seconds` only when the target has lines of its own."""
+    target_file = read_file_at(mirror, commit, TARGET_IGNORE_FILE, max_bytes=limits.max_file_bytes)
+    lines = ignore_lines(paths, name, target_file, limits.max_ignore_lines)
+    budget = limits.max_ignore_match_seconds if target_file and target_file.strip() else None
+    return ExclusionRules(lines, match_budget_seconds=budget)
 
 
 def ignore_lines(paths: Paths, name: str, target_file: bytes | None, max_lines: int) -> list[str]:
