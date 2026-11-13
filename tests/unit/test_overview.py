@@ -184,9 +184,10 @@ async def run(
     usage_log: UsageLog | None,
     budget: SharedBudget | None,
     digests: list[OverviewDigest] = DIGESTS,
+    cap_usd: float = 1.0,
 ) -> OverviewOutcome:
     return await write_overview(
-        "platform", digests, writer, GlobalConfig(), scanner, overviews, usage_log, budget, now=lambda: NOW
+        "platform", digests, writer, GlobalConfig(), scanner, overviews, usage_log, budget, cap_usd, now=lambda: NOW
     )
 
 
@@ -263,7 +264,8 @@ async def test_write_overview_fails_twice(scanner: SecretScanner, overviews: Ove
 @pytest.mark.anyio
 async def test_write_overview_budget_spent(scanner: SecretScanner, overviews: Overviews, usage_log: UsageLog) -> None:
     budget = SharedBudget(1.0)
-    budget.add(1.0)
+    assert budget.reserve(1.0)
+    budget.settle(1.0, 1.0)
     writer = FakeAssistant()
     outcome = await run(writer, scanner, overviews, usage_log, budget)
     assert outcome == OverviewOutcome(None, "The team's budget was spent before the overview.")
@@ -309,3 +311,18 @@ async def test_fake_writes_a_plain_overview_when_none_is_scripted() -> None:
     draft = await writer.write_overview(OverviewRequest("platform", DIGESTS, 250))
     assert draft == OverviewDraft("Across the team, things changed.")
     assert len(writer.requests) == 1
+
+
+@pytest.mark.anyio
+async def test_the_overview_starts_only_when_its_cap_fits_in_the_teams_budget(
+    scanner: SecretScanner, overviews: Overviews, usage_log: UsageLog
+) -> None:
+    """The team's budget isn't spent, but what is left can't hold the call's cap: it doesn't start (design 24.8)."""
+    budget = SharedBudget(1.5)
+    assert budget.reserve(1.0)
+    budget.settle(1.0, 0.6)
+    writer = FakeAssistant()
+    outcome = await run(writer, scanner, overviews, usage_log, budget)
+    assert outcome == OverviewOutcome(None, "The team's budget was spent before the overview.")
+    assert writer.requests == []
+    assert (await run(writer, scanner, overviews, usage_log, budget, cap_usd=0.5)).overview_id is not None

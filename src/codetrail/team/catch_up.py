@@ -86,7 +86,8 @@ class CatchUpEstimate:
     def _sums(self, ticked: Collection[str]) -> Totals:
         """The ticked lines' totals. The overview counts in the maximums when at least two of them may write a
         digest, and in the expected figures when at least two expect one. The dollars at most are capped at the
-        team's budget, where the catch-up stops starting calls, and nothing expected exceeds its maximum."""
+        team's budget, which no call passes (each reserves its cap before it starts), and nothing expected exceeds
+        its maximum."""
         lines = [line for line in self.lines if line.target in ticked]
         estimates = [line.estimate for line in lines]
         overview = self.overview
@@ -455,7 +456,8 @@ def _overview(
         usage = UsageLog(connection, settings.prices)
         scanner = SecretScanner(settings.tools)
         return anyio.run(until_stopped, lambda: write_overview(name, digests, writer, settings, scanner, overviews,
-                                                               usage, budget), stop)  # fmt: skip
+                                                               usage, budget, team.catch_up.max_budget_usd_per_call),
+                         stop)  # fmt: skip
     except CodetrailError as error:  # a provider that isn't ready, or the overview's commit failing
         return OverviewOutcome(None, OVERVIEW_STOPPED if stop.is_set() else str(error))
     except Exception as error:  # the catch-up is still recorded; details stay in the log

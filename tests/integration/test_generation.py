@@ -3,6 +3,7 @@
 from dataclasses import replace
 from pathlib import Path
 
+import anyio
 import pytest
 
 from codetrail.assistant import (
@@ -170,7 +171,8 @@ def test_the_first_guide_after_facts_only_updates_gets_a_created_digest(paths: P
 
 def test_the_update_stops_calling_claude_at_its_total_budget(paths: Paths) -> None:
     file = paths.target_file("t")
-    file.write_text(file.read_text() + "[generation]\nmax_budget_usd_per_update = 0.01\nconcurrency = 1\n")
+    file.write_text(file.read_text() + "[generation]\nmax_budget_usd_per_update = 0.01\nconcurrency = 1\n"
+                    "max_budget_usd_per_call = 0.01\n")  # fmt: skip
     claude = FakeAssistant(plans=[PLAN], page_writer=good_page)  # each page costs 0.01
     generation = run_update(paths, "t", claude=claude).generation
     assert generation is not None
@@ -179,7 +181,7 @@ def test_the_update_stops_calling_claude_at_its_total_budget(paths: Paths) -> No
 
 
 def test_shared_budget_stops_new_calls(paths: Paths) -> None:
-    one_at_a_time(paths)
+    one_at_a_time(paths, per_call_usd=0.01)
     shared = SharedBudget(0.01)  # each page costs 0.01
     claude = FakeAssistant(plans=[PLAN], page_writer=good_page)
     generation = run_update(paths, "t", claude=claude, shared_budget=shared).generation
@@ -190,7 +192,8 @@ def test_shared_budget_stops_new_calls(paths: Paths) -> None:
 
 def test_an_exhausted_shared_budget_stops_a_first_run_before_its_plan(paths: Paths) -> None:
     shared = SharedBudget(1.0)
-    shared.add(1.0)
+    assert shared.reserve(1.0)
+    shared.settle(1.0, 1.0)
     claude = FakeAssistant(plans=[PLAN], page_writer=good_page)
     with pytest.raises(CodetrailError, match="team's budget is spent"):
         run_update(paths, "t", claude=claude, shared_budget=shared)
@@ -198,7 +201,7 @@ def test_an_exhausted_shared_budget_stops_a_first_run_before_its_plan(paths: Pat
 
 
 def test_no_page_retry_once_the_shared_budget_runs_out(paths: Paths) -> None:
-    one_at_a_time(paths)
+    one_at_a_time(paths, per_call_usd=0.01)
     bad = PageDraft("Cites [[module:ghost.py]].", CHECKS, cost_usd=0.01, brief=BRIEF)
     claude = FakeAssistant(plans=[PLAN], pages={"areas/api": [bad, bad]}, page_writer=good_page)
     generation = run_update(paths, "t", claude=claude, shared_budget=SharedBudget(0.01)).generation
@@ -210,10 +213,55 @@ def test_no_page_retry_once_the_shared_budget_runs_out(paths: Paths) -> None:
 
 def test_shared_budget_counts_each_call() -> None:
     shared = SharedBudget(1.0)
-    shared.add(0.25)
-    shared.add(0.25)
+    for _ in range(2):
+        assert shared.reserve(0.5)
+        shared.settle(0.5, 0.25)
     assert shared.spent_usd == 0.5
     assert not shared.exhausted
+
+
+def test_a_call_starts_only_when_its_cap_fits_beside_the_calls_in_flight() -> None:
+    """Each call reserves its cap before it starts, so calls in flight can't take the total past the limit."""
+    shared = SharedBudget(1.0)
+    assert shared.reserve(0.4) and shared.reserve(0.4)
+    assert not shared.reserve(0.4)  # 1.2 if all three spent their cap
+    shared.settle(0.4, 0.1)  # one ended, having spent less than its cap
+    assert shared.reserve(0.4)
+    assert shared.spent_usd == pytest.approx(0.1)
+    shared = SharedBudget(0.3)
+    assert all(shared.reserve(0.1) for _ in range(3))  # three tenths fit in three tenths, rounding aside
+
+
+class SlowPages(FakeAssistant):
+    async def write_page(self, request: PageRequest) -> PageDraft:
+        self.requests.append(request)
+        await anyio.sleep(0.2)  # long enough for both pages to be in flight together
+        return replace(good_page(request), cost_usd=0.5)
+
+
+@pytest.mark.parametrize("team", [False, True])
+def test_pages_in_flight_never_take_a_budget_past_its_limit(paths: Paths, team: bool) -> None:
+    """Two pages at a time, each spending its whole cap of 0.5: with 0.75 to spend, the second can't start."""
+    file = paths.target_file("t")
+    update_budget = 10.0 if team else 0.75
+    file.write_text(file.read_text() + f"[generation]\nconcurrency = 2\nmax_budget_usd_per_call = 0.5\n"
+                    f"max_budget_usd_per_update = {update_budget}\n")  # fmt: skip
+
+    shared = SharedBudget(0.75) if team else None
+    claude = SlowPages(plans=[PLAN])
+    generation = run_update(paths, "t", claude=claude, shared_budget=shared).generation
+    assert generation is not None
+    assert generation.cost_usd == 0.5 and len(generation.written) == 1 and len(generation.left_for_later) == 1
+    assert shared is None or shared.spent_usd == 0.5
+
+
+def test_a_budget_smaller_than_one_calls_cap_runs_nothing(paths: Paths) -> None:
+    file = paths.target_file("t")
+    file.write_text(file.read_text() + "[generation]\nmax_budget_usd_per_update = 0.5\n")  # the cap is 1.0
+    claude = FakeAssistant(plans=[PLAN], page_writer=good_page)
+    with pytest.raises(CodetrailError, match="smaller than one call's cap"):
+        run_update(paths, "t", claude=claude)
+    assert claude.requests == []
 
 
 PLAN_WITH_PATHS = PlanDraft(
@@ -274,7 +322,7 @@ def call_rows(paths: Paths) -> list[tuple[str, float]]:
 
 
 def test_a_failed_page_still_counts_what_it_cost(paths: Paths) -> None:
-    one_at_a_time(paths, budget_usd=0.5)
+    one_at_a_time(paths, budget_usd=0.5, per_call_usd=0.5)
     failed = PaidCallFailed("Claude Code didn't finish the task (error_max_budget_usd).", PAID)
     claude = FakeAssistant(plans=[PLAN], pages={"areas/api": [failed]}, page_writer=good_page)
     generation = run_update(paths, "t", claude=claude).generation
@@ -317,9 +365,10 @@ def test_a_failed_digest_still_counts_what_it_cost(paths: Paths, tmp_path: Path)
     assert digest is not None and "commits since the last update" in digest.title
 
 
-def one_at_a_time(paths: Paths, budget_usd: float = 10.0) -> None:
+def one_at_a_time(paths: Paths, budget_usd: float = 10.0, per_call_usd: float = 1.0) -> None:
     file = paths.target_file("t")
-    file.write_text(file.read_text() + f"[generation]\nconcurrency = 1\nmax_budget_usd_per_update = {budget_usd}\n")
+    file.write_text(file.read_text() + f"[generation]\nconcurrency = 1\nmax_budget_usd_per_update = {budget_usd}\n"
+                    f"max_budget_usd_per_call = {per_call_usd}\n")  # fmt: skip
 
 
 def test_an_update_reports_each_step_as_it_goes(paths: Paths) -> None:
@@ -353,7 +402,7 @@ def test_an_update_reports_each_step_as_it_goes(paths: Paths) -> None:
 
 
 def test_the_steps_report_a_retry_a_failed_page_and_one_left_for_later(paths: Paths) -> None:
-    one_at_a_time(paths, budget_usd=0.015)
+    one_at_a_time(paths, budget_usd=0.025, per_call_usd=0.01)  # room for one page and its retry, not a second page
     bad = PageDraft("Cites [[module:ghost.py]].", CHECKS, cost_usd=0.01, brief=BRIEF)
     events: list[dict[str, object]] = []
     claude = FakeAssistant(plans=[PLAN], pages={"areas/api": [bad, bad]}, page_writer=good_page)

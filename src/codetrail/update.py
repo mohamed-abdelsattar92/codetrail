@@ -250,6 +250,7 @@ def run_update(
                     max_pages=target.generation.max_pages_per_update,
                     concurrency=target.generation.concurrency,
                     max_budget_usd=target.generation.max_budget_usd_per_update,
+                    max_budget_usd_per_call=target.generation.max_budget_usd_per_call,
                     max_tokens=target.generation.max_tokens_per_update,
                     previous_commit=previous.commit if previous else None,
                     diff=diff,

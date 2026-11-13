@@ -99,7 +99,7 @@ Continue? [y/N]
 
 - **Dollars** are what the same work would cost at API prices. On a subscription you pay nothing extra; the work uses your plan's limits, and the estimate shows how much of each limit you've used once Claude Code has reported it.
 - **A starting guess** marks an estimate made before Codetrail has a history of its own calls. After a few updates, estimates use the median of your own recent calls.
-- **"At most"** counts every page being written twice (a failed check gets one retry). The update also stops at its budgets, whichever comes first.
+- **"At most"** counts every page being written twice (a failed check gets one retry), and never exceeds the update's budget: each call reserves its cap (`max_budget_usd_per_call`, $1.00 by default) before it starts, so the calls running together can't pass the budget. The update also stops at its token budget, whichever comes first.
 - **A smaller first update:** the first update writes up to 20 pages. To keep it smaller, add this to `~/.config/codetrail/targets/shop.toml`:
 
   ```toml
