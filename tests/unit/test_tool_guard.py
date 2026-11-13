@@ -1,5 +1,6 @@
 """The tool guard: Claude reads source/ only, with Read, Grep and Glob (design section 6.9)."""
 
+import json
 from pathlib import Path
 
 import pytest
@@ -123,3 +124,37 @@ def test_text_files_are_still_read(source: Path, name: str) -> None:
     (source / name).parent.mkdir(parents=True, exist_ok=True)
     (source / name).write_text("BM text that starts like a bitmap\n")
     assert ToolGuard(source).decide("Read", {"file_path": name}) is None
+
+
+def notebook(*outputs: dict[str, object]) -> str:
+    return json.dumps({"nbformat": 4, "cells": [{"cell_type": "code", "source": "x", "outputs": list(outputs)}]})
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        notebook({"output_type": "display_data", "data": {"image/png": "iVBORw0KGgo=", "text/plain": "<Figure>"}}),
+        notebook({"output_type": "execute_result", "data": {"image/jpeg": "/9j/4AAQ"}}),
+        "not json",
+        json.dumps({"worksheets": []}),  # an old notebook format, not read
+    ],
+)
+def test_notebooks_with_image_outputs_are_never_read(source: Path, content: str) -> None:
+    """Read renders a notebook's image outputs for the model, and the secret scan can't read a base64 image."""
+    (source / "analysis.ipynb").write_text(content)
+    reason = ToolGuard(source).decide("Read", {"file_path": "analysis.ipynb"})
+    assert reason is not None and "image" in reason
+
+
+def test_notebooks_with_text_outputs_are_read(source: Path) -> None:
+    text = notebook({"output_type": "stream", "text": "ok"}, {"data": {"image/svg+xml": "<svg/>", "text/plain": "x"}})
+    (source / "analysis.ipynb").write_text(text)
+    assert ToolGuard(source).decide("Read", {"file_path": "analysis.ipynb"}) is None
+
+
+def test_the_name_given_to_read_counts_too(source: Path) -> None:
+    """Read picks its renderer from the name it's given, which a link can make differ from the file's own."""
+    (source / "notes.txt").write_text("plain text\n")
+    (source / "picture.png").symlink_to(source / "notes.txt")
+    reason = ToolGuard(source).decide("Read", {"file_path": "picture.png"})
+    assert reason is not None and "PDF or an image" in reason

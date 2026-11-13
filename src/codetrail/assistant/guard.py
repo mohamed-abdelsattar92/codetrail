@@ -6,6 +6,7 @@ place inside `source/` is refused; every file Read opens is recorded, and become
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Mapping
 from pathlib import Path
@@ -25,6 +26,8 @@ RENDERED_SIGNATURES = re.compile(
     re.DOTALL,
 )
 PDF_HEADER = b"%PDF-"
+NOTEBOOK_SUFFIX = ".ipynb"  # Read renders a notebook's image outputs too; SVG is text the scan reads
+TEXT_IMAGE_TYPES = frozenset({"image/svg+xml"})
 SIGNATURE_WINDOW = 1024  # a PDF's header may sit anywhere in its first kilobyte
 
 
@@ -52,10 +55,16 @@ class ToolGuard:
             inside = self._inside(path)
             if inside is None or not inside.is_file():
                 return f"{path} isn't a file in the repository."
-            if _rendered(inside):
+            names = (Path(path).name, inside.name)  # Read picks how to show a file by the name it is given
+            if _rendered(inside, names):
                 return (
                     f"{path} is a PDF or an image: the secret scan can't read the text drawn in it, so it isn't read. "
                     "Answer from the other files."
+                )
+            if any(name.lower().endswith(NOTEBOOK_SUFFIX) for name in names) and _notebook_has_images(inside):
+                return (
+                    f"{path} is a notebook with image outputs, or one that couldn't be read: the secret scan can't "
+                    "read an image, so it isn't read. Answer from the other files."
                 )
             relative = inside.relative_to(self.root).as_posix()
             if relative not in self.files_read:
@@ -98,10 +107,33 @@ class ToolGuard:
         }
 
 
-def _rendered(file: Path) -> bool:
-    """A PDF or an image, which Read would render rather than read as text."""
-    if file.suffix.lower() in RENDERED_SUFFIXES:
+def _rendered(file: Path, names: tuple[str, ...]) -> bool:
+    """A PDF or an image, by any of its names or its first bytes, which Read would render rather than read as text."""
+    if any(Path(name).suffix.lower() in RENDERED_SUFFIXES for name in names):
         return True
     with file.open("rb") as handle:
         start = handle.read(SIGNATURE_WINDOW)
     return PDF_HEADER in start or RENDERED_SIGNATURES.match(start) is not None
+
+
+def _notebook_has_images(file: Path) -> bool:
+    """Whether any output of the notebook (nbformat 4) carries an image other than SVG; a notebook that can't be read
+    as one counts as having images, so it fails closed."""
+    try:
+        notebook = json.loads(file.read_bytes())
+    except ValueError:
+        return True
+    cells = notebook.get("cells") if isinstance(notebook, dict) else None
+    if not isinstance(cells, list):
+        return True
+    for cell in cells:
+        outputs = cell.get("outputs", []) if isinstance(cell, dict) else None
+        if not isinstance(outputs, list):
+            return True
+        for output in outputs:
+            data = output.get("data", {}) if isinstance(output, dict) else None
+            if not isinstance(data, dict):
+                return True
+            if any(kind.startswith("image/") and kind not in TEXT_IMAGE_TYPES for kind in data):
+                return True
+    return False
