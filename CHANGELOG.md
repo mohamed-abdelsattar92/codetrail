@@ -23,6 +23,14 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 - The PyPI page shows the README's screenshots, diagrams and logo, and its links open the files on GitHub, at the release's tag.
 
 ### Security
+- Codetrail's folders and files are now private to you (0700 and 0600), git's mirror included, and an older readable data folder is closed.
+- Committed files over `[source] max_file_bytes` (50 MB) are excluded as "too large" before they are read; a `.codetrailignore` over that size, or with more than `[source] max_ignore_lines` (200) pattern lines, fails the refresh.
+- Matching a repository's own `.codetrailignore` stops after `[source] max_ignore_match_seconds` (60 s), so crafted ignore lines and paths can't hang an update.
+- Secrets inside compressed files are now scanned: zip-based files (.docx, .xlsx, .jar, .zip), tar archives, gzip, bzip2 and xz files, and PDF text. A file that can't be decoded whole within `[source] max_inflated_bytes` (50 MB), or is encrypted, damaged or uses an encoding Codetrail doesn't read, is excluded as unscannable.
+- gitleaks now reads its input from a file, closing a way for text to be skipped as binary.
+- Mirrors refuse malformed git objects (`transfer.fsckObjects`); old histories with cosmetic flaws (odd dates, missing emails, zero-padded modes) are still accepted, and git's security checks stay fatal.
+- Credentials in dependency URLs are stripped more thoroughly: passwords holding "/", "@" or "://", and token-like query values.
+- `codetrail agents` checks that the data folder isn't inside the repository, and provider output in estimates and `codetrail providers` is escaped.
 - A provider or hosting program that writes more than its output limit (50 MB per stream for providers, `hosting.max_output_bytes` for hosting reads) is stopped at once, instead of being read whole first.
 - A third repository whose name matches two others no longer stops a team's sync: target names are numbered until one is free.
 - Azure DevOps names holding a lone surrogate, a private-use or unassigned character, or a line or paragraph separator are refused, so they can no longer crash `team serve` or leave empty target files.
