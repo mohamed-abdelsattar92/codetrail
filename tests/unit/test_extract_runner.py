@@ -241,6 +241,10 @@ def test_base_60_integers_stay_text_so_none_costs_quadratic_time() -> None:
             "https://b.example/f?X-Amz-Signature=abc&X-Amz-Credential=def&api_key=ghi&page=2",
             "https://b.example/f?X-Amz-Signature=&X-Amz-Credential=&api_key=&page=2",
         ),
+        ("https://h.example/f?pass=a&pwd=b&pat=c&page=2", "https://h.example/f?pass=&pwd=&pat=&page=2"),
+        # Without "://" too.
+        ("git@git.example:org/repo.git?token=s3cret", "git.example:org/repo.git?token="),
+        ("registry.example/x.tgz?password=s3cret&v=1", "registry.example/x.tgz?password=&v=1"),
         # Without an "@" or a token-like parameter, unchanged.
         ("https://registry.example/pkg/-/pkg-1.0.0.tgz?v=1", "https://registry.example/pkg/-/pkg-1.0.0.tgz?v=1"),
         ("https://git.example:8443/org/repo.git", "https://git.example:8443/org/repo.git"),

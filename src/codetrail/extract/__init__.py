@@ -70,7 +70,7 @@ HOST = r"(?:[A-Za-z0-9.-]+|\[[0-9A-Fa-f:.]+\])"  # a name or an IPv6 address
 SCP_USERINFO_END = re.compile(rf"@(?={HOST}:)")  # user:pass@host:path
 QUERY_PARAMETER = re.compile(r"([?&;][^=&#;?]*=)([^&#;]*)")
 # A query parameter whose name holds one of these holds a credential: its value goes.
-SECRET_PARAMETER_WORDS = ("token", "key", "password", "secret", "sig", "auth", "credential")
+SECRET_PARAMETER_WORDS = ("token", "key", "pass", "pwd", "pat", "secret", "sig", "auth", "credential")
 LOCAL_SPECIFIERS = ("npm:", "workspace:", "file:", "link:", "portal:", "patch:")
 
 
@@ -80,16 +80,16 @@ def without_credentials(text: str) -> str:
     It fails closed: a user or password can hold `/`, `?`, `#`, `@` or `://`, so in a word holding `://`, everything
     from its first `://` through its last `@` goes, whatever path, ref or second URL that takes with it. Without
     `://`, everything through the last `@` before the first `/` goes, and through the last `@` that a host and `:`
-    follow (user:pass@host:path)."""
+    follow (user:pass@host:path). Credential-like query values go in both."""
     if "://" in text:
         return re.sub(r"\S+", _url_without_credentials, text)
-    if text.startswith(LOCAL_SPECIFIERS):
-        return text
-    ends = [match.end() for match in SCP_USERINFO_END.finditer(text)]
-    authority = text.split("/", 1)[0]
-    if "@" in authority:
-        ends.append(authority.rindex("@") + 1)
-    return text[max(ends) :] if ends else text
+    if not text.startswith(LOCAL_SPECIFIERS):
+        ends = [match.end() for match in SCP_USERINFO_END.finditer(text)]
+        authority = text.split("/", 1)[0]
+        if "@" in authority:
+            ends.append(authority.rindex("@") + 1)
+        text = text[max(ends) :] if ends else text
+    return QUERY_PARAMETER.sub(_parameter_without_secret, text)
 
 
 def _url_without_credentials(match: re.Match[str]) -> str:
