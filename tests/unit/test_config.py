@@ -537,6 +537,21 @@ def test_target_names_from_awkward_repository_names() -> None:
     assert clash_of_long != long_name
 
 
+def test_a_clash_with_a_suffixed_name_counts_on() -> None:
+    taken = {"acme-web-shop", "acme-web-shop-rkgdoe"}
+    assert team_target_name("acme", "web-shop", taken, "R_kgDOExample2") == "acme-web-shop-rkgdoe-2"
+    long_name = team_target_name("acme", "x" * 70, set())
+    taken_long = {long_name, team_target_name("acme", "x" * 70, {long_name}, "R_kgDOExample")}
+    third = team_target_name("acme", "x" * 70, taken_long, "R_kgDOExample")
+    assert third.endswith("-rkgdoe-2")
+    assert validate_target_name(third) == third
+    assert third not in taken_long
+
+
+def test_a_clash_without_letters_or_digits_in_the_id_is_numbered() -> None:
+    assert team_target_name("acme", "web-shop", {"acme-web-shop"}, "__") == "acme-web-shop-2"
+
+
 def test_the_model_stores_the_normalized_azure_url() -> None:
     remote = RemoteSettings.model_validate(
         {
