@@ -481,6 +481,9 @@ class TeamModels(Settings):
 
 
 class CatchUpSettings(Settings):
+    # Infinity isn't a budget, and the team file is rewritten from these values, where it wouldn't be valid TOML.
+    model_config = ConfigDict(extra="forbid", frozen=True, allow_inf_nan=False)
+
     max_budget_usd: float = Field(default=20.0, gt=0)  # the whole catch-up's spend, across its repositories
     concurrency: int = Field(default=2, ge=1, le=8)  # repositories updated at once
     max_budget_usd_per_call: float = Field(default=1.0, gt=0)  # the overview's one call

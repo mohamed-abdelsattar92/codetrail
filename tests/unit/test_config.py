@@ -650,7 +650,19 @@ def test_team_overview_refuses_codex(paths: Paths) -> None:
         load_team(paths, "acme")
 
 
-@pytest.mark.parametrize("text", ["max_budget_usd = 0", "concurrency = 0", "concurrency = 9"])
+@pytest.mark.parametrize(
+    "text",
+    [
+        "max_budget_usd = 0",
+        "concurrency = 0",
+        "concurrency = 9",
+        # Not finite: no limit at all, and a save would write them back as text TOML can't read.
+        "max_budget_usd = inf",
+        "max_budget_usd = nan",
+        "max_budget_usd_per_call = inf",
+        "max_budget_usd_per_call = nan",
+    ],
+)
 def test_catch_up_ranges(paths: Paths, text: str) -> None:
     paths.team_file("acme").parent.mkdir(parents=True)
     paths.team_file("acme").write_text(f"[catch_up]\n{text}\n", encoding="utf-8")
