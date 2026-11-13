@@ -300,3 +300,41 @@ def test_reads_a_subshell_in_the_folder_before_it(checkout: pathlib.Path) -> Non
     # Branch review, L2: (cd x) doesn't move the shell, and $(...) runs where the commands before it moved to.
     assert run_hook_in(checkout / "src", "(cd /tmp); grep -rn API_KEY ..") == 2
     assert run_hook_in(checkout / "src", "cd ../services && echo \"$(grep -rn API_KEY .)\"") == 2
+
+
+def test_a_relative_path_into_codex_home_counts_when_the_folder_is_unknown(checkout: pathlib.Path) -> None:
+    # Re-review, L2: the $(...) makes the cd's folder unknown, so .codex/ can't be told from ~/.codex/.
+    assert run_hook_in(checkout, 'cd ~ && cat .codex/config.toml | head -n "$(echo 5)"') == 2
+
+
+def test_git_grep_reads_its_pager_option_alone(checkout: pathlib.Path) -> None:
+    # Re-review, open point 1: -O takes its value stuck to it, so the word after it is the pattern.
+    assert run_hook_in(checkout, "git grep --no-index -O API_KEY services src") == 2
+
+
+def load_hook():
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("block_secret_reads_under_test", HOOK)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_a_search_too_large_to_check_in_time_is_refused(tmp_path: pathlib.Path) -> None:
+    # Re-review, open point 2: the walk stops well within the hook's time limit, and refuses.
+    for number in range(5):
+        (tmp_path / f"file{number}.txt").write_text("x")
+    hook = load_hook()
+    assert hook.secret_file_under(True, ["."], str(tmp_path)) is None
+    hook.MAX_FILES_SEARCHED = 3
+    assert "narrower folder" in hook.secret_file_under(True, ["."], str(tmp_path))
+    hook.MAX_FILES_SEARCHED, hook.MAX_SECONDS_SEARCHING = 200_000, 0
+    assert "narrower folder" in hook.secret_file_under(True, ["."], str(tmp_path))
+
+
+def test_the_walk_ends_well_within_the_hooks_time_limit() -> None:
+    settings = json.loads((HOOK.parents[1] / "settings.json").read_text())
+    hooks = [hook for entry in settings["hooks"]["PreToolUse"] for hook in entry["hooks"]]
+    timeout = next(hook["timeout"] for hook in hooks if "block_secret_reads.py" in hook["command"])
+    assert load_hook().MAX_SECONDS_SEARCHING * 2 <= timeout

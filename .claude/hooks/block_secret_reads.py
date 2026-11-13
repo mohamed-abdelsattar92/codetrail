@@ -20,7 +20,7 @@ Commands that only look at a file's existence or metadata (ls, test, stat, git c
 It guards against mistakes: a command built to hide a name, such as a quoted heredoc fed to a shell, gets past it.
 Exit code 2 blocks the call and shows the reason to the agent.
 """
-import json, os, re, sys
+import json, os, re, sys, time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 try:
@@ -72,7 +72,7 @@ SEARCH_OPTIONS_WITH_VALUE = {
                                '--regex-size-limit', '--hyperlink-format', '--generate'}),
     'ag': ('ABCGgmp', {'--ignore', '--ignore-dir', '--depth', '--pager', '--file-search-regex', '--max-count',
                        '--context', '--after', '--before', '--path-to-ignore'}),
-    'git grep': ('efABCmO', {'--max-depth', '--context', '--after-context', '--before-context', '--max-count',
+    'git grep': ('efABCm', {'--max-depth', '--context', '--after-context', '--before-context', '--max-count',
                              '--threads', '--open-files-in-pager'}),
 }
 SEARCH_OPTIONS_WITH_VALUE['ack'] = SEARCH_OPTIONS_WITH_VALUE['ag']
@@ -82,8 +82,10 @@ RG_REACHES_EVERY_FILE = re.compile(r'--(no-ignore.*|hidden|unrestricted)|-[A-Za-
 # Folders a search walks without the guard looking for secret files in them: git's own, and installed packages, whose
 # certificate bundles (cacert.pem) aren't the reader's secrets.
 NOT_SEARCHED_FOR_SECRETS = {'.git', '.venv', 'node_modules'}
-# The files a search may walk before the guard gives up and refuses, rather than take too long.
+# The files a search may walk, and the seconds it may take, before the guard gives up and refuses: well within the
+# hook's own time limit (.claude/settings.json), after which Claude Code might let the command run.
 MAX_FILES_SEARCHED = 200_000
+MAX_SECONDS_SEARCHING = 10
 UNKNOWN_FOLDER = 'a search from a folder only the shell can work out'
 
 
@@ -167,7 +169,7 @@ def secret_file_under(every_file, folders, base):
 
     It follows symbolic links, as grep -R and rg -L do, and visits each real folder once."""
     if base is None: return UNKNOWN_FOLDER
-    searched, visited = 0, set()
+    searched, visited, deadline = 0, set(), time.monotonic() + MAX_SECONDS_SEARCHING
     for folder in folders:
         folder = folder.strip('\'"')
         if re.search(r'[$`*?\[]', folder): return f'a search of {folder}, which only the shell can resolve'
@@ -184,7 +186,8 @@ def secret_file_under(every_file, folders, base):
             dirs[:] = [name for name in dirs if name not in NOT_SEARCHED_FOR_SECRETS and (every_file or name[0] != '.')]
             files = [name for name in files if every_file or name[0] != '.']
             searched += len(files)
-            if searched > MAX_FILES_SEARCHED: return f'a search of {folder}, too large to check for secret files'
+            if searched > MAX_FILES_SEARCHED or time.monotonic() > deadline:
+                return f'a search of {folder}, too large to check for secret files: search a narrower folder'
             for name in files + dirs:
                 found = os.path.join(root, name)
                 if SECRET_NAME.match(name) or SECRET_PATH.search(found) or in_codex_home(found): return found
@@ -202,6 +205,8 @@ def secret_in(token, base=None):
         if SECRET_PATH.search(path): return path
     name = os.path.basename(path)
     if SECRET_NAME.match(name) or SECRET_NAME.match(re.split(r'[*?\[]', name)[0]): return path
+    if base is None and re.search(r'(^|/)\.codex(/|$)', path) and not os.path.isabs(os.path.expanduser(path)):
+        return path  # relative to a folder the guard can't work out, which could be the home folder
     absolute = os.path.expanduser(path)
     if path and '$' not in path and (os.path.isabs(absolute) or base) and in_codex_home(os.path.join(base or '/', absolute)):
         return path  # .codex/config.toml from the home folder, ../../.codex/history.jsonl
