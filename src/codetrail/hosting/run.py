@@ -71,9 +71,13 @@ EXACT_READS = {
     ("auth", "status", "--output", "json"),
 }
 
-# After `api --method GET` only these flags pass: a bundled short flag such as `-iXPOST` could change the method.
+# After `api --method GET` only these flags pass, with exactly one path: a bundled short flag such as `-iXPOST`
+# could change the method.
 API_FLAGS = ("--paginate",)
 API_FLAGS_WITH_VALUE = ("--jq",)
+
+# After `repo list` only the owner and these flags pass: `--web` would open a browser.
+REPO_LIST_FLAGS_WITH_VALUE = ("--json", "--limit")
 
 # After an `az` read's prefix only the flags the adapter passes, each with exactly one value: `--debug` would write
 # the requests to standard error, and `--query` or another flag would change what the read returns.
@@ -93,9 +97,12 @@ def is_read(service: Service, arguments: Sequence[str]) -> bool:
         if tuple(arguments[: len(prefix)]) == prefix:
             if prefix in EXACT_READS:
                 return len(arguments) == len(prefix)
+            rest = arguments[len(prefix) :]
             if service == "azure_devops":
-                return _only_allowed_azure_flags(arguments[len(prefix) :])
-            return prefix[0] != "api" or _only_allowed_api_flags(arguments[len(prefix) :])
+                return _only_allowed_azure_flags(rest)
+            if prefix[0] == "api":
+                return _only_allowed_flags(rest, API_FLAGS, API_FLAGS_WITH_VALUE)
+            return _only_allowed_flags(rest, (), REPO_LIST_FLAGS_WITH_VALUE)
     return False
 
 
@@ -110,18 +117,24 @@ def _only_allowed_azure_flags(rest: Sequence[str]) -> bool:
     return True
 
 
-def _only_allowed_api_flags(rest: Sequence[str]) -> bool:
+def _only_allowed_flags(rest: Sequence[str], flags: Sequence[str], flags_with_value: Sequence[str]) -> bool:
+    """Only the given flags, each flag with a value followed by one that isn't a flag, and exactly one positional
+    argument (the API path, or the owner whose repositories are listed)."""
+    positionals = 0
     position = 0
     while position < len(rest):
         argument = rest[position]
-        if argument in API_FLAGS_WITH_VALUE:
+        if argument in flags_with_value:
             position += 1  # its one value
-            if position >= len(rest):
+            if position >= len(rest) or rest[position].startswith("-"):
                 return False
-        elif argument.startswith("-") and argument not in API_FLAGS:
-            return False
+        elif argument.startswith("-"):
+            if argument not in flags:
+                return False
+        else:
+            positionals += 1
         position += 1
-    return True
+    return positionals == 1
 
 
 def run_read(

@@ -79,6 +79,15 @@ def test_a_command_outside_the_read_list_is_refused_before_it_runs(tmp_path: Pat
         ["api", "--method", "GET", "x", "-X", "POST"],
         ["api", "--method", "GET", "x", "-H", "X-HTTP-Method-Override:POST"],
         ["auth", "status", "--json", "hosts", "--show-token"],
+        ["repo", "list", "acme-org", "--web"],
+        ["repo", "list", "acme-org", "other-org"],
+        ["repo", "list", "--json", "id"],
+        ["repo", "list", "acme-org", "--limit"],
+        ["repo", "list", "acme-org", "--json", "--web"],
+        ["repo", "list", "acme-org", "--json=id"],
+        ["api", "--method", "GET", "x", "y"],
+        ["api", "--method", "GET", "--paginate"],
+        ["api", "--method", "GET", "x", "--jq", "--paginate"],
         [],
     ):
         with pytest.raises(HostingError, match="isn't a read"):
