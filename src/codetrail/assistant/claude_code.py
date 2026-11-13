@@ -140,6 +140,7 @@ class ClaudeCodeAssistant:
         """Streams the answer's text as Claude writes it, then a final chunk with the files read and the usage."""
         model = self.models["answer"]
         outcome = _Outcome()
+        started = anyio.current_time()
         with self._call_files() as (settings_file, read_log):
             command = self._command(
                 model,
@@ -162,9 +163,11 @@ class ClaudeCodeAssistant:
                             yield AnswerChunk(text=text)
                         _note(event, outcome)
             except AssistantError as error:
-                if outcome.result is None:
-                    raise
-                raise _failed_after_result(error, outcome, model) from error
+                if outcome.result is not None:
+                    raise _failed_after_result(error, outcome, model) from error
+                if self._timed_out(started):
+                    raise _cap_spent(error, outcome, model, self.answer_limits[1]) from error
+                raise
             result = _finished(outcome, model)
             usage = _usage(result, model, outcome)
             yield AnswerChunk(done=True, files_read=_read(read_log), cost_usd=_cost(usage), usage=usage)
@@ -185,6 +188,7 @@ class ClaudeCodeAssistant:
             if attempt:
                 await anyio.sleep(2)
             outcome = _Outcome()
+            started = anyio.current_time()
             with self._call_files() as (settings_file, read_log):
                 command = self._command(
                     model, schema, system_prompt, tools, self.limits.max_turns, budget, settings_file
@@ -199,6 +203,8 @@ class ClaudeCodeAssistant:
                 except AssistantError as error:
                     if outcome.result is not None:
                         raise _failed_after_result(error, outcome, model) from error
+                    if self._timed_out(started):  # not retried: it may have spent up to its cap
+                        raise _cap_spent(error, outcome, model, budget) from error
                     last_error = _ProgramFailed(str(error))
                     continue
                 result = _finished(outcome, model)
@@ -208,6 +214,10 @@ class ClaudeCodeAssistant:
                     raise call_failed("Claude Code finished without a structured answer.", usage)
                 return data, _read(read_log), usage
         raise last_error or AssistantError("Claude Code couldn't be run.")
+
+    def _timed_out(self, started: float) -> bool:
+        """Whether a call that failed without a result ran until its time limit stopped it."""
+        return anyio.current_time() - started >= self.settings.timeout_seconds
 
     def _command(
         self,
@@ -233,6 +243,9 @@ class ClaudeCodeAssistant:
             "--setting-sources",
             "",
             "--strict-mcp-config",
+            # Should the guard hook fail to run, Claude Code runs the tool anyway: no MCP tool is there to reach.
+            "--disallowedTools",
+            "mcp__*",
             "--disable-slash-commands",
             "--no-session-persistence",
             "--settings",
@@ -264,6 +277,11 @@ class ClaudeCodeAssistant:
             parts = (sys.executable, "-I", "-m", "codetrail.assistant.guard_hook", str(self.root), str(read_log))
             hook = " ".join(shlex.quote(part) for part in parts)
             settings = {
+                # Nothing from the reader's account or past sessions: no memory, connectors, synced skills or plugins.
+                "autoMemoryEnabled": False,
+                "disableClaudeAiConnectors": True,
+                "syncClaudeAiSkills": False,
+                "syncClaudeAiPlugins": False,
                 "hooks": {
                     "PreToolUse": [
                         {
@@ -273,7 +291,7 @@ class ClaudeCodeAssistant:
                             ],
                         }
                     ]
-                }
+                },
             }
             settings_file = Path(folder) / "settings.json"
             descriptor = os.open(settings_file, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
@@ -333,6 +351,13 @@ def _failed_after_result(error: AssistantError, outcome: _Outcome, model: str) -
     """The program failed after its result (Claude Code exits 1 after an error result): the error, with the usage."""
     result = _finished(outcome, model)  # an error result raises its own failure
     return call_failed(str(error), _usage(result, model, outcome))
+
+
+def _cap_spent(error: AssistantError, outcome: _Outcome, model: str, budget_usd: float) -> AssistantError:
+    """A call stopped at its time limit: Claude Code may have spent up to its cap, and no result says how much, so
+    the cap counts as spent (design section 15.3)."""
+    usage = Usage(PROVIDER, model, cost_usd=budget_usd, plan_windows=tuple(outcome.windows.values()))
+    return call_failed(f"{error} It counts as its whole budget of ${budget_usd:g}.", usage)
 
 
 def _usage(result: dict[str, Any], model: str, outcome: _Outcome) -> Usage:
