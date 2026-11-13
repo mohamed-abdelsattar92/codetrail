@@ -329,3 +329,72 @@ def test_allows_rewinding_a_feature_branch(tmp_path: pathlib.Path, command: str)
     env = {**__import__("os").environ, "CLAUDE_PROJECT_DIR": str(tmp_path)}
     result = subprocess.run([sys.executable, str(HOOK)], input=payload, capture_output=True, text=True, env=env, cwd=tmp_path)
     assert result.returncode == 0
+
+
+# The guardrails don't protect themselves through the shell: the Edit tool asks the founder before changing them
+# (.claude/settings.json), so the shell may not write them at all (audit low E8).
+GUARDRAIL_WRITES = [
+    "echo '{}' > .claude/settings.local.json",
+    "echo x >> .claude/hooks/block_push.py",
+    "printf x >./.claude/settings.json",
+    "cat x 1> .codex/rules/no-push.rules",
+    "echo x | tee .claude/hooks/block_secret_reads.py",
+    "echo x | tee -a tools/git-hooks/pre-push",
+    "sed -i '' 's/exit 2/exit 0/' .claude/hooks/block_push.py",
+    "sed -i.bak 's/x/y/' tools/git-hooks/run-lefthook",
+    "sed --in-place 's/x/y/' lefthook.yml",
+    "perl -pi -e 's/x/y/' .codex/rules/no-push.rules",
+    "cp /tmp/x .claude/settings.json",
+    "cp -f /tmp/x tools/git-hooks/agent-push-guard",
+    "cp -t .claude/hooks /tmp/block_push.py",
+    "cp -R /tmp/hooks .claude",
+    "rsync -a /tmp/x/ .codex/",
+    "mv .claude/hooks /tmp/hooks",
+    "mv /tmp/x lefthook.yml",
+    "rm .claude/hooks/block_push.py",
+    "rm -rf .claude",
+    "rm -rf tools",
+    "rm -rf .codex",
+    "ln -sf /tmp/x .claude/settings.local.json",
+    "chmod -x tools/git-hooks/pre-push",
+    "truncate -s 0 .claude/hooks/block_secret_reads.py",
+    "dd if=/tmp/x of=.claude/settings.json",
+    "touch .claude/settings.local.json",
+    "echo x > .Claude/Settings.json",  # macOS's file system ignores case
+    "echo x > .claude/./hooks/block_push.py",
+    "echo x > /Users/reader/codetrail/.claude/agents/security-reviewer.md",
+    "mise exec -- cp /tmp/x .claude/settings.json",
+]
+
+GUARDRAIL_READS = [
+    "cat .claude/settings.json",
+    "sed -n 1,40p .claude/hooks/block_push.py",
+    "cp .claude/settings.json /tmp/settings-copy.json",
+    "python3 .claude/hooks/block_push.py < /tmp/payload.json",
+    "grep -n LEFTHOOK tools/git-hooks/run-lefthook",
+    "diff .codex/rules/no-push.rules /tmp/rules",
+    "echo x > tools/tests/notes.txt",
+    "echo x > docs/claude/settings.json",
+    "rm -rf tools/tests/__pycache__",
+]
+
+
+@pytest.mark.parametrize("command", GUARDRAIL_WRITES)
+def test_blocks_shell_writes_to_the_guardrails(command: str) -> None:
+    assert run_hook(command) == 2
+
+
+@pytest.mark.parametrize("command", GUARDRAIL_READS)
+def test_allows_reading_the_guardrails(command: str) -> None:
+    assert run_hook(command) == 0
+
+
+# A short option's value can be stuck to it: git checkout -Bdevelop is git checkout -B develop (audit low G9).
+@pytest.mark.parametrize("command", ["git checkout -Bdevelop HEAD~3", "git switch -Cmain", "git checkout -Bmain",
+                                     "git switch -Cdevelop x"])
+def test_blocks_resetting_protected_branches_with_a_stuck_value(command: str) -> None:
+    assert run_hook(command) == 2
+
+
+def test_allows_creating_a_branch_with_a_stuck_value() -> None:
+    assert run_hook("git checkout -bfeature/x") == 0

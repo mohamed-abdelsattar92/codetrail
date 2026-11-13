@@ -12,12 +12,15 @@ It also blocks skipping the git hooks (AGENTS.md, Never do, rule 8): --no-verify
 merges and git-flow finishes, `git commit -n`, LEFTHOOK=0 or LEFTHOOK_EXCLUDE, and core.hooksPath.
 It blocks the plain ways of moving refs by hand (git update-ref, or a fetch that writes refs/remotes), since the
 security review reads origin/develop; the review also reads it by its full name with replace objects off.
+It blocks shell writes to the guardrails themselves (.claude/hooks, .claude/agents, .claude's settings files, .codex,
+tools/git-hooks and lefthook.yml): redirections, tee, sed -i and perl -i, and cp, mv, ln, rm, chmod and the like naming
+one; reading them is allowed. The Edit tool asks the founder before changing them (.claude/settings.json).
 A command it can't read is blocked too, rather than let through: unclosed quotes, $'...' quoting, a heredoc
 without its end line, or a brace expansion beside git. A quoted heredoc fed to a shell is still read as data. Quoted heredoc bodies are data (a commit message); unquoted ones are checked for $(...).
 Exit code 2 blocks the call and shows the reason to the agent.
 The git pre-push hook (tools/git-hooks/pre-push) is the backstop for anything missed.
 """
-import json, os, re, shlex, sys
+import json, os, posixpath, re, shlex, sys
 
 GIT_OPTS_WITH_VALUE = {'-C', '-c', '--git-dir', '--work-tree', '--namespace', '--exec-path', '--config-env', '--super-prefix'}
 WRAPPERS = {'env', 'command', 'exec', 'sudo', 'nohup', 'time', 'nice', 'xcrun', 'caffeinate', 'timeout'}
@@ -110,6 +113,7 @@ HOOK_SKIP = 'skipping the git hooks'
 UNREADABLE = 'a command the guard cannot read'
 BRACES = re.compile(r'\{[^{}]*(,|\.\.)[^{}]*\}')
 REF_MOVE = 'moving git refs by hand'
+GUARDRAIL_CHANGE = 'changing the agent guardrails from the shell'
 VERIFYING_COMMANDS = {'commit', 'merge', 'cherry-pick', 'revert', 'am', 'rebase', 'pull'}
 HISTORY = 'rewriting history, deleting branches or tags, or releasing'
 # Configuration that can turn a command into a push, reach credentials or move remotes (AGENTS.md, rules 1 and 2).
@@ -136,6 +140,16 @@ TAG_LONG_OPTIONS = ('--list', '--contains', '--no-contains', '--points-at', '--m
 # Options under which git tag only lists (git's documentation: they imply --list).
 TAG_LIST_OPTIONS = {'-l', '--list', '-n', '--contains', '--no-contains', '--points-at', '--merged', '--no-merged'}
 PROTECTED_REFS = {'develop', 'main'}
+# -Bdevelop is -B develop: a short option's value can be stuck to it, alone or after other short options.
+FORCE_CREATE_STUCK = re.compile(r'-[A-Za-z]*[BC](develop|main)|--force-create=(develop|main)')
+# The files that keep coding agents within AGENTS.md's rules (security audit, low E8). macOS's file system ignores case.
+GUARDRAIL = re.compile(r'(^|/)(\.claude/(hooks|agents)(/|$)|\.claude/settings(\.local)?\.json$|\.codex(/|$)'
+                       r'|tools/git-hooks(/|$)|lefthook\.yml$)', re.I)
+# The folders that hold them: removing or moving one removes the guardrails in it.
+GUARDRAIL_FOLDER = re.compile(r'(^|/)(\.claude|tools)$', re.I)
+# Programs that change every file they name, and those that change only their destination.
+CHANGES_EVERY_ARGUMENT = {'rm', 'unlink', 'mv', 'truncate', 'touch', 'chmod', 'chown', 'chflags', 'shred'}
+CHANGES_DESTINATION = {'cp', 'ln', 'install', 'rsync'}
 # git config may write only these keys (third review of Phase 0): any other key could make git run a program
 # (core.fsmonitor, core.editor, diff.external...), push, or reach credentials.
 CONFIG_WRITABLE = re.compile(
@@ -197,6 +211,36 @@ def writes_into_git_folder(seg, prog):
     return prog in WRITERS and any(unclear_target(t) for t in seg[1:])
 
 
+def guardrail_path(token, folders=False):
+    """A guardrail file or folder, or with `folders` one of the folders that hold them."""
+    path = posixpath.normpath(re.sub(r'^\d*[<>]+[&|]?', '', token).strip('\'"'))
+    return bool(GUARDRAIL.search(path) or (folders and GUARDRAIL_FOLDER.search(path)))
+
+
+def writes_guardrail(seg, toks):
+    """A redirection, tee, in-place sed or perl, or a writing program that would change a guardrail file."""
+    for i, tok in enumerate(seg):
+        if '>' not in tok: continue
+        target = tok.rsplit('>', 1)[1].lstrip('&|')
+        if not target and i + 1 < len(seg): target = seg[i + 1]
+        if guardrail_path(target): return True
+    prog, args = os.path.basename(toks[0]), toks[1:]
+    operands = [a for a in args if not a.startswith('-')]
+    if prog == 'tee' or prog in CHANGES_EVERY_ARGUMENT:
+        return any(guardrail_path(a, folders=True) for a in operands)
+    in_place = any(a == '--in-place' or a.startswith('--in-place=') or
+                   (a.startswith('-') and not a.startswith('--') and 'i' in a[1:].split('.')[0].lower()) for a in args)
+    if prog in ('sed', 'perl') and in_place:
+        return any(guardrail_path(a) for a in operands)
+    if prog in CHANGES_DESTINATION:
+        targets = [a.split('=', 1)[1] for a in args if a.startswith('--target-directory=')]
+        targets += [args[j + 1] for j, a in enumerate(args[:-1]) if a == '-t']
+        return any(guardrail_path(t, folders=True) for t in targets + operands[-1:])
+    if prog == 'dd':
+        return any(guardrail_path(a[3:]) for a in args if a.startswith('of='))
+    return False
+
+
 def current_branch():
     """The branch checked out where the hook runs, or None."""
     import subprocess
@@ -255,6 +299,8 @@ def check_git(args):
         return f'{HISTORY}: git branch deleting, moving or forcing a branch'
     if sub in ('checkout', 'switch') and any(a in PROTECTED_BRANCHES for a in rest): return f'{HISTORY}: checking out main'
     if sub in ('checkout', 'switch') and any(a in ('-B', '-C', '--force-create') for a in rest) and any(a in PROTECTED_REFS for a in rest):
+        return f'{HISTORY}: resetting develop or main with {sub}'
+    if sub in ('checkout', 'switch') and any(FORCE_CREATE_STUCK.fullmatch(a) for a in rest):
         return f'{HISTORY}: resetting develop or main with {sub}'
     if sub in ('checkout', 'switch') and any(a == '-' or re.fullmatch(r'@\{-\d+\}', a) for a in rest):
         return f'{HISTORY}: checking out the previous branch (it could be main)'
@@ -370,6 +416,7 @@ def check(cmd, depth=0):
         exported = [a for a in (toks[1:] if prog == 'export' else []) + assigns if RISKY_GIT_ENV.match(a.split('=', 1)[0])]
         if exported: return f'git configured through {exported[0].split("=", 1)[0]}'
         if writes_into_git_folder(seg, prog): return f'{REF_MOVE}: writing into .git/'
+        if writes_guardrail(seg, toks): return GUARDRAIL_CHANGE
         if prog == 'git':
             r = check_git(toks[1:])
         elif prog == 'git-flow':
@@ -405,6 +452,11 @@ def main():
     if reason and reason.startswith(REF_MOVE):
         print(f'Blocked: {reason}. Coding agents never move refs directly in codetrail: origin/develop must stay '
               f'what the founder pushed, because the security review trusts it (AGENTS.md, Workflow).', file=sys.stderr)
+        return 2
+    if reason == GUARDRAIL_CHANGE:
+        print(f'Blocked: {reason}. The hooks, settings and rules that keep coding agents within AGENTS.md change '
+              f'only with the Edit or Write tools, which ask the founder first. Do not try another form of the same '
+              f'command.', file=sys.stderr)
         return 2
     if reason and reason.startswith(HISTORY):
         print(f'Blocked: {reason}. Coding agents never rewrite history, delete branches or tags, touch main, or '
