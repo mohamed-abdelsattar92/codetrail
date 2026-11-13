@@ -79,6 +79,16 @@ BLOCKED = [
     "cat putty.ppk",
     "cat id_rsa",
     "eval eval eval eval eval cat .env",
+    # a file in the index, by stage (security audit, low G4)
+    "git show :0:.env",
+    "git show :2:services/api/.env.local",
+    "git cat-file -p :0:.env",
+    # everything Codex keeps, not only its sign-in: its configuration, history and sessions (low G2)
+    "cat ~/.codex/config.toml",
+    "cat ~/.codex/sessions/2026/11/13/rollout.jsonl",
+    'cat "$HOME/.codex/history.jsonl"',
+    'cat "$CODEX_HOME/config.toml"',
+    "grep -r token ~/.codex",
 ]
 
 ALLOWED = [
@@ -101,6 +111,9 @@ ALLOWED = [
     "glab config get host",
     "git show HEAD:README.md",
     "cat docs/codex/auth.md",
+    "cat .codex/rules/no-push.rules",  # the repository's Codex rules, not Codex's home
+    "git show :0:README.md",
+    "env | grep CODEX_HOME",
 ]
 
 
@@ -130,3 +143,59 @@ def test_ignores_other_tools() -> None:
     payload = json.dumps({"tool_name": "Read", "tool_input": {"file_path": ".env"}})
     result = subprocess.run([sys.executable, str(HOOK)], input=payload, capture_output=True, text=True)
     assert result.returncode == 0
+
+
+def run_hook_in(folder: pathlib.Path, command: str) -> int:
+    """The hook as Claude Code runs it for a shell whose working folder is `folder`."""
+    payload = json.dumps({"tool_name": "Bash", "tool_input": {"command": command}, "cwd": str(folder)})
+    return subprocess.run([sys.executable, str(HOOK)], input=payload, capture_output=True, text=True).returncode
+
+
+@pytest.fixture
+def checkout(tmp_path: pathlib.Path) -> pathlib.Path:
+    """A working folder with an untracked env file deep inside, and source folders that hold none."""
+    (tmp_path / "services" / "api").mkdir(parents=True)
+    (tmp_path / "services" / "api" / ".env.local").write_text("API_KEY=placeholder\n")
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "app.py").write_text("API_KEY = None\n")
+    (tmp_path / "src" / ".env.example").write_text("API_KEY=\n")
+    return tmp_path
+
+
+# grep -r reads every file under its folders, untracked and ignored ones included, so a search there prints an env
+# file without naming it (security audit, low G2). rg skips hidden and ignored files unless told otherwise.
+RECURSIVE_SEARCHES_REACHING_AN_ENV_FILE = [
+    "grep -rn API_KEY .",
+    "grep -rn API_KEY",
+    "grep -R API_KEY services",
+    "grep --recursive API_KEY .",
+    "grep -d recurse API_KEY .",
+    "grep --directories=recurse API_KEY .",
+    "grep -rn -e API_KEY .",
+    "grep -rnie api_key -- services",
+    "grep -rn API_KEY src services",
+    "cd services && grep -rn API_KEY .",
+    "rg --hidden --no-ignore API_KEY",
+    "rg -uu API_KEY",
+    "rg -u -u API_KEY .",
+]
+
+RECURSIVE_SEARCHES_OF_SOURCE = [
+    "grep -rn API_KEY src",
+    "grep -rn --include='*.py' API_KEY src",
+    "cd src && grep -rn API_KEY .",
+    "grep -n API_KEY src/app.py",
+    "rg API_KEY",
+    "git grep API_KEY",
+    "grep -rn API_KEY missing-folder",
+]
+
+
+@pytest.mark.parametrize("command", RECURSIVE_SEARCHES_REACHING_AN_ENV_FILE)
+def test_blocks_recursive_searches_that_reach_an_env_file(checkout: pathlib.Path, command: str) -> None:
+    assert run_hook_in(checkout, command) == 2
+
+
+@pytest.mark.parametrize("command", RECURSIVE_SEARCHES_OF_SOURCE)
+def test_allows_recursive_searches_of_folders_without_one(checkout: pathlib.Path, command: str) -> None:
+    assert run_hook_in(checkout, command) == 0
