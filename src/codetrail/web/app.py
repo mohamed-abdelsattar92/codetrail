@@ -32,7 +32,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from codetrail.assistant import Assistant
 from codetrail.assistant.estimate import CallEstimate, UpdateEstimate, estimate_call, tokens_text, when_text
-from codetrail.assistant.routing import build_assistant
+from codetrail.assistant.routing import build_assistant, call_bound
 from codetrail.assistant.status import require_ready
 from codetrail.assistant.usage import last_update_usage
 from codetrail.bridge import bridge_router
@@ -717,6 +717,8 @@ def create_target_app(
                 settings.providers.codex.timeout_seconds,
                 settings.providers.local.timeout_seconds,
             ),
+            # what a question may cost, from the configuration the page runs with, as its assistant is built
+            lambda: call_bound(load_target(paths, name).models.answer, settings.bridge.max_budget_usd, settings),
             settings.bridge.max_session_answers,
         )
     )

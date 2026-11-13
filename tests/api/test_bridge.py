@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 
 from codetrail.assistant import AnswerChunk, AssistantError, PaidCallFailed, QuestionRequest, Usage
 from codetrail.assistant.fake import FakeAssistant
-from codetrail.config import GlobalConfig, Paths, write_target
+from codetrail.config import BridgeSettings, GlobalConfig, Paths, write_target
 from codetrail.database import connect
 from codetrail.guide import GuideRepository
 from codetrail.lock import target_lock
@@ -382,3 +382,14 @@ def test_an_answer_stopped_before_it_finishes_counts_its_cap(paths: Paths) -> No
     connection = connect(paths.target_data("t") / "codetrail.db")
     rows = connection.execute("SELECT kind, provider, cost_usd FROM assistant_calls").fetchall()
     assert [tuple(row) for row in rows] == [("answer", "claude_code", 1.0)]  # bridge.max_budget_usd
+
+
+def test_a_stopped_answer_counts_the_budget_the_page_runs_with(paths: Paths) -> None:
+    """The bound comes from the configuration the app was given, not from the files on disk, which may differ."""
+    settings = GlobalConfig(bridge=BridgeSettings(max_budget_usd=0.3))  # the file on disk says nothing: $1.00
+    client, headers = make_client(paths, StoppedAnswer(), settings)
+    with pytest.raises(BaseException):  # noqa: B017  # however the server's task group reports it
+        client.post("/bridge/questions", json={"question": "Why?"}, headers=headers)
+    connection = connect(paths.target_data("t") / "codetrail.db")
+    rows = connection.execute("SELECT kind, provider, cost_usd FROM assistant_calls").fetchall()
+    assert [tuple(row) for row in rows] == [("answer", "claude_code", 0.3)]

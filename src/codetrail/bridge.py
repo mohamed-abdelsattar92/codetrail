@@ -26,9 +26,9 @@ from markupsafe import escape
 from pydantic import BaseModel, ConfigDict, Field
 
 from codetrail.assistant import AnswerChunk, Assistant, AssistantError, PaidCallFailed, QuestionRequest, Usage
-from codetrail.assistant.routing import CallBound, call_bound
+from codetrail.assistant.routing import CallBound
 from codetrail.assistant.usage import UsageLog
-from codetrail.config import Paths, Price, ToolsSettings, load_global, load_target
+from codetrail.config import Paths, Price, ToolsSettings
 from codetrail.database import connect
 from codetrail.errors import CodetrailError
 from codetrail.facts.store import FactStore
@@ -92,6 +92,7 @@ def bridge_router(
     tools: ToolsSettings,
     prices: Mapping[str, Price],
     call_timeout_seconds: float,
+    answer_bound: Callable[[], CallBound],
     max_session_answers: int = 20,
 ) -> APIRouter:
     router = APIRouter()
@@ -116,8 +117,7 @@ def bridge_router(
         if question.page_id and page is None:
             return JSONResponse({"error": _("That page doesn't exist.")}, 404)
         diagrams = _available_diagrams()  # before the claim: nothing between claim and stream may fail
-        settings = load_global(paths)
-        bound = call_bound(load_target(paths, name).models.answer, settings.bridge.max_budget_usd, settings)
+        bound = answer_bound()
         token = state.claim()  # no await before this point, so two requests can't both pass
         if token is None:
             return JSONResponse({"error": _("Another question is still being answered.")}, 429)
