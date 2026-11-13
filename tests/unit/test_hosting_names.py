@@ -48,6 +48,9 @@ REFUSED_REPOSITORIES = {
         "ends.",
         "web\ud800shop",
         "web\U000f0000shop",
+        "web\u2028shop",  # line separator
+        "web\u2029shop",  # paragraph separator
+        "web\U000e0080shop",  # unassigned
     ],
     "gitlab": ["..", "-web-shop", "web\x00shop"],
 }
