@@ -332,7 +332,7 @@ def _remove(what: str, reassurance: str, yes: bool, remove: Callable[[Callable[[
 
 
 def printable(path: str) -> str:
-    """A path from a target, quoted with escapes if it holds characters a terminal would act on."""
+    """Text from a target or a provider, quoted with escapes if it holds characters a terminal would act on."""
     if any(unicodedata.category(character) in ("Cc", "Cf", "Cs", "Zl", "Zp") for character in path):
         return repr(path)
     return path
@@ -361,13 +361,14 @@ def show_providers(paths: Paths) -> int:
         status = provider_status(provider, settings)
         state = "ready" if status.ready else "not ready"
         how = " · ".join(part for part in (status.method, status.program) if part)
-        print(f"{provider:<12} {state:<10} {how}")
+        # The sign-in method, models and messages come from the provider's own output.
+        print(f"{provider:<12} {state:<10} {printable(how)}")
         if status.models:
-            print(f"{'':<12} models: {', '.join(status.models)}")
+            print(f"{'':<12} models: {printable(', '.join(status.models))}")
         if status.fix:
-            print(f"{'':<12} {status.fix}")
+            print(f"{'':<12} {printable(status.fix)}")
         if status.warning:
-            print(f"{'':<12} Note: {status.warning}")
+            print(f"{'':<12} Note: {printable(status.warning)}")
     return 0
 
 
@@ -392,8 +393,8 @@ def update_target(
         if not estimate.lines:
             print("Nothing for the assistant to do in this update.")
             return True
-        for line in describe(estimate):
-            print(printable(line) if line.startswith("  ") or line.startswith("Skipped") else line)
+        for line in describe(estimate):  # page titles come from the target, account lines from the providers
+            print(printable(line))
         answer = ask_to_continue(yes)
         no_terminal = answer is None
         return bool(answer)
