@@ -281,3 +281,22 @@ def test_codex_home_is_matched_however_it_is_named(tmp_path: pathlib.Path) -> No
     assert run_hook_with(tmp_path, "cat backup/.codex/auth.json", HOME=str(home)) == 2
     assert run_hook_with(tmp_path, f"cat {codex_home}/config.toml", HOME=str(home), CODEX_HOME=str(codex_home)) == 2
     assert run_hook_with(home / "work" / "repo", "cat .codex/rules/no-push.rules", HOME=str(home)) == 0
+
+
+@pytest.mark.parametrize("command", ["rg x ~", "rg x ~/.config", "rg -uu x $HOME", "ag x ~/keys", "rg x /no/such/folder",
+                                     "rg x ~/*"])
+def test_blocks_searches_of_the_home_folder(tmp_path: pathlib.Path, command: str) -> None:
+    # Branch review, M2: a ~, absolute, expanded or glob folder is searched, not dropped for the working folder.
+    home = tmp_path / "home"
+    (home / "keys").mkdir(parents=True)
+    (home / "keys" / "server.key").write_text("placeholder\n")
+    (home / ".config" / "gh").mkdir(parents=True)
+    (home / ".config" / "gh" / "hosts.yml").write_text("placeholder\n")
+    (tmp_path / "work").mkdir()
+    assert run_hook_with(tmp_path / "work", command, HOME=str(home)) == 2
+
+
+def test_reads_a_subshell_in_the_folder_before_it(checkout: pathlib.Path) -> None:
+    # Branch review, L2: (cd x) doesn't move the shell, and $(...) runs where the commands before it moved to.
+    assert run_hook_in(checkout / "src", "(cd /tmp); grep -rn API_KEY ..") == 2
+    assert run_hook_in(checkout / "src", "cd ../services && echo \"$(grep -rn API_KEY .)\"") == 2

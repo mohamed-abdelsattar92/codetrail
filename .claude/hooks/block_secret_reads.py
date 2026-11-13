@@ -57,11 +57,25 @@ METADATA_ONLY = {'ls', 'test', '[', 'stat'}
 KEYCHAIN = {'find-generic-password', 'find-internet-password', 'dump-keychain', 'export', 'export-item'}
 
 
-# grep's options that take a value, as one cluster's last letter (-e PATTERN, -m1) or as a long option (--include x).
-GREP_SHORT_WITH_VALUE = 'efmABCdD'
-GREP_LONG_WITH_VALUE = {'--regexp', '--file', '--max-count', '--after-context', '--before-context', '--context',
-                        '--include', '--exclude', '--exclude-dir', '--exclude-from', '--label', '--binary-files',
-                        '--directories', '--devices', '--color', '--colour'}
+# Each search program's options that take a value, as one cluster's last letter (-e PATTERN, -m1) or as a long option
+# (--include x): their values are neither the pattern nor a folder.
+SEARCH_OPTIONS_WITH_VALUE = {
+    'grep': ('efmABCdD', {'--regexp', '--file', '--max-count', '--after-context', '--before-context', '--context',
+                          '--include', '--exclude', '--exclude-dir', '--exclude-from', '--label', '--binary-files',
+                          '--directories', '--devices', '--color', '--colour'}),
+    'rg': ('efgtTmMABCjdErM', {'--regexp', '--file', '--glob', '--iglob', '--type', '--type-not', '--type-add',
+                               '--type-clear', '--max-count', '--max-depth', '--max-columns', '--max-filesize',
+                               '--context', '--after-context', '--before-context', '--replace', '--encoding',
+                               '--engine', '--threads', '--ignore-file', '--sort', '--sortr', '--pre', '--pre-glob',
+                               '--color', '--colors', '--path-separator', '--context-separator',
+                               '--field-match-separator', '--field-context-separator', '--dfa-size-limit',
+                               '--regex-size-limit', '--hyperlink-format', '--generate'}),
+    'ag': ('ABCGgmp', {'--ignore', '--ignore-dir', '--depth', '--pager', '--file-search-regex', '--max-count',
+                       '--context', '--after', '--before', '--path-to-ignore'}),
+    'git grep': ('efABCmO', {'--max-depth', '--context', '--after-context', '--before-context', '--max-count',
+                             '--threads', '--open-files-in-pager'}),
+}
+SEARCH_OPTIONS_WITH_VALUE['ack'] = SEARCH_OPTIONS_WITH_VALUE['ag']
 GREP_NAMES = {'grep', 'egrep', 'fgrep', 'ggrep'}
 # rg options that reach ignored or hidden files: any --no-ignore option, --hidden, --unrestricted, -u, -.
 RG_REACHES_EVERY_FILE = re.compile(r'--(no-ignore.*|hidden|unrestricted)|-[A-Za-z]*[u.][A-Za-z.]*')
@@ -73,10 +87,10 @@ MAX_FILES_SEARCHED = 200_000
 UNKNOWN_FOLDER = 'a search from a folder only the shell can work out'
 
 
-def grep_folders(args):
-    """The folders a recursive grep searches, or None when it doesn't recurse."""
-    recursive = pattern_given = False
-    operands, i = [], 0
+def search_words(program, args):
+    """A search's options (with their values) and the folders it searches: the words after the pattern, else '.'."""
+    short_with_value, long_with_value = SEARCH_OPTIONS_WITH_VALUE[program]
+    options, operands, pattern_given, i = [], [], False, 0
     while i < len(args):
         arg = args[i]
         if arg == '--':
@@ -84,47 +98,44 @@ def grep_folders(args):
             break
         if arg.startswith('--'):
             name, has_value, value = arg.partition('=')
-            if name in GREP_LONG_WITH_VALUE and not has_value:
+            if name in long_with_value and not has_value:
                 value = args[i + 1] if i + 1 < len(args) else ''
                 i += 1
-            recursive |= name in ('--recursive', '--dereference-recursive') or (name, value) == ('--directories', 'recurse')
+            options.append((name, value))
             pattern_given |= name in ('--regexp', '--file')
         elif arg.startswith('-') and len(arg) > 1:
             for position, letter in enumerate(arg[1:], start=2):
-                recursive |= letter in 'rR'
-                if letter in GREP_SHORT_WITH_VALUE:  # the rest of the cluster, or the next word, is its value
+                value = ''
+                if letter in short_with_value:  # the rest of the cluster, or the next word, is its value
                     value = arg[position:] or (args[i + 1] if i + 1 < len(args) else '')
                     i += 0 if arg[position:] else 1
-                    pattern_given |= letter in 'ef'
-                    recursive |= (letter, value) == ('d', 'recurse')
-                    break
+                options.append((f'-{letter}', value))
+                pattern_given |= letter in 'ef' and letter in short_with_value
+                if value: break
         else:
             operands.append(arg)
         i += 1
-    if not recursive: return None
-    return (operands if pattern_given else operands[1:]) or ['.']
+    return options, (operands if pattern_given else operands[1:]) or ['.']
 
 
-def existing_folders(args, base):
-    """For a search whose options with values aren't listed here: every word naming an existing path, else '.'."""
-    return [a for a in args if not a.startswith('-') and base and os.path.exists(os.path.join(base, a))] or ['.']
-
-
-def searched_folders(toks, base):
+def searched_folders(toks):
     """What a command searches in the working tree, as (every_file, folders), or None for any other command.
 
     every_file is False for rg's default, which skips hidden files and folders (and ignored ones, which the guard
     doesn't read, so it counts them as searched)."""
     prog, args = os.path.basename(toks[0]), toks[1:]
     if prog in GREP_NAMES:
-        folders = grep_folders(args)
-        return (True, folders) if folders else None
+        options, folders = search_words('grep', args)
+        recursive = any(name in ('-r', '-R', '--recursive', '--dereference-recursive') or
+                        (name in ('-d', '--directories') and value == 'recurse') for name, value in options)
+        return (True, folders) if recursive else None
     if prog == 'rg':
-        return any(RG_REACHES_EVERY_FILE.fullmatch(a) for a in args), existing_folders(args, base)
+        options, folders = search_words('rg', args)
+        return any(RG_REACHES_EVERY_FILE.fullmatch(a) for a in args if a.startswith('-')), folders
     if prog in ('ag', 'ack'):
-        return True, existing_folders(args, base)
+        return True, search_words(prog, args)[1]
     if prog == 'git' and args[:1] == ['grep'] and any(a in ('--no-index', '--untracked') for a in args):
-        return True, existing_folders(args[1:], base)
+        return True, search_words('git grep', args[1:])[1]
     return None
 
 
@@ -204,15 +215,20 @@ def check(cmd, depth=0, base=None):
         segs = list(segments(cmd))
     except ValueError:
         return None  # block_push.py refuses commands it can't read
-    for inner in subshells(cmd) + [s for body in bodies for s in subshells(body)]:
+    for inner in [s for body in bodies for s in subshells(body)]:
         r = check(inner, depth + 1, base)
         if r: return r
+    # A cd inside ( ) or $( ) doesn't move the shell, and the guard doesn't follow which one a cd is in.
+    in_parentheses = '(' in cmd
     for seg in segs:
+        for inner in subshells(' '.join(seg)):  # a $(...) runs in the folder the commands before it moved to
+            r = check(inner, depth + 1, base)
+            if r: return r
         toks = [t for t in seg if not re.match(r'^[A-Za-z_][A-Za-z0-9_]*=', t)] or seg
         while len(toks) > 1 and (os.path.basename(toks[0]) in WRAPPERS or toks[0].startswith('-') or toks[0].isdigit()):
             toks = toks[1:]  # env, timeout 5, nice -n 5 and the like run the command after them
         prog = os.path.basename(toks[0])
-        search = searched_folders(toks, base)
+        search = searched_folders(toks)
         if search:
             found = secret_file_under(*search, base)
             if found: return found
@@ -232,7 +248,7 @@ def check(cmd, depth=0, base=None):
             found = secret_in(t, base)
             if found: return found
         if prog in ('cd', 'pushd', 'popd'):
-            base = moved_to(prog, toks[1:], base)  # the commands after it run there
+            base = None if in_parentheses else moved_to(prog, toks[1:], base)  # the commands after it run there
     return None
 
 
