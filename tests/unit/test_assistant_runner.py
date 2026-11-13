@@ -21,6 +21,17 @@ SLOW_CHILD = (
     "time.sleep(60)\n"
 )
 NOISY = "import sys\nsys.stderr.write('x' * 1_000_000)\nprint('done', flush=True)\n"
+# Writes without end to one stream, with a child in its process group that must be stopped with it.
+ENDLESS = (
+    "import subprocess, sys\n"
+    "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'])\n"
+    "open(sys.argv[1], 'w').write(str(child.pid))\n"
+    "stream = getattr(sys, sys.argv[2]).buffer\n"
+    "while True:\n"
+    "    stream.write(b'x' * 65536)\n"
+    "    stream.flush()\n"
+)
+LONG_LINE = "import sys\nsys.stdout.write('y' * 3_000_000 + '\\nend\\n')\n"
 
 
 def script(tmp_path: Path, name: str, body: str) -> list[str]:
@@ -92,3 +103,60 @@ def test_a_short_command_that_runs_too_long_is_stopped_with_its_children(tmp_pat
     time.sleep(0.2)
     with pytest.raises(ProcessLookupError):
         os.kill(child, 0)
+
+
+def assert_stopped(pid_file: Path) -> None:
+    child = int(pid_file.read_text())
+    time.sleep(0.2)
+    with pytest.raises(ProcessLookupError):
+        os.kill(child, 0)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("stream", ["stdout", "stderr"])
+async def test_a_program_that_writes_past_the_output_limit_is_stopped_with_its_children(
+    tmp_path: Path, stream: str
+) -> None:
+    pid_file = tmp_path / "child.pid"
+    command = [*script(tmp_path, "endless.py", ENDLESS), str(pid_file), stream]
+    started = time.monotonic()
+    with pytest.raises(AssistantError, match="returned more than 100000 bytes"):
+        async for _line in run_program(command, "", tmp_path, {"PATH": "/usr/bin:/bin"}, 60, max_output_bytes=100_000):
+            pass
+    assert time.monotonic() - started < 10
+    assert_stopped(pid_file)
+
+
+@pytest.mark.anyio
+async def test_a_line_longer_than_a_read_comes_back_whole(tmp_path: Path) -> None:
+    lines = await collect(script(tmp_path, "long.py", LONG_LINE), "", tmp_path)
+    assert lines == ["y" * 3_000_000, "end"]
+
+
+@pytest.mark.parametrize("stream", ["stdout", "stderr"])
+def test_a_short_command_that_writes_past_the_output_limit_is_stopped_with_its_children(
+    tmp_path: Path, stream: str
+) -> None:
+    pid_file = tmp_path / "child.pid"
+    command = [*script(tmp_path, "endless.py", ENDLESS), str(pid_file), stream]
+    started = time.monotonic()
+    with pytest.raises(AssistantError, match="returned more than 100000 bytes"):
+        run_command(command, tmp_path, {"PATH": "/usr/bin:/bin"}, 60, error_output=[], max_output_bytes=100_000)
+    assert time.monotonic() - started < 10
+    assert_stopped(pid_file)
+
+
+def test_a_short_command_keeps_its_error_output_apart(tmp_path: Path) -> None:
+    errors: list[str] = []
+    code, output = run_command(
+        script(tmp_path, "fail.py", FAIL), tmp_path, {"PATH": "/usr/bin:/bin"}, 10, error_output=errors
+    )
+    assert (code, output, errors) == (3, "partial\n", ["first\nlast words here\n"])
+
+
+def test_a_short_command_can_merge_its_error_output(tmp_path: Path) -> None:
+    code, output = run_command(
+        script(tmp_path, "fail.py", FAIL), tmp_path, {"PATH": "/usr/bin:/bin"}, 10, include_stderr=True
+    )
+    assert code == 3
+    assert output == "partial\nfirst\nlast words here\n"

@@ -132,7 +132,7 @@ def run_read(
     environ: Mapping[str, str] = os.environ,
 ) -> str:
     """The program's output for a read, or a HostingError. The error names the program and its last error line,
-    never the arguments, which may hold names."""
+    never the arguments, which may hold names. A program that writes more than `max_output_bytes` is stopped."""
     if not is_read(service, arguments):
         raise HostingError(f"That command isn't a read, so it isn't run ({service}).")
     environment = hosting_environment(environ)
@@ -141,13 +141,16 @@ def run_read(
     try:
         path = resolve_program(program, environment["PATH"])
         code, output = runner.run_command(
-            [path, *arguments], Path("/"), environment, settings.timeout_seconds, error_output=errors
+            [path, *arguments],
+            Path("/"),
+            environment,
+            settings.timeout_seconds,
+            error_output=errors,
+            max_output_bytes=settings.max_output_bytes,
         )
     except AssistantError as error:
         raise HostingError(str(error)) from error
     if code != 0:
         last = next((line for line in reversed("".join(errors).splitlines()) if line.strip()), "")
         raise HostingError(f"{name} stopped with exit code {code}: {last.strip()[: runner.ERROR_LINE_CHARS]}")
-    if len(output.encode("utf-8")) > settings.max_output_bytes:
-        raise HostingError(f"{name} returned more than {settings.max_output_bytes} bytes, so it isn't used.")
     return output
