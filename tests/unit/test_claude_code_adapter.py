@@ -1,10 +1,11 @@
 """The claude_code adapter: the reader's own `claude -p`, read-only, on their sign-in (design 15.1 and 15.2)."""
 
 import json
-import sys
+from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
 
+import anyio
 import pytest
 
 from codetrail.assistant import (
@@ -16,6 +17,7 @@ from codetrail.assistant import (
     PaidCallFailed,
     PlanRequest,
     QuestionRequest,
+    runner,
 )
 from codetrail.assistant.claude_code import ClaudeCodeAssistant
 from codetrail.assistant.prompts import FULLWIDTH_AT, GRADE_SCHEMA, OVERVIEW_RULES, OVERVIEW_SCHEMA
@@ -302,29 +304,30 @@ async def test_a_revision_asks_for_sections_and_returns_them(source: Path, tmp_p
     assert draft.sections == [{"heading": "## How it works", "body": "New."}] and draft.body == ""
 
 
-def slow_program(folder: Path) -> tuple[Path, Path]:
-    """A claude that never answers within its time limit, and logs each start."""
-    folder.mkdir(parents=True, exist_ok=True)
-    path, starts = folder / "slow-claude", folder / "starts.log"
-    path.write_text(f"#!{sys.executable}\nimport sys, time\nsys.stdin.read()\n"
-                    f"open({str(starts)!r}, 'a').write('start\\n')\ntime.sleep(30)\n")  # fmt: skip
-    path.chmod(0o755)
-    return path, starts
-
-
 @pytest.mark.anyio
-async def test_a_call_that_passes_its_time_limit_counts_its_cap_and_isnt_retried(source: Path, tmp_path: Path) -> None:
+async def test_a_call_that_passes_its_time_limit_counts_its_cap_and_isnt_retried(
+    source: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Claude Code bills what it used before it was stopped, which no result reports: the cap is the most it was."""
-    path, starts = slow_program(tmp_path / "bin")
+    starts: list[list[str]] = []
+
+    async def stopped_at_the_limit(command: list[str], *args: object) -> AsyncIterator[str]:
+        starts.append(command)
+        await anyio.sleep(1)  # the runner's limit passes; a real program is killed here
+        raise AssistantError("The provider's program passed its time limit and was stopped.")
+        yield ""  # an async generator, as the runner is
+
+    monkeypatch.setattr(runner, "run_program", stopped_at_the_limit)
+    program = make_program(tmp_path / "bin", "fake-claude", [])
     claude = ClaudeCodeAssistant(source, {"write": "claude-sonnet-5-5", "answer": "claude-sonnet-5-5"},
-                                 ClaudeCodeSettings(command=str(path), timeout_seconds=1),
+                                 ClaudeCodeSettings(command=str(program.path), timeout_seconds=1),
                                  GenerationSettings(max_budget_usd_per_call=0.5), retries=2,
                                  answer_limits=(5, 0.25), environ={"PATH": "/usr/bin:/bin"})  # fmt: skip
     with pytest.raises(PaidCallFailed, match="time limit") as raised:
         await claude.write_page(page_request())
     assert (raised.value.usage.provider, raised.value.usage.model, raised.value.cost_usd) == (
         "claude_code", "claude-sonnet-5-5", 0.5)  # fmt: skip
-    assert starts.read_text() == "start\n"  # one start: no retry
+    assert len(starts) == 1  # no retry
     with pytest.raises(PaidCallFailed) as raised:
         _ = [chunk async for chunk in claude.answer(QuestionRequest("shop", "What?", "en"))]
     assert raised.value.cost_usd == 0.25
