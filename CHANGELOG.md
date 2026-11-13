@@ -23,6 +23,12 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 - The PyPI page shows the README's screenshots, diagrams and logo, and its links open the files on GitHub, at the release's tag.
 
 ### Security
+- The page's update status now needs the per-session token, like every other JSON read.
+- The git hooks refuse to run while a local lefthook configuration, `LEFTHOOK_CONFIG`, `LEFTHOOK=0`, `LEFTHOOK_EXCLUDE`, or an untracked `.gitleaks.toml` or `.gitleaksignore` could skip a check.
+- Claude Code asks you before an agent edits any agent guardrail (its hooks, settings and instructions, the Codex rules, the git hooks, the security checklist, CI, the lefthook, mise and gitleaks files) in any checkout, `~/.claude/settings.json` included, and refuses the shell writes to them it recognises.
+- Agents' searches that would reach an env or key file, in the repository, the home folder or any named folder, are refused; all of Codex's home and every `.env.*` file except `.env.example` are unreadable to them.
+- Codex asks before `az`, `git reset` and `git symbolic-ref`, and refuses `-Bdevelop`-style resets of develop or main.
+- CI lets a commit skip the message rules for Dependabot's sign-off only when GitHub verifies it as Dependabot's.
 - Codetrail's folders and files are now private to you (0700 and 0600), git's mirror included, and an older readable data folder is closed.
 - Committed files over `[source] max_file_bytes` (50 MB) are excluded as "too large" before they are read; a `.codetrailignore` over `[source] max_ignore_bytes` (64 KiB), with a line over 4,096 bytes, or with more than `[source] max_ignore_lines` (200) pattern lines fails the refresh.
 - Matching a repository's own `.codetrailignore` stops after `[source] max_ignore_match_seconds` (60 s), so crafted ignore lines and paths can't hang an update.
