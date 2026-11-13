@@ -20,6 +20,9 @@ redirection into one, and any program but a read-only one (cat, grep, sed withou
 show, diff, log, status, add or commit...) given a word that names one. Each word is resolved against the shell's folder (followed through cd), symbolic links included; a glob is
 expanded there, and a word with an expansion or a folder the guard can't work out counts when its name could be one.
 The Edit tool asks the founder before changing them (.claude/settings.json).
+A known cost: a program that isn't read-only is refused whenever a word names a guardrail path, so `uv run pytest
+tools/tests`, `uv run ruff check tools/tests`, any command after `cd tools/tests` (each word resolves inside it), and a
+branch name containing "lefthook" are refused. Run `just test-quick`, or `uv run pytest -k <name>` from the root.
 A command it can't read is blocked too, rather than let through: unclosed quotes, $'...' quoting, a heredoc
 without its end line, or a brace expansion beside git. A quoted heredoc fed to a shell is still read as data. Quoted heredoc bodies are data (a commit message); unquoted ones are checked for $(...).
 Exit code 2 blocks the call and shows the reason to the agent.
