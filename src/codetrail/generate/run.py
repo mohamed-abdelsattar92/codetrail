@@ -370,6 +370,8 @@ async def _write_page(
         reason = str(error)
         if isinstance(error, PaidCallFailed):  # what it used still counts against the budget
             _spend(context, result, "revise" if revising else "write", error)
+            if context.failed_pages is not None:  # it ran out of turns or budget: unchanged, it would again
+                context.failed_pages.record(entry.id, scope_hash(context.store, entry))
     result.failed.append((entry.id, reason))
     context.progress({"step": "page_failed", "id": entry.id, "title": entry.title, "reason": reason})
 

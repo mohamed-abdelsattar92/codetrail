@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from codetrail.assistant import AssistantError, PageDraft, PageRequest
+from codetrail.assistant import AssistantError, PageDraft, PageRequest, PaidCallFailed, Usage
 from codetrail.assistant.fake import FakeAssistant
 from codetrail.config import Paths
 from codetrail.update import run_update
@@ -67,3 +67,14 @@ def test_a_provider_error_is_not_remembered_as_a_failure(paths: Paths) -> None:
     claude = FakeAssistant(page_writer=good_page)
     generation = run_update(paths, "t", claude=claude).generation
     assert generation is not None and generation.written == ["areas/api"]
+
+
+def test_a_page_whose_paid_call_failed_waits_until_its_facts_change(paths: Paths) -> None:
+    """A call that failed after the provider counted it (its turns or budget ran out) would fail the same way again."""
+    usage = Usage("claude_code", "claude-sonnet-5-5", 1000, 0, 100, 0.9)
+    failed = PaidCallFailed("Claude Code didn't finish the task (error_max_turns).", usage)
+    run_update(paths, "t", claude=FakeAssistant(plans=[PLAN], pages={"areas/api": [failed]}, page_writer=good_page))
+    claude = FakeAssistant(page_writer=good_page)
+    generation = run_update(paths, "t", claude=claude).generation
+    assert generation is not None and generation.skipped == ["areas/api"]
+    assert page_requests(claude, "areas/api") == 0
