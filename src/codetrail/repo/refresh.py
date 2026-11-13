@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from codetrail.config import Paths, check_containment, load_global, load_target
+from pathlib import Path
+
+from codetrail.config import Paths, SourceSettings, check_containment, load_global, load_target
 from codetrail.errors import CodetrailError
 from codetrail.lock import target_in_use, target_lock
 from codetrail.repo.mirror import read_file_at
@@ -23,12 +25,28 @@ def wildcard_choices(line: str) -> int:
     return sum(1 if part == "**" else max(0, part.count("*") - 1) for part in line.split("/"))
 
 
-def ignore_lines(paths: Paths, name: str, target_file: bytes | None) -> list[str]:
+def target_rules(paths: Paths, name: str, mirror: Path, commit: str, limits: SourceSettings) -> ExclusionRules:
+    """The exclusion rules at the commit: the target's own .codetrailignore there, then the founder's ignore file."""
+    return ExclusionRules(
+        ignore_lines(paths, name, read_file_at(mirror, commit, TARGET_IGNORE_FILE), limits.max_ignore_lines)
+    )
+
+
+def ignore_lines(paths: Paths, name: str, target_file: bytes | None, max_lines: int) -> list[str]:
     """The target's own .codetrailignore (from the commit), then the founder's ignore file.
 
-    A target line the matcher can't match quickly fails the refresh, naming the line: dropping it would show files the
-    target meant to hide."""
+    A target line the matcher can't match quickly fails the refresh, naming the line, and so does a target file with
+    more than `max_lines` lines holding a pattern: dropping lines would show files the target meant to hide. Even
+    within the wildcard limit, one line can cost about 2 ms on a crafted 255-byte name and 30 ms on a 4,096-byte path
+    of them (pathspec 1.1.1), for every path, so their number is capped too."""
     lines = target_file.decode("utf-8", "replace").splitlines() if target_file else []
+    patterns = sum(1 for line in lines if line.strip() and not line.startswith("#"))
+    if patterns > max_lines:
+        raise CodetrailError(
+            f"The target's {TARGET_IGNORE_FILE} has {patterns} lines with a pattern; Codetrail reads at most "
+            f"{max_lines} ([source] max_ignore_lines), since every line is matched against every path. Ask for the "
+            "file to be shortened, or raise the limit in the configuration."
+        )
     for number, line in enumerate(lines, start=1):
         if wildcard_choices(line) > MAX_WILDCARD_CHOICES:
             raise CodetrailError(
@@ -62,5 +80,5 @@ def refresh_while_locked(paths: Paths, name: str) -> SourceManifest:
     data = paths.target_data(name)
     mirror = data / "mirror.git"
     commit = fetch_target(mirror, target, stall_seconds=settings.hosting.timeout_seconds)
-    rules = ExclusionRules(ignore_lines(paths, name, read_file_at(mirror, commit, TARGET_IGNORE_FILE)))
+    rules = target_rules(paths, name, mirror, commit, settings.source)
     return build_source(mirror, commit, rules, scanner, data)

@@ -83,6 +83,12 @@ class ToolsSettings(Settings):
     gitleaks_timeout_seconds: float = Field(default=600, gt=0, le=86_400)  # each gitleaks and `mise which` run
 
 
+class SourceSettings(Settings):
+    """What a refresh reads from a target (design sections 3.2 and 3.3)."""
+
+    max_ignore_lines: int = Field(default=200, gt=0)  # lines with a pattern in a target's own .codetrailignore
+
+
 class BridgeSettings(Settings):
     max_question_chars: int = Field(default=4000, gt=0, le=20_000)
     max_turns: int = Field(default=20, gt=0)
@@ -283,6 +289,7 @@ class EstimateSettings(Settings):
 
 class GlobalConfig(Settings):
     tools: ToolsSettings = ToolsSettings()
+    source: SourceSettings = SourceSettings()
     assistant: AssistantSettings = AssistantSettings()
     providers: ProvidersSettings = ProvidersSettings()
     prices: dict[str, Price] = DEFAULT_PRICES

@@ -61,9 +61,7 @@ from codetrail.lock import target_in_use, target_lock
 from codetrail.metrics.history import record_values
 from codetrail.metrics.report import Metric, Value, build_report
 from codetrail.metrics.repository import build_repository_report
-from codetrail.repo.mirror import read_file_at
-from codetrail.repo.refresh import TARGET_IGNORE_FILE, ignore_lines, refresh_while_locked
-from codetrail.repo.rules import ExclusionRules
+from codetrail.repo.refresh import refresh_while_locked, target_rules
 from codetrail.repo.secrets import SecretScanner
 from codetrail.repo.source import SourceManifest, allowed_reader
 from codetrail.system import derive
@@ -234,9 +232,7 @@ def run_update(
                     return UpdateResult(manifest, snapshot, diff, extraction)
                 previous = store.previous_snapshot(snapshot)
                 mirror = data / "mirror.git"
-                rules = ExclusionRules(
-                    ignore_lines(paths, name, read_file_at(mirror, manifest.commit, TARGET_IGNORE_FILE))
-                )
+                rules = target_rules(paths, name, mirror, manifest.commit, settings.source)
                 excluded = manifest.excluded_paths()
                 context = GenerationContext(
                     target=name,

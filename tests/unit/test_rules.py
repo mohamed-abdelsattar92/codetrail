@@ -110,21 +110,41 @@ def test_a_target_line_too_slow_to_match_fails_the_refresh(tmp_path: Path, line:
     # segments like `*a*` on a wide path, so a target could hang every update, the page's "behind" signal and a
     # team's catch-up with one committed line.
     with pytest.raises(CodetrailError, match=r"line 2, .*at most 2"):
-        ignore_lines(make_paths(tmp_path), "app", f"build/\n{line}\n".encode())
+        ignore_lines(make_paths(tmp_path), "app", f"build/\n{line}\n".encode(), MAX_LINES)
 
 
 @pytest.mark.parametrize(
     "line", ["*.log", "**/*.min.js", "a*/b*/c*/d*/e*", "*a*b*c", "**/cache/**", "docs/**/*.md", "**/test/**/*.snap"]
 )
 def test_ordinary_target_lines_pass(tmp_path: Path, line: str) -> None:
-    assert ignore_lines(make_paths(tmp_path), "app", f"{line}\n".encode()) == [line]
+    assert ignore_lines(make_paths(tmp_path), "app", f"{line}\n".encode(), MAX_LINES) == [line]
 
 
 def test_the_readers_own_lines_are_not_limited(tmp_path: Path) -> None:
     paths = make_paths(tmp_path)
     paths.ignore_file("app").parent.mkdir(parents=True)
     paths.ignore_file("app").write_text("*a*a*a*a*b\n")
-    assert ignore_lines(paths, "app", None) == ["*a*a*a*a*b"]
+    assert ignore_lines(paths, "app", None, MAX_LINES) == ["*a*a*a*a*b"]
+
+
+MAX_LINES = 200
+
+
+def test_a_target_file_with_too_many_lines_fails_the_refresh(tmp_path: Path) -> None:
+    """Each line costs up to about 2 ms on a crafted 255-byte name (pathspec 1.1.1), so their number is capped."""
+    with pytest.raises(CodetrailError, match=r"3 lines with a pattern.*at most 2 \(\[source\] max_ignore_lines\)"):
+        ignore_lines(make_paths(tmp_path), "app", b"a\nb\nc\n", 2)
+
+
+def test_comments_and_blank_lines_are_not_counted(tmp_path: Path) -> None:
+    assert ignore_lines(make_paths(tmp_path), "app", b"# build output\n\na\nb\n", 2) == ["# build output", "", "a", "b"]
+
+
+def test_the_readers_own_lines_are_not_counted(tmp_path: Path) -> None:
+    paths = make_paths(tmp_path)
+    paths.ignore_file("app").parent.mkdir(parents=True)
+    paths.ignore_file("app").write_text("x\ny\nz\n")
+    assert ignore_lines(paths, "app", b"a\n", 1) == ["a", "x", "y", "z"]
 
 
 def make_paths(tmp_path: Path) -> Paths:

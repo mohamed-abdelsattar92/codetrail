@@ -152,7 +152,7 @@ Three layers decide whether a tracked file exists for Codetrail:
 
    A `!` line can re-include something an earlier ignore line excluded, but never a built-in secret pattern.
 
-   A line of the target's file with more than two wildcard choices fails the refresh, naming the line. Each `**` part counts as one, and so does each `*` after the first within one part of the path. pathspec's patterns backtrack and these choices multiply: two take milliseconds on any path, three a quarter of a second on one long name, and more take minutes (six `*` in one part on a long name, or six `*a*`-style parts on a wide path), so a target could otherwise hang every update, the page's "behind" signal and a team's catch-up. Dropping the line instead would show files the target meant to hide. The founder's own file isn't limited.
+   A line of the target's file with more than two wildcard choices fails the refresh, naming the line. Each `**` part counts as one, and so does each `*` after the first within one part of the path. pathspec's patterns backtrack and these choices multiply: two take milliseconds on any path, three a quarter of a second on one long name, and more take minutes (six `*` in one part on a long name, or six `*a*`-style parts on a wide path), so a target could otherwise hang every update, the page's "behind" signal and a team's catch-up. Dropping the line instead would show files the target meant to hide. Within that limit a line still costs up to about 2 ms on a crafted 255-byte name and 30 ms on a 4,096-byte path of them, for every path, so a target file with more than `[source] max_ignore_lines` lines holding a pattern (200 by default; comments and blank lines don't count) fails the refresh too, naming the setting. The founder's own file isn't limited.
 3. **Files gitleaks flags** (section 3.4).
 
 Patterns are matched with `pathspec`'s `GitIgnoreSpec` ([ADR 0001](../adr/0001-pathspec-for-exclusion-rules.md)). If the rules can't be loaded, the refresh fails.
@@ -517,6 +517,9 @@ max_attribute_chars = 300    # text taken from a file into a fact is cut to this
 [tools]
 gitleaks = "gitleaks"
 gitleaks_timeout_seconds = 600   # each gitleaks run, and `mise which` for a mise shim
+
+[source]
+max_ignore_lines = 200   # lines with a pattern in a target's .codetrailignore (section 3.3)
 
 [log]
 level = "INFO"

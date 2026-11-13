@@ -95,3 +95,14 @@ def test_names_with_separators_or_undecodable_bytes_are_quoted() -> None:
     assert printable("a\u2028b.md") == repr("a\u2028b.md")
     assert printable("bad\udc9b.md") == repr("bad\udc9b.md")
     assert printable("plain.md") == "plain.md"
+
+
+def test_a_target_ignore_file_over_the_line_limit_fails(
+    environment: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    checkout = make_repository(tmp_path / "lines", [{"a.md": "a\n", ".codetrailignore": "x/\ny/\n"}])
+    assert main(["target", "add", "lines", str(checkout)]) == 0
+    (environment / "config" / "codetrail" / "config.toml").write_text("[source]\nmax_ignore_lines = 1\n")
+    capsys.readouterr()
+    assert main(["files", "lines"]) == 1
+    assert "[source] max_ignore_lines" in capsys.readouterr().err
