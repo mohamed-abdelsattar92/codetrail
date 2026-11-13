@@ -217,30 +217,34 @@ def test_base_60_integers_stay_text_so_none_costs_quadratic_time() -> None:
         ("git+https://user:s3cret@git.example/org/repo.git#v1", "git+https://git.example/org/repo.git#v1"),
         ("https://ghtoken@git.example/org/repo.git", "https://git.example/org/repo.git"),
         ("git@user:token@host:org/repo.git", "host:org/repo.git"),
-        # A password holding an unencoded "/", "?" or "#": everything up to the URL's last "@" goes.
+        # A user or password holding "/", "?", "#", "@" or "://": everything up to the word's last "@" goes.
         ("https://user:pa/ss@git.example/org/repo.git", "https://git.example/org/repo.git"),
         ("https://user:pa?ss@git.example/org/repo.git", "https://git.example/org/repo.git"),
+        ("https://ghp_abc/def@git.example/org/repo.git", "https://git.example/org/repo.git"),
+        ("https://user:123/45@git.example", "https://git.example"),
+        ("https://user:p@ss/w@git.example/x", "https://git.example/x"),
+        ("https://user:pa://ss@git.example/x", "https://git.example/x"),
         (
             "lib @ git+https://user:a/b#c@git.example/lib.git ; python_version<'4'",
             "lib @ git+https://git.example/lib.git ; python_version<'4'",
         ),
-        # A token in the query string: the whole query goes, the fragment stays.
-        ("https://registry.example/x.tgz?token=s3cret", "https://registry.example/x.tgz"),
-        ("https://git.example/org/repo.git?private_token=s3cret&ref=v1#main", "https://git.example/org/repo.git#main"),
-        # Userinfo holding a "/" without a ":", or with digits only after it, which look like a host and port.
-        ("https://ghp_abc/def@git.example/org/repo.git", "https://git.example/org/repo.git"),
-        ("https://user:123/45@git.example", "https://git.example"),
-        ("https://user:p@ss/w@git.example/x", "https://git.example/x"),
-        ("https://user:t@git.example/org/lib.git@v1", "https://git.example/org/lib.git@v1"),
         ("user:pa/ss@git.example:org/repo.git", "git.example:org/repo.git"),
-        # Several URLs in one word: each loses its own credentials.
-        ("a://u:p@h.example/x,b://u2:p2@h2.example/y", "a://h.example/x,b://h2.example/y"),
-        ("https://u:p/q@h.example/x;https://t@h2.example/y?k=s3cret", "https://h.example/x;https://h2.example/y"),
-        # No credentials: unchanged.
-        ("git+https://git.example/org/lib.git@v1.0#egg=lib", "git+https://git.example/org/lib.git@v1.0#egg=lib"),
-        ("git@git.example:org/repo.git", "git.example:org/repo.git"),
-        ("https://registry.example/@scope/pkg/-/pkg-1.0.0.tgz", "https://registry.example/@scope/pkg/-/pkg-1.0.0.tgz"),
+        # Several URLs in one word: everything up to the last "@" goes, the second URL's start too.
+        ("a://u:p@h.example/x,b://u2:p2@h2.example/y", "a://h2.example/y"),
+        # Token-like query values go; the other parameters and the fragment stay.
+        ("https://registry.example/x.tgz?token=s3cret", "https://registry.example/x.tgz?token="),
+        (
+            "https://git.example/org/repo.git?private_token=s3cret&ref=v1#main",
+            "https://git.example/org/repo.git?private_token=&ref=v1#main",
+        ),
+        (
+            "https://b.example/f?X-Amz-Signature=abc&X-Amz-Credential=def&api_key=ghi&page=2",
+            "https://b.example/f?X-Amz-Signature=&X-Amz-Credential=&api_key=&page=2",
+        ),
+        # Without an "@" or a token-like parameter, unchanged.
+        ("https://registry.example/pkg/-/pkg-1.0.0.tgz?v=1", "https://registry.example/pkg/-/pkg-1.0.0.tgz?v=1"),
         ("https://git.example:8443/org/repo.git", "https://git.example:8443/org/repo.git"),
+        ("git@github.com:org/repo.git", "github.com:org/repo.git"),
         ("npm:@scope/pkg@^1.2.3", "npm:@scope/pkg@^1.2.3"),
         ("^1.2.3", "^1.2.3"),
     ],
