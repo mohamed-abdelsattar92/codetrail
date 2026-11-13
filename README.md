@@ -212,7 +212,7 @@ If an update is interrupted, the guide's uncommitted changes are discarded and n
 | Provider | Runs | Signs in with | Reads |
 |---|---|---|---|
 | `claude_code` (default) | Your own `claude -p` | Your Claude Pro or Max subscription | Only the allowed files: Claude Code's own permission rules and Codetrail's guard, each enough on its own |
-| `codex` | Your own `codex exec`, in its read-only sandbox | Your ChatGPT Plus or Pro subscription | Anything you can read; so a repository must opt in to it |
+| `codex` | Your own `codex exec`, in its read-only sandbox, with web search off | Your ChatGPT Plus or Pro subscription | Anything you can read; so a repository must opt in to it, and it never grades checks |
 | `local` | Codetrail's own tool loop against Ollama or LM Studio on `127.0.0.1` | Nothing: it's free | Only the allowed files, through Codetrail's own tools |
 
 Codetrail runs the programs you have already signed in to and **never reads, stores or passes your password, token or API key**. It removes every API key from those programs' environment, so the work counts against your subscription and never bills an API account by surprise. An API key is used only if you set `auth = "api_key"` for that provider. Each kind of call (plan, write, digest, answer, grade) can use a different provider and model, for example Claude Code for pages and a local model for quick questions.
@@ -235,7 +235,7 @@ Continue? [y/N]
 - **An update** refreshes the facts first, which costs nothing, then estimates and asks, in the terminal or in a dialog on the page. In a script it spends nothing unless you pass `--yes`.
 - **A question or a check** shows its estimate on its button, and what it used afterwards.
 - **Estimates** start from sensible guesses, then use the median of your own recent calls. Dollars are API list prices, kept in configuration because they change. On a subscription you pay nothing extra, and the estimate shows how much of your plan's usage windows you've used.
-- **Hard limits** stop any update at its dollar or token budget, and every question and check at its own budget.
+- **Hard limits** stop any update at its dollar or token budget, and every question and check at its own budget. Each paid call reserves its own cap before it starts, so no call can start past the update's or the team's dollar budget, and a running call can pass its own cap only by its last turn. A call stopped at its time limit, or cancelled while it runs, counts as its whole cap.
 
 ## Grounded, not guessed
 

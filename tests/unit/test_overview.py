@@ -16,6 +16,7 @@ from codetrail.assistant import (
 )
 from codetrail.assistant.fake import FakeAssistant
 from codetrail.assistant.prompts import digest_link, overview_prompt
+from codetrail.assistant.routing import CallBound
 from codetrail.assistant.usage import UsageLog
 from codetrail.config import GlobalConfig, ToolsSettings
 from codetrail.database import connect
@@ -184,9 +185,11 @@ async def run(
     usage_log: UsageLog | None,
     budget: SharedBudget | None,
     digests: list[OverviewDigest] = DIGESTS,
+    cap_usd: float = 1.0,
 ) -> OverviewOutcome:
+    bound = CallBound("claude_code", "claude-haiku-5-5", cap_usd)
     return await write_overview(
-        "platform", digests, writer, GlobalConfig(), scanner, overviews, usage_log, budget, now=lambda: NOW
+        "platform", digests, writer, GlobalConfig(), scanner, overviews, usage_log, budget, bound, now=lambda: NOW
     )
 
 
@@ -204,7 +207,7 @@ async def test_write_overview_retries_once_then_stores(
     scanner: SecretScanner, overviews: Overviews, usage_log: UsageLog
 ) -> None:
     bad = "See [the news](https://example.com/news)."
-    drafts: list[OverviewDraft | Exception] = [
+    drafts: list[OverviewDraft | BaseException] = [
         OverviewDraft(bad, 0.02, usage(0.02)),
         OverviewDraft(GOOD_BODY, 0.03, usage(0.03)),
     ]
@@ -263,7 +266,8 @@ async def test_write_overview_fails_twice(scanner: SecretScanner, overviews: Ove
 @pytest.mark.anyio
 async def test_write_overview_budget_spent(scanner: SecretScanner, overviews: Overviews, usage_log: UsageLog) -> None:
     budget = SharedBudget(1.0)
-    budget.add(1.0)
+    assert budget.reserve(1.0)
+    budget.settle(1.0, 1.0)
     writer = FakeAssistant()
     outcome = await run(writer, scanner, overviews, usage_log, budget)
     assert outcome == OverviewOutcome(None, "The team's budget was spent before the overview.")
@@ -309,3 +313,44 @@ async def test_fake_writes_a_plain_overview_when_none_is_scripted() -> None:
     draft = await writer.write_overview(OverviewRequest("platform", DIGESTS, 250))
     assert draft == OverviewDraft("Across the team, things changed.")
     assert len(writer.requests) == 1
+
+
+@pytest.mark.anyio
+async def test_the_overview_starts_only_when_its_cap_fits_in_the_teams_budget(
+    scanner: SecretScanner, overviews: Overviews, usage_log: UsageLog
+) -> None:
+    """The team's budget isn't spent, but what is left can't hold the call's cap: it doesn't start (design 24.8)."""
+    budget = SharedBudget(1.5)
+    assert budget.reserve(1.0)
+    budget.settle(1.0, 0.6)
+    writer = FakeAssistant()
+    outcome = await run(writer, scanner, overviews, usage_log, budget)
+    assert outcome == OverviewOutcome(None, "The team's budget was spent before the overview.")
+    assert writer.requests == []
+    assert (await run(writer, scanner, overviews, usage_log, budget, cap_usd=0.5)).overview_id is not None
+
+
+class Stopped(BaseException):
+    """Stands in for the catch-up being cancelled while the overview's call runs."""
+
+
+@pytest.mark.anyio
+async def test_an_overview_cancelled_while_it_runs_counts_its_cap(
+    scanner: SecretScanner, overviews: Overviews, usage_log: UsageLog
+) -> None:
+    budget = SharedBudget(5.0)
+    with pytest.raises(Stopped):
+        await run(FakeAssistant(overviews=[Stopped()]), scanner, overviews, usage_log, budget, cap_usd=0.4)
+    assert budget.spent_usd == pytest.approx(0.4)
+    rows = usage_log.connection.execute("SELECT kind, provider, cost_usd FROM assistant_calls").fetchall()
+    assert [tuple(row) for row in rows] == [("overview", "claude_code", 0.4)]
+
+
+@pytest.mark.anyio
+async def test_an_overview_that_couldnt_start_counts_nothing(
+    scanner: SecretScanner, overviews: Overviews, usage_log: UsageLog
+) -> None:
+    budget = SharedBudget(5.0)
+    writer = FakeAssistant(overviews=[AssistantError("claude couldn't start (FileNotFoundError).")])
+    assert (await run(writer, scanner, overviews, usage_log, budget)).overview_id is None
+    assert budget.spent_usd == 0.0
