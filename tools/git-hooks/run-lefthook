@@ -1,7 +1,9 @@
 #!/bin/sh
 # Runs one lefthook hook for codetrail (lefthook.yml, ADR 0004). The git hooks call it.
 # It loads the mise-pinned tools even when the shell hasn't activated mise, never lets lefthook
-# reinstall hooks, and fails closed when lefthook can't be found.
+# reinstall hooks, and fails closed when lefthook can't be found. It refuses to run with any
+# configuration but the tracked lefthook.yml: a local one (lefthook-local.yml and the other names
+# lefthook 2.1.14 loads) or LEFTHOOK_CONFIG could skip a check, the gitleaks scan included.
 hook="$1"
 shift
 root=$(git rev-parse --show-toplevel)
@@ -13,6 +15,20 @@ fi
 
 if command -v mise >/dev/null 2>&1; then
   eval "$(cd "$root" && mise env --shell bash 2>/dev/null)"
+fi
+
+for stem in lefthook-local .lefthook-local .config/lefthook-local; do
+  for extension in yml yaml json jsonc toml; do
+    if [ -e "$root/$stem.$extension" ]; then
+      echo "$hook: $stem.$extension can change or skip the checks in lefthook.yml; remove it before committing or pushing." >&2
+      exit 1
+    fi
+  done
+done
+
+if [ -n "${LEFTHOOK_CONFIG:-}" ]; then
+  echo "$hook: LEFTHOOK_CONFIG replaces lefthook.yml and its checks; unset it before committing or pushing." >&2
+  exit 1
 fi
 
 if ! command -v lefthook >/dev/null 2>&1; then
