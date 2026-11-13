@@ -384,6 +384,39 @@ GUARDRAIL_WRITES = [
     "ls .claude/hooks | xargs rm",
     "python3 -c 'print(1)' .claude/settings.json",
     "awk 1 .claude/settings.json",
+    # branch review: read-only programs that can write (L1)
+    "xxd -r /tmp/x .claude/settings.json",
+    "tree -o .claude/settings.json .",
+    "rg --pre /tmp/filter x .claude",
+    "git grep -O x -- .claude",
+    "sed -n 'w .claude/settings.json' /tmp/x",
+    "sed -n -e 's/a/b/w lefthook.yml' /tmp/x",
+    # braces, and redirections written >| >& &> (L2)
+    "rm .claude/{settings.json,x}",
+    "cp /tmp/x .claude/{hooks,y}/block_push.py",
+    "echo x >| .claude/settings.json",
+    "echo x >& .claude/settings.json",
+    "echo x &> lefthook.yml",
+    "cd $SOMEWHERE && rm block_push.py",
+    # everything the checklist calls a guardrail (L4)
+    "echo x > AGENTS.md",
+    "echo x > docs/design/CLAUDE.md",
+    "echo x > CLAUDE.local.md",
+    "echo '{}' > .mcp.json",
+    "echo x > .claude/commands/release.md",
+    "echo x > .claude/skills/x/SKILL.md",
+    "echo x > .claude/rules/x.md",
+    "rm docs/security/review-checklist.md",
+    "rm -rf docs",
+    "cp /tmp/x .github/workflows/ci.yml",
+    "echo x > commitlint.ci.config.mjs",
+    "echo x >> justfile",
+    "echo 'pre-commit: {skip: true}' > lefthook-local.yml",
+    "echo x > .mise.toml",
+    "echo x > mise.local.toml",
+    "echo x > .mise.local.toml",
+    "echo x > .config/mise/config.toml",
+    "echo x > .config/mise/conf.d/x.toml",
 ]
 
 GUARDRAIL_READS = [
@@ -404,6 +437,14 @@ GUARDRAIL_READS = [
     "echo x > tools/tests/notes.txt",
     "echo x > docs/claude/settings.json",
     "rm -rf tools/tests/__pycache__",
+    "sed -n '/word/p' .claude/settings.json",
+    "cat AGENTS.md",
+    "grep -n test justfile",
+    "git diff develop -- .github docs/security",
+    "rg -n TODO .claude",
+    "echo {a,b}",
+    "mkdir -p build/{a,b}",
+    "echo x 2>&1 | tee build/log.txt",
 ]
 
 
@@ -443,3 +484,19 @@ def test_blocks_writing_a_guardrail_through_a_symlink(tmp_path: pathlib.Path) ->
                                      "git switch --force-create=develop x"])
 def test_blocks_force_creating_develop_with_an_abbreviated_option(command: str) -> None:
     assert run_hook(command) == 2
+
+
+def run_hook_in(folder: pathlib.Path, command: str) -> int:
+    payload = json.dumps({"tool_name": "Bash", "tool_input": {"command": command}, "cwd": str(folder)})
+    return subprocess.run([sys.executable, str(HOOK)], input=payload, capture_output=True, text=True).returncode
+
+
+# Branch review, L2: a cd the guard can't follow makes the folder unknown, so the bare name counts; a $(...) is read
+# in the folder the commands before it moved to.
+@pytest.mark.parametrize("command", [
+    "cd missing-folder; echo x > settings.json",
+    "(cd /tmp); echo x > settings.json",
+    "cd hooks && echo \"$(cat /tmp/x > block_push.py)\"",
+])
+def test_follows_the_folder_only_as_far_as_it_can(command: str) -> None:
+    assert run_hook_in(HOOK.parent.parent, command) == 2
