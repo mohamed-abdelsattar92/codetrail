@@ -15,6 +15,16 @@ def anyio_backend() -> str:
 
 
 @pytest.fixture(autouse=True)
+def private_codetrail_folders(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Codetrail's configuration, data and state folders (and the gitleaks scan folders under the state one) point at
+    a temporary folder per test, so no test writes into the real home folder. A test or fixture that sets one of these
+    variables itself runs later, so its value wins."""
+    folder = tmp_path_factory.mktemp("xdg")
+    for variable, name in (("XDG_CONFIG_HOME", "config"), ("XDG_DATA_HOME", "data"), ("XDG_STATE_HOME", "state")):
+        monkeypatch.setenv(variable, str(folder / name))
+
+
+@pytest.fixture(autouse=True)
 def no_real_providers(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """Only tests marked `live` may run a real provider or hosting program (claude, codex, gh, az, glab).
 
