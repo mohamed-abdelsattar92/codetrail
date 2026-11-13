@@ -12,15 +12,18 @@ It also blocks skipping the git hooks (AGENTS.md, Never do, rule 8): --no-verify
 merges and git-flow finishes, `git commit -n`, LEFTHOOK=0 or LEFTHOOK_EXCLUDE, and core.hooksPath.
 It blocks the plain ways of moving refs by hand (git update-ref, or a fetch that writes refs/remotes), since the
 security review reads origin/develop; the review also reads it by its full name with replace objects off.
-It blocks shell writes to the guardrails themselves (.claude/hooks, .claude/agents, .claude's settings files, .codex,
-tools/git-hooks and lefthook.yml): redirections, tee, sed -i and perl -i, and cp, mv, ln, rm, chmod and the like naming
-one; reading them is allowed. The Edit tool asks the founder before changing them (.claude/settings.json).
+It blocks shell commands that could change the guardrails themselves (.claude/hooks, .claude/agents, .claude's
+settings files, .codex, tools/git-hooks and lefthook.yml): a redirection into one, and any program but a read-only one
+(cat, grep, sed without -i, find without actions, git show, diff, log, status, add or commit...) given a word that names
+one. Each word is resolved against the shell's folder (followed through cd), symbolic links included; a glob is
+expanded there, and a word with an expansion or a folder the guard can't work out counts when its name could be one.
+The Edit tool asks the founder before changing them (.claude/settings.json).
 A command it can't read is blocked too, rather than let through: unclosed quotes, $'...' quoting, a heredoc
 without its end line, or a brace expansion beside git. A quoted heredoc fed to a shell is still read as data. Quoted heredoc bodies are data (a commit message); unquoted ones are checked for $(...).
 Exit code 2 blocks the call and shows the reason to the agent.
 The git pre-push hook (tools/git-hooks/pre-push) is the backstop for anything missed.
 """
-import json, os, posixpath, re, shlex, sys
+import glob, json, os, posixpath, re, shlex, sys
 
 GIT_OPTS_WITH_VALUE = {'-C', '-c', '--git-dir', '--work-tree', '--namespace', '--exec-path', '--config-env', '--super-prefix'}
 WRAPPERS = {'env', 'command', 'exec', 'sudo', 'nohup', 'time', 'nice', 'xcrun', 'caffeinate', 'timeout'}
@@ -145,11 +148,26 @@ FORCE_CREATE_STUCK = re.compile(r'-[A-Za-z]*[BC](develop|main)|--force-create=(d
 # The files that keep coding agents within AGENTS.md's rules (security audit, low E8). macOS's file system ignores case.
 GUARDRAIL = re.compile(r'(^|/)(\.claude/(hooks|agents)(/|$)|\.claude/settings(\.local)?\.json$|\.codex(/|$)'
                        r'|tools/git-hooks(/|$)|lefthook\.yml$)', re.I)
-# The folders that hold them: removing or moving one removes the guardrails in it.
+# Their names, matched alone when the guard can't work out the folder a word is relative to.
+GUARDRAIL_NAMES = {'.claude', '.codex', 'hooks', 'agents', 'git-hooks', 'settings.json', 'settings.local.json',
+                   'no-push.rules', 'lefthook.yml'}
+# The folders that hold them: removing, moving or copying over one changes the guardrails in it.
 GUARDRAIL_FOLDER = re.compile(r'(^|/)(\.claude|tools)$', re.I)
-# Programs that change every file they name, and those that change only their destination.
-CHANGES_EVERY_ARGUMENT = {'rm', 'unlink', 'mv', 'truncate', 'touch', 'chmod', 'chown', 'chflags', 'shred'}
-CHANGES_DESTINATION = {'cp', 'ln', 'install', 'rsync'}
+CHANGES_FOLDERS = {'rm', 'rmdir', 'mv', 'cp', 'ln', 'install', 'rsync', 'chmod', 'chown', 'chflags', 'find',
+                   'git'}
+# Programs that only read the files they name (their output goes where a redirection, checked apart, sends it).
+READ_ONLY_PROGRAMS = {'cat', 'head', 'tail', 'less', 'more', 'bat', 'grep', 'egrep', 'fgrep', 'rg', 'ag', 'ack', 'diff',
+                      'cmp', 'wc', 'ls', 'file', 'stat', 'test', '[', 'md5', 'md5sum', 'shasum', 'sha256sum', 'cksum',
+                      'jq', 'cut', 'nl', 'od', 'xxd', 'hexdump', 'strings', 'realpath', 'readlink', 'basename',
+                      'dirname', 'echo', 'printf', 'tree', 'du', 'cd', 'pushd'}
+READ_ONLY_GIT = {'show', 'diff', 'log', 'status', 'blame', 'annotate', 'ls-files', 'ls-tree', 'cat-file', 'grep',
+                 'rev-parse', 'check-ignore', 'shortlog', 'add', 'commit'}
+FIND_ACTIONS = {'-exec', '-execdir', '-ok', '-okdir', '-delete', '-fprint', '-fprint0', '-fprintf', '-fls'}
+SWITCH_LONG_OPTIONS = ('--force-create', '--force', '--create', '--detach', '--discard-changes', '--merge', '--quiet',
+                       '--orphan', '--track', '--no-track', '--guess', '--no-guess', '--ignore-other-worktrees',
+                       '--recurse-submodules', '--no-recurse-submodules', '--progress', '--no-progress', '--conflict',
+                       '--patch', '--ours', '--theirs', '--overwrite-ignore', '--no-overwrite-ignore',
+                       '--pathspec-from-file', '--pathspec-file-nul')
 # git config may write only these keys (third review of Phase 0): any other key could make git run a program
 # (core.fsmonitor, core.editor, diff.external...), push, or reach credentials.
 CONFIG_WRITABLE = re.compile(
@@ -170,7 +188,7 @@ def expand_options(args, long_options):
         if arg == '--': break
         name = arg.split('=', 1)[0]
         if name.startswith('--'):
-            matches = [option for option in long_options if option.startswith(name)]
+            matches = [name] if name in long_options else [option for option in long_options if option.startswith(name)]
             expanded.extend(matches or [name])
         elif name.startswith('-') and len(name) > 1:
             if name[1:].isdigit(): expanded.append(name)
@@ -211,34 +229,62 @@ def writes_into_git_folder(seg, prog):
     return prog in WRITERS and any(unclear_target(t) for t in seg[1:])
 
 
-def guardrail_path(token, folders=False):
-    """A guardrail file or folder, or with `folders` one of the folders that hold them."""
-    path = posixpath.normpath(re.sub(r'^\d*[<>]+[&|]?', '', token).strip('\'"'))
-    return bool(GUARDRAIL.search(path) or (folders and GUARDRAIL_FOLDER.search(path)))
+def moved_to(prog, args, folder):
+    """The folder a cd or pushd moves to, or None when only the shell can work it out."""
+    targets = [a for a in args if a == '-' or not a.startswith('-')]
+    if prog == 'popd' or (prog == 'pushd' and not targets): return None
+    target = targets[0].strip('\'"') if targets else '~'
+    if target == '-' or re.search(r'[$`*?\[]', target): return None
+    target = os.path.expanduser(target)
+    if target.startswith('~') or not (folder or os.path.isabs(target)): return None
+    return os.path.realpath(os.path.join(folder or '/', target))
 
 
-def writes_guardrail(seg, toks):
-    """A redirection, tee, in-place sed or perl, or a writing program that would change a guardrail file."""
+def names_guardrail(word, folder, folders=False):
+    """A word that names a guardrail file (or, with `folders`, a folder holding them), once resolved in `folder`."""
+    path = re.sub(r'^\d*[<>]+[&|]?', '', word).strip('\'"')
+    if re.match(r'^-?[\w.-]+=', path): path = path.split('=', 1)[1].strip('\'"')  # --target-directory=x, of=x
+    if not path or re.search(r'\s', path): return False  # prose, such as a commit message
+    if '$' in path or '`' in path:  # only the shell knows what it names: it counts if its name could be one
+        literal = re.sub(r'\$\{[^}]*\}|\$\w+|`[^`]*`', '', path)
+        return bool(GUARDRAIL.search(literal) or os.path.basename(literal).lower() in GUARDRAIL_NAMES)
+    path = os.path.expanduser(path)
+    if re.search(r'[*?\[]', path):
+        if folder is None: return os.path.basename(path).lower() in GUARDRAIL_NAMES
+        return any(names_guardrail(match, folder, folders) for match in glob.glob(os.path.join(folder, path)))
+    if GUARDRAIL.search(posixpath.normpath(path)): return True
+    if folder is None and not os.path.isabs(path): return os.path.basename(path).lower() in GUARDRAIL_NAMES
+    resolved = os.path.realpath(os.path.join(folder or '/', path))
+    return bool(GUARDRAIL.search(resolved) or (folders and GUARDRAIL_FOLDER.search(resolved)))
+
+
+def reads_only(toks):
+    """A program that only reads the files it names."""
+    prog, args = os.path.basename(toks[0]), toks[1:]
+    if prog in READ_ONLY_PROGRAMS: return True
+    if prog == 'sed':
+        return not any(a == '--in-place' or a.startswith('--in-place=') or
+                       (a.startswith('-') and not a.startswith('--') and 'i' in a[1:].split('.')[0].lower()) for a in args)
+    if prog == 'find': return not any(a in FIND_ACTIONS for a in args)
+    if prog == 'codex': return args[:2] == ['execpolicy', 'check']
+    if prog == 'git':
+        i = 0
+        while i < len(args) and args[i].startswith('-'):
+            i += 2 if (args[i] in GIT_OPTS_WITH_VALUE and '=' not in args[i]) else 1
+        return i < len(args) and args[i] in READ_ONLY_GIT
+    return False
+
+
+def changes_guardrail(seg, toks, folder, writing):
+    """A redirection into a guardrail, or a program that isn't read-only given a word naming one."""
     for i, tok in enumerate(seg):
         if '>' not in tok: continue
         target = tok.rsplit('>', 1)[1].lstrip('&|')
         if not target and i + 1 < len(seg): target = seg[i + 1]
-        if guardrail_path(target): return True
-    prog, args = os.path.basename(toks[0]), toks[1:]
-    operands = [a for a in args if not a.startswith('-')]
-    if prog == 'tee' or prog in CHANGES_EVERY_ARGUMENT:
-        return any(guardrail_path(a, folders=True) for a in operands)
-    in_place = any(a == '--in-place' or a.startswith('--in-place=') or
-                   (a.startswith('-') and not a.startswith('--') and 'i' in a[1:].split('.')[0].lower()) for a in args)
-    if prog in ('sed', 'perl') and in_place:
-        return any(guardrail_path(a) for a in operands)
-    if prog in CHANGES_DESTINATION:
-        targets = [a.split('=', 1)[1] for a in args if a.startswith('--target-directory=')]
-        targets += [args[j + 1] for j, a in enumerate(args[:-1]) if a == '-t']
-        return any(guardrail_path(t, folders=True) for t in targets + operands[-1:])
-    if prog == 'dd':
-        return any(guardrail_path(a[3:]) for a in args if a.startswith('of='))
-    return False
+        if names_guardrail(target, folder, folders=True): return True
+    if not writing and reads_only(toks): return False
+    prog = os.path.basename(toks[0])
+    return any(names_guardrail(word, folder, folders=prog in CHANGES_FOLDERS) for word in toks[1:])
 
 
 def current_branch():
@@ -302,6 +348,9 @@ def check_git(args):
         return f'{HISTORY}: resetting develop or main with {sub}'
     if sub in ('checkout', 'switch') and any(FORCE_CREATE_STUCK.fullmatch(a) for a in rest):
         return f'{HISTORY}: resetting develop or main with {sub}'
+    if sub in ('checkout', 'switch') and set(expand_options(rest, SWITCH_LONG_OPTIONS)) & {'-B', '-C', '--force-create'}:
+        named = [a for a in rest if not a.startswith('-')] + [a.split('=', 1)[1] for a in rest if a.startswith('--') and '=' in a]
+        if any(name in PROTECTED_REFS for name in named): return f'{HISTORY}: resetting develop or main with {sub}'
     if sub in ('checkout', 'switch') and any(a == '-' or re.fullmatch(r'@\{-\d+\}', a) for a in rest):
         return f'{HISTORY}: checking out the previous branch (it could be main)'
     if sub in ('commit', 'reset') and current_branch() in PROTECTED_REFS:
@@ -363,7 +412,7 @@ def check_gh(args):
         if allowed is None or sub in allowed: return f'gh {group} {sub}'.strip()
     return None
 
-def check(cmd, depth=0):
+def check(cmd, depth=0, folder=None):
     if depth > 4: return UNREADABLE
     try:
         cmd, bodies = strip_heredocs(cmd)
@@ -371,8 +420,10 @@ def check(cmd, depth=0):
     except ValueError:
         return UNREADABLE
     for inner in subshells(cmd) + [s for body in bodies for s in subshells(body)]:
-        r = check(inner, depth + 1)
+        r = check(inner, depth + 1, folder)
         if r: return r
+    # A pipe into xargs runs a program on names the guard can't see, so every word counts as written there.
+    piped_to_xargs = any(os.path.basename(t) == 'xargs' for seg in segs for t in seg)
     for seg in segs:
         toks = list(seg)
         assigns = []
@@ -388,7 +439,7 @@ def check(cmd, depth=0):
             command_flag = next((i for i, a in enumerate(rest_of_mise) if a in ('-c', '--command')), None)
             if command_flag is not None:
                 if command_flag + 1 >= len(rest_of_mise): return UNREADABLE
-                r = check(rest_of_mise[command_flag + 1], depth + 1)
+                r = check(rest_of_mise[command_flag + 1], depth + 1, folder)
                 if r: return r
                 continue
             if '--' not in rest_of_mise: return UNREADABLE
@@ -397,7 +448,7 @@ def check(cmd, depth=0):
             shell_mode = any(a in ('-c', '--shell-mode') for a in toks)
             rest_of_pnpm = [a for a in toks[toks.index('exec') + 1:] if a not in ('-c', '--shell-mode')]
             if shell_mode:
-                r = check(' '.join(rest_of_pnpm), depth + 1)
+                r = check(' '.join(rest_of_pnpm), depth + 1, folder)
                 if r: return r
                 continue
             toks = rest_of_pnpm
@@ -416,7 +467,8 @@ def check(cmd, depth=0):
         exported = [a for a in (toks[1:] if prog == 'export' else []) + assigns if RISKY_GIT_ENV.match(a.split('=', 1)[0])]
         if exported: return f'git configured through {exported[0].split("=", 1)[0]}'
         if writes_into_git_folder(seg, prog): return f'{REF_MOVE}: writing into .git/'
-        if writes_guardrail(seg, toks): return GUARDRAIL_CHANGE
+        if changes_guardrail(seg, toks, folder, piped_to_xargs): return GUARDRAIL_CHANGE
+        if prog in ('cd', 'pushd', 'popd'): folder = moved_to(prog, toks[1:], folder)
         if prog == 'git':
             r = check_git(toks[1:])
         elif prog == 'git-flow':
@@ -427,9 +479,9 @@ def check(cmd, depth=0):
             r = None
             for j, t in enumerate(toks[1:], start=1):
                 if t.startswith('-') and 'c' in t[1:] and j + 1 < len(toks):
-                    r = check(toks[j + 1], depth + 1); break
+                    r = check(toks[j + 1], depth + 1, folder); break
         elif prog == 'eval':
-            r = check(' '.join(toks[1:]), depth + 1)
+            r = check(' '.join(toks[1:]), depth + 1, folder)
         elif prog == 'xargs':
             r = 'xargs running git push' if ('git' in toks and 'push' in toks) else None
         else:
@@ -444,7 +496,8 @@ def main():
         print('Blocked: the push guard could not read its input, so it refuses the call.', file=sys.stderr)
         return 2
     if data.get('tool_name') != 'Bash': return 0
-    reason = check((data.get('tool_input') or {}).get('command') or '')
+    folder = data.get('cwd') or os.environ.get('CLAUDE_PROJECT_DIR') or os.getcwd()
+    reason = check((data.get('tool_input') or {}).get('command') or '', folder=os.path.realpath(folder))
     if reason == UNREADABLE:
         print(f'Blocked: {reason} (an unclosed quote, $\'...\' quoting, or a heredoc without its end line). '
               f'Rewrite it with plain quotes, or pass text through a quoted heredoc (<<\'EOF\').', file=sys.stderr)
