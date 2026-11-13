@@ -26,8 +26,9 @@ from markupsafe import escape
 from pydantic import BaseModel, ConfigDict, Field
 
 from codetrail.assistant import AnswerChunk, Assistant, AssistantError, PaidCallFailed, QuestionRequest, Usage
+from codetrail.assistant.routing import CallBound, call_bound
 from codetrail.assistant.usage import UsageLog
-from codetrail.config import Paths, Price, ToolsSettings
+from codetrail.config import Paths, Price, ToolsSettings, load_global, load_target
 from codetrail.database import connect
 from codetrail.errors import CodetrailError
 from codetrail.facts.store import FactStore
@@ -115,6 +116,8 @@ def bridge_router(
         if question.page_id and page is None:
             return JSONResponse({"error": _("That page doesn't exist.")}, 404)
         diagrams = _available_diagrams()  # before the claim: nothing between claim and stream may fail
+        settings = load_global(paths)
+        bound = call_bound(load_target(paths, name).models.answer, settings.bridge.max_budget_usd, settings)
         token = state.claim()  # no await before this point, so two requests can't both pass
         if token is None:
             return JSONResponse({"error": _("Another question is still being answered.")}, 429)
@@ -127,9 +130,10 @@ def bridge_router(
             page_facts=[str(fact.get("id")) for fact in (page.meta.get("facts") or [])] if page else [],
             diagrams=diagrams,
         )
-        return StreamingResponse(_stream(request, manifest.commit, token), media_type="application/x-ndjson")
+        return StreamingResponse(_stream(request, manifest.commit, token, bound), media_type="application/x-ndjson")
 
-    async def _stream(request: QuestionRequest, commit: str, token: str) -> AsyncIterator[bytes]:
+    async def _stream(request: QuestionRequest, commit: str, token: str, bound: CallBound) -> AsyncIterator[bytes]:
+        counted = False  # whether the call's usage, or its failure to use anything, is accounted for
         try:
             _ = language_of().translations.gettext  # inside the try: the claim is released whatever fails
             parts: list[str] = []
@@ -141,6 +145,7 @@ def bridge_router(
                             yield _event({"type": "text", "text": chunk.text})
                     if chunk.done:
                         cost = _record(chunk)  # before the scan, which can fail or be cancelled by a reader leaving
+                        counted = True
                         findings = await anyio.to_thread.run_sync(scanner.scan_text, "".join(parts))
                         if findings:
                             yield _event(
@@ -165,19 +170,28 @@ def bridge_router(
                             {"type": "done", "answer_id": answer_id, "html": _html(answer.body), "usage": used}
                         )
             except AssistantError as error:
+                counted = True
                 if isinstance(error, PaidCallFailed):  # what the failed call used is recorded all the same
                     _record(error)
                 yield _event({"type": "error", "message": str(error)})
             except Exception as error:  # details stay out of the page
+                counted = True
                 failed = _("The answer failed (%(error)s).") % {"error": type(error).__name__}
                 yield _event({"type": "error", "message": failed})
         finally:
+            # Closed or cancelled before the answer finished: its program ran and no result says what it used, so
+            # the answer's budget counts, as for a call stopped at its time limit (design section 15.3).
+            if not counted and bound.cap_usd:
+                _record_usage(Usage(bound.provider, bound.model, cost_usd=bound.cap_usd))
             state.release(token)
 
     def _record(chunk: AnswerChunk | PaidCallFailed) -> float:
+        return _record_usage(chunk.usage) or chunk.cost_usd
+
+    def _record_usage(usage: Usage) -> float:
         connection = connect(data / "codetrail.db")
         try:
-            return UsageLog(connection, prices).record("answer", chunk.usage) or chunk.cost_usd
+            return UsageLog(connection, prices).record("answer", usage)
         finally:
             connection.close()
 

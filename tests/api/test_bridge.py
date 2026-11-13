@@ -361,3 +361,24 @@ def test_an_answers_usage_is_recorded_before_its_scan(paths: Paths, monkeypatch:
     connection = connect(paths.target_data("t") / "codetrail.db")
     rows = connection.execute("SELECT kind, provider, cost_usd FROM assistant_calls").fetchall()
     assert [tuple(row) for row in rows] == [("answer", "claude_code", 0.04)]
+
+
+class Stopped(BaseException):
+    """Stands in for the stream being closed or cancelled, as when the reader closes the page mid-answer."""
+
+
+class StoppedAnswer(FakeAssistant):
+    async def answer(self, request: QuestionRequest) -> AsyncIterator[AnswerChunk]:
+        self.requests.append(request)
+        yield AnswerChunk("Half an ans")
+        raise Stopped
+
+
+def test_an_answer_stopped_before_it_finishes_counts_its_cap(paths: Paths) -> None:
+    """Its program ran and no result says what it used, so the answer's budget counts, as for a timed-out call."""
+    client, headers = make_client(paths, StoppedAnswer())
+    with pytest.raises(BaseException):  # noqa: B017  # however the server's task group reports it
+        client.post("/bridge/questions", json={"question": "Why?"}, headers=headers)
+    connection = connect(paths.target_data("t") / "codetrail.db")
+    rows = connection.execute("SELECT kind, provider, cost_usd FROM assistant_calls").fetchall()
+    assert [tuple(row) for row in rows] == [("answer", "claude_code", 1.0)]  # bridge.max_budget_usd
