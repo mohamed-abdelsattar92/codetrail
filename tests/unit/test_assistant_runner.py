@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from codetrail.assistant import AssistantError
+from codetrail.assistant import AssistantError, runner
 from codetrail.assistant.runner import run_command, run_program
 
 ECHO = "import sys\nfor line in sys.stdin.read().splitlines():\n    print('got ' + line, flush=True)\n"
@@ -87,9 +87,9 @@ async def test_lots_of_error_output_doesnt_block_the_program(tmp_path: Path) -> 
     assert await collect(script(tmp_path, "noisy.py", NOISY), "", tmp_path) == ["done"]
 
 
-def test_a_short_command_returns_its_output(tmp_path: Path) -> None:
+def test_a_short_command_gets_no_input(tmp_path: Path) -> None:
     command = script(tmp_path, "echo.py", ECHO)
-    assert run_command(command, tmp_path, {"PATH": "/usr/bin:/bin"}, 10, stdin="a\n") == (0, "got a\n")
+    assert run_command(command, tmp_path, {"PATH": "/usr/bin:/bin"}, 10) == (0, "")  # it gets no input
 
 
 def test_a_short_command_that_runs_too_long_is_stopped_with_its_children(tmp_path: Path) -> None:
@@ -160,3 +160,44 @@ def test_a_short_command_can_merge_its_error_output(tmp_path: Path) -> None:
     )
     assert code == 3
     assert output == "partial\nfirst\nlast words here\n"
+
+
+def refuse_to_start_after(pid_file: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Makes the output readers fail to start once the program has started its child."""
+
+    def start(reader: object) -> None:
+        for _ in range(500):
+            if pid_file.exists() and pid_file.read_text():
+                break
+            time.sleep(0.01)
+        raise RuntimeError("can't start a new thread")
+
+    monkeypatch.setattr(runner.OutputReader, "start", start)
+
+
+def open_descriptors() -> int:
+    return len(os.listdir("/dev/fd"))
+
+
+@pytest.mark.anyio
+async def test_a_reader_that_fails_to_start_stops_the_program(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    pid_file = tmp_path / "child.pid"
+    command = [*script(tmp_path, "slow.py", SLOW_CHILD), str(pid_file)]
+    refuse_to_start_after(pid_file, monkeypatch)
+    before = open_descriptors()
+    with pytest.raises(RuntimeError, match="new thread"):
+        await collect(command, "", tmp_path)
+    assert_stopped(pid_file)
+    assert open_descriptors() == before
+
+
+def test_a_short_command_s_reader_that_fails_to_start_stops_the_program(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pid_file = tmp_path / "child.pid"
+    refuse_to_start_after(pid_file, monkeypatch)
+    before = open_descriptors()
+    with pytest.raises(RuntimeError, match="new thread"):
+        run_command([*script(tmp_path, "slow.py", SLOW_CHILD), str(pid_file)], tmp_path, {"PATH": "/usr/bin:/bin"}, 20)
+    assert_stopped(pid_file)
+    assert open_descriptors() == before

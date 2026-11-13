@@ -3,7 +3,9 @@
 Each program runs in its own process group, which is killed when the call ends for any reason (done, failed, timed
 out, wrote too much, or the reader stopped listening), so nothing it started keeps running. Its output is read as it
 comes, and its error output in a thread, so a talkative program can't fill a pipe and stall; once either passes
-`max_output_bytes`, the program is killed and the call fails, so its output is never used.
+`max_output_bytes`, the program is killed and the call fails, so its output is never used. One race remains, and is
+harmless: a program that writes too much error output and exits cleanly before the reader stops it succeeds, since
+its error output is read only to explain a failure and what passed the limit is never kept.
 """
 
 from __future__ import annotations
@@ -57,8 +59,8 @@ async def run_program(
         raise
     finally:
         os.close(errors_out)
-    errors = OutputReader(open(errors_in, "rb"), process.pid, max_output_bytes)  # noqa: SIM115  # the reader closes it
     try:
+        errors = OutputReader(open(errors_in, "rb"), process.pid, max_output_bytes)  # noqa: SIM115  # the reader closes it
         assert process.stdin is not None and process.stdout is not None
         with _limit(deadline):
             await process.stdin.send(stdin_text.encode("utf-8"))
@@ -102,13 +104,12 @@ def run_command(
     cwd: Path,
     environment: Mapping[str, str],
     timeout_seconds: float,
-    stdin: str = "",
     *,
     include_stderr: bool = False,
     error_output: list[str] | None = None,
     max_output_bytes: int = MAX_OUTPUT_BYTES,
 ) -> tuple[int, str]:
-    """Runs a short command (a sign-in check, a hosting read) and returns its exit code and output. With
+    """Runs a short command (a sign-in check, a hosting read), with no input, and returns its exit code and output. With
     `include_stderr`, the error output is part of the output (Codex's sign-in check writes there); with
     `error_output`, the error output is appended to that list instead. Writing more than `max_output_bytes` to
     either stream stops the command and raises AssistantError."""
@@ -117,7 +118,7 @@ def run_command(
     try:
         process = subprocess.Popen(  # noqa: S603  # the command is a resolved program and fixed arguments
             list(command),
-            stdin=subprocess.PIPE,
+            stdin=subprocess.DEVNULL,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT if include_stderr else subprocess.PIPE,
             cwd=cwd,
@@ -126,15 +127,11 @@ def run_command(
         )
     except OSError as error:
         raise AssistantError(f"{name} couldn't start ({type(error).__name__}).") from error
-    assert process.stdin is not None and process.stdout is not None
-    readers = [OutputReader(process.stdout, process.pid, max_output_bytes)]
-    if process.stderr is not None:
-        readers.append(OutputReader(process.stderr, process.pid, max_output_bytes))
+    streams = [stream for stream in (process.stdout, process.stderr) if stream is not None]
+    readers: list[OutputReader] = []
     try:
-        with suppress(BrokenPipeError):
-            process.stdin.write(stdin.encode("utf-8"))
-        with suppress(BrokenPipeError):
-            process.stdin.close()
+        for stream in streams:
+            readers.append(OutputReader(stream, process.pid, max_output_bytes))
         process.wait(timeout_seconds)
         for reader in readers:
             reader.join(max(deadline - time.monotonic(), 0))
@@ -143,6 +140,8 @@ def run_command(
     except BaseException as error:
         _kill(process.pid)
         process.wait()
+        for stream in streams[len(readers) :]:
+            stream.close()  # no reader started for it, so no thread reads it
         if not isinstance(error, subprocess.TimeoutExpired):
             raise
         raise AssistantError(f"{name} didn't answer within {timeout_seconds:g} seconds.") from error
@@ -164,7 +163,11 @@ class OutputReader(threading.Thread):
         self.stream, self.process_id, self.limit = stream, process_id, limit
         self.chunks: list[bytes] = []
         self.size = 0
-        self.start()
+        try:
+            self.start()
+        except BaseException:
+            stream.close()
+            raise
 
     @property
     def over(self) -> bool:
