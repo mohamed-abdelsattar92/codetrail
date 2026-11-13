@@ -82,6 +82,8 @@ Codetrail follows the XDG base directories, on macOS too; configuration can move
 
 The guide's location can be configured, but never inside the target.
 
+Everything Codetrail creates, and everything git and the other programs it runs create for it, is the reader's alone: every command runs with the umask `077`, so folders are `0700` and files `0600` (git's object files `0400`). `mirror.git` holds the target's whole history, the excluded secrets included, so no other account on the machine may read it. A data or state folder an older version left readable to others is closed to `0700` at the start of every command.
+
 ### 2.4 Data flow
 **Update** (`codetrail update`, or the page's "Update" button running the same function as a background job; one at a time per target):
 1. `repo` fetches the configured branch from the founder's checkout into `mirror.git` and materializes `source/` at its head (section 3).

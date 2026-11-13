@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import os
 import signal
+import stat
 import sys
 import threading
 import unicodedata
@@ -119,6 +121,9 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+PRIVATE_UMASK = 0o077  # folders 0700, files 0600
+
+
 def main(argv: list[str] | None = None) -> int:
     for signal_number in (signal.SIGHUP, signal.SIGTERM):
         if signal.getsignal(signal_number) == signal.SIG_DFL:  # one ignored at start (nohup) stays ignored
@@ -129,7 +134,11 @@ def main(argv: list[str] | None = None) -> int:
         parser.print_help(file=sys.stderr)
         return 2
     paths = Paths.from_environment()
+    # Codetrail's folders hold a target's whole history, excluded secrets included: everything it creates, and
+    # everything git creates for it, is the reader's alone. Restored on return, for callers in the same process.
+    previous_umask = os.umask(PRIVATE_UMASK)
     try:
+        close_folders(paths)
         if arguments.command == "target" and arguments.target_command == "remove":
             return remove_target_command(paths, arguments.name, yes=arguments.yes)
         if arguments.command == "team":
@@ -156,6 +165,18 @@ def main(argv: list[str] | None = None) -> int:
     except CodetrailError as error:
         print(f"codetrail: {error}", file=sys.stderr)
         return 1
+    finally:
+        os.umask(previous_umask)
+
+
+def close_folders(paths: Paths) -> None:
+    """Makes the data and state folders the reader's alone, when an older version left them readable to others."""
+    for folder in (paths.data_dir, paths.state_dir):
+        if not folder.is_dir() or folder.is_symlink():
+            continue
+        status = folder.stat()
+        if status.st_uid == os.getuid() and stat.S_IMODE(status.st_mode) & 0o077:
+            folder.chmod(0o700)
 
 
 def connect_agents(paths: Paths, name: str) -> int:
