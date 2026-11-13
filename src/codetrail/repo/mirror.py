@@ -13,8 +13,18 @@ from pathlib import Path
 from codetrail.errors import CodetrailError
 from codetrail.repo.git import run_git
 
-# git checks every object a clone or fetch receives and refuses a malformed one, rather than storing it in the mirror.
-CHECK_OBJECTS = ("-c", "transfer.fsckObjects=true")
+# Cosmetic flaws that old histories commonly carry (git 2.54's fsck message ids): dates, time zones, author lines and
+# zero-padded or old file modes. Codetrail reads no date or mode from them that matters, so they don't stop a mirror.
+COSMETIC_FSCK_MESSAGES = (
+    "badDate", "badDateOverflow", "badEmail", "badFilemode", "badTimezone", "missingEmail", "missingNameBeforeEmail",
+    "missingSpaceBeforeDate", "missingSpaceBeforeEmail", "zeroPaddedDate", "zeroPaddedFilemode",
+)  # fmt: skip
+# git checks every object a clone or fetch receives and refuses a malformed one rather than storing it in the mirror;
+# the security checks (.gitmodules, .git-like names, symlinks, paths) stay errors.
+CHECK_OBJECTS = (
+    "-c", "transfer.fsckObjects=true",
+    *(option for message in COSMETIC_FSCK_MESSAGES for option in ("-c", f"fetch.fsck.{message}=ignore")),
+)  # fmt: skip
 
 
 @dataclass(frozen=True)

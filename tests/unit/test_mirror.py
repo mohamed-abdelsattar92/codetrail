@@ -1,5 +1,6 @@
 """The mirror: a bare clone of the target, fetched over file:// so the target is only read (design section 3.2)."""
 
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -147,28 +148,54 @@ def test_a_failed_tag_fetch_never_names_the_tag(checkout: Path, tmp_path: Path) 
     assert "tags" in str(raised.value)
 
 
-def test_malformed_objects_are_refused(checkout: Path, tmp_path: Path) -> None:
-    """git checks every object it receives (transfer.fsckObjects): a commit with no author email never lands."""
-    tree = git(checkout, "rev-parse", "HEAD^{tree}")
-    commit = tmp_path / "commit.txt"
-    commit.write_text(f"tree {tree}\nauthor Someone 1700000000 +0000\ncommitter Someone <s@x> 1700000000 +0000\n\nx\n")
-    malformed = git(checkout, "hash-object", "-t", "commit", "-w", "--literally", str(commit))
-    git(checkout, "update-ref", "refs/heads/develop", malformed)
-    mirror = tmp_path / "mirror.git"
-    with pytest.raises(CodetrailError, match="missingEmail"):
-        refresh_mirror(mirror, checkout, "develop")
+def write_object(repository: Path, kind: str, data: bytes) -> str:
+    """Writes an object as given, malformed or not, and returns its id."""
+    written = subprocess.run(
+        ["git", "-C", str(repository), "hash-object", "-t", kind, "-w", "--literally", "--stdin"],
+        input=data, capture_output=True, check=True,
+    )  # fmt: skip
+    return written.stdout.decode().strip()
+
+
+def commit_tree(repository: Path, entries: list[tuple[bytes, bytes, str]], parent: str | None = None) -> str:
+    """Points develop at a new commit of a tree written byte for byte from (mode, name, object id) entries."""
+    tree = write_object(repository, "tree", b"".join(mode + b" " + name + b"\0" + bytes.fromhex(oid)
+                                                    for mode, name, oid in entries))  # fmt: skip
+    header = f"tree {tree}\n" + (f"parent {parent}\n" if parent else "")
+    commit = write_object(repository, "commit", f"{header}author A <a@x> 1700000000 +0000\n"
+                                                f"committer A <a@x> 1700000000 +0000\n\nx\n".encode())  # fmt: skip
+    git(repository, "update-ref", "refs/heads/develop", commit)
+    return commit
+
+
+def test_an_object_git_considers_dangerous_is_refused(checkout: Path, tmp_path: Path) -> None:
+    """git checks every object it receives (transfer.fsckObjects): a tree entry named .git never lands."""
+    blob = write_object(checkout, "blob", b"x\n")
+    commit_tree(checkout, [(b"100644", b".git", blob)])
+    with pytest.raises(CodetrailError, match="hasDotgit"):
+        refresh_mirror(tmp_path / "mirror.git", checkout, "develop")
 
 
 def test_a_fetch_checks_objects_too(checkout: Path, tmp_path: Path) -> None:
     mirror = tmp_path / "mirror.git"
     refresh_mirror(mirror, checkout, "develop")
-    tree = git(checkout, "rev-parse", "HEAD^{tree}")
-    parent = git(checkout, "rev-parse", "HEAD")
-    commit = tmp_path / "commit.txt"
-    commit.write_text(
-        f"tree {tree}\nparent {parent}\nauthor Someone 1700000000 +0000\ncommitter S <s@x> 1700000000 +0000\n\nx\n"
-    )
-    malformed = git(checkout, "hash-object", "-t", "commit", "-w", "--literally", str(commit))
-    git(checkout, "update-ref", "refs/heads/develop", malformed)
-    with pytest.raises(CodetrailError, match="missingEmail"):
+    blob = write_object(checkout, "blob", b"x\n")
+    commit_tree(checkout, [(b"100644", b".git", blob)], parent=git(checkout, "rev-parse", "HEAD"))
+    with pytest.raises(CodetrailError, match="hasDotgit"):
         refresh_mirror(mirror, checkout, "develop")
+
+
+def test_a_malformed_gitmodules_is_refused(tmp_path: Path) -> None:
+    target = make_repository(tmp_path / "target", [{".gitmodules": '[submodule "x"]\n\tpath = x\n\turl = -u./evil\n'}])
+    with pytest.raises(CodetrailError, match="gitmodulesUrl"):
+        refresh_mirror(tmp_path / "mirror.git", target, "develop")
+
+
+def test_cosmetic_flaws_of_old_repositories_still_mirror(checkout: Path, tmp_path: Path) -> None:
+    """A zero-padded file mode and an author with no email or a bad date are common in old histories, and harmless."""
+    blob = write_object(checkout, "blob", b"old\n")
+    tree = write_object(checkout, "tree", b"0100644 old.txt\0" + bytes.fromhex(blob))
+    commit = write_object(checkout, "commit", f"tree {tree}\nauthor Someone 99999999999999999999 +0000\n"
+                                              f"committer Someone <s@x>1700000000 +99\n\nold\n".encode())  # fmt: skip
+    git(checkout, "update-ref", "refs/heads/develop", commit)
+    assert refresh_mirror(tmp_path / "mirror.git", checkout, "develop") == commit
