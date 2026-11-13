@@ -62,6 +62,7 @@ class Reason(StrEnum):
     NOT_A_FILE = "symlink or submodule"
     UNSAFE_PATH = "unsafe path"
     TOO_LARGE = "too large"
+    UNSCANNABLE = "unscannable"  # compressed text that can't be inflated whole for the scan
 
 
 class ExclusionRules:

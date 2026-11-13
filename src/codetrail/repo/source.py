@@ -17,6 +17,7 @@ from pathlib import Path, PurePosixPath
 
 from codetrail.config import SourceSettings
 from codetrail.errors import CodetrailError
+from codetrail.repo.compressed import Unscannable, inflated_text
 from codetrail.repo.mirror import list_tree, read_blobs
 from codetrail.repo.rules import ExclusionRules, Reason, on_disk_key
 from codetrail.repo.secrets import SecretScanner
@@ -104,8 +105,12 @@ def build_source(
     mirror: Path, commit: str, rules: ExclusionRules, scanner: SecretScanner, data_dir: Path, limits: SourceSettings
 ) -> SourceManifest:
     source, next_source = data_dir / "source", data_dir / "source.next"
+    # The text zip and PDF files store compressed, inflated beside source.next/ at the same paths for the scan only.
+    inflated = data_dir / "source.inflated"
     shutil.rmtree(next_source, ignore_errors=True)
+    shutil.rmtree(inflated, ignore_errors=True)
     next_source.mkdir(parents=True)
+    inflated.mkdir()
     try:
         files: dict[str, str] = {}
         excluded: list[Excluded] = []
@@ -126,12 +131,22 @@ def build_source(
             paths_by_blob.setdefault(blob, []).append(path)
         for group in _groups(list(paths_by_blob), sizes, limits.max_file_bytes):
             for blob, content in read_blobs(mirror, group):
+                try:
+                    text = inflated_text(content, limits.max_inflated_bytes)
+                except Unscannable as error:
+                    for path in paths_by_blob[blob]:
+                        del files[path]
+                        excluded.append(Excluded(path, Reason.UNSCANNABLE, str(error)))
+                    continue
                 for path in paths_by_blob[blob]:
-                    destination = next_source / PurePosixPath(path)
-                    destination.parent.mkdir(parents=True, exist_ok=True)
-                    destination.write_bytes(content)
+                    _write(next_source, path, content)
+                    if text is not None:
+                        _write(inflated, path, text)
+        findings = scanner.scan_directory(next_source)
+        if any(inflated.iterdir()):
+            findings += scanner.scan_directory(inflated)
         flagged: dict[str, str] = {}
-        for finding in scanner.scan_directory(next_source):
+        for finding in findings:
             flagged.setdefault(finding.path, finding.rule)
         for path, rule in sorted(flagged.items()):
             (next_source / PurePosixPath(path)).unlink()
@@ -146,6 +161,14 @@ def build_source(
     except BaseException:
         shutil.rmtree(next_source, ignore_errors=True)
         raise
+    finally:
+        shutil.rmtree(inflated, ignore_errors=True)
+
+
+def _write(root: Path, path: str, content: bytes) -> None:
+    destination = root / PurePosixPath(path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_bytes(content)
 
 
 def _groups(blobs: list[str], sizes: Mapping[str, int], max_bytes: int) -> list[list[str]]:

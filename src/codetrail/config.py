@@ -87,6 +87,7 @@ class SourceSettings(Settings):
     """What a refresh reads from a target (design sections 3.2 and 3.3)."""
 
     max_file_bytes: int = Field(default=50_000_000, gt=0)  # a larger committed file is excluded as too large
+    max_inflated_bytes: int = Field(default=50_000_000, gt=0)  # text inflated from one zip or PDF file for the scan
     max_ignore_lines: int = Field(default=200, gt=0)  # lines with a pattern in a target's own .codetrailignore
 
 

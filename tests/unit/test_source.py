@@ -1,6 +1,9 @@
 """Materializing a target's allowed files into source/ (design sections 3.2 to 3.4)."""
 
+import io
 import shutil
+import zipfile
+import zlib
 from pathlib import Path
 
 import pytest
@@ -192,3 +195,40 @@ def test_blobs_are_read_in_groups_within_the_cap(tmp_path: Path) -> None:
     assert sorted(manifest.files) == sorted(files)
     for path, text in files.items():
         assert (tmp_path / "data" / "source" / path).read_text() == text
+
+
+def zipped(members: dict[str, bytes]) -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for name, data in members.items():
+            archive.writestr(name, data)
+    return buffer.getvalue()
+
+
+def test_a_secret_stored_compressed_is_found(tmp_path: Path) -> None:
+    """gitleaks reads raw bytes; a token inside a .docx or a PDF's text is scanned in its inflated form."""
+    token = f'TOKEN = "{fake_github_token()}"\n'.encode()
+    pdf = b"%PDF-1.7\n1 0 obj\n<< /Filter /FlateDecode >>\nstream\n" + zlib.compress(token) + b"\nendstream\nendobj\n"
+    target = make_repository(
+        tmp_path / "target",
+        [{"docs/report.docx": zipped({"word/document.xml": token}), "docs/manual.pdf": pdf,
+          "docs/clean.docx": zipped({"word/document.xml": b"nothing here"})}],
+    )  # fmt: skip
+    manifest = build(target, tmp_path)
+    reasons = {item.path: (item.reason, item.rule) for item in manifest.excluded}
+    assert reasons == {
+        "docs/report.docx": (Reason.GITLEAKS, "github-pat"),
+        "docs/manual.pdf": (Reason.GITLEAKS, "github-pat"),
+    }
+    assert sorted(manifest.files) == ["docs/clean.docx"]
+    assert not (tmp_path / "data" / "source.inflated").exists()
+
+
+def test_a_container_that_cant_be_inflated_is_excluded(tmp_path: Path) -> None:
+    bomb = zipped({"zeros.bin": bytes(2_000_000)})
+    target = make_repository(tmp_path / "target", [{"bomb.zip": bomb, "a.md": "a\n"}])
+    manifest = build(target, tmp_path, limits=SourceSettings(max_inflated_bytes=1_000_000))
+    assert [(item.path, item.reason) for item in manifest.excluded] == [("bomb.zip", Reason.UNSCANNABLE)]
+    assert "1000000 bytes" in (manifest.excluded[0].rule or "")
+    assert sorted(manifest.files) == ["a.md"]
+    assert not (tmp_path / "data" / "source" / "bomb.zip").exists()
