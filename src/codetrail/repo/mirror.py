@@ -147,8 +147,9 @@ def list_tree(mirror: Path, commit: str) -> list[TreeEntry]:
     return entries
 
 
-def read_file_at(mirror: Path, commit: str, path: str, *, max_bytes: int) -> bytes | None:
-    """The file's content at the commit, or None when it doesn't exist there; a file over `max_bytes` raises, unread."""
+def read_file_at(mirror: Path, commit: str, path: str, *, max_bytes: int, setting: str) -> bytes | None:
+    """The file's content at the commit, or None when it doesn't exist there; a file over `max_bytes` raises, unread,
+    naming the `setting` that sets it."""
     try:
         size = int(run_git(["cat-file", "-s", f"{commit}:{path}"], git_dir=mirror))
     except CodetrailError:
@@ -156,7 +157,7 @@ def read_file_at(mirror: Path, commit: str, path: str, *, max_bytes: int) -> byt
     if size > max_bytes:
         raise CodetrailError(
             f"The target's {path} is {size} bytes at commit {commit[:12]}; Codetrail reads at most {max_bytes} "
-            "([source] max_file_bytes)."
+            f"({setting})."
         )
     try:
         return run_git(["cat-file", "blob", f"{commit}:{path}"], git_dir=mirror)

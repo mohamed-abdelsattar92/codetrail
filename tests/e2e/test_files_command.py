@@ -126,10 +126,11 @@ def test_a_target_ignore_file_over_the_size_cap_fails(
 ) -> None:
     checkout = make_repository(tmp_path / "ignore", [{"a.md": "a\n", ".codetrailignore": "#" * 200 + "\n"}])
     assert main(["target", "add", "ignore", str(checkout)]) == 0
-    (environment / "config" / "codetrail" / "config.toml").write_text("[source]\nmax_file_bytes = 100\n")
+    (environment / "config" / "codetrail" / "config.toml").write_text("[source]\nmax_ignore_bytes = 100\n")
     capsys.readouterr()
     assert main(["files", "ignore"]) == 1
-    assert ".codetrailignore is 201 bytes" in capsys.readouterr().err
+    error = capsys.readouterr().err
+    assert ".codetrailignore is 201 bytes" in error and "[source] max_ignore_bytes" in error
 
 
 def test_a_target_ignore_file_too_slow_to_match_fails(

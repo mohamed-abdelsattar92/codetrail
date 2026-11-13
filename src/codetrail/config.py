@@ -91,6 +91,7 @@ class SourceSettings(Settings):
     max_file_bytes: int = Field(default=50_000_000, gt=0)  # a larger committed file is excluded as too large
     max_inflated_bytes: int = Field(default=50_000_000, gt=0)  # text decoded from one compressed file for the scan
     max_ignore_lines: int = Field(default=200, gt=0)  # lines with a pattern in a target's own .codetrailignore
+    max_ignore_bytes: int = Field(default=64 * 1024, gt=0)  # the size of a target's own .codetrailignore
     # Time spent matching paths against the ignore rules while the target has its own .codetrailignore, per refresh,
     # update or "behind" check.
     max_ignore_match_seconds: float = Field(default=60, gt=0, allow_inf_nan=False)

@@ -226,3 +226,19 @@ def test_the_match_budget_must_be_positive_and_finite() -> None:
     for value in (0, -1, float("inf"), float("nan")):
         with pytest.raises(ValidationError):
             SourceSettings(max_ignore_match_seconds=value)
+
+
+def test_a_target_line_longer_than_any_path_fails_the_refresh(tmp_path: Path) -> None:
+    """No allowed path is longer than 4,096 bytes, so such a line can only cost time."""
+    with pytest.raises(CodetrailError, match=r"line 2 is 4097 bytes.*4096"):
+        ignore_lines(make_paths(tmp_path), "app", b"build/\n" + b"a" * 4097 + b"\n", MAX_LINES)
+    assert ignore_lines(make_paths(tmp_path), "app", b"a" * 4096 + b"\n", MAX_LINES) == ["a" * 4096]
+
+
+def test_the_ignore_file_has_its_own_size_cap(tmp_path: Path) -> None:
+    target = make_repository(tmp_path / "target", [{".codetrailignore": "#" * 99 + "\n", "a.md": "a\n"}])
+    mirror = tmp_path / "mirror.git"
+    commit = refresh_mirror(mirror, target, "develop")
+    with pytest.raises(CodetrailError, match=r"100 bytes.*at most 99 \(\[source\] max_ignore_bytes\)"):
+        target_rules(make_paths(tmp_path), "app", mirror, commit, SourceSettings(max_ignore_bytes=99))
+    assert SourceSettings().max_ignore_bytes == 64 * 1024

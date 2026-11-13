@@ -9,7 +9,7 @@ from codetrail.errors import CodetrailError
 from codetrail.lock import target_in_use, target_lock
 from codetrail.repo.mirror import read_file_at
 from codetrail.repo.remote import fetch_target
-from codetrail.repo.rules import TARGET_IGNORE_FILE, ExclusionRules
+from codetrail.repo.rules import MAX_PATH_BYTES, TARGET_IGNORE_FILE, ExclusionRules
 from codetrail.repo.secrets import SecretScanner
 from codetrail.repo.source import SourceManifest, build_source
 
@@ -28,7 +28,8 @@ def target_rules(paths: Paths, name: str, mirror: Path, commit: str, limits: Sou
     """The exclusion rules at the commit: the target's own .codetrailignore there, then the founder's ignore file.
 
     Matching is timed against `max_ignore_match_seconds` only when the target has lines of its own."""
-    target_file = read_file_at(mirror, commit, TARGET_IGNORE_FILE, max_bytes=limits.max_file_bytes)
+    target_file = read_file_at(mirror, commit, TARGET_IGNORE_FILE, max_bytes=limits.max_ignore_bytes,
+                               setting="[source] max_ignore_bytes")  # fmt: skip
     lines = ignore_lines(paths, name, target_file, limits.max_ignore_lines)
     budget = limits.max_ignore_match_seconds if target_file and target_file.strip() else None
     return ExclusionRules(lines, match_budget_seconds=budget)
@@ -50,6 +51,11 @@ def ignore_lines(paths: Paths, name: str, target_file: bytes | None, max_lines: 
             "file to be shortened, or raise the limit in the configuration."
         )
     for number, line in enumerate(lines, start=1):
+        if (size := len(line.encode("utf-8", "surrogateescape"))) > MAX_PATH_BYTES:
+            raise CodetrailError(
+                f"The target's {TARGET_IGNORE_FILE}, line {number} is {size} bytes; no path Codetrail reads is longer "
+                f"than {MAX_PATH_BYTES}, so the line can't match one. Ask for it to be removed or shortened."
+            )
         if wildcard_choices(line) > MAX_WILDCARD_CHOICES:
             raise CodetrailError(
                 f"The target's {TARGET_IGNORE_FILE}, line {number}, is too slow to match: Codetrail allows at most "

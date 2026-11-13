@@ -19,6 +19,9 @@ def checkout(tmp_path: Path) -> Path:
     )
 
 
+SETTING = "[source] max_file_bytes"
+
+
 def test_the_url_uses_the_file_transport(checkout: Path) -> None:
     assert repository_url(checkout) == checkout.resolve().as_uri()
 
@@ -68,15 +71,15 @@ def test_the_tree_lists_modes_blobs_and_paths(checkout: Path, tmp_path: Path) ->
     assert entries["link"].mode == "120000"
     assert entries["README.md"].mode == "100644"
     assert entries["README.md"].size == len(b"# Hello\n")
-    assert read_file_at(mirror, commit, "README.md", max_bytes=100) == b"# Hello\n"
-    assert read_file_at(mirror, commit, "missing.txt", max_bytes=100) is None
+    assert read_file_at(mirror, commit, "README.md", max_bytes=100, setting=SETTING) == b"# Hello\n"
+    assert read_file_at(mirror, commit, "missing.txt", max_bytes=100, setting=SETTING) is None
 
 
 def test_a_file_over_the_cap_is_never_read(checkout: Path, tmp_path: Path) -> None:
     mirror = tmp_path / "mirror.git"
     commit = refresh_mirror(mirror, checkout, "develop")
     with pytest.raises(CodetrailError, match=r"README.md is 8 bytes.*at most 7 \(\[source\] max_file_bytes\)"):
-        read_file_at(mirror, commit, "README.md", max_bytes=7)
+        read_file_at(mirror, commit, "README.md", max_bytes=7, setting=SETTING)
 
 
 def tags_in(mirror: Path) -> list[str]:
