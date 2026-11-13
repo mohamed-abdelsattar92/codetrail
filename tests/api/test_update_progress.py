@@ -39,7 +39,7 @@ def started(paths: Paths, steps: list[dict[str, object]], **server: int) -> Test
     assert client.get(f"/login?code={session.issue_login_code()}").status_code == 303
     client.headers.update({"origin": ORIGIN, TOKEN_HEADER: session.token})
     assert client.post("/update").status_code == 202
-    wait_for(client, {"done"})
+    wait_for(client, session.token, {"done"})
     return client
 
 
@@ -79,7 +79,7 @@ def test_the_log_keeps_only_its_newest_lines(paths: Paths) -> None:
 def test_a_new_update_starts_a_new_log(paths: Paths) -> None:
     client = started(paths, STEPS[:1])
     assert client.post("/update").status_code == 202
-    wait_for(client, {"done"})
+    wait_for(client, client.headers[TOKEN_HEADER], {"done"})
     status = client.get("/update/status").json()
     assert status["next"] == 2  # numbers keep counting, so a page reading `after` misses nothing
     assert status["log_html"].count("<li") == 1
