@@ -30,6 +30,8 @@ from codetrail.config import (
 )
 from codetrail.hosting import HostingError, HostingService, HostingStatus, Source
 from codetrail.hosting.fake import FakeHosting
+from codetrail.hosting.github import INSTALL as GITHUB_INSTALL
+from codetrail.hosting.gitlab import INSTALL as GITLAB_INSTALL
 from codetrail.hosting.names import Service
 from codetrail.team.server import create_team_app
 from codetrail.team.settings import existing_target_names, save_selection, write_team
@@ -316,6 +318,27 @@ def test_the_azure_organization_field_shows_once_signed_in(page: Page, team_site
 
     expect(page.locator("[data-services] li").nth(1)).to_contain_text("Signed in as reader")
     expect(page.get_by_label("Azure DevOps organization")).to_be_visible()
+
+
+def test_only_the_known_install_pages_become_links(page: Page, team_site: TeamSite, errors: list[str]) -> None:
+    foreign = "Install the Azure CLI from https://elsewhere.example/az, then run: az extension add"
+    statuses: dict[Service, HostingStatus] = {
+        "github": HostingStatus("github", False, False, None, GITHUB_INSTALL),
+        "azure_devops": HostingStatus("azure_devops", False, False, None, foreign),
+        "gitlab": HostingStatus("gitlab", False, False, None, GITLAB_INSTALL),
+    }
+    for service, status in statuses.items():
+        team_site.services[service] = FakeHosting(service, [status], [], {}, {})
+
+    team_site.sign_in(page)
+
+    services = page.locator("[data-services] li")
+    for index, address in ((0, "https://cli.github.com"), (2, "https://gitlab.com/gitlab-org/cli")):
+        expect(services.nth(index).get_by_role("link", name=address)).to_have_attribute("href", address)
+    expect(services.nth(1)).to_contain_text("https://elsewhere.example/az")
+    expect(services.nth(1).get_by_role("link")).to_have_count(0)
+    expect(services.nth(1).locator("code")).to_have_text("az extension add")
+    assert errors == []
 
 
 def test_the_progress_shows_while_the_source_is_listed_again(page: Page, team_site: TeamSite) -> None:
