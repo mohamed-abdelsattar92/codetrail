@@ -227,7 +227,18 @@ def test_base_60_integers_stay_text_so_none_costs_quadratic_time() -> None:
         # A token in the query string: the whole query goes, the fragment stays.
         ("https://registry.example/x.tgz?token=s3cret", "https://registry.example/x.tgz"),
         ("https://git.example/org/repo.git?private_token=s3cret&ref=v1#main", "https://git.example/org/repo.git#main"),
+        # Userinfo holding a "/" without a ":", or with digits only after it, which look like a host and port.
+        ("https://ghp_abc/def@git.example/org/repo.git", "https://git.example/org/repo.git"),
+        ("https://user:123/45@git.example", "https://git.example"),
+        ("https://user:p@ss/w@git.example/x", "https://git.example/x"),
+        ("https://user:t@git.example/org/lib.git@v1", "https://git.example/org/lib.git@v1"),
+        ("user:pa/ss@git.example:org/repo.git", "git.example:org/repo.git"),
+        # Several URLs in one word: each loses its own credentials.
+        ("a://u:p@h.example/x,b://u2:p2@h2.example/y", "a://h.example/x,b://h2.example/y"),
+        ("https://u:p/q@h.example/x;https://t@h2.example/y?k=s3cret", "https://h.example/x;https://h2.example/y"),
         # No credentials: unchanged.
+        ("git+https://git.example/org/lib.git@v1.0#egg=lib", "git+https://git.example/org/lib.git@v1.0#egg=lib"),
+        ("git@git.example:org/repo.git", "git.example:org/repo.git"),
         ("https://registry.example/@scope/pkg/-/pkg-1.0.0.tgz", "https://registry.example/@scope/pkg/-/pkg-1.0.0.tgz"),
         ("https://git.example:8443/org/repo.git", "https://git.example:8443/org/repo.git"),
         ("npm:@scope/pkg@^1.2.3", "npm:@scope/pkg@^1.2.3"),

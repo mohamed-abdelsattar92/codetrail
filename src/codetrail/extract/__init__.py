@@ -66,30 +66,38 @@ class Extraction:
 
 
 DEFAULT_MAX_FILE_BYTES = 1_000_000
-URL = re.compile(r"(?P<scheme>://)(?P<rest>\S*)")
+URL = re.compile(r"(?P<scheme>://)(?P<rest>(?:(?!://)\S)*)")  # each `://` starts a URL of its own
+HOST = r"(?:[A-Za-z0-9.-]+|\[[0-9A-Fa-f:.]+\])(?::[0-9]*)?"  # a name or an IPv6 address, and a port
+# An `@` that can end a URL's user and password: a host follows it, then a path, query, fragment or the end. An `@`
+# right after a `/` (an npm scope) or after `.git` (a pip VCS ref) is part of the path.
+URL_USERINFO_END = re.compile(rf"(?<!/)(?<!\.git)@(?={HOST}(?:[/?#]|$))")
+SCP_USERINFO_END = re.compile(rf"@(?={HOST}:)")  # user:pass@host:path
 LOCAL_SPECIFIERS = ("npm:", "workspace:", "file:", "link:", "portal:", "patch:")
 
 
 def without_credentials(text: str) -> str:
     """A specifier or URL without user, password or query string: scheme://user:pass@host?token=… and
-    user:pass@host:path."""
+    user:pass@host:path.
+
+    A user or password can hold an unencoded `/`, `?`, `#` or `@`, so everything up to the last `@` that a host
+    follows goes; that can take part of a path holding an `@` too (`/pkg@1.2.3/`), which loses a fact's detail but
+    never keeps a password."""
     text = URL.sub(_url_without_credentials, text)
-    authority = text.split("/", 1)[0]
-    if "://" not in text and "@" in authority and ":" in authority and not text.startswith(LOCAL_SPECIFIERS):
-        text = text[authority.rindex("@") + 1 :]
+    if "://" not in text and not text.startswith(LOCAL_SPECIFIERS):
+        ends = [match.end() for match in SCP_USERINFO_END.finditer(text)]
+        if ends:
+            text = text[ends[-1] :]
     return text
 
 
 def _url_without_credentials(match: re.Match[str]) -> str:
-    """The URL after `://` without its user and password, then without its query string, which can carry a token.
-
-    A password with an unencoded `/`, `?` or `#` ends the authority early; when what comes before that end has a `:`
-    that doesn't start a port, everything up to the URL's last `@` goes, which can take part of the path too."""
+    """The URL after `://` without its user and password, then without its query string, which can carry a token."""
     rest = match["rest"]
+    ends = [found.end() for found in URL_USERINFO_END.finditer(rest)]
     authority = re.split(r"[/?#]", rest, maxsplit=1)[0]
-    if "@" in authority:
-        rest = rest[authority.rindex("@") + 1 :]
-    elif ":" in authority and not authority.partition(":")[2].isdigit() and "@" in rest:
+    if ends:
+        rest = rest[ends[-1] :]
+    elif "@" in rest and not re.fullmatch(HOST, authority):  # no host follows any `@`, and the URL starts with none
         rest = rest[rest.rindex("@") + 1 :]
     return match["scheme"] + re.sub(r"\?[^#]*", "", rest, count=1)
 
