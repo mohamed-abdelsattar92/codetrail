@@ -16,7 +16,7 @@ import sys
 from collections.abc import Callable
 
 # The same line commitlint.ci.config.mjs skips: Dependabot's sign-off as the message's last line.
-DEPENDABOT_SIGN_OFF = re.compile(r"\nSigned-off-by: dependabot\[bot\] <support@github\.com>\s*\Z")
+DEPENDABOT_SIGN_OFF = re.compile(r"\nSigned-off-by: dependabot\[bot\] <support@github\.com>[ \t\r\n]*\Z")
 DEPENDABOT = "dependabot[bot]"
 
 

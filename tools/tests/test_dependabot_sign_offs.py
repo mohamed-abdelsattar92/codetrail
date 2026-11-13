@@ -76,3 +76,14 @@ def test_reads_the_range_from_git(tmp_path: pathlib.Path) -> None:
     commits = dependabot_sign_offs.commits_between(first, third, cwd=tmp_path)
     assert [sha for sha, _ in commits] == [third, second]
     assert commits[1][1].endswith("Signed-off-by: dependabot[bot] <support@github.com>\n")
+
+
+def test_ci_skips_exactly_the_line_this_check_vouches_for() -> None:
+    config = (ROOT / "commitlint.ci.config.mjs").read_text()
+    javascript = config.split("const DEPENDABOT_SIGN_OFF = /", 1)[1].split("/;", 1)[0]
+    assert javascript.removesuffix("$") == dependabot_sign_offs.DEPENDABOT_SIGN_OFF.pattern.removesuffix(r"\Z")
+    assert "\\s" not in javascript  # [ \t\r\n], not \s, which also takes other Unicode spaces
+
+
+def test_only_plain_whitespace_may_follow_the_sign_off() -> None:
+    assert not dependabot_sign_offs.DEPENDABOT_SIGN_OFF.search(SIGN_OFF.rstrip("\n") + "\u2028")

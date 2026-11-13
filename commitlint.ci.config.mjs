@@ -6,6 +6,6 @@
 // GitHub reports each such commit verified and authored by dependabot[bot].
 import base from "./commitlint.config.mjs";
 
-const DEPENDABOT_SIGN_OFF = /\nSigned-off-by: dependabot\[bot\] <support@github\.com>\s*$/;
+const DEPENDABOT_SIGN_OFF = /\nSigned-off-by: dependabot\[bot\] <support@github\.com>[ \t\r\n]*$/;
 
 export default { ...base, ignores: [(message) => DEPENDABOT_SIGN_OFF.test(message)] };
