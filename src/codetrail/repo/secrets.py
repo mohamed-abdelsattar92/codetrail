@@ -8,7 +8,10 @@ it printed. A mise shim is resolved to its binary first, since gitleaks runs in 
 gitleaks' `dir` mode skips files and whole folders whose paths are on its default allowlist (lock files,
 `node_modules/`, images, any path holding `gitleaks.toml`, ...), and any file whose first bytes look binary. A
 directory scan therefore also reads every file through `stdin`, in batches that start with one long line of text,
-so no batch looks binary and no path is skipped; `dir` mode still runs for the rules that depend on a path.
+so no batch looks binary and no path is skipped; `dir` mode still runs for the rules that depend on a path. `stdin`
+is a regular file in a private temporary folder, never a pipe: gitleaks 8.30.1 (sources/file.go) checks every read
+for a binary signature until a read has held a line's end, and a short read from a pipe could end inside the header
+line and let the next read begin where the text itself puts a signature (tar's, at offset 257).
 """
 
 from __future__ import annotations
@@ -149,12 +152,17 @@ class SecretScanner:
         with as_file(files("codetrail.repo") / "gitleaks.toml") as config, tempfile.TemporaryDirectory() as folder:
             report = Path(folder) / "report.json"
             command = [executable, *arguments, "--config", str(config), *COMMON_FLAGS, "--report-path", str(report)]
+            # gitleaks checks each read for a binary signature until it has seen a line's end, and a pipe can return
+            # less than the header's line; a regular file returns its first 100 KB whole. The folder is private.
+            text = Path(folder) / "input.txt"
+            text.write_bytes(input or b"")  # empty for `dir`, which reads no `stdin`
             # An empty working directory: `gitleaks stdin` would load ./.gitleaksignore from wherever it runs.
             try:
-                result = subprocess.run(  # noqa: S603
-                    command, input=input, capture_output=True, env=environment, check=False, cwd=folder,
-                    timeout=self._timeout_seconds,
-                )  # fmt: skip
+                with text.open("rb") as stdin:
+                    result = subprocess.run(  # noqa: S603
+                        command, stdin=stdin, capture_output=True, env=environment, check=False, cwd=folder,
+                        timeout=self._timeout_seconds,
+                    )  # fmt: skip
             except subprocess.TimeoutExpired:
                 raise CodetrailError(
                     f"gitleaks didn't finish within {self._timeout_seconds:g} seconds "

@@ -360,3 +360,20 @@ def test_a_scan_off_the_event_loop_runs_in_a_thread_the_interpreter_waits_for() 
     import anyio.to_thread
 
     assert anyio.run(anyio.to_thread.run_sync, lambda: threading.current_thread().daemon) is False
+
+
+def test_gitleaks_reads_its_text_from_a_regular_file(tmp_path: Path) -> None:
+    """gitleaks checks each read of its input for a binary signature until it has seen a line's end. From a pipe, a
+    short first read could end inside the header line, and a later read start where the text's own bytes put a
+    signature (tar's, at offset 257) in place, which skips the rest unscanned. A regular file's first read is whole."""
+    fake = write_script(
+        tmp_path / "bin" / "gitleaks",
+        'mode="$1"; while [ $# -gt 0 ]; do [ "$1" = --report-path ] && report="$2"; shift; done\n'
+        '[ "$mode" = dir ] || [ -f /dev/stdin ] || { echo "stdin is not a regular file" >&2; exit 3; }\n'
+        'echo "[]" > "$report"\n',
+    )
+    scanner = SecretScanner(ToolsSettings(gitleaks=str(fake)))
+    assert scanner.scan_text("x") == []
+    (tmp_path / "source").mkdir()
+    (tmp_path / "source" / "a.txt").write_text("a\n")
+    assert scanner.scan_directory(tmp_path / "source") == []
