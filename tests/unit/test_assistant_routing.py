@@ -67,6 +67,17 @@ def test_build_assistant_uses_one_adapter_per_provider(tmp_path: Path) -> None:
     assert routed.routes["answer"].models["answer"] == "qwen3:14b"
 
 
+def test_build_assistant_gives_programs_the_configured_output_cap(tmp_path: Path) -> None:
+    program = make_program(tmp_path / "bin", "fake-claude", [])
+    settings = GlobalConfig(providers=ProvidersSettings(claude_code=ClaudeCodeSettings(command=str(program.path)),
+                                                        max_output_bytes=1_000_000))  # fmt: skip
+    target = TargetConfig(repository=tmp_path, branch="main")
+    claude = build_assistant(tmp_path / "source", settings, target).routes["write"]
+    assert isinstance(claude, ClaudeCodeAssistant) and claude.max_output_bytes == 1_000_000
+    overview = build_overview_assistant(tmp_path, settings, "claude-haiku-5-5", 1.0)
+    assert isinstance(overview, ClaudeCodeAssistant) and overview.max_output_bytes == 1_000_000
+
+
 def test_build_assistant_refuses_codex_without_the_targets_consent(tmp_path: Path) -> None:
     target = TargetConfig.model_construct(
         repository=tmp_path, branch="main", models=ModelSettings(write="codex:gpt-5.5-codex")

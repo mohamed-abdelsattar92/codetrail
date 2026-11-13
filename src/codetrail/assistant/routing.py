@@ -117,11 +117,13 @@ def build_assistant(
                 (settings.bridge.max_turns, settings.bridge.max_budget_usd),
                 settings.learn.max_budget_usd,
                 environ,
+                settings.providers.max_output_bytes,
             )
         elif provider == "codex":
             adapters[provider] = CodexAssistant(
-                source_root, models, settings.providers.codex, target.generation, retries, environ
-            )
+                source_root, models, settings.providers.codex, target.generation, retries, environ,
+                settings.providers.max_output_bytes,
+            )  # fmt: skip
         else:
             adapters[provider] = LocalAssistant(source_root, models, settings.providers.local, target.generation)
     return RoutedAssistant({kind: adapters[provider] for kind, (provider, _model) in choices.items()})
@@ -152,6 +154,7 @@ def build_overview_assistant(
             (settings.bridge.max_turns, settings.bridge.max_budget_usd),
             settings.learn.max_budget_usd,
             environ,
+            settings.providers.max_output_bytes,
         )
     if provider == "local":
         return LocalAssistant(workspace, models, settings.providers.local, limits)

@@ -311,7 +311,7 @@ async def test_a_call_that_passes_its_time_limit_counts_its_cap_and_isnt_retried
     """Claude Code bills what it used before it was stopped, which no result reports: the cap is the most it was."""
     starts: list[list[str]] = []
 
-    async def stopped_at_the_limit(command: list[str], *args: object) -> AsyncIterator[str]:
+    async def stopped_at_the_limit(command: list[str], *args: object, **options: object) -> AsyncIterator[str]:
         starts.append(command)
         await anyio.sleep(1)  # the runner's limit passes; a real program is killed here
         raise AssistantError("The provider's program passed its time limit and was stopped.")
@@ -331,3 +331,12 @@ async def test_a_call_that_passes_its_time_limit_counts_its_cap_and_isnt_retried
     with pytest.raises(PaidCallFailed) as raised:
         _ = [chunk async for chunk in claude.answer(QuestionRequest("shop", "What?", "en"))]
     assert raised.value.cost_usd == 0.25
+
+
+@pytest.mark.anyio
+async def test_a_configured_output_cap_stops_claude(source: Path, tmp_path: Path) -> None:
+    program = make_program(tmp_path / "bin", "fake-claude", [{"type": "system", "text": "x" * 500}, result(PAGE)])
+    claude = adapter(source, program)
+    claude.max_output_bytes = 200
+    with pytest.raises(AssistantError, match="more than 200 bytes"):
+        await claude.write_page(page_request())

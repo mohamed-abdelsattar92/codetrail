@@ -87,6 +87,7 @@ class ClaudeCodeAssistant:
         answer_limits: tuple[int, float] = (20, 1.0),
         grade_budget_usd: float = 0.25,
         environ: Mapping[str, str] = os.environ,
+        max_output_bytes: int = runner.MAX_OUTPUT_BYTES,
     ) -> None:
         self.root = source_root.resolve()
         self.models = dict(models)
@@ -97,6 +98,7 @@ class ClaudeCodeAssistant:
         self.grade_budget_usd = grade_budget_usd
         self.environment = child_environment(PROVIDER, settings.auth, environ)
         self.program = resolve_program(settings.command, self.environment.get("PATH", ""))
+        self.max_output_bytes = max_output_bytes  # [providers] max_output_bytes
 
     async def plan(self, request: PlanRequest) -> PlanDraft:
         data, files, usage = await self._run("plan", plan_prompt(request), PLAN_SCHEMA, GROUND_RULES)
@@ -153,7 +155,12 @@ class ClaudeCodeAssistant:
                 partial=True,
             )
             lines = runner.run_program(
-                command, neutralize(answer_prompt(request)), self.root, self.environment, self.settings.timeout_seconds
+                command,
+                neutralize(answer_prompt(request)),
+                self.root,
+                self.environment,
+                self.settings.timeout_seconds,
+                max_output_bytes=self.max_output_bytes,
             )
             try:
                 async with aclosing(lines):
@@ -195,7 +202,12 @@ class ClaudeCodeAssistant:
                 )
                 try:
                     lines = runner.run_program(
-                        command, neutralize(prompt), self.root, self.environment, self.settings.timeout_seconds
+                        command,
+                        neutralize(prompt),
+                        self.root,
+                        self.environment,
+                        self.settings.timeout_seconds,
+                        max_output_bytes=self.max_output_bytes,
                     )
                     async with aclosing(lines):
                         async for event in _events(lines):

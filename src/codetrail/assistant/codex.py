@@ -94,6 +94,7 @@ class CodexAssistant:
         limits: GenerationSettings,
         retries: int = 2,
         environ: Mapping[str, str] = os.environ,
+        max_output_bytes: int = runner.MAX_OUTPUT_BYTES,
     ) -> None:
         self.root = source_root.resolve()
         self.models = dict(models)
@@ -101,6 +102,7 @@ class CodexAssistant:
         self.limits = limits
         self.retries = retries
         self.environ = dict(environ)
+        self.max_output_bytes = max_output_bytes  # [providers] max_output_bytes
         self.program = resolve_program(settings.command, self.environ.get("PATH", ""))
 
     async def plan(self, request: PlanRequest) -> PlanDraft:
@@ -187,7 +189,8 @@ class CodexAssistant:
             text = neutralize(f"{rules}\n\n{prompt}")
             started = anyio.current_time()
             try:
-                lines = runner.run_program(command, text, self.root, environment, self.settings.timeout_seconds)
+                lines = runner.run_program(command, text, self.root, environment, self.settings.timeout_seconds,
+                                           max_output_bytes=self.max_output_bytes)  # fmt: skip
                 async with aclosing(lines):
                     async for line in lines:
                         self._note(line, outcome)

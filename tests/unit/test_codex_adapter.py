@@ -262,7 +262,7 @@ async def test_a_call_that_passes_its_time_limit_counts_its_token_cap_and_isnt_r
     """Codex reports tokens only when a turn ends, so a call stopped mid-turn counts its whole token limit."""
     starts: list[list[str]] = []
 
-    async def stopped_at_the_limit(command: list[str], *args: object) -> AsyncIterator[str]:
+    async def stopped_at_the_limit(command: list[str], *args: object, **options: object) -> AsyncIterator[str]:
         starts.append(command)
         for line in lines:
             yield line
@@ -280,3 +280,13 @@ async def test_a_call_that_passes_its_time_limit_counts_its_token_cap_and_isnt_r
     assert (usage.provider, usage.model, usage.tokens) == ("codex", "gpt-5.5-codex", 4000)
     assert usage.cached_input_tokens == (400 if lines else 0)  # what Codex reported keeps its kind
     assert len(starts) == 1  # no retry
+
+
+@pytest.mark.anyio
+async def test_a_configured_output_cap_stops_codex(source: Path, tmp_path: Path) -> None:
+    program = make_program(tmp_path / "bin", "fake-codex", [{"type": "thread.started", "id": "x" * 500},
+                                                            message(json.dumps(PAGE)), turn()])  # fmt: skip
+    codex = adapter(source, program)
+    codex.max_output_bytes = 200
+    with pytest.raises(AssistantError, match="more than 200 bytes"):
+        await codex.write_page(page_request())
