@@ -1457,7 +1457,7 @@ highlights_per_digest = 3             # 0 to 10
 max_overview_words = 250              # 50 to 1000
 ```
 
-Each team's file holds its sources, `[models] overview`, `catch_up.max_budget_usd`, `catch_up.concurrency` and `catch_up.max_budget_usd_per_call` (1.0 by default, above 0: the overview call's own limit, as `generation.max_budget_usd_per_call` is a page call's) (section 24.5). Both budgets must be finite numbers above 0: `inf` and `nan` are refused when the file is read. The starting estimate for `overview` joins `[estimates]`.
+Each team's file holds its sources, `[models] overview`, `catch_up.max_budget_usd`, `catch_up.concurrency` and `catch_up.max_budget_usd_per_call` (1.0 by default, above 0: the overview call's own limit, as `generation.max_budget_usd_per_call` is a page call's) (section 24.5). Both budgets must be numbers above 0. No setting in any configuration file takes `inf` or `nan`: they are refused when the file is read. The starting estimate for `overview` joins `[estimates]`.
 
 ### 24.11 Security
 - **Who can reach it:** the new routes follow section 7.4 unchanged (`127.0.0.1`, `Host`, `Origin`, the token, `Sec-Fetch-Site`, the session). `POST /team/repositories` changes configuration and starts free work (network, disk and time). A local server holding the session cookie (section 7.4) could make the reader follow repositories their own sign-in can already read, but it can't make paid work run without an estimate id, which it can't read.

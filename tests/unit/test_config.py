@@ -9,6 +9,7 @@ from codetrail.config import (
     TEAM_NAME,
     AgentSettings,
     EstimateSettings,
+    GenerationSettings,
     GlobalConfig,
     Paths,
     RemoteSettings,
@@ -87,6 +88,29 @@ def test_a_gitleaks_timeout_outside_a_day_is_refused(paths: Paths, timeout: str)
     (paths.config_dir / "config.toml").write_text(f"[tools]\ngitleaks_timeout_seconds = {timeout}\n")
     with pytest.raises(CodetrailError, match="gitleaks_timeout_seconds"):
         load_global(paths)
+
+
+@pytest.mark.parametrize("value", ["inf", "-inf", "nan"])
+@pytest.mark.parametrize(
+    "setting",
+    [
+        "[bridge]\nmax_budget_usd",
+        "[learn]\nmax_budget_usd",
+        '[prices."claude-sonnet-5-5"]\noutput = 1\ninput',
+    ],
+)
+def test_a_number_that_isn_t_finite_is_refused(paths: Paths, setting: str, value: str) -> None:
+    # Infinity would mean no limit at all, and NaN compares false with every limit.
+    paths.config_dir.mkdir(parents=True)
+    (paths.config_dir / "config.toml").write_text(f"{setting} = {value}\n")
+    with pytest.raises(CodetrailError):
+        load_global(paths)
+
+
+@pytest.mark.parametrize("field", ["max_budget_usd_per_call", "max_budget_usd_per_update"])
+def test_a_generation_budget_that_isn_t_finite_is_refused(field: str) -> None:
+    with pytest.raises(ValidationError, match="finite"):
+        GenerationSettings.model_validate({field: float("inf")})
 
 
 def test_unknown_global_keys_are_refused_by_name(paths: Paths) -> None:
