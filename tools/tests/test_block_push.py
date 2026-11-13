@@ -417,6 +417,22 @@ GUARDRAIL_WRITES = [
     "echo x > .mise.local.toml",
     "echo x > .config/mise/config.toml",
     "echo x > .config/mise/conf.d/x.toml",
+    # re-review: a brace range, and the rest of the checklist's guardrails (L1, L3)
+    "cp /tmp/x .claude/hook{s..s}/block_push.py",
+    "echo x > tools/tests/notes.txt",
+    "rm -rf tools/tests/__pycache__",
+    "echo x > tools/hooks/check_files.py",
+    "echo x > .mise/config.toml",
+    "echo x > mise/config.toml",
+    "echo x > mise.ci.toml",
+    "echo x > .mise.production.local.toml",
+    "echo x > mise.lock",
+    "echo x > .lefthook.yaml",
+    "echo x > lefthook-local.json",
+    "echo x > .config/lefthook.toml",
+    "echo x > .lefthook/pre-commit/x.sh",
+    "echo x > .gitleaks.toml",
+    "echo x >> .gitleaksignore",
 ]
 
 GUARDRAIL_READS = [
@@ -434,9 +450,7 @@ GUARDRAIL_READS = [
     "git checkout --force develop",
     "grep -n LEFTHOOK tools/git-hooks/run-lefthook",
     "diff .codex/rules/no-push.rules /tmp/rules",
-    "echo x > tools/tests/notes.txt",
     "echo x > docs/claude/settings.json",
-    "rm -rf tools/tests/__pycache__",
     "sed -n '/word/p' .claude/settings.json",
     "cat AGENTS.md",
     "grep -n test justfile",

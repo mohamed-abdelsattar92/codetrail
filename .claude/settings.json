@@ -68,14 +68,17 @@
       "Edit(//**/.github/**)",
       "Edit(//**/commitlint*.mjs)",
       "Edit(//**/justfile)",
-      "Edit(//**/lefthook*.yml)",
-      "Edit(//**/.mise.toml)",
-      "Edit(//**/mise.toml)",
-      "Edit(//**/.mise.local.toml)",
-      "Edit(//**/mise.local.toml)",
-      "Edit(//**/.config/mise*)",
-      "Edit(//**/.config/mise/**)",
+      "Edit(//**/*lefthook*)",
+      "Edit(//**/*lefthook*/**)",
+      "Edit(//**/*mise*.toml)",
+      "Edit(//**/mise.lock)",
+      "Edit(//**/.mise/**)",
+      "Edit(//**/mise/**)",
       "Edit(//**/tools/git-hooks/**)",
+      "Edit(//**/tools/hooks/**)",
+      "Edit(//**/tools/tests/**)",
+      "Edit(//**/.gitleaks.toml)",
+      "Edit(//**/.gitleaksignore)",
       "Edit(~/.claude/settings.json)"
     ]
   },
@@ -86,11 +89,13 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/block_push.py\""
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/block_push.py\"",
+            "timeout": 30
           },
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/block_secret_reads.py\""
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/block_secret_reads.py\"",
+            "timeout": 30
           }
         ]
       }

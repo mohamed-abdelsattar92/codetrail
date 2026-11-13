@@ -12,9 +12,10 @@ It also blocks skipping the git hooks (AGENTS.md, Never do, rule 8): --no-verify
 merges and git-flow finishes, `git commit -n`, LEFTHOOK=0 or LEFTHOOK_EXCLUDE, and core.hooksPath.
 It blocks the plain ways of moving refs by hand (git update-ref, or a fetch that writes refs/remotes), since the
 security review reads origin/develop; the review also reads it by its full name with replace objects off.
-It refuses the shell writes it recognises to the guardrails themselves (everything the security checklist calls one:
-AGENTS.md and CLAUDE.md files, .mcp.json, .claude's hooks, agents, commands, skills, rules and settings, .codex,
-docs/security, .github, the commitlint files, the justfile, lefthook files, mise's files and tools/git-hooks): a
+It refuses the shell writes it recognises to the guardrails themselves (the files the security checklist
+says it covers: AGENTS.md and CLAUDE.md files, .mcp.json, .claude's hooks, agents, commands, skills, rules and settings,
+.codex, docs/security, .github, the commitlint files, the justfile, lefthook, mise and gitleaks files, tools/git-hooks,
+tools/hooks and tools/tests): a
 redirection into one, and any program but a read-only one (cat, grep, sed without -i or w, find without actions, git
 show, diff, log, status, add or commit...) given a word that names one. Each word is resolved against the shell's folder (followed through cd), symbolic links included; a glob is
 expanded there, and a word with an expansion or a folder the guard can't work out counts when its name could be one.
@@ -150,16 +151,16 @@ FORCE_CREATE_STUCK = re.compile(r'-[A-Za-z]*[BC](develop|main)|--force-create=(d
 # (security audit, low E8, and the branch's review). macOS's file system ignores case.
 GUARDRAIL = re.compile(
     r'(^|/)(\.claude/(hooks|agents|commands|skills|rules)(/|$)|\.claude/settings(\.local)?\.json$|\.codex(/|$)'
-    r'|tools/git-hooks(/|$)|docs/security(/|$)|\.github(/|$)|\.config/mise[^/]*(/|$)|\.mise(/|$)'
-    r'|(AGENTS\.md|CLAUDE(\.local)?\.md|\.mcp\.json|justfile|commitlint[^/]*\.mjs|lefthook[^/]*\.ya?ml'
-    r'|\.?mise(\.local)?\.toml)$)', re.I)
+    r'|tools/(git-hooks|hooks|tests)(/|$)|docs/security(/|$)|\.github(/|$)|\.?mise(/|$)|[^/]*lefthook[^/]*(/|$)'
+    r'|([^/]*mise[^/]*\.toml|mise\.lock|\.gitleaks\.toml|\.gitleaksignore|AGENTS\.md|CLAUDE(\.local)?\.md|\.mcp\.json'
+    r'|justfile|commitlint[^/]*\.mjs)$)', re.I)
 # Their names, matched alone when the guard can't work out the folder a word is relative to.
 GUARDRAIL_NAMES = {'.claude', '.codex', '.github', 'hooks', 'agents', 'commands', 'skills', 'rules', 'security',
                    'git-hooks', 'settings.json', 'settings.local.json', 'no-push.rules', 'lefthook.yml', 'agents.md',
                    'claude.md', 'claude.local.md', '.mcp.json', 'justfile', 'commitlint.config.mjs',
                    'commitlint.ci.config.mjs', '.mise.toml', 'mise.toml', '.mise.local.toml', 'mise.local.toml',
                    'block_push.py', 'block_secret_reads.py', 'reviewer_allowlist.py', 'run-lefthook', 'pre-push',
-                   'pre-commit', 'commit-msg', 'agent-push-guard'}
+                   'pre-commit', 'commit-msg', 'agent-push-guard', 'check_files.py'}
 # The folders that hold them: removing, moving or copying over one changes the guardrails in it.
 GUARDRAIL_FOLDER = re.compile(r'(^|/)(\.claude|tools|docs|\.config)$', re.I)
 CHANGES_FOLDERS = {'rm', 'rmdir', 'mv', 'cp', 'ln', 'install', 'rsync', 'chmod', 'chown', 'chflags', 'find',
@@ -260,8 +261,7 @@ def names_guardrail(word, folder, folders=False):
     if re.match(r'^-?[\w.-]+=', path): path = path.split('=', 1)[1].strip('\'"')  # --target-directory=x, of=x
     if not path or re.search(r'\s', path): return False  # prose, such as a commit message
     if BRACES.search(path):  # the shell expands {a,b} into words; a range {1..3} only it can work out
-        if '..' in path:
-            path = BRACES.sub('', path) + '$'
+        if '..' in path: return True  # a range: only the shell knows the words, so it could name one
         else:
             group = re.search(r'\{([^{}]*)\}', path)
             return any(names_guardrail(path[:group.start()] + part + path[group.end():], folder, folders)
