@@ -6,7 +6,14 @@ from typing import Any
 
 import pytest
 
-from codetrail.assistant import AssistantError, OverviewRequest, PageRequest, PaidCallFailed, QuestionRequest
+from codetrail.assistant import (
+    AssistantError,
+    GradeRequest,
+    OverviewRequest,
+    PageRequest,
+    PaidCallFailed,
+    QuestionRequest,
+)
 from codetrail.assistant.codex import CodexAssistant
 from codetrail.assistant.prompts import FULLWIDTH_AT
 from codetrail.config import CodexSettings, GenerationSettings
@@ -93,6 +100,7 @@ async def test_a_page_runs_codex_read_only_and_isolated(source: Path, tmp_path: 
         "notify=[]",
         "project_doc_max_bytes=0",
         'shell_environment_policy.inherit="none"',
+        'web_search="disabled"',  # whatever the reader's config.toml says: nothing read can leave in a search
         # the commands Codex runs start from an empty environment, so they get git's guard against a bare repository
         # committed at source/'s root here (section 15.5)
         'shell_environment_policy.set.GIT_CONFIG_COUNT="1"',
@@ -230,4 +238,13 @@ async def test_overview_refuses_codex_adapter(source: Path, tmp_path: Path) -> N
     program = make_program(tmp_path / "bin", "fake-codex", [])
     with pytest.raises(AssistantError, match="overview can't use Codex"):
         await adapter(source, program).write_overview(OverviewRequest("platform", [], 250))
+    assert not program.record_file.exists()  # Codex never ran
+
+
+@pytest.mark.anyio
+async def test_grading_refuses_codex(source: Path, tmp_path: Path) -> None:
+    """Grading has no tools at all (design 8.2), and Codex can't run without its shell (15.5)."""
+    program = make_program(tmp_path / "bin", "fake-codex", [])
+    with pytest.raises(AssistantError, match="Grading can't use Codex"):
+        await adapter(source, program).grade(GradeRequest("Why?", [], "The app", "body", "answer", "en"))
     assert not program.record_file.exists()  # Codex never ran

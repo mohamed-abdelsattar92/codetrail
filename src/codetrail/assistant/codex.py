@@ -44,14 +44,11 @@ from codetrail.assistant.environment import GIT_GUARD, child_environment, resolv
 from codetrail.assistant.prompts import (
     ANSWER_RULES,
     DIGEST_SCHEMA,
-    GRADE_RULES,
-    GRADE_SCHEMA,
     GROUND_RULES,
     PAGE_SYNTAX,
     PLAN_SCHEMA,
     answer_prompt,
     digest_prompt,
-    grade_prompt,
     neutralize,
     page_task,
     plan_prompt,
@@ -66,6 +63,8 @@ ISOLATION = (
     "notify=[]",
     "project_doc_max_bytes=0",
     'shell_environment_policy.inherit="none"',
+    # Codex 0.167 accepts disabled, cached, indexed or live; a search would carry what Codex read off the machine.
+    'web_search="disabled"',
     *(f"shell_environment_policy.set.{name}={json.dumps(value)}" for name, value in GIT_GUARD.items()),
 )
 
@@ -121,9 +120,8 @@ class CodexAssistant:
         return DigestDraft(title, body, highlights, outcome.files_read, 0.0, usage)
 
     async def grade(self, request: GradeRequest) -> Verdict:
-        data, _outcome, usage = await self._run("grade", GRADE_RULES, grade_prompt(request), GRADE_SCHEMA)
-        missed = [str(item) for item in data.get("missed", [])]
-        return Verdict(str(data.get("verdict", "")), missed, str(data.get("feedback", "")), 0.0, usage)
+        """Refused: grading has no tools at all (design section 8.2), and Codex can't run without its shell."""
+        raise AssistantError("Grading can't use Codex, which always has its shell; choose another provider for grade.")
 
     async def write_overview(self, request: OverviewRequest) -> OverviewDraft:
         """Refused: Codex can't be confined, and a team has no opt-in for it (design section 24.9)."""

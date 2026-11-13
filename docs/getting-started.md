@@ -173,7 +173,7 @@ answer = "local:qwen3:14b"          # questions answered by a model on your mach
 grade = "claude_code:claude-sonnet-5-5"
 ```
 
-To use Codex for a target, opt in first. Codex's sandbox stops writes but not reads, and its tools are shell commands. So Codex can read anything you can, including the files Codetrail hides (through Codetrail's own data folder) and your own keys, can run the repository's code inside its sandbox, and sends whatever it reads to OpenAI before Codetrail's scan sees it. Use it only for repositories where that's acceptable:
+To use Codex for a target, opt in first. Codex's sandbox stops writes but not reads, and its tools are shell commands. So Codex can read anything you can, including the files Codetrail hides (through Codetrail's own data folder) and your own keys, can run the repository's code inside its sandbox, and sends whatever it reads to OpenAI before Codetrail's scan sees it. Codetrail turns its web search off, and never uses it to grade a check or write a team's overview, which run with no tools at all. Use it only for repositories where that's acceptable:
 
 ```toml
 [assistant]
