@@ -23,6 +23,13 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 - The PyPI page shows the README's screenshots, diagrams and logo, and its links open the files on GitHub, at the release's tag.
 
 ### Security
+- A provider or hosting program that writes more than its output limit (50 MB per stream for providers, `hosting.max_output_bytes` for hosting reads) is stopped at once, instead of being read whole first.
+- A third repository whose name matches two others no longer stops a team's sync: target names are numbered until one is free.
+- Azure DevOps names holding a lone surrogate, a private-use or unassigned character, or a line or paragraph separator are refused, so they can no longer crash `team serve` or leave empty target files.
+- A catch-up started just as another finished can no longer skip the cooldown.
+- The hosting read guard checks every argument after `gh repo list`, and `api` reads take exactly one path.
+- `inf` and `nan` are refused in every setting, including the `[catch_up]`, `[bridge]`, `[learn]` and `[generation]` budgets and prices, so a budget can no longer mean no limit or make a team file stop loading.
+- The add-repositories screen links only Codetrail's own install pages in a service's hint.
 - Dependencies with known vulnerabilities are updated: certifi 2026.10.23 (it dropped root certificates whose intermediate keys were compromised), opentelemetry-api 1.45.2 (unbounded `tracestate` parsing), and, in the commit-message tooling, fast-uri 3.1.9.
 - A target that commits a bare repository's files at its root (`HEAD`, `config`, `objects/`, `refs/`) can no longer make a provider's own `git status` run a command it planted: providers' git refuses implicit bare repositories.
 - Links and images in guide pages, digests, overviews and answers keep only `http`, `https` or relative addresses, so text a target plants can no longer make a link that opens another app (`vscode:`, `smb:`, `ssh:` and the like).
