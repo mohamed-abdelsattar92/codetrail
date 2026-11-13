@@ -49,6 +49,17 @@ jobs:
       # Only develop's pushes: a release branch carries no commits of its own, so a release pull request into main
       # brings only what develop checked; a hotfix's commits are checked when main is merged back into develop
       # (CONTRIBUTING.md, Releasing), and by the commit-msg hook before that.
+      # CI's rules skip a message that ends with Dependabot's sign-off, which anyone can write, so first GitHub must
+      # report each such commit verified and authored by dependabot[bot]. The workflow's own token reads the commits
+      # (contents: read); only this step gets it.
+      - name: Dependabot's sign-offs in this push
+        if: github.event_name == 'push' && github.ref == 'refs/heads/develop' && github.event.before != '0000000000000000000000000000000000000000'
+        env:
+          REPOSITORY: ${{ github.repository }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: python3 tools/dependabot_sign_offs.py "$REPOSITORY" "$BEFORE" "$AFTER"
       - name: Commit messages in this push
         if: github.event_name == 'push' && github.ref == 'refs/heads/develop' && github.event.before != '0000000000000000000000000000000000000000'
         env:

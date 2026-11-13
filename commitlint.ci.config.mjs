@@ -1,7 +1,9 @@
 // CI's commit message rules: the local ones (commitlint.config.mjs), plus Dependabot's security updates, whose
 // messages can't carry our sections. They reach develop only through GitHub, when the founder merges one of
 // Dependabot's pull requests, so only CI's check of a push skips them. A commit is skipped only when Dependabot's
-// sign-off is its last line; the local commit-msg hook never skips it, so no local commit can use the line.
+// sign-off is its last line; the local commit-msg hook never skips it, so no local commit can use the line. Anyone
+// can write the line in a commit made elsewhere, so CI first runs tools/dependabot_sign_offs.py, which fails unless
+// GitHub reports each such commit verified and authored by dependabot[bot].
 import base from "./commitlint.config.mjs";
 
 const DEPENDABOT_SIGN_OFF = /\nSigned-off-by: dependabot\[bot\] <support@github\.com>\s*$/;
