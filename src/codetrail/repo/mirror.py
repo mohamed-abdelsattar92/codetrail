@@ -13,6 +13,9 @@ from pathlib import Path
 from codetrail.errors import CodetrailError
 from codetrail.repo.git import run_git
 
+# git checks every object a clone or fetch receives and refuses a malformed one, rather than storing it in the mirror.
+CHECK_OBJECTS = ("-c", "transfer.fsckObjects=true")
+
 
 @dataclass(frozen=True)
 class TreeEntry:
@@ -56,6 +59,7 @@ def refresh_mirror_from(
     on objects the mirror holds, so no other branch's commits come in (design section 19.2). Its errors are replaced,
     since they name tags.
     """
+    git_options = [*CHECK_OBJECTS, *git_options]
     if not (mirror / "HEAD").exists():
         mirror.parent.mkdir(parents=True, exist_ok=True)
         run_git(

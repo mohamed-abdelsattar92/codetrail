@@ -137,3 +137,30 @@ def test_a_failed_tag_fetch_never_names_the_tag(checkout: Path, tmp_path: Path) 
         refresh_mirror(mirror, checkout, "develop")
     assert "another-unscanned-name" not in str(raised.value)
     assert "tags" in str(raised.value)
+
+
+def test_malformed_objects_are_refused(checkout: Path, tmp_path: Path) -> None:
+    """git checks every object it receives (transfer.fsckObjects): a commit with no author email never lands."""
+    tree = git(checkout, "rev-parse", "HEAD^{tree}")
+    commit = tmp_path / "commit.txt"
+    commit.write_text(f"tree {tree}\nauthor Someone 1700000000 +0000\ncommitter Someone <s@x> 1700000000 +0000\n\nx\n")
+    malformed = git(checkout, "hash-object", "-t", "commit", "-w", "--literally", str(commit))
+    git(checkout, "update-ref", "refs/heads/develop", malformed)
+    mirror = tmp_path / "mirror.git"
+    with pytest.raises(CodetrailError, match="missingEmail"):
+        refresh_mirror(mirror, checkout, "develop")
+
+
+def test_a_fetch_checks_objects_too(checkout: Path, tmp_path: Path) -> None:
+    mirror = tmp_path / "mirror.git"
+    refresh_mirror(mirror, checkout, "develop")
+    tree = git(checkout, "rev-parse", "HEAD^{tree}")
+    parent = git(checkout, "rev-parse", "HEAD")
+    commit = tmp_path / "commit.txt"
+    commit.write_text(
+        f"tree {tree}\nparent {parent}\nauthor Someone 1700000000 +0000\ncommitter S <s@x> 1700000000 +0000\n\nx\n"
+    )
+    malformed = git(checkout, "hash-object", "-t", "commit", "-w", "--literally", str(commit))
+    git(checkout, "update-ref", "refs/heads/develop", malformed)
+    with pytest.raises(CodetrailError, match="missingEmail"):
+        refresh_mirror(mirror, checkout, "develop")
