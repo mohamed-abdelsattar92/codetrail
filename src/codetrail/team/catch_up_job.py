@@ -134,25 +134,26 @@ class CatchUpJob:
             wait_for_cleanup(self._thread, "Stopping the catch-up started from the page; waiting for its cleanup.")
 
     def _work(self) -> None:
+        outcome: tuple[str, str] | None = None  # the state and message it ends with
         try:
             result = self._run(self._confirm, self._report, self._stopping)
         except CodetrailError as error:
-            self.state, self.message = "failed", str(error)
+            outcome = "failed", str(error)
         except Exception as error:  # the page shows a generic message; details stay in the log
             logger.warning("The catch-up failed: %s", type(error).__name__, exc_info=True)
-            self.state, self.message = (
-                "failed",
-                self.gettext("The catch-up failed (%(error)s).") % {"error": type(error).__name__},
-            )
+            outcome = "failed", self.gettext("The catch-up failed (%(error)s).") % {"error": type(error).__name__}
         else:
             if self._declined or getattr(result, "declined", False):
                 reason = self.message or self.gettext("The catch-up was cancelled.")
                 declined = self.gettext("%(reason)s The facts were refreshed; no guide was updated.")
-                self.state, self.message = "declined", declined % {"reason": reason}
+                outcome = "declined", declined % {"reason": reason}
             else:
-                self.state, self.message = "done", ""
+                outcome = "done", ""
         finally:
-            self._finished_at = time.monotonic()
+            with self._lock:  # with the finish time, so start() never sees a finished state without it
+                if outcome is not None:
+                    self.state, self.message = outcome
+                self._finished_at = time.monotonic()
 
     def _report(self, step: dict[str, object]) -> None:
         with self._lock:

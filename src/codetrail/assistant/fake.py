@@ -32,7 +32,7 @@ class FakeAssistant:
     digests: list[DigestDraft | Exception] = field(default_factory=list)
     answers: list[list[AnswerChunk] | Exception] = field(default_factory=list)
     verdicts: list[Verdict | Exception] = field(default_factory=list)
-    overviews: list[OverviewDraft | Exception] = field(default_factory=list)
+    overviews: list[OverviewDraft | BaseException] = field(default_factory=list)  # BaseException: a cancellation
     requests: list[PlanRequest | PageRequest | DigestRequest | QuestionRequest | GradeRequest | OverviewRequest] = (
         field(default_factory=list)
     )
@@ -85,6 +85,6 @@ class FakeAssistant:
     async def write_overview(self, request: OverviewRequest) -> OverviewDraft:
         self.requests.append(request)
         draft = self.overviews.pop(0) if self.overviews else OverviewDraft("Across the team, things changed.")
-        if isinstance(draft, Exception):
+        if isinstance(draft, BaseException):
             raise draft
         return draft

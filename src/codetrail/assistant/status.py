@@ -87,7 +87,11 @@ def _claude_code(settings: GlobalConfig, environ: Mapping[str, str]) -> Provider
     with tempfile.TemporaryDirectory() as folder:
         try:
             _code, output = runner.run_command(
-                [program, "auth", "status", "--json"], Path(folder), environment, CHECK_TIMEOUT_SECONDS
+                [program, "auth", "status", "--json"],
+                Path(folder),
+                environment,
+                CHECK_TIMEOUT_SECONDS,
+                max_output_bytes=settings.providers.max_output_bytes,
             )
             found = json.loads(output)
         except AssistantError, ValueError:
@@ -147,6 +151,7 @@ def _codex(settings: GlobalConfig, environ: Mapping[str, str]) -> ProviderStatus
                 environment,
                 CHECK_TIMEOUT_SECONDS,
                 include_stderr=True,
+                max_output_bytes=settings.providers.max_output_bytes,
             )
         except AssistantError:
             code, output = 1, ""

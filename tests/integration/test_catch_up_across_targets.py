@@ -85,6 +85,9 @@ def team(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Team]:
 def set_catch_up(paths: Paths, budget_usd: float, concurrency: int) -> None:
     file = paths.team_file("acme")
     file.write_text(file.read_text() + f"\n[catch_up]\nmax_budget_usd = {budget_usd}\nconcurrency = {concurrency}\n")
+    for target in ("acme-web-shop", "acme-payments"):  # a call reserves its cap in the team's budget: it must fit
+        target_file = paths.target_file(target)
+        target_file.write_text(target_file.read_text() + f"\n[generation]\nmax_budget_usd_per_call = {budget_usd}\n")
 
 
 def test_catch_up_one_target_fails_others_commit(team: Team) -> None:

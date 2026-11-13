@@ -9,6 +9,7 @@ from codetrail.config import (
     TEAM_NAME,
     AgentSettings,
     EstimateSettings,
+    GenerationSettings,
     GlobalConfig,
     Paths,
     RemoteSettings,
@@ -87,6 +88,29 @@ def test_a_gitleaks_timeout_outside_a_day_is_refused(paths: Paths, timeout: str)
     (paths.config_dir / "config.toml").write_text(f"[tools]\ngitleaks_timeout_seconds = {timeout}\n")
     with pytest.raises(CodetrailError, match="gitleaks_timeout_seconds"):
         load_global(paths)
+
+
+@pytest.mark.parametrize("value", ["inf", "-inf", "nan"])
+@pytest.mark.parametrize(
+    "setting",
+    [
+        "[bridge]\nmax_budget_usd",
+        "[learn]\nmax_budget_usd",
+        '[prices."claude-sonnet-5-5"]\noutput = 1\ninput',
+    ],
+)
+def test_a_number_that_isn_t_finite_is_refused(paths: Paths, setting: str, value: str) -> None:
+    # Infinity would mean no limit at all, and NaN compares false with every limit.
+    paths.config_dir.mkdir(parents=True)
+    (paths.config_dir / "config.toml").write_text(f"{setting} = {value}\n")
+    with pytest.raises(CodetrailError):
+        load_global(paths)
+
+
+@pytest.mark.parametrize("field", ["max_budget_usd_per_call", "max_budget_usd_per_update"])
+def test_a_generation_budget_that_isn_t_finite_is_refused(field: str) -> None:
+    with pytest.raises(ValidationError, match="finite"):
+        GenerationSettings.model_validate({field: float("inf")})
 
 
 def test_unknown_global_keys_are_refused_by_name(paths: Paths) -> None:
@@ -537,6 +561,21 @@ def test_target_names_from_awkward_repository_names() -> None:
     assert clash_of_long != long_name
 
 
+def test_a_clash_with_a_suffixed_name_counts_on() -> None:
+    taken = {"acme-web-shop", "acme-web-shop-rkgdoe"}
+    assert team_target_name("acme", "web-shop", taken, "R_kgDOExample2") == "acme-web-shop-rkgdoe-2"
+    long_name = team_target_name("acme", "x" * 70, set())
+    taken_long = {long_name, team_target_name("acme", "x" * 70, {long_name}, "R_kgDOExample")}
+    third = team_target_name("acme", "x" * 70, taken_long, "R_kgDOExample")
+    assert third.endswith("-rkgdoe-2")
+    assert validate_target_name(third) == third
+    assert third not in taken_long
+
+
+def test_a_clash_without_letters_or_digits_in_the_id_is_numbered() -> None:
+    assert team_target_name("acme", "web-shop", {"acme-web-shop"}, "__") == "acme-web-shop-2"
+
+
 def test_the_model_stores_the_normalized_azure_url() -> None:
     remote = RemoteSettings.model_validate(
         {
@@ -635,9 +674,32 @@ def test_team_overview_refuses_codex(paths: Paths) -> None:
         load_team(paths, "acme")
 
 
-@pytest.mark.parametrize("text", ["max_budget_usd = 0", "concurrency = 0", "concurrency = 9"])
+@pytest.mark.parametrize(
+    "text",
+    [
+        "max_budget_usd = 0",
+        "concurrency = 0",
+        "concurrency = 9",
+        # Not finite: no limit at all, and a save would write them back as text TOML can't read.
+        "max_budget_usd = inf",
+        "max_budget_usd = nan",
+        "max_budget_usd_per_call = inf",
+        "max_budget_usd_per_call = nan",
+    ],
+)
 def test_catch_up_ranges(paths: Paths, text: str) -> None:
     paths.team_file("acme").parent.mkdir(parents=True)
     paths.team_file("acme").write_text(f"[catch_up]\n{text}\n", encoding="utf-8")
     with pytest.raises(CodetrailError):
         load_team(paths, "acme")
+
+
+def test_providers_output_is_capped_by_configuration(paths: Paths) -> None:
+    assert load_global(paths).providers.max_output_bytes == 50_000_000
+    paths.config_dir.mkdir(parents=True)
+    config = paths.config_dir / "config.toml"
+    config.write_text("[providers]\nmax_output_bytes = 1000000\n")
+    assert load_global(paths).providers.max_output_bytes == 1_000_000
+    config.write_text("[providers]\nmax_output_bytes = 0\n")
+    with pytest.raises(CodetrailError, match="max_output_bytes"):
+        load_global(paths)

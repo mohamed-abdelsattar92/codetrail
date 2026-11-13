@@ -1,14 +1,18 @@
 """The local provider's file tools, implemented by Codetrail: Read, Grep and Glob, only inside `source/` (design 15.1).
 
 Every path goes through the tool guard. Grep searches for plain text, never a regular expression, so no pattern from
-the model can run away; Glob patterns are short, with few wildcards, for the same reason. A refusal comes back to the
-model as text starting with "Refused:", so it can try something else.
+the model can run away; Glob patterns are short, with few wildcards, and are matched one path segment at a time with
+fnmatch, for the same reason. A search runs in a worker thread, which nothing can stop, so it checks the call's deadline
+at every file and stops itself once it passes. A refusal comes back to the model as text starting with "Refused:", so it
+can try something else.
 """
 
 from __future__ import annotations
 
 import fnmatch
-from collections.abc import Mapping
+import math
+import time
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -85,16 +89,18 @@ class LocalTools:
     def files_read(self) -> list[str]:
         return self.guard.files_read
 
-    def run(self, name: str, arguments: Mapping[str, Any]) -> str:
+    def run(self, name: str, arguments: Mapping[str, Any], deadline: float = math.inf) -> str:
+        """Runs one tool call; a search stops at `deadline`, a `time.monotonic()` value."""
         try:
             if name == "read":
                 return self._read(
                     _text(arguments, "path"), _number(arguments, "offset", 1), _number(arguments, "limit", 2000)
                 )
             if name == "grep":
-                return self._grep(_text(arguments, "text"), _text(arguments, "path", "."), arguments.get("glob"))
+                folder = _text(arguments, "path", ".")
+                return self._grep(_text(arguments, "text"), folder, arguments.get("glob"), deadline)
             if name == "glob":
-                return self._glob(_text(arguments, "pattern"), _text(arguments, "path", "."))
+                return self._glob(_text(arguments, "pattern"), _text(arguments, "path", "."), deadline)
             raise _Refused(f"{name} isn't a tool here; only read, grep and glob are.")
         except _Refused as refusal:
             return f"Refused: {refusal}"
@@ -110,15 +116,16 @@ class LocalTools:
         shown = lines[start - 1 : start - 1 + max(limit, 1)]
         return "\n".join(f"{start + index}\t{line}" for index, line in enumerate(shown))
 
-    def _grep(self, text: str, path: str, glob: object) -> str:
+    def _grep(self, text: str, path: str, glob: object, deadline: float) -> str:
         if not text:
             raise _Refused("grep needs some text to find.")
         folder = self._folder(path)
         pattern = _pattern(glob) if glob is not None else None
         needle = text.lower()
         found: list[str] = []
-        for file in sorted(folder.rglob("*")):
-            if not self._plain_file(file) or (pattern and not fnmatch.fnmatch(file.name, pattern)):
+        for file in self._files(folder, deadline):
+            _check(deadline)
+            if pattern and not fnmatch.fnmatch(file.name, pattern):
                 continue
             relative = file.relative_to(self.root).as_posix()
             with file.open("rb") as handle:
@@ -130,15 +137,27 @@ class LocalTools:
                         return "\n".join(found)
         return "\n".join(found) or "No matches."
 
-    def _glob(self, pattern: str, path: str) -> str:
+    def _glob(self, pattern: str, path: str, deadline: float) -> str:
         reason = self.guard.decide("Glob", {"pattern": _pattern(pattern), "path": path})
         if reason is not None:
             raise _Refused(reason)
         folder = self._folder(path)
-        paths = sorted(
-            file.relative_to(self.root).as_posix() for file in folder.glob(pattern) if self._plain_file(file)
-        )
+        segments = [segment for segment in pattern.split("/") if segment not in ("", ".")]
+        paths = [
+            file.relative_to(self.root).as_posix()
+            for file in self._files(folder, deadline)
+            if _matches(file.relative_to(folder).parts, segments)
+        ]
         return "\n".join(paths[:MAX_GLOB_PATHS]) or "No matches."
+
+    def _files(self, folder: Path, deadline: float) -> list[Path]:
+        """The plain files under a folder, in order; the walk stops at the deadline."""
+        found = []
+        for file in folder.rglob("*"):  # symlinked folders aren't followed
+            _check(deadline)
+            if self._plain_file(file):
+                found.append(file)
+        return sorted(found)
 
     def _plain_file(self, file: Path) -> bool:
         """A regular file inside the root, reached through no symlink: source/ never holds one, but don't rely on it."""
@@ -153,6 +172,39 @@ class LocalTools:
         if reason is not None or not folder.is_dir():
             raise _Refused(reason or f"{path} isn't a folder in the repository.")
         return folder
+
+
+def _check(deadline: float) -> None:
+    if time.monotonic() >= deadline:
+        raise _Refused("the call's time limit passed, so the search stopped.")
+
+
+def _matches(parts: Sequence[str], segments: Sequence[str]) -> bool:
+    """Whether a path's parts match a glob's segments, where `**` stands for any number of parts. It follows the set
+    of segments reached so far, so it takes at most parts x segments steps whatever the pattern, and fnmatch matches
+    each part without backtracking across a long name."""
+    reached = _past_stars({0}, segments)
+    for part in parts:
+        following = set()
+        for index in reached:
+            if index < len(segments) and segments[index] == "**":
+                following.add(index)
+            elif index < len(segments) and fnmatch.fnmatchcase(part, segments[index]):
+                following.add(index + 1)
+        reached = _past_stars(following, segments)
+        if not reached:
+            return False
+    return len(segments) in reached
+
+
+def _past_stars(reached: set[int], segments: Sequence[str]) -> set[int]:
+    """The segments reached, and those after any `**` among them, which can match no parts at all."""
+    found = set(reached)
+    for index in reached:
+        while index < len(segments) and segments[index] == "**":
+            index += 1
+            found.add(index)
+    return found
 
 
 def _pattern(value: object) -> str:

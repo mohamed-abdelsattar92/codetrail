@@ -27,6 +27,8 @@ REFUSED_SOURCES = {
         "contoso/-x",
         "contoso",
         "contoso/Platform/x",
+        "contoso/Plat\udfffform",  # a lone surrogate can't be written to the team file as UTF-8
+        "contoso/Plat\ue000form",  # private use
     ],
     "gitlab": ["example-group/../x", "-example", "example\x00group"],
 }
@@ -37,7 +39,19 @@ ACCEPTED_REPOSITORIES = {
 }
 REFUSED_REPOSITORIES = {
     "github": ["..", "-web-shop", "web\nshop"],
-    "azure_devops": [".hidden", "-web-shop", "web\u202eshop", "web\x1fshop", "a#b", "ends."],
+    "azure_devops": [
+        ".hidden",
+        "-web-shop",
+        "web\u202eshop",
+        "web\x1fshop",
+        "a#b",
+        "ends.",
+        "web\ud800shop",
+        "web\U000f0000shop",
+        "web\u2028shop",  # line separator
+        "web\u2029shop",  # paragraph separator
+        "web\U000e0080shop",  # unassigned
+    ],
     "gitlab": ["..", "-web-shop", "web\x00shop"],
 }
 

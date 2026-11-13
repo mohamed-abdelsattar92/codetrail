@@ -43,9 +43,15 @@ function element(tag, className, text) {
 
 // --- Services and sources ---
 
-// A service's fix is Codetrail's own text (the adapters' constants), never the service's: its https address becomes
-// a link and the command after "run: " a code span. Signed out, the fix is the command alone.
+// A service's fix is Codetrail's own text (the adapters' constants), never the service's: its install page becomes
+// a link and the command after "run: " a code span. Signed out, the fix is the command alone. Only the adapters'
+// own install pages become links; any other address stays text, so a fix can't add a link Codetrail didn't choose.
 const ADDRESS = /(https:\/\/[^\s,]+)/;
+const INSTALL_PAGES = new Set([
+  "https://cli.github.com",
+  "https://learn.microsoft.com/cli/azure/install-azure-cli",
+  "https://gitlab.com/gitlab-org/cli",
+]);
 const RUN = "run: ";
 
 function fixHint(status) {
@@ -57,7 +63,7 @@ function fixHint(status) {
   const run = status.fix.indexOf(RUN);
   const words = run < 0 ? status.fix : status.fix.slice(0, run + RUN.length);
   for (const part of words.split(ADDRESS)) {
-    if (!ADDRESS.test(part)) {
+    if (!INSTALL_PAGES.has(part)) {
       if (part) hint.append(part);
       continue;
     }

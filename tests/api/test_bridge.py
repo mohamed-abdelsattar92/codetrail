@@ -1,6 +1,7 @@
 """The bridge: streamed answers, limits, errors and saving to the guide (design section 7.3)."""
 
 import json
+import sqlite3
 import threading
 import time
 from collections.abc import AsyncIterator
@@ -12,10 +13,11 @@ from fastapi.testclient import TestClient
 
 from codetrail.assistant import AnswerChunk, AssistantError, PaidCallFailed, QuestionRequest, Usage
 from codetrail.assistant.fake import FakeAssistant
-from codetrail.config import GlobalConfig, Paths, write_target
+from codetrail.config import BridgeSettings, GlobalConfig, Paths, write_target
 from codetrail.database import connect
 from codetrail.guide import GuideRepository
 from codetrail.lock import target_lock
+from codetrail.repo.secrets import SecretScanner
 from codetrail.update import run_update
 from codetrail.web.app import create_app
 from codetrail.web.security import TOKEN_HEADER, SessionState
@@ -343,3 +345,81 @@ def test_a_failing_diagram_list_neither_blocks_the_answer_nor_holds_the_slot(
         response = client.post("/bridge/questions", json={"question": question}, headers=headers)
         assert response.status_code == 200
         assert events(response.text)[-1]["type"] == "done"
+
+
+def test_an_answers_usage_is_recorded_before_its_scan(paths: Paths, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A scan that fails, or a reader who leaves while it runs, can't lose the usage of a call that finished."""
+
+    def failing_scan(self: SecretScanner, text: str) -> list[object]:
+        raise RuntimeError("gitleaks stopped")
+
+    monkeypatch.setattr(SecretScanner, "scan_text", failing_scan)
+    usage = Usage("claude_code", "claude-sonnet-5-5", 500, 0, 50, 0.04)
+    claude = FakeAssistant(answers=[[AnswerChunk("Fine."), AnswerChunk(done=True, cost_usd=0.04, usage=usage)]])
+    client, headers = make_client(paths, claude)
+    found = events(client.post("/bridge/questions", json={"question": "Why?"}, headers=headers).text)
+    assert found[-1]["type"] == "error"
+    connection = connect(paths.target_data("t") / "codetrail.db")
+    rows = connection.execute("SELECT kind, provider, cost_usd FROM assistant_calls").fetchall()
+    assert [tuple(row) for row in rows] == [("answer", "claude_code", 0.04)]
+
+
+class Stopped(BaseException):
+    """Stands in for the stream being closed or cancelled, as when the reader closes the page mid-answer."""
+
+
+class StoppedAnswer(FakeAssistant):
+    async def answer(self, request: QuestionRequest) -> AsyncIterator[AnswerChunk]:
+        self.requests.append(request)
+        yield AnswerChunk("Half an ans")
+        raise Stopped
+
+
+def test_an_answer_stopped_before_it_finishes_counts_its_cap(paths: Paths) -> None:
+    """Its program ran and no result says what it used, so the answer's budget counts, as for a timed-out call."""
+    client, headers = make_client(paths, StoppedAnswer())
+    with pytest.raises(BaseException):  # noqa: B017  # however the server's task group reports it
+        client.post("/bridge/questions", json={"question": "Why?"}, headers=headers)
+    connection = connect(paths.target_data("t") / "codetrail.db")
+    rows = connection.execute("SELECT kind, provider, cost_usd FROM assistant_calls").fetchall()
+    assert [tuple(row) for row in rows] == [("answer", "claude_code", 1.0)]  # bridge.max_budget_usd
+
+
+def test_a_stopped_answer_counts_the_budget_the_page_runs_with(paths: Paths) -> None:
+    """The bound comes from the configuration the app was given, not from the files on disk, which may differ."""
+    settings = GlobalConfig(bridge=BridgeSettings(max_budget_usd=0.3))  # the file on disk says nothing: $1.00
+    client, headers = make_client(paths, StoppedAnswer(), settings)
+    with pytest.raises(BaseException):  # noqa: B017  # however the server's task group reports it
+        client.post("/bridge/questions", json={"question": "Why?"}, headers=headers)
+    connection = connect(paths.target_data("t") / "codetrail.db")
+    rows = connection.execute("SELECT kind, provider, cost_usd FROM assistant_calls").fetchall()
+    assert [tuple(row) for row in rows] == [("answer", "claude_code", 0.3)]
+
+
+class StopsOnce(FakeAssistant):
+    """Stopped mid-answer the first time, as StoppedAnswer is; answers the next question."""
+
+    async def answer(self, request: QuestionRequest) -> AsyncIterator[AnswerChunk]:
+        self.requests.append(request)
+        yield AnswerChunk("Half an ans" if len(self.requests) == 1 else "A whole answer.")
+        if len(self.requests) == 1:
+            raise Stopped
+        yield AnswerChunk(done=True)
+
+
+def test_the_question_slot_is_freed_even_when_the_usage_cant_be_written(
+    paths: Paths, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A database that refuses the write (busy, disk full) mustn't keep every later question waiting."""
+    from codetrail.assistant.usage import UsageLog
+
+    def failing_record(self: UsageLog, kind: str, usage: Usage) -> float:
+        raise sqlite3.OperationalError("database is locked")
+
+    client, headers = make_client(paths, StopsOnce())
+    with monkeypatch.context() as patched:
+        patched.setattr(UsageLog, "record", failing_record)
+        with pytest.raises(BaseException):  # noqa: B017  # however the server's task group reports it
+            client.post("/bridge/questions", json={"question": "Why?"}, headers=headers)
+    response = client.post("/bridge/questions", json={"question": "Again?"}, headers=headers)
+    assert response.status_code == 200 and events(response.text)[-1]["type"] == "done"

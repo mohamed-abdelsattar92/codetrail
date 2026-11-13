@@ -71,3 +71,30 @@ def test_symlinks_are_never_followed(tools: LocalTools, tmp_path: Path) -> None:
     assert "secret" not in tools.run("grep", {"text": "secret"})
     assert "link" not in tools.run("glob", {"pattern": "**/*.txt"})
     assert tools.run("read", {"path": "app/link.txt"}).startswith("Refused:")
+
+
+@pytest.mark.parametrize(("name", "arguments"), [("grep", {"text": "hello"}), ("glob", {"pattern": "**/*.py"})])
+def test_a_search_stops_at_the_calls_deadline(tools: LocalTools, name: str, arguments: dict[str, str]) -> None:
+    """A search left running in its thread after the call's time limit stops at its next file (design 15.5)."""
+    assert tools.run(name, arguments, deadline=time.monotonic() - 1).startswith("Refused: the call's time limit")
+
+
+def test_glob_matches_like_a_glob(tools: LocalTools) -> None:
+    (tools.root / "app" / "deep" / "er").mkdir(parents=True)
+    (tools.root / "app" / "deep" / "er" / "x.py").write_text("")
+    (tools.root / "top.py").write_text("")
+    assert tools.run("glob", {"pattern": "**/*.py"}) == "app/deep/er/x.py\napp/main.py\ntop.py"
+    assert tools.run("glob", {"pattern": "*.py"}) == "top.py"
+    assert tools.run("glob", {"pattern": "app/**/x.py"}) == "app/deep/er/x.py"
+    assert tools.run("glob", {"pattern": "**/deep/**"}) == "app/deep/er/x.py"
+    assert tools.run("glob", {"pattern": "*.py", "path": "app"}) == "app/main.py"
+    assert tools.run("glob", {"pattern": "**/er/*.p?"}) == "app/deep/er/x.py"
+
+
+def test_a_glob_that_would_backtrack_is_quick(tools: LocalTools) -> None:
+    """pathlib's glob tries every split of a long name between many wildcards; fnmatch's matching doesn't."""
+    (tools.root / ("a" * 250)).write_text("")
+    started = time.monotonic()
+    assert tools.run("glob", {"pattern": "*a*a*a*a*a*a*a*a*a*b"}) == "No matches."
+    assert tools.run("glob", {"pattern": "**/" * 5 + "b"}) == "No matches."
+    assert time.monotonic() - started < 2

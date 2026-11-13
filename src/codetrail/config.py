@@ -75,7 +75,9 @@ class Paths:
 
 
 class Settings(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    # No setting takes infinity or NaN: a limit of infinity is none, NaN compares false with every limit, and the team
+    # file is rewritten from its loaded values, where neither would be valid TOML.
+    model_config = ConfigDict(extra="forbid", frozen=True, allow_inf_nan=False)
 
 
 class ToolsSettings(Settings):
@@ -245,6 +247,8 @@ class ProvidersSettings(Settings):
     claude_code: ClaudeCodeSettings = ClaudeCodeSettings()
     codex: CodexSettings = CodexSettings()
     local: LocalSettings = LocalSettings()
+    # A provider program writing more than this to its output, or to its error output, is stopped (design 15.5).
+    max_output_bytes: int = Field(default=50_000_000, gt=0)
 
 
 class Price(Settings):

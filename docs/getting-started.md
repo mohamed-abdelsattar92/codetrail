@@ -99,7 +99,7 @@ Continue? [y/N]
 
 - **Dollars** are what the same work would cost at API prices. On a subscription you pay nothing extra; the work uses your plan's limits, and the estimate shows how much of each limit you've used once Claude Code has reported it.
 - **A starting guess** marks an estimate made before Codetrail has a history of its own calls. After a few updates, estimates use the median of your own recent calls.
-- **"At most"** counts every page being written twice (a failed check gets one retry). The update also stops at its budgets, whichever comes first.
+- **"At most"** counts every page being written twice (a failed check gets one retry), and is capped at the update's budget: each paid call reserves its cap (`max_budget_usd_per_call`, $1.00 by default) before it starts, so no call starts once the budget can't hold it, and a running call can pass its own cap only by its last turn. A local model reserves nothing. The update also stops at its token budget, whichever comes first.
 - **A smaller first update:** the first update writes up to 20 pages. To keep it smaller, add this to `~/.config/codetrail/targets/shop.toml`:
 
   ```toml
@@ -173,7 +173,7 @@ answer = "local:qwen3:14b"          # questions answered by a model on your mach
 grade = "claude_code:claude-sonnet-5-5"
 ```
 
-To use Codex for a target, opt in first. Codex's sandbox stops writes but not reads, and its tools are shell commands. So Codex can read anything you can, including the files Codetrail hides (through Codetrail's own data folder) and your own keys, can run the repository's code inside its sandbox, and sends whatever it reads to OpenAI before Codetrail's scan sees it. Use it only for repositories where that's acceptable:
+To use Codex for a target, opt in first. Codex's sandbox stops writes but not reads, and its tools are shell commands. So Codex can read anything you can, including the files Codetrail hides (through Codetrail's own data folder) and your own keys, can run the repository's code inside its sandbox, and sends whatever it reads to OpenAI before Codetrail's scan sees it. Codetrail turns its web search off, and never uses it to grade a check or write a team's overview, which run with no tools at all. Use it only for repositories where that's acceptable:
 
 ```toml
 [assistant]
