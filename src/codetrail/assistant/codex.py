@@ -16,7 +16,7 @@ import shlex
 import tempfile
 from collections.abc import AsyncIterator, Iterator, Mapping
 from contextlib import aclosing, contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Final
 
@@ -65,6 +65,8 @@ ISOLATION = (
     'shell_environment_policy.inherit="none"',
     # Codex 0.167 accepts disabled, cached, indexed or live; a search would carry what Codex read off the machine.
     'web_search="disabled"',
+    # The older key, still a typed setting in 0.167 (a boolean or a table): a config.toml setting it can't win.
+    "tools.web_search=false",
     *(f"shell_environment_policy.set.{name}={json.dumps(value)}" for name, value in GIT_GUARD.items()),
 )
 
@@ -183,6 +185,7 @@ class CodexAssistant:
                 command += ["--output-schema", str(schema_file)]
             # Codex has no system prompt flag; Codetrail's rules lead the prompt, above the task.
             text = neutralize(f"{rules}\n\n{prompt}")
+            started = anyio.current_time()
             try:
                 lines = runner.run_program(command, text, self.root, environment, self.settings.timeout_seconds)
                 async with aclosing(lines):
@@ -191,6 +194,8 @@ class CodexAssistant:
             except _LimitPassed as error:
                 raise call_failed(str(error), self._usage(kind, outcome)) from error
             except AssistantError as error:
+                if anyio.current_time() - started >= self.settings.timeout_seconds:  # not retried: see _cap_spent
+                    raise self._cap_spent(error, kind, outcome) from error
                 if outcome.failure is not None:
                     unfinished = f"Codex didn't finish the task: {outcome.failure[:300]}"
                     raise self._failure(unfinished, kind, outcome) from error
@@ -202,6 +207,14 @@ class CodexAssistant:
         if outcome.message is None:
             raise self._failure("Codex ended without an answer.", kind, outcome)
         return outcome
+
+    def _cap_spent(self, error: AssistantError, kind: str, outcome: _Outcome) -> AssistantError:
+        """A call stopped at its time limit: Codex reports tokens only when a turn ends, so the turn it was stopped in
+        is unreported, and its token limit counts as used (design section 15.3); what it reported keeps its kind."""
+        usage = self._usage(kind, outcome)
+        unreported = max(self.settings.max_tokens_per_call - usage.tokens, 0)
+        message = f"{error} It counts as its whole token limit of {self.settings.max_tokens_per_call}."
+        return call_failed(message, replace(usage, input_tokens=usage.input_tokens + unreported))
 
     def _failure(self, message: str, kind: str, outcome: _Outcome) -> AssistantError:
         """A failure worth another try, unless Codex counted tokens: then it carries them, for the caller's budget."""

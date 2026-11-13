@@ -1,9 +1,11 @@
 """The codex adapter: the reader's own `codex exec`, read-only, isolated from their config (design 15.1, 15.5)."""
 
 import json
+from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
 
+import anyio
 import pytest
 
 from codetrail.assistant import (
@@ -13,6 +15,7 @@ from codetrail.assistant import (
     PageRequest,
     PaidCallFailed,
     QuestionRequest,
+    runner,
 )
 from codetrail.assistant.codex import CodexAssistant
 from codetrail.assistant.prompts import FULLWIDTH_AT
@@ -101,6 +104,7 @@ async def test_a_page_runs_codex_read_only_and_isolated(source: Path, tmp_path: 
         "project_doc_max_bytes=0",
         'shell_environment_policy.inherit="none"',
         'web_search="disabled"',  # whatever the reader's config.toml says: nothing read can leave in a search
+        "tools.web_search=false",  # the older key, which a reader's config.toml may still set
         # the commands Codex runs start from an empty environment, so they get git's guard against a bare repository
         # committed at source/'s root here (section 15.5)
         'shell_environment_policy.set.GIT_CONFIG_COUNT="1"',
@@ -248,3 +252,31 @@ async def test_grading_refuses_codex(source: Path, tmp_path: Path) -> None:
     with pytest.raises(AssistantError, match="Grading can't use Codex"):
         await adapter(source, program).grade(GradeRequest("Why?", [], "The app", "body", "answer", "en"))
     assert not program.record_file.exists()  # Codex never ran
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("lines", [[], [json.dumps(turn())]], ids=["no turn ended", "one turn ended"])
+async def test_a_call_that_passes_its_time_limit_counts_its_token_cap_and_isnt_retried(
+    source: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, lines: list[str]
+) -> None:
+    """Codex reports tokens only when a turn ends, so a call stopped mid-turn counts its whole token limit."""
+    starts: list[list[str]] = []
+
+    async def stopped_at_the_limit(command: list[str], *args: object) -> AsyncIterator[str]:
+        starts.append(command)
+        for line in lines:
+            yield line
+        await anyio.sleep(1)  # the runner's limit passes; a real program is killed here
+        raise AssistantError("The provider's program passed its time limit and was stopped.")
+
+    monkeypatch.setattr(runner, "run_program", stopped_at_the_limit)
+    program = make_program(tmp_path / "bin", "fake-codex", [])
+    codex = CodexAssistant(source, {"write": "gpt-5.5-codex"},
+                           CodexSettings(command=str(program.path), max_tokens_per_call=4000, timeout_seconds=1),
+                           GenerationSettings(), retries=2, environ={"PATH": "/usr/bin:/bin"})  # fmt: skip
+    with pytest.raises(PaidCallFailed, match="time limit") as raised:
+        await codex.write_page(page_request())
+    usage = raised.value.usage
+    assert (usage.provider, usage.model, usage.tokens) == ("codex", "gpt-5.5-codex", 4000)
+    assert usage.cached_input_tokens == (400 if lines else 0)  # what Codex reported keeps its kind
+    assert len(starts) == 1  # no retry
