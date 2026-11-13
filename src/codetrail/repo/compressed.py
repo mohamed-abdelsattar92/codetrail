@@ -33,9 +33,11 @@ BZIP2_MAGIC = re.compile(rb"BZh[1-9]")
 XZ_MAGIC = b"\xfd7zXZ\x00"
 # The legacy .lzma header: the usual properties byte, a dictionary size, then the size (below 1 TB) or "unknown".
 LZMA_ALONE = re.compile(rb"\x5d[\x00-\xff]{4}(?:\xff{8}|[\x00-\xff]{5}\x00{3})", re.DOTALL)
-# A stream's data starts after `stream` and a line end; `endstream` ends it.
-PDF_STREAM = re.compile(rb"(?<!end)stream\r?\n")
-PDF_FILTER = re.compile(rb"/Filter\s*(\[[^\]]*\]|/[A-Za-z0-9]+)")
+# A stream's data starts after `stream` and a line end (a carriage return alone too); `endstream` ends it.
+PDF_STREAM = re.compile(rb"(?<!end)stream(?:\r\n|\r|\n)")
+PDF_FILTER = re.compile(rb"/Filter\s*(\[[^\]]{0,4096}\]|/[A-Za-z0-9]+)")  # bounded: no backtracking over the file
+MAX_PDF_DICTIONARY_BYTES = 64 * 1024  # a stream's dictionary is a few hundred bytes; a larger one is refused
+MAX_PDF_PARAMETER_DIGITS = 9  # a predictor, column, color or bit count; longer numbers are refused
 PDF_NAME = re.compile(rb"/([A-Za-z0-9]+)")
 # Filters whose output is an image: the chain stops before them, and what they'd decode is scanned as it is.
 PDF_IMAGE_FILTERS = {b"DCTDecode", b"DCT", b"JPXDecode", b"CCITTFaxDecode", b"CCF", b"JBIG2Decode"}
@@ -104,7 +106,12 @@ def inflated_text(content: bytes, max_bytes: int) -> bytes | None:
     if not _is_container(content):
         return None
     pieces: list[bytes] = []
-    _inflate(content, _Budget(max_bytes), pieces, depth=0)
+    try:
+        _inflate(content, _Budget(max_bytes), pieces, depth=0)
+    except Unscannable:
+        raise
+    except Exception as error:  # untrusted bytes: any other failure while decoding fails closed, never the refresh
+        raise Unscannable("couldn't be decoded") from error
     return b"\n".join(pieces)
 
 
@@ -258,7 +265,11 @@ def _pdf_streams(content: bytes, budget: _Budget) -> list[bytes]:
         if end == -1:
             raise Unscannable("is a malformed PDF: a stream has no end")
         dictionary = content[max(position, content.rfind(b"obj", position, match.start())) : match.start()]
+        if len(dictionary) > MAX_PDF_DICTIONARY_BYTES:
+            raise Unscannable(f"is a PDF with a stream dictionary over {MAX_PDF_DICTIONARY_BYTES} bytes")
         filters = PDF_FILTER.search(dictionary)
+        if filters is None and b"/Filter" in dictionary:
+            raise Unscannable("is a PDF with a stream filter that isn't a name or a list of names (an indirect one)")
         if filters:
             names = PDF_NAME.findall(filters.group(1))
             decoded = _pdf_decode(memoryview(content)[match.end() : end], names, dictionary, budget)
@@ -306,7 +317,11 @@ def _ascii85(data: bytes) -> bytes:
 
 def _parameter(dictionary: bytes, name: bytes, default: int) -> int:
     found = re.search(rb"/" + name + rb"\s+(\d+)", dictionary)
-    return int(found.group(1)) if found else default
+    if found is None:
+        return default
+    if len(found.group(1)) > MAX_PDF_PARAMETER_DIGITS:
+        raise Unscannable(f"is a PDF with a /{name.decode('ascii')} too large to be real")
+    return int(found.group(1))
 
 
 def _undo_predictor(data: bytes, dictionary: bytes) -> bytes:
@@ -317,9 +332,12 @@ def _undo_predictor(data: bytes, dictionary: bytes) -> bytes:
     if predictor < 10:
         raise Unscannable(f"is a PDF with a stream using predictor {predictor}, which isn't read")
     colors, bits = _parameter(dictionary, b"Colors", 1), _parameter(dictionary, b"BitsPerComponent", 8)
+    columns = _parameter(dictionary, b"Columns", 1)
+    if not data:
+        return data
     pixel = max(1, colors * bits // 8)
-    width = (_parameter(dictionary, b"Columns", 1) * colors * bits + 7) // 8
-    if width == 0 or len(data) % (width + 1):
+    width = (columns * colors * bits + 7) // 8
+    if width == 0 or width + 1 > len(data) or len(data) % (width + 1):
         raise Unscannable("is a malformed PDF: a predicted stream's rows don't fit its columns")
     output = bytearray()
     above = bytearray(width)

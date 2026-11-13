@@ -255,3 +255,60 @@ def test_an_lzma_file_naming_a_huge_dictionary_is_unscannable() -> None:
     stream[1:5] = (1536 * 1024 * 1024).to_bytes(4, "little")
     with pytest.raises(Unscannable, match="memory"):
         inflated_text(bytes(stream), CAP)
+
+
+@pytest.mark.parametrize(
+    "parameters",
+    [
+        b"/Predictor 12 /Columns 1000000000000",  # an empty stream with rows a terabyte wide
+        b"/Predictor 12 /Columns 4 /Colors 99999999999999999999999",
+        b"/Predictor 999999999999999999999999999999",
+    ],
+)
+def test_predictor_parameters_out_of_bounds_are_unscannable(parameters: bytes) -> None:
+    for data in (b"", b"\x00abcd"):
+        pdf = make_pdf((b"/FlateDecode /DecodeParms << " + parameters + b" >>", zlib.compress(data)))
+        with pytest.raises(Unscannable):
+            inflated_text(pdf, CAP)
+
+
+def test_rows_wider_than_the_stream_are_unscannable() -> None:
+    pdf = make_pdf((b"/FlateDecode /DecodeParms << /Predictor 12 /Columns 100 >>", zlib.compress(b"\x00abc")))
+    with pytest.raises(Unscannable, match="rows"):
+        inflated_text(pdf, CAP)
+
+
+def test_any_other_error_while_decoding_is_unscannable(monkeypatch: pytest.MonkeyPatch) -> None:
+    def explode(*arguments: object) -> list[bytes]:
+        raise MemoryError
+
+    monkeypatch.setattr("codetrail.repo.compressed._zip_members", explode)
+    with pytest.raises(Unscannable, match="couldn't be decoded"):
+        inflated_text(make_zip({"a.txt": b"a"}), CAP)
+
+
+def test_many_unclosed_filter_arrays_are_read_quickly() -> None:
+    import time
+
+    pdf = b"%PDF-1.7\n1 0 obj\n<< " + b"/Filter [" * 6000 + b" >>\nstream\nx\nendstream\nendobj\n"
+    started = time.process_time()
+    with pytest.raises(Unscannable):
+        inflated_text(pdf, CAP)
+    assert time.process_time() - started < 1
+
+
+def test_a_stream_dictionary_over_64_kb_is_unscannable() -> None:
+    pdf = make_pdf((b"/FlateDecode /Pad (" + b"x" * 70_000 + b")", zlib.compress(b"text")))
+    with pytest.raises(Unscannable, match="dictionary"):
+        inflated_text(pdf, CAP)
+
+
+def test_an_indirect_filter_is_unscannable() -> None:
+    with pytest.raises(Unscannable, match="filter"):
+        inflated_text(make_pdf((b"7 0 R", zlib.compress(b"TOKEN = abc123"))), CAP)
+
+
+def test_a_stream_keyword_followed_by_a_carriage_return_alone_is_decoded() -> None:
+    pdf = b"%PDF-1.7\n1 0 obj\n<< /Filter /FlateDecode >>\nstream\r" + zlib.compress(b"TOKEN = abc123")
+    pdf += b"\nendstream\nendobj\n"
+    assert inflated_text(pdf, CAP) == b"TOKEN = abc123"
