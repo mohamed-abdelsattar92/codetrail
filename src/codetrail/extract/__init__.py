@@ -66,17 +66,32 @@ class Extraction:
 
 
 DEFAULT_MAX_FILE_BYTES = 1_000_000
-URL_CREDENTIALS = re.compile(r"(://)[^/\s]*@")
+URL = re.compile(r"(?P<scheme>://)(?P<rest>\S*)")
 LOCAL_SPECIFIERS = ("npm:", "workspace:", "file:", "link:", "portal:", "patch:")
 
 
 def without_credentials(text: str) -> str:
-    """A specifier or URL without user or password: scheme://user:pass@host and user:pass@host:path."""
-    text = URL_CREDENTIALS.sub(r"\1", text)
+    """A specifier or URL without user, password or query string: scheme://user:pass@host?token=… and
+    user:pass@host:path."""
+    text = URL.sub(_url_without_credentials, text)
     authority = text.split("/", 1)[0]
     if "://" not in text and "@" in authority and ":" in authority and not text.startswith(LOCAL_SPECIFIERS):
         text = text[authority.rindex("@") + 1 :]
     return text
+
+
+def _url_without_credentials(match: re.Match[str]) -> str:
+    """The URL after `://` without its user and password, then without its query string, which can carry a token.
+
+    A password with an unencoded `/`, `?` or `#` ends the authority early; when what comes before that end has a `:`
+    that doesn't start a port, everything up to the URL's last `@` goes, which can take part of the path too."""
+    rest = match["rest"]
+    authority = re.split(r"[/?#]", rest, maxsplit=1)[0]
+    if "@" in authority:
+        rest = rest[authority.rindex("@") + 1 :]
+    elif ":" in authority and not authority.partition(":")[2].isdigit() and "@" in rest:
+        rest = rest[rest.rindex("@") + 1 :]
+    return match["scheme"] + re.sub(r"\?[^#]*", "", rest, count=1)
 
 
 class _NoAliases(yaml.SafeLoader):
