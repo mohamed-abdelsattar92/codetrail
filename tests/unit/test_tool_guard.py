@@ -158,3 +158,21 @@ def test_the_name_given_to_read_counts_too(source: Path) -> None:
     (source / "picture.png").symlink_to(source / "notes.txt")
     reason = ToolGuard(source).decide("Read", {"file_path": "picture.png"})
     assert reason is not None and "PDF or an image" in reason
+
+
+@pytest.mark.parametrize(
+    ("attachments", "refused"),
+    [
+        ({"plot.png": {"image/png": "iVBORw0KGgo="}}, True),
+        ({"photo.jpg": {"image/jpeg": "/9j/4AAQ"}}, True),
+        ({"diagram.svg": {"image/svg+xml": "<svg/>"}}, False),
+        ("not a mapping", True),
+    ],
+)
+def test_notebook_markdown_attachments_with_images_are_refused(
+    source: Path, attachments: object, refused: bool
+) -> None:
+    cell = {"cell_type": "markdown", "source": "![plot](attachment:plot.png)", "attachments": attachments}
+    (source / "notes.ipynb").write_text(json.dumps({"nbformat": 4, "cells": [cell]}))
+    reason = ToolGuard(source).decide("Read", {"file_path": "notes.ipynb"})
+    assert (reason is not None and "image" in reason) is refused

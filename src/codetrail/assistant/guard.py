@@ -117,8 +117,8 @@ def _rendered(file: Path, names: tuple[str, ...]) -> bool:
 
 
 def _notebook_has_images(file: Path) -> bool:
-    """Whether any output of the notebook (nbformat 4) carries an image other than SVG; a notebook that can't be read
-    as one counts as having images, so it fails closed."""
+    """Whether any output of the notebook (nbformat 4), or any attachment of a cell, carries an image other than SVG;
+    a notebook that can't be read as one counts as having images, so it fails closed."""
     try:
         notebook = json.loads(file.read_bytes())
     except ValueError:
@@ -127,13 +127,16 @@ def _notebook_has_images(file: Path) -> bool:
     if not isinstance(cells, list):
         return True
     for cell in cells:
-        outputs = cell.get("outputs", []) if isinstance(cell, dict) else None
-        if not isinstance(outputs, list):
+        if not isinstance(cell, dict):
             return True
-        for output in outputs:
-            data = output.get("data", {}) if isinstance(output, dict) else None
-            if not isinstance(data, dict):
+        outputs, attachments = cell.get("outputs", []), cell.get("attachments", {})
+        if not isinstance(outputs, list) or not isinstance(attachments, dict):
+            return True
+        # Each output's data and each attachment is a bundle of MIME types, as {"image/png": "<base64>"}.
+        bundles = [output.get("data", {}) if isinstance(output, dict) else None for output in outputs]
+        for bundle in [*bundles, *attachments.values()]:
+            if not isinstance(bundle, dict):
                 return True
-            if any(kind.startswith("image/") and kind not in TEXT_IMAGE_TYPES for kind in data):
+            if any(kind.startswith("image/") and kind not in TEXT_IMAGE_TYPES for kind in bundle):
                 return True
     return False
