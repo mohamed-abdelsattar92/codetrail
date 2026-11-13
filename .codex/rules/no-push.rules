@@ -3,10 +3,13 @@
 # trusted, and the strictest matching rule wins.
 # Rules match literal tokens from the start of a command. An option placed before the
 # subcommand ("git -C . push", "git -P -P push") would hide it, so the rules at the end refuse
-# those or make Codex ask first; Codex also asks before every git config, gh and glab
-# command, whose keys and leading flags can't be listed. Still unmatched: a flag placed later
-# ("git commit -m x --no-verify"), an "=" form ("git --git-dir=.git push"), an alias that
-# already exists, and compound commands ("cd x && git push"). The git pre-push hook
+# those or make Codex ask first; Codex also asks before every git config, gh, glab and az
+# command, whose keys and leading flags can't be listed, and before every git reset and git
+# symbolic-ref, since it can't tell which branch they would move (git reset x.py asks too).
+# Still unmatched: a flag placed later ("git commit -m x --no-verify"), an "=" form
+# ("git --git-dir=.git push"), a short option's value stuck to it after other short options
+# ("git checkout -qBdevelop"), an alias that already exists, and compound commands
+# ("cd x && git push"). The git pre-push hook
 # (tools/git-hooks/pre-push) refuses pushes from Codex sessions unless it is skipped, and the
 # rules in AGENTS.md hold regardless.
 # Check changes with: codex execpolicy check --rules <this file> <command>
@@ -178,6 +181,14 @@ prefix_rule(
 )
 
 prefix_rule(
+    pattern = ["git", ["reset", "symbolic-ref"]],
+    decision = "prompt",
+    justification = "git reset --soft or --mixed HEAD~n rewinds the branch checked out, and git symbolic-ref can point HEAD at main; Codex can't tell which branch, so it asks (AGENTS.md, Never do, rules 3 and 4). Unstage with git restore --staged, and read the branch with git branch --show-current.",
+    match = ["git reset --soft HEAD~1", "git reset HEAD~1", "git reset x.py", "git symbolic-ref HEAD refs/heads/main"],
+    not_match = ["git restore --staged x.py", "git branch --show-current"],
+)
+
+prefix_rule(
     pattern = ["git", "branch", ["-d", "-D", "--delete", "-f", "--force", "-m", "-M", "--move", "-c", "-C", "--copy"]],
     decision = "forbidden",
     justification = "Agents never delete, move or force branches in codetrail; git flow feature finish removes a finished branch (AGENTS.md, Never do, rule 3).",
@@ -224,6 +235,14 @@ prefix_rule(
 )
 
 prefix_rule(
+    pattern = ["git", ["checkout", "switch"], ["-Bdevelop", "-Bmain", "-Cdevelop", "-Cmain", "--force-create=develop", "--force-create=main"]],
+    decision = "forbidden",
+    justification = "A short option's value can be stuck to it: -Bdevelop is -B develop, which resets develop to another commit (AGENTS.md, Never do, rule 3).",
+    match = ["git checkout -Bdevelop HEAD~3", "git switch -Cmain", "git switch --force-create=main x"],
+    not_match = ["git checkout -bfeature/x", "git switch -cfeature/x"],
+)
+
+prefix_rule(
     pattern = ["git", ["checkout", "switch"], ["-B", "-C", "--force-create"]],
     decision = "prompt",
     justification = "-B, -C and --force-create reset an existing branch to another commit (AGENTS.md, Never do, rule 3).",
@@ -251,7 +270,7 @@ prefix_rule(
 )
 
 prefix_rule(
-    pattern = ["git", GIT_OPTIONS_WITHOUT_VALUE, ["remote", "subtree", "config", "am", "pull", "commit", "merge", "flow", "rebase", "reset", "branch", "tag", "filter-branch", "filter-repo", "replace", "update-ref", "checkout", "switch", "worktree"]],
+    pattern = ["git", GIT_OPTIONS_WITHOUT_VALUE, ["remote", "subtree", "config", "am", "pull", "commit", "merge", "flow", "rebase", "reset", "symbolic-ref", "branch", "tag", "filter-branch", "filter-repo", "replace", "update-ref", "checkout", "switch", "worktree"]],
     decision = "prompt",
     justification = "An option before the git subcommand hides it from these rules (git -P commit -n, git -P remote set-url). Run it with nothing before the subcommand.",
     match = ["git -P commit -n -m x", "git --no-pager remote set-url origin x"],
@@ -287,6 +306,14 @@ prefix_rule(
     decision = "prompt",
     justification = "gh and glab find their subcommand past any flag placed first (gh --hostname x auth token, gh --visibility public repo edit), which no list of flags can cover; Codex asks before each one, and the rules above still refuse the writes and token printers they name.",
     match = ["gh --hostname github.com auth token", "gh --visibility public repo edit", "gh --subject s pr merge 1", "glab --host gitlab.com config get token", "gh pr view 1"],
+    not_match = ["git status"],
+)
+
+prefix_rule(
+    pattern = ["az"],
+    decision = "prompt",
+    justification = "az finds its subcommand past any flag placed first (az --subscription x account get-access-token prints a token), which no list of flags can cover; Codex asks before each one, and the rule above still refuses the token printer it names.",
+    match = ["az --subscription x account get-access-token", "az --only-show-errors account get-access-token", "az account show"],
     not_match = ["git status"],
 )
 
