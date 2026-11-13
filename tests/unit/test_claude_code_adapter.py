@@ -1,9 +1,11 @@
 """The claude_code adapter: the reader's own `claude -p`, read-only, on their sign-in (design 15.1 and 15.2)."""
 
 import json
+from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
 
+import anyio
 import pytest
 
 from codetrail.assistant import (
@@ -15,6 +17,7 @@ from codetrail.assistant import (
     PaidCallFailed,
     PlanRequest,
     QuestionRequest,
+    runner,
 )
 from codetrail.assistant.claude_code import ClaudeCodeAssistant
 from codetrail.assistant.prompts import FULLWIDTH_AT, GRADE_SCHEMA, OVERVIEW_RULES, OVERVIEW_SCHEMA
@@ -93,6 +96,11 @@ async def test_a_page_runs_claude_read_only_with_the_prompt_on_stdin(source: Pat
     for flag in ("--strict-mcp-config", "--disable-slash-commands", "--no-session-persistence"):
         assert flag in argv
     assert "--bare" not in argv
+    # if the guard hook can't run, no MCP tool, memory or claude.ai connector is there for Claude to reach for
+    assert argv[argv.index("--disallowedTools") + 1] == "mcp__*"
+    settings = record["settings"]
+    assert (settings["autoMemoryEnabled"], settings["disableClaudeAiConnectors"]) == (False, True)
+    assert (settings["syncClaudeAiSkills"], settings["syncClaudeAiPlugins"]) == (False, False)
     assert (argv[argv.index("--max-turns") + 1], argv[argv.index("--max-budget-usd") + 1]) == ("7", "0.5")
     assert argv[argv.index("--model") + 1] == "claude-sonnet-5-5"
     assert json.loads(argv[argv.index("--json-schema") + 1])["required"] == ["body", "checks", "brief"]
@@ -294,3 +302,41 @@ async def test_a_revision_asks_for_sections_and_returns_them(source: Path, tmp_p
     argv = program.record["argv"]
     assert json.loads(argv[argv.index("--json-schema") + 1])["required"] == ["sections", "checks", "brief"]
     assert draft.sections == [{"heading": "## How it works", "body": "New."}] and draft.body == ""
+
+
+@pytest.mark.anyio
+async def test_a_call_that_passes_its_time_limit_counts_its_cap_and_isnt_retried(
+    source: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Claude Code bills what it used before it was stopped, which no result reports: the cap is the most it was."""
+    starts: list[list[str]] = []
+
+    async def stopped_at_the_limit(command: list[str], *args: object, **options: object) -> AsyncIterator[str]:
+        starts.append(command)
+        await anyio.sleep(1)  # the runner's limit passes; a real program is killed here
+        raise AssistantError("The provider's program passed its time limit and was stopped.")
+        yield ""  # an async generator, as the runner is
+
+    monkeypatch.setattr(runner, "run_program", stopped_at_the_limit)
+    program = make_program(tmp_path / "bin", "fake-claude", [])
+    claude = ClaudeCodeAssistant(source, {"write": "claude-sonnet-5-5", "answer": "claude-sonnet-5-5"},
+                                 ClaudeCodeSettings(command=str(program.path), timeout_seconds=1),
+                                 GenerationSettings(max_budget_usd_per_call=0.5), retries=2,
+                                 answer_limits=(5, 0.25), environ={"PATH": "/usr/bin:/bin"})  # fmt: skip
+    with pytest.raises(PaidCallFailed, match="time limit") as raised:
+        await claude.write_page(page_request())
+    assert (raised.value.usage.provider, raised.value.usage.model, raised.value.cost_usd) == (
+        "claude_code", "claude-sonnet-5-5", 0.5)  # fmt: skip
+    assert len(starts) == 1  # no retry
+    with pytest.raises(PaidCallFailed) as raised:
+        _ = [chunk async for chunk in claude.answer(QuestionRequest("shop", "What?", "en"))]
+    assert raised.value.cost_usd == 0.25
+
+
+@pytest.mark.anyio
+async def test_a_configured_output_cap_stops_claude(source: Path, tmp_path: Path) -> None:
+    program = make_program(tmp_path / "bin", "fake-claude", [{"type": "system", "text": "x" * 500}, result(PAGE)])
+    claude = adapter(source, program)
+    claude.max_output_bytes = 200
+    with pytest.raises(AssistantError, match="more than 200 bytes"):
+        await claude.write_page(page_request())

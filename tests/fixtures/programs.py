@@ -21,6 +21,7 @@ argv = sys.argv[1:]
 if "--settings" in argv:
     with open(argv[argv.index("--settings") + 1]) as handle:
         settings = json.load(handle)
+    record["settings"] = settings
     hook = settings["hooks"]["PreToolUse"][0]["hooks"][0]
     record["hook_timeout"] = hook.get("timeout")
     for call in {tool_calls!r}:

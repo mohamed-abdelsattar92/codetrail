@@ -692,3 +692,14 @@ def test_catch_up_ranges(paths: Paths, text: str) -> None:
     paths.team_file("acme").write_text(f"[catch_up]\n{text}\n", encoding="utf-8")
     with pytest.raises(CodetrailError):
         load_team(paths, "acme")
+
+
+def test_providers_output_is_capped_by_configuration(paths: Paths) -> None:
+    assert load_global(paths).providers.max_output_bytes == 50_000_000
+    paths.config_dir.mkdir(parents=True)
+    config = paths.config_dir / "config.toml"
+    config.write_text("[providers]\nmax_output_bytes = 1000000\n")
+    assert load_global(paths).providers.max_output_bytes == 1_000_000
+    config.write_text("[providers]\nmax_output_bytes = 0\n")
+    with pytest.raises(CodetrailError, match="max_output_bytes"):
+        load_global(paths)

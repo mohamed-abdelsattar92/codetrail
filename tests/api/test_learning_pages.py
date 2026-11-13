@@ -189,3 +189,17 @@ def test_marking_unread(paths: Paths) -> None:
     assert client.post("/learn/unread", json={"page_id": "areas/app"}, headers=headers).status_code == 204
     assert 'data-status="unread"' in client.get("/pages/areas/app").text
     assert client.post("/learn/unread", json={"page_id": "areas/missing"}, headers=headers).status_code == 404
+
+
+def test_an_ungradeable_answers_usage_is_recorded(paths: Paths) -> None:
+    usage = Usage("claude_code", "claude-sonnet-5-5", 300, 0, 40, 0.05)
+    claude = FakeAssistant(verdicts=[Verdict("maybe", [], "Hmm.", 0.05, usage)])
+    client, headers = make_client(paths, claude)
+    response = client.post(
+        "/learn/checks", json={"page_id": "areas/app", "check_id": "q1", "answer": "db"}, headers=headers
+    )
+    assert response.status_code == 502
+    connection = connect(paths.target_data("t") / "codetrail.db")
+    rows = connection.execute("SELECT kind, cost_usd FROM assistant_calls").fetchall()
+    assert [tuple(row) for row in rows] == [("grade", 0.05)]
+    assert connection.execute("SELECT count(*) FROM check_attempts").fetchone()[0] == 0

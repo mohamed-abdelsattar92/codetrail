@@ -247,6 +247,8 @@ class ProvidersSettings(Settings):
     claude_code: ClaudeCodeSettings = ClaudeCodeSettings()
     codex: CodexSettings = CodexSettings()
     local: LocalSettings = LocalSettings()
+    # A provider program writing more than this to its output, or to its error output, is stopped (design 15.5).
+    max_output_bytes: int = Field(default=50_000_000, gt=0)
 
 
 class Price(Settings):

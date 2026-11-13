@@ -23,7 +23,14 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 - The PyPI page shows the README's screenshots, diagrams and logo, and its links open the files on GitHub, at the release's tag.
 
 ### Security
-- A provider or hosting program that writes more than its output limit (50 MB per stream for providers, `hosting.max_output_bytes` for hosting reads) is stopped at once, instead of being read whole first.
+- Everything a prompt carries from the repository or the assistant (page titles, scope paths, the outline, retry problems, check questions and rubrics, diagram placeholders) is fenced as data, not instructions.
+- Budgets reserve each call's most possible cost before it starts (Claude Code's cap, a priced Codex model's token limit at its price, nothing for a local model), so no call starts past the update's or the team's budget, and a running call can pass its own cap only by its last turn. An update that would make a paid call whose cap is larger than its whole budget refuses before calling anything.
+- A call stopped at its time limit isn't retried and counts as its whole cap (Claude Code) or token limit (Codex); a call cancelled while it runs (an update or catch-up stopped, a question whose page is closed mid-answer) counts as its whole cap too. A graded check whose grade can't be read, and an answer whose secret scan fails, record what the call used.
+- A page whose paid call failed is skipped until its facts change, like a page that failed validation.
+- Codex runs with web search off (both its current and older settings), and grading refuses Codex, as the team overview does.
+- Claude Code calls deny every MCP tool and turn off auto memory, claude.ai connectors and synced skills and plugins, in case the guard hook fails to run.
+- A local model's searches stop at the call's time limit, and its Glob no longer slows to a crawl on long file names.
+- A provider or hosting program that writes more than its output limit (`[providers] max_output_bytes`, 50 MB per stream by default, for providers; `hosting.max_output_bytes` for hosting reads) is stopped at once, instead of being read whole first.
 - A third repository whose name matches two others no longer stops a team's sync: target names are numbered until one is free.
 - Azure DevOps names holding a lone surrogate, a private-use or unassigned character, or a line or paragraph separator are refused, so they can no longer crash `team serve` or leave empty target files.
 - A catch-up started just as another finished can no longer skip the cooldown.
