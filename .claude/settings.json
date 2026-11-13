@@ -52,13 +52,31 @@
       "Write(./.git/**)"
     ],
     "ask": [
-      "Edit(./**/.claude/hooks/**)",
-      "Edit(./**/.claude/agents/**)",
-      "Edit(./**/.claude/settings.json)",
-      "Edit(./**/.claude/settings.local.json)",
-      "Edit(./**/.codex/**)",
-      "Edit(./**/tools/git-hooks/**)",
-      "Edit(./**/lefthook.yml)"
+      "Edit(//**/AGENTS.md)",
+      "Edit(//**/CLAUDE.md)",
+      "Edit(//**/CLAUDE.local.md)",
+      "Edit(//**/.mcp.json)",
+      "Edit(//**/.claude/settings.json)",
+      "Edit(//**/.claude/settings.local.json)",
+      "Edit(//**/.claude/hooks/**)",
+      "Edit(//**/.claude/agents/**)",
+      "Edit(//**/.claude/commands/**)",
+      "Edit(//**/.claude/skills/**)",
+      "Edit(//**/.claude/rules/**)",
+      "Edit(//**/.codex/**)",
+      "Edit(//**/docs/security/**)",
+      "Edit(//**/.github/**)",
+      "Edit(//**/commitlint*.mjs)",
+      "Edit(//**/justfile)",
+      "Edit(//**/lefthook*.yml)",
+      "Edit(//**/.mise.toml)",
+      "Edit(//**/mise.toml)",
+      "Edit(//**/.mise.local.toml)",
+      "Edit(//**/mise.local.toml)",
+      "Edit(//**/.config/mise*)",
+      "Edit(//**/.config/mise/**)",
+      "Edit(//**/tools/git-hooks/**)",
+      "Edit(~/.claude/settings.json)"
     ]
   },
   "hooks": {
