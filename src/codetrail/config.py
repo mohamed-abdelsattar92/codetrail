@@ -75,7 +75,9 @@ class Paths:
 
 
 class Settings(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    # No setting takes infinity or NaN: a limit of infinity is none, NaN compares false with every limit, and the team
+    # file is rewritten from its loaded values, where neither would be valid TOML.
+    model_config = ConfigDict(extra="forbid", frozen=True, allow_inf_nan=False)
 
 
 class ToolsSettings(Settings):

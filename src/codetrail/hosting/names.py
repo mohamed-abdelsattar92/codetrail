@@ -33,6 +33,9 @@ GITHUB_OWNER = re.compile(r"[A-Za-z0-9][A-Za-z0-9-]{0,38}")
 GITHUB_REPOSITORY = re.compile(r"[A-Za-z0-9._][A-Za-z0-9._-]{0,99}")
 AZURE_ORGANIZATION = re.compile(r"[A-Za-z0-9][A-Za-z0-9-]{0,49}")
 AZURE_FORBIDDEN = re.compile(r"[\x00-\x1f\x7f/\\:*?\"<>|;#$*{},+=\[\]]")
+# Controls, format characters (bidirectional overrides), lone surrogates (which can't be written as UTF-8),
+# private-use and unassigned characters, and line and paragraph separators.
+AZURE_REFUSED_CATEGORIES = ("Cc", "Cf", "Cs", "Co", "Cn", "Zl", "Zp")
 GITLAB_SEGMENT = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,254}")
 GITLAB_MAX_SEGMENTS = 20
 
@@ -46,7 +49,7 @@ def _azure_name(name: str) -> bool:
         1 <= len(name) <= 64
         and not AZURE_FORBIDDEN.search(name)
         and name[0] not in "._-"
-        and not any(unicodedata.category(character) in ("Cc", "Cf") for character in name)
+        and not any(unicodedata.category(character) in AZURE_REFUSED_CATEGORIES for character in name)
         and not name.endswith(".")
         and name == name.strip()
     )

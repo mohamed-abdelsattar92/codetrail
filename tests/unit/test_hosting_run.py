@@ -1,6 +1,7 @@
 """The read-only runner for the reader's hosting programs (design section 24.3)."""
 
 import json
+import time
 from pathlib import Path
 
 import pytest
@@ -78,6 +79,15 @@ def test_a_command_outside_the_read_list_is_refused_before_it_runs(tmp_path: Pat
         ["api", "--method", "GET", "x", "-X", "POST"],
         ["api", "--method", "GET", "x", "-H", "X-HTTP-Method-Override:POST"],
         ["auth", "status", "--json", "hosts", "--show-token"],
+        ["repo", "list", "acme-org", "--web"],
+        ["repo", "list", "acme-org", "other-org"],
+        ["repo", "list", "--json", "id"],
+        ["repo", "list", "acme-org", "--limit"],
+        ["repo", "list", "acme-org", "--json", "--web"],
+        ["repo", "list", "acme-org", "--json=id"],
+        ["api", "--method", "GET", "x", "y"],
+        ["api", "--method", "GET", "--paginate"],
+        ["api", "--method", "GET", "x", "--jq", "--paginate"],
         [],
     ):
         with pytest.raises(HostingError, match="isn't a read"):
@@ -125,6 +135,18 @@ def test_output_over_the_limit_is_refused(tmp_path: Path) -> None:
     small = SETTINGS.model_copy(update={"max_output_bytes": 500})
     with pytest.raises(HostingError, match="more than 500 bytes"):
         run_read("github", str(program.path), ["repo", "list", "acme-org"], small, {"PATH": "/usr/bin:/bin"})
+
+
+def test_output_is_stopped_at_the_limit_not_read_whole_first(tmp_path: Path) -> None:
+    script = tmp_path / "bin" / "fake-gh"
+    script.parent.mkdir()
+    script.write_text("#!/bin/sh\nwhile :; do printf '%065536d' 0; done\n")
+    script.chmod(0o755)
+    small = SETTINGS.model_copy(update={"max_output_bytes": 100_000, "timeout_seconds": 60})
+    started = time.monotonic()
+    with pytest.raises(HostingError, match="fake-gh returned more than 100000 bytes"):
+        run_read("github", str(script), ["repo", "list", "acme-org"], small, {"PATH": "/usr/bin:/bin"})
+    assert time.monotonic() - started < 10
 
 
 def test_a_failing_program_names_itself_and_its_last_line(tmp_path: Path) -> None:
