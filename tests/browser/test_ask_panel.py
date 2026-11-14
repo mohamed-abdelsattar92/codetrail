@@ -28,6 +28,7 @@ def test_an_answer_stays_in_the_panel_across_pages_and_saves_to_the_guide(
     saved = page.locator(".ask-actions a")
     expect(saved).to_be_visible()
     expect(page.locator("[data-nav-answers] a").first).to_have_text("How often do charges retry?")
+    expect(page.locator("[data-fold='answers'] .count")).to_have_text("1")  # the heading counts it at once
 
     page.keyboard.press("Escape")
     page.keyboard.press("/")

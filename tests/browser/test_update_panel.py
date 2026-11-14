@@ -85,3 +85,15 @@ def test_a_page_opened_during_an_update_shows_it_and_closes_it_when_done(page: P
     site.release.set()
     expect(panel.locator("[data-update-state]")).to_have_text("Updated.", timeout=10_000)
     expect(panel).to_be_hidden(timeout=10_000)
+
+
+def test_the_page_makes_room_for_the_panel_on_a_wide_screen(page: Page, site: Site) -> None:
+    page.set_viewport_size({"width": 1440, "height": 900})
+    site.steps, site.hold = STEPS, True
+    site.sign_in(page)
+    go_ahead(page)
+    panel = page.locator("[data-update-panel]")
+    expect(panel.locator("[data-update-log] li")).to_have_count(2, timeout=10_000)
+    page_box, panel_box = page.locator(".page-area").bounding_box(), panel.bounding_box()
+    assert page_box is not None and panel_box is not None
+    assert page_box["x"] + page_box["width"] <= panel_box["x"] + 1  # beside the panel, not under it

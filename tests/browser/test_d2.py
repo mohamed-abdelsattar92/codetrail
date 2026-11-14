@@ -7,6 +7,7 @@ hostile names, is drawn through the page's own module, and every box shows its l
 import re
 from collections.abc import Iterator
 from pathlib import Path
+from urllib.parse import unquote
 
 import pytest
 from playwright.sync_api import Page, expect
@@ -124,3 +125,18 @@ def test_diagrams_are_laid_out_by_elk(site: Site, page: Page) -> None:
         }"""
     )
     assert re.search(r'<path d="M [\d.]+ [\d.]+ L [^"]* S ', svg)
+
+
+def test_a_diagram_fills_the_column_and_draws_on_its_card(site: Site, page: Page) -> None:
+    page.set_viewport_size({"width": 1440, "height": 900})
+    site.sign_in(page, "/system")
+    figure = page.locator("figure.diagram-block").first
+    image = figure.locator(".diagram-svg img")
+    expect(image).to_be_visible(timeout=DRAWING)
+    figure_box, column_box = figure.bounding_box(), page.locator("#content .wide").bounding_box()
+    assert figure_box is not None and column_box is not None
+    assert abs(figure_box["width"] - column_box["width"]) <= 1  # as wide as the text, as tables and callouts are
+    card = figure.evaluate("figure => getComputedStyle(figure).getPropertyValue('--card').trim()")
+    svg = unquote((image.get_attribute("src") or "").split(",", 1)[1])
+    background = re.search(r"\.fill-N7\{fill:(#[0-9A-Fa-f]{6});", svg)
+    assert background is not None and background.group(1).lower() == card.lower()  # no white box in the card

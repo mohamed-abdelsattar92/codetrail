@@ -23,6 +23,7 @@ from codetrail.errors import CodetrailError
 from codetrail.generate.run import SharedBudget
 from codetrail.guide import GuideRepository, Page
 from codetrail.update import run_update
+from codetrail.web.render import render_markdown
 from tests.fixtures.repos import Commit, add_commit, fake_github_token, make_repository
 
 ADR = "# 0001. Use FastAPI\n\n- Status: accepted\n\n## Decision\nWe use FastAPI for the API.\n"
@@ -167,6 +168,19 @@ def test_the_first_guide_after_facts_only_updates_gets_a_created_digest(paths: P
     assert generation is not None and generation.digest is not None
     digest = guide(paths).read_page(generation.digest)
     assert digest is not None and digest.title == "The guide was created"
+    assert "- [The API](/pages/areas/api)" in digest.body  # each first page by its title
+
+
+def test_a_planned_title_cannot_make_a_link_in_the_created_digest(paths: Paths) -> None:
+    trap = "Payments](https://phish.example/login) and [*more*"
+    plan = PlanDraft([{**PLAN.pages[0], "title": trap}, *PLAN.pages[1:]])
+    generation = run_update(paths, "t", claude=FakeAssistant(plans=[plan], page_writer=good_page)).generation
+    assert generation is not None and generation.digest is not None
+    digest = guide(paths).read_page(generation.digest)
+    assert digest is not None
+    html = str(render_markdown(digest.body))
+    assert 'phish.example/login"' not in html and "<em>" not in html  # the title stays text, not a link or emphasis
+    assert 'href="/pages/areas/api"' in html and "Payments](https://phish.example/login)" in html
 
 
 def test_the_update_stops_calling_claude_at_its_total_budget(paths: Paths) -> None:

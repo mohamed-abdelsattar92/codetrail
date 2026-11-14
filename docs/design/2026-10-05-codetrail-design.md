@@ -461,7 +461,7 @@ grading_cooldown_seconds = 10
 max_budget_usd = 0.25
 
 [assistant]
-retry_attempts = 3
+retry_attempts = 2
 
 [providers]
 max_output_bytes = 50_000_000  # each provider program's output, and its error output, at most; above 0
@@ -490,8 +490,8 @@ max_read_bytes = 200_000
 [estimates]                    # starting tokens per call, until Codetrail has its own history
 history_size = 20
 plan = { input = 60_000, output = 8_000 }
-write = { input = 120_000, output = 6_000 }
-revise = { input = 40_000, output = 2_000 }
+write = { input = 120_000, output = 6_500 }
+revise = { input = 40_000, output = 2_500 }
 digest = { input = 40_000, output = 3_500 }       # grew from 3_000 for the highlights
 answer = { input = 30_000, output = 1_500 }
 grade = { input = 4_000, output = 500 }
@@ -530,9 +530,6 @@ max_inflated_bytes = 50_000_000   # text decoded from one compressed file for th
 max_ignore_lines = 200        # lines with a pattern in a target's .codetrailignore (section 3.3)
 max_ignore_bytes = 65536      # the size of a target's .codetrailignore (section 3.3)
 max_ignore_match_seconds = 60   # matching paths while the target has its own .codetrailignore (section 3.3)
-
-[log]
-level = "INFO"
 ```
 
 The host is always `127.0.0.1`; it is not configurable. Per-target settings are in section 3.1. A key that is absent takes the value shown; every value is validated at startup.

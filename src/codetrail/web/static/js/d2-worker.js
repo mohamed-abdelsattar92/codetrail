@@ -19,12 +19,15 @@ function data(response) {
   return parsed.data;
 }
 
-self.onmessage = async ({ data: { id, source, dark } }) => {
+const HEX_COLOR = /^#[0-9a-f]{6}$/i;
+
+self.onmessage = async ({ data: { id, source, dark, background } }) => {
   try {
     const d2 = await ready;
     const compiled = data(await d2.compile(JSON.stringify({ fs: { index: source }, options: { layout: "elk" } })));
     // At its natural size (scale 1): the page's CSS shrinks a wide diagram to fit, and a small one isn't blown up.
     const options = { ...compiled.renderOptions, themeID: dark ? 200 : 0, pad: 16, scale: 1, noXMLTag: true };
+    if (HEX_COLOR.test(background ?? "")) options.themeOverrides = { n7: background }; // N7 is the theme's background
     const encoded = data(await d2.render(JSON.stringify({ diagram: compiled.diagram, options })));
     const svg = new TextDecoder().decode(Uint8Array.from(atob(encoded), (character) => character.charCodeAt(0)));
     self.postMessage({ id, svg });

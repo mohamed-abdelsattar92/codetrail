@@ -51,6 +51,7 @@
 
   --line: #e3e6ee;
   --line-strong: #cfd4e0;
+  --track: #e3e6ee; /* a progress bar's or ring's empty part */
 
   --documented: #5b5bd6;
   --documented-tint: #f3f3fe;
@@ -135,6 +136,7 @@
     --hover: #22283f;
     --line: #262c44;
     --line-strong: #353c58;
+    --track: #353c58;
     --documented: #9b9bf5;
     --documented-tint: #1c1f3c;
     --inferred: #f0b255;
@@ -187,6 +189,7 @@
   --hover: #22283f;
   --line: #262c44;
   --line-strong: #353c58;
+  --track: #353c58;
   --documented: #9b9bf5;
   --documented-tint: #1c1f3c;
   --inferred: #f0b255;

@@ -414,6 +414,14 @@ class ModelSettings(Settings):
             raise ValueError(f"{provider!r} isn't a provider; use one of {', '.join(PROVIDERS)}.")
         return value
 
+    @field_validator("grade")
+    @classmethod
+    def grading_without_codex(cls, value: str) -> str:
+        # The Codex adapter refuses every grade (design section 15.5), so the choice is refused here, when it loads.
+        if model_choice(value)[0] == "codex":
+            raise ValueError("grade can't use Codex, which always has its shell; choose another provider for grade.")
+        return value
+
     def uses(self, provider: str) -> bool:
         return any(model_choice(getattr(self, kind))[0] == provider for kind in type(self).model_fields)
 

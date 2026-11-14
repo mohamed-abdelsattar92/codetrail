@@ -173,3 +173,22 @@ def test_the_theme_switch_cycles_and_survives_a_reload(page: Page, site: Site) -
     ready(page)
     toggle.click()
     expect(html).not_to_have_attribute("data-theme", re.compile(".+"))
+
+
+def test_the_shortcuts_fit_a_short_window_and_scroll_inside(page: Page, site: Site) -> None:
+    page.set_viewport_size({"width": 1280, "height": 640})
+    site.sign_in(page)
+    page.keyboard.press("?")
+    dialog = page.locator("[data-shortcuts]")
+    expect(dialog).to_be_visible()
+    expect(dialog.locator("#shortcuts-title")).to_be_in_viewport(ratio=1)  # its title isn't scrolled away
+    expect(dialog.locator("[data-shortcuts-close]")).to_be_in_viewport(ratio=1)
+    assert dialog.locator(".dialog-body").evaluate("body => body.scrollHeight > body.clientHeight")
+
+
+def test_the_palette_s_field_draws_no_focus_ring_of_its_own(page: Page, site: Site) -> None:
+    site.sign_in(page)
+    page.keyboard.press("/")
+    field = page.locator(".palette-field input")
+    expect(field).to_be_focused()
+    expect(field).to_have_css("box-shadow", "none")  # the open palette is the focus

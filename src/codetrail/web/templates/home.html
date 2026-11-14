@@ -23,7 +23,7 @@
     {%- elif signal.updating %}{{ _("An update is running.") }}
     {%- elif not guide_pages %}{{ _("Update the guide to write it; you'll see the estimate first.") }}
     {%- elif signal.commits == 0 %}{{ _("The guide matches the branch.") }}
-    {%- else %}{% trans count=signal.merges %}{{ count }} merge landed{% pluralize %}{{ count }} merges landed{% endtrans %}{% if signal.areas %} · <span lang="en" dir="ltr">{{ signal.areas[:3] | join(", ") }}</span>{% endif %}{% endif -%}
+    {%- else %}{% if signal.merges %}{% trans count=signal.merges %}{{ count }} merge landed{% pluralize %}{{ count }} merges landed{% endtrans %}{% if signal.areas %} · {% endif %}{% endif %}{% if signal.areas %}<span lang="en" dir="ltr">{{ signal.areas[:3] | join(", ") }}</span>{% endif %}{% endif -%}
   </p>
   {% if last_update %}<p class="stat-note">{% trans tokens=last_update.tokens|tokens, cost=last_update.cost_usd|dollars %}The last update used ~{{ tokens }} tokens ({{ cost }} at API prices).{% endtrans %}</p>{% endif %}
 </section>
@@ -139,7 +139,7 @@
 </section>
 {% endif %}
 
-<section class="card home-paths" aria-labelledby="paths-title">
+<section class="home-paths" aria-labelledby="paths-title">
   <div class="section-head">
     <h2 id="paths-title">{{ _("Paths") }}</h2>
     <a href="{{ site_path('/progress') }}">{% trans learned=learned, total=guide_pages|length %}{{ learned }} of {{ total }} learned{% endtrans %}</a>

@@ -32,9 +32,11 @@ from codetrail.team.catch_up_job import CatchUpJob
 from codetrail.team.server import create_team_app
 from codetrail.team.settings import save_selection, write_team
 from codetrail.team.sync import sync_team
+from codetrail.update import run_update
 from codetrail.web.app import UpdateJob
 from codetrail.web.security import TOKEN_HEADER, SessionState
 from tests.api.test_team_add import hosted
+from tests.api.test_team_server import row, section
 from tests.fixtures.remote import allow_http_remotes, serving_repository
 from tests.fixtures.repos import make_repository
 from tests.integration.test_catch_up_across_targets import FILES, writer
@@ -417,3 +419,15 @@ def test_catch_up_confirm_with_no_target_declines(team: Team) -> None:
 
         assert page.wait_for("done", "failed", "declined")["state"] == "declined"
     assert team.requests() == 0
+
+
+def test_a_finished_catch_up_shows_on_the_team_page_at_once(team: Team) -> None:
+    run_update(team.paths, "acme-web-shop", facts_only=True)  # fetched once: the page reads its row, and keeps it
+    with served(team, GlobalConfig(signal=SignalSettings(cache_seconds=600))) as page:
+        assert "Write its guide" in row(section(page.client.get("/").text, "repositories-title"), "acme-web-shop")
+        status = waiting(page)
+        assert page.confirm(status["estimate_id"], ["acme-web-shop"]).status_code == 204
+        assert page.wait_for("done", "failed", "declined")["state"] == "done"
+
+        after = row(section(page.client.get("/").text, "repositories-title"), "acme-web-shop")
+        assert "Write its guide" not in after  # its new guide, at once

@@ -24,7 +24,7 @@ from codetrail.update import run_update
 from codetrail.web.security import TOKEN_HEADER, SessionState
 from tests.api.test_team_server import ORIGIN, SETTINGS, Team, client_for, following_team, row, section
 from tests.fixtures.remote import publish
-from tests.fixtures.repos import git
+from tests.fixtures.repos import add_commit, git
 from tests.unit.test_signal import merge_feature
 
 OVERVIEW = "overviews/2026-11-11-101500"
@@ -355,3 +355,15 @@ def test_team_page_spends_nothing(team: Team) -> None:
     assert writer.requests == [] and overview_writer.requests == []
     service = team.services["github"]
     assert isinstance(service, FakeHosting) and service.calls == []
+
+
+def test_a_plain_commit_never_reads_as_no_new_merges(team: Team, tmp_path: Path) -> None:
+    caught_up(team)  # the merge is taken in; then one commit lands without a merge
+    add_commit(tmp_path / "checkout", {"services/api/orders.py": "y = 3\n"}, "fix(api): orders")
+    publish(tmp_path / "checkout", tmp_path / "served")
+
+    page = client_for(team).get("/").text
+
+    card = row(section(page, "repositories-title"), "acme-web-shop")
+    assert "Not caught up yet: 1 commit touched" in card
+    assert "repositories have new merges" not in header(page)  # not "0 of 2" beside a card that isn't caught up

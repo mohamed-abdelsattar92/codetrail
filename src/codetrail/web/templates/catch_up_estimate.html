@@ -4,7 +4,7 @@
    `CatchUpEstimate.totals` does while rows are unticked. Repository names and reasons come from the hosting service
    and git, so they are only ever autoescaped text. #}
 {% macro amount(tokens, usd) -%}
-<bdi dir="ltr">~{{ tokens|tokens }}</bdi> {{ _("tokens") }}{% if usd is not none %} · <bdi dir="ltr">~{{ usd|dollars }}</bdi>{% endif %}
+<span class="nowrap"><bdi dir="ltr">~{{ tokens|tokens }}</bdi> {{ _("tokens") }}{% if usd is not none %} · <bdi dir="ltr">~{{ usd|dollars }}</bdi>{% endif %}</span>
 {%- endmacro %}
 {% macro attribute(value) -%}{{ "" if value is none else value }}{%- endmacro %}
 <h2 id="catch-up-estimate-title">{{ _("Before catching up") }}</h2>
@@ -34,7 +34,7 @@
 {% set maximum_tokens %}<bdi dir="ltr" data-total="maximum-tokens">{{ totals.maximum_tokens|tokens }}</bdi>{% endset %}
 {% set expected_usd %}<bdi dir="ltr" data-total="expected-usd">{{ totals.expected_usd|dollars }}</bdi>{% endset %}
 {% set maximum_usd %}<bdi dir="ltr" data-total="maximum-usd">{{ totals.maximum_usd|dollars }}</bdi>{% endset %}
-<p data-catch-up-totals data-budget-usd="{{ estimate.budget_usd }}">
+<p class="estimate-total" data-catch-up-totals data-budget-usd="{{ estimate.budget_usd }}">
   {% trans expected=expected_tokens, maximum=maximum_tokens %}Expected: ~{{ expected }} tokens; at most ~{{ maximum }}.{% endtrans %}
   <span data-total-prices{% if totals.expected_usd is none or totals.maximum_usd is none %} hidden{% endif %}>{% trans expected=expected_usd, maximum=maximum_usd %}At API prices: ~{{ expected }}, at most {{ maximum }}.{% endtrans %}</span>
   {% trans budget=estimate.budget_usd|dollars %}The catch-up stops starting calls at the team’s budget of {{ budget }}.{% endtrans %}

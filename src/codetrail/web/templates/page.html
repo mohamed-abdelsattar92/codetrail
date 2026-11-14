@@ -23,6 +23,9 @@
     <span class="pill pill-{{ status }}" data-status="{{ status }}">{% if status == "learned" %}{{ icon("check") }} {{ _("Learned") }}{% elif status == "stale" %}{{ _("Learned, but changed since") }}{% elif status == "read" %}{{ _("Read") }}{% else %}{{ _("Not read yet") }}{% endif %}</span>
     {% if status == "unread" %}<button type="button" class="button small" data-mark-read="{{ page.id }}">{{ _("Mark read") }} <kbd>M</kbd></button>
     {% elif status == "read" %}<button type="button" class="button small" data-mark-unread="{{ page.id }}">{{ _("Mark unread") }} <kbd>M</kbd></button>{% endif %}
+    {% elif page.kind == "path" %}{# learned through its steps, never marked read #}
+    {% set progress = namespace(learned=0) %}{% for step in steps %}{% if nav.statuses.get(step) == "learned" %}{% set progress.learned = progress.learned + 1 %}{% endif %}{% endfor %}
+    <span class="pill">{% trans learned=progress.learned, total=steps|length %}{{ learned }} of {{ total }} learned{% endtrans %}</span>
     {% else %}
     <span class="pill" data-status="{{ status }}">{% if status == "read" %}{{ _("Read") }}{% else %}{{ _("Not read yet") }}{% endif %}</span>
     {% if status == "unread" and page.kind == "digest" %}<button type="button" class="button small" data-mark-read="{{ page.id }}">{{ _("Mark read") }} <kbd>M</kbd></button>{% endif %}
@@ -40,6 +43,9 @@
   <p class="notice" lang="{{ language.code }}" dir="{{ language.direction }}">{% if page.kind == "answer" %}{{ _("Files this answer was written from have changed since. Saved answers aren't rewritten; ask again for a fresh one.") }}{% else %}{{ _("Files this page was written from have changed since. It will be checked again at the next update.") }}{% endif %}</p>
   {% endif %}
   <div class="prose">
+  {% if page.kind == "path" %}{# its body lists the steps too: the list below, with their progress, is enough #}
+  <p>{{ page.meta.get("goal", "") }}</p>
+  {% else %}
   {% for segment in segments %}
     {% if segment.kind == "html" %}
       {{ segment.html }}
@@ -49,6 +55,7 @@
       {% with diagram=segment.diagram %}{% include "diagram.html" %}{% endwith %}
     {% endif %}
   {% endfor %}
+  {% endif %}
   </div>
   {% if steps %}
   <h2 lang="{{ language.code }}" dir="{{ language.direction }}">{{ _("Steps") }}</h2>

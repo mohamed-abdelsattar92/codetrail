@@ -7,6 +7,7 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 ### Added
 - Catching up across a team. **Catch up** on the team page and `codetrail team update <name> [--yes]` re-read the sources, clone new repositories and refresh every repository's facts for free, then show one estimate with a line and checkbox per repository, capped at the team's budget (`[catch_up] max_budget_usd`, `concurrency`, and `max_budget_usd_per_call` for the overview). Once the budget is spent, a repository whose turn hadn't come isn't updated, and its card and the panel say why; a repository the last catch-up missed, first guides included, says why on its card or row, and its card counts the merges its guide hasn't taken in. `codetrail team update` asks the same `Continue? [y/N]` as `codetrail update`. The team page shows one card per repository with something new, busiest first: its unread digests' highlights marked documented or inferred, who merged (never counted), and a link to the digest, with **Mark read**. "Across the team" is an overview written in one call with no tools, which may only copy documented blocks from the digests (`[team] max_overview_words`, `[models] overview`, no Codex).
 - Digests carry up to three highlights, for every target (`[team] highlights_per_digest`).
+- How-to guides for every feature, one page each with the steps, commands, a screenshot at every step, the settings, costs and troubleshooting: your first guide, what Codetrail reads, updating, reading and learning, getting around, search and ask, exploring the code, digests, assistants, coding agents, teams, settings and troubleshooting ([docs/guides](docs/guides/README.md)). Their screenshots are regenerated from test data by `tests/browser/test_guide_screenshots.py`.
 - Teams from hosting services: `codetrail team add`, `list`, `serve` and `remove` follow the repositories of a GitHub organization, an Azure DevOps project or a GitLab group. Codetrail reads the service through `gh`, `az` or `glab` and clones with your own git sign-in, over https or ssh; it never holds a token and never writes to the service. `codetrail team serve` shows each repository's "you're behind" signal and its guide under one sign-in. Catching up on all of them is described above ([ADR 0020](docs/adr/0020-hosting-services-through-their-own-programs.md)).
 
 ### Changed
@@ -17,6 +18,15 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 - The README, the PyPI page and the banner used as GitHub's social preview present Codetrail as your onboarding guide to any codebase, whether you're new to it or coming back to it after months away, and the PyPI page lists keywords so searches for onboarding find it.
 
 ### Fixed
+- The phone menu casts no shadow while closed, and dialogs taller than the window scroll inside, keeping their title and buttons in view.
+- Diagrams fill the text column and draw on their card, without a white box; diffs and long fact ids wrap instead of being cut off.
+- The page makes room for the update and catch-up panels instead of running under them, and a guide's text starts in the same place on every page.
+- The Documentation overview fades at its edge while more tiles follow; the system page's tables line up; the team screens and sidebar line up with the guides.
+- A path lists its steps once, with how many are learned; the saved-answers count updates when you save one.
+- A commit without a merge no longer reads as "0 merges landed", and the team header no longer says "0 of N repositories have new merges".
+- The team page shows a catch-up's results right away instead of up to a minute later.
+- The first guide's digest names its pages by title.
+- Choosing Codex for grading is refused when the configuration loads, instead of at every check.
 - Codex planning requests include `scope_kinds` among the schema's required properties, as OpenAI strict structured output requires.
 - A failed Codex process reports its structured request error when available, instead of replacing it with the last standard-error diagnostic.
 - Codex signed in with ChatGPT is correctly reported as ready when `codex login status` writes its status to standard error.
