@@ -99,6 +99,7 @@ def test_the_repository_root_s_facts_are_named_in_words(paths: Paths) -> None:
     assert "<title>project · repository root" in fact
     assert f'href="/facts/project%3A.">{root}</a>' in client.get("/facts/package:pypi/httpx").text  # depends on it
     assert f'href="/facts/project%3A.">{root}</a>' in client.get("/documentation").text  # no page explains it
+    assert f"<td>{root}</td>" in client.get("/facts/module:app/main.py").text  # its project attribute
     assert client.post("/settings/language", json={"language": "ar"},
                        headers={"origin": ORIGIN, TOKEN_HEADER: session.token}).status_code == 204  # fmt: skip
     assert 'project · <span lang="ar" dir="rtl">جذر المستودع</span>' in client.get("/facts/project:.").text

@@ -9,7 +9,7 @@
 </header>
 {% if entity.attributes %}
 <table class="attributes" lang="en" dir="ltr">
-  {% for key, value in entity.attributes.items() %}<tr><th>{{ key }}</th><td>{{ value }}</td></tr>{% endfor %}
+  {% for key, value in entity.attributes.items() %}<tr><th>{{ key }}</th><td>{% if value is string %}{{ fact_name(value) }}{% else %}{{ value }}{% endif %}</td></tr>{% endfor %}
 </table>
 {% endif %}
 <h2>{{ _("Found in") }}</h2>
