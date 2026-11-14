@@ -233,6 +233,22 @@ def test_the_first_commit_time_is_the_earliest_author_time_even_after_the_root(t
     assert first_commit_time(mirror, end) == 1_790_000_000 - 3600
 
 
+@pytest.mark.parametrize("digits", [13, 5000])
+def test_a_commit_date_too_long_to_be_a_time_is_left_out_of_the_first_commit(tmp_path: Path, digits: int) -> None:
+    checkout = make_repository(tmp_path / "t", [{"a": "1"}])
+    tree, parent = git(checkout, "rev-parse", "HEAD^{tree}"), git(checkout, "rev-parse", "HEAD")
+    content = (
+        f"tree {tree}\nparent {parent}\nauthor A <a@example.com> {'1' * digits} +0000\n"
+        f"committer A <a@example.com> 1790000000 +0000\n\nA crafted date\n"
+    )  # git stores it unparsed
+    command = ["git", "-C", str(checkout), "hash-object", "-t", "commit", "--literally", "-w", "--stdin"]
+    crafted = subprocess.run(command, input=content, env={**os.environ, **GIT_ENVIRONMENT}, capture_output=True,
+                             text=True, check=True).stdout.strip()  # fmt: skip
+    git(checkout, "update-ref", "refs/heads/develop", crafted)
+    mirror, end = mirror_of(checkout, tmp_path)
+    assert first_commit_time(mirror, end) == 1_790_000_000
+
+
 def test_a_tag_without_a_tagger_takes_its_commits_date(tmp_path: Path, scanner: SecretScanner) -> None:
     checkout = make_repository(tmp_path / "t", [{"a.txt": "a\n"}])
     commit = git(checkout, "rev-parse", "HEAD")

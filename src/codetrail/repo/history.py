@@ -134,11 +134,15 @@ def commit_times(mirror: Path, end: str, limit: int) -> list[int]:
     return [int(line) for line in output.split()]
 
 
+TIME_DIGITS = re.compile(rb"[0-9]{1,12}")
+
+
 def first_commit_time(mirror: Path, end: str) -> int | None:
     """The earliest author time in `end`'s whole history: the home card's "started on" and the repository page's first
     commit, the same date the timeline starts from even when a later commit claims an earlier date than the root."""
     output = run_git(["log", "--format=%at", "--end-of-options", end], git_dir=mirror)
-    return min((int(line) for line in output.split()), default=None)
+    # git prints a stored date's digits as they are: one longer than a time can be is left out, not parsed.
+    return min((int(line) for line in output.split() if TIME_DIGITS.fullmatch(line)), default=None)
 
 
 COMMIT_MARK = "\x01"

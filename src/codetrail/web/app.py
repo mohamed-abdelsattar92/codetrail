@@ -631,7 +631,7 @@ def create_target_app(
 
         try:
             summary["first"] = first_commits.get(snapshot_id, first_commit_date)
-        except (CodetrailError, OSError) as error:
+        except (CodetrailError, OSError, ValueError, OverflowError) as error:  # a date no calendar holds, too
             logger.warning("The first commit isn't available: %s", error)
             summary["first"] = None
         return summary
