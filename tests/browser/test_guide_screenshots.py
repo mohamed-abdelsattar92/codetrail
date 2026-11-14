@@ -19,7 +19,7 @@ from pathlib import Path
 import pytest
 from playwright.sync_api import FloatRect, Locator, Page, ViewportSize, expect
 
-from codetrail.assistant import DigestDraft, PageDraft, PageRequest, PlanDraft
+from codetrail.assistant import AnswerChunk, DigestDraft, PageDraft, PageRequest, PlanDraft, Usage
 from codetrail.assistant.fake import FakeAssistant
 from codetrail.config import Paths
 from codetrail.update import UpdateResult, run_update
@@ -60,6 +60,21 @@ UPDATE_STEPS: list[dict[str, object]] = [
     {"step": "page_written", "id": "areas/app", "title": "The app", "provider": "claude_code",
      "model": "claude-sonnet-5-5", "tokens": 8_200},
     {"step": "page", "id": "concepts/retries", "title": "Payment retries", "attempt": 1, "reason": "new"},
+]  # fmt: skip
+UPDATE_DONE: list[dict[str, object]] = [
+    *UPDATE_STEPS,
+    {"step": "page_written", "id": "concepts/retries", "title": "Payment retries", "provider": "claude_code",
+     "model": "claude-sonnet-5-5", "tokens": 7_900},
+    {"step": "page", "id": "concepts/ledger", "title": "The ledger", "attempt": 1, "reason": "new"},
+    {"step": "page_written", "id": "concepts/ledger", "title": "The ledger", "provider": "claude_code",
+     "model": "claude-sonnet-5-5", "tokens": 7_600},
+    {"step": "digest"},
+    {"step": "committed", "pages": 3},
+]  # fmt: skip
+ANSWER = [  # an answer as a real call reports it: the files it read and what it used
+    AnswerChunk("Charges retry **three** times, with a growing delay between attempts (`RETRIES` in app/charges.py)."),
+    AnswerChunk(done=True, files_read=["app/charges.py"], cost_usd=0.02,
+                usage=Usage("claude_code", "claude-sonnet-5-5", 3_400, 0, 180, 0.02)),
 ]  # fmt: skip
 
 
@@ -108,7 +123,9 @@ def rich_writer(request: PageRequest) -> PageDraft:
                 {"heading": "## Where it lives", "body": "{{diagram imports scope=app}}"}]  # fmt: skip
     checks = [{"id": "q1", "question": "Why does a failed charge wait longer before each new attempt?",
                "rubric": [{"point": "p", "grounds": ["app/charges.py"]}]}]  # fmt: skip
-    return PageDraft("", checks, ["app/charges.py", "docs/adr/0001-retry-failed-charges.md"], sections=sections)
+    # It reads every file the update changed, as a real revision would: the page isn't left on an old version.
+    read = ["app/main.py", "app/charges.py", "docs/adr/0001-retry-failed-charges.md"]
+    return PageDraft("", checks, read, sections=sections)
 
 
 def update_again(tmp_path: Path) -> None:
@@ -279,6 +296,7 @@ def test_getting_around(page: Page, site: Site) -> None:
 
 def test_search_and_ask(page: Page, site: Site) -> None:
     page.set_viewport_size(DESKTOP)
+    site.claude.answers.insert(0, ANSWER)
     site.sign_in(page, "/pages/areas/app")
     page.keyboard.press("/")
     page.keyboard.type("retr")
@@ -302,7 +320,7 @@ def test_search_and_ask(page: Page, site: Site) -> None:
     page.locator("[data-ask-close]").click()
     shot(page, "search-ask-05-saved-answers", full_page=True)
 
-    go(page, site, "/search?q=retry")
+    go(page, site, "/search?q=retr")  # as typed in the palette: the last word matches as a prefix
     shot(page, "search-ask-06-the-search-page", full_page=True)
 
     page.set_viewport_size(PHONE)
@@ -362,11 +380,21 @@ def test_updating(page: Page, site: Site, tmp_path: Path) -> None:
     expect(panel.locator("[data-update-log] li")).to_have_count(len(UPDATE_STEPS), timeout=10_000)
     shot(page, "updating-03-the-update-running")
 
-    go(page, site, "/pages/areas/app")  # a page opened during the update shows it, and closes it when it's done
-    expect(panel.locator("[data-update-log] li")).to_have_count(len(UPDATE_STEPS), timeout=10_000)
-    site.release.set()
-    expect(panel.locator("[data-update-state]")).to_have_text("Updated.", timeout=10_000)
-    shot(page, "updating-04-the-update-done")
+    with page.expect_navigation(timeout=10_000):  # done: the page reloads with the new guide
+        site.release.set()
+    ready(page)
+
+    # The done state, over the home page, with every step an update logs: a second update, held at its end.
+    site.steps, site.release = UPDATE_DONE, threading.Event()
+    page.locator("[data-update-button]").first.click()
+    expect(page.locator("[data-estimate-dialog]")).to_be_visible(timeout=20_000)
+    page.locator("[data-estimate-go]").click()
+    expect(panel.locator("[data-update-log] li")).to_have_count(len(UPDATE_DONE), timeout=10_000)
+    with page.expect_navigation(timeout=10_000):  # it shows for a moment before the page reloads
+        site.release.set()
+        expect(panel.locator("[data-update-state]")).to_have_text("Updated.", timeout=10_000)
+        shot(page, "updating-04-the-update-done", idle=False)
+    ready(page)
 
 
 def test_team_add(page: Page, team_site: TeamSite) -> None:  # noqa: F811 - the fixture imported above
@@ -379,6 +407,8 @@ def test_team_add(page: Page, team_site: TeamSite) -> None:  # noqa: F811 - the 
     page.get_by_label("payments-api", exact=True).uncheck()
     expect(page.locator("[data-save]")).to_have_text("Add 1 repository")
     shot(page, "teams-03-add-one-left-out", full_page=True)
+    page.get_by_label("payments-api", exact=True).check()  # both, as the team page's shots that follow show them
+    expect(page.locator("[data-save]")).to_have_text("Add 2 repositories")
     page.locator("[data-save]").click()
     expect(page.locator("[data-refresh-state]")).to_have_text(FINISHED, timeout=REFRESH_SECONDS)
     shot(page, "teams-04-add-saved", full_page=True)
