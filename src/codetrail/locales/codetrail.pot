@@ -2301,6 +2301,9 @@ msgstr[1] ""
 msgid "proposed too long, or retired and still cited"
 msgstr ""
 
+msgid "repository root"
+msgstr ""
+
 msgid "revised"
 msgstr ""
 

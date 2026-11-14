@@ -1,10 +1,11 @@
 {% extends "base.html" %}
-{% block title %}{{ entity.id }}{% endblock %}
+{% from "macros.html" import fact_name with context %}
+{% block title %}{% if entity.id.endswith(":.") %}{{ entity.id[:-2] }} · {{ _("repository root") }}{% else %}{{ entity.id }}{% endif %}{% endblock %}
 {% block content %}
 <div class="wide">
 <header class="page-head">
   <p class="eyebrow">{{ _("Fact") }} · <span lang="en" dir="ltr">{{ entity.kind }}</span></p>
-  <h1 lang="en" dir="ltr">{{ entity.id }}</h1>
+  <h1 lang="en" dir="ltr">{{ fact_name(entity.id) }}</h1>
 </header>
 {% if entity.attributes %}
 <table class="attributes" lang="en" dir="ltr">
@@ -19,11 +20,11 @@
 </ul>
 {% if outgoing %}
 <h2>{{ _("Points to") }}</h2>
-<ul class="list" lang="en" dir="ltr">{% for relation in outgoing %}<li><span class="kind">{{ relation.kind }}</span><a class="grow" href="{{ site_path('/facts/') }}{{ relation.target_id|urlencode|replace("/", "%2F") }}">{{ relation.target_id }}</a></li>{% endfor %}</ul>
+<ul class="list" lang="en" dir="ltr">{% for relation in outgoing %}<li><span class="kind">{{ relation.kind }}</span><a class="grow" href="{{ site_path('/facts/') }}{{ relation.target_id|urlencode|replace("/", "%2F") }}">{{ fact_name(relation.target_id) }}</a></li>{% endfor %}</ul>
 {% endif %}
 {% if incoming %}
 <h2>{{ _("Pointed to by") }}</h2>
-<ul class="list" lang="en" dir="ltr">{% for relation in incoming %}<li><a class="grow" href="{{ site_path('/facts/') }}{{ relation.source_id|urlencode|replace("/", "%2F") }}">{{ relation.source_id }}</a><span class="kind">{{ relation.kind }}</span></li>{% endfor %}</ul>
+<ul class="list" lang="en" dir="ltr">{% for relation in incoming %}<li><a class="grow" href="{{ site_path('/facts/') }}{{ relation.source_id|urlencode|replace("/", "%2F") }}">{{ fact_name(relation.source_id) }}</a><span class="kind">{{ relation.kind }}</span></li>{% endfor %}</ul>
 {% endif %}
 </div>
 {% endblock %}
