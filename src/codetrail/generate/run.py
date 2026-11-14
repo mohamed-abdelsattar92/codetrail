@@ -461,7 +461,10 @@ async def _write_digest(
             "written_at": datetime.now(UTC).isoformat(timespec="seconds"), "pages_changed": result.written}  # fmt: skip
     if not commits:
         meta["title"] = "The guide was created"
-        body = "The guide's first pages:\n\n" + "\n".join(f"- [{page}](/pages/{page})" for page in result.written)
+        titles = {page.id: page.title for page in context.guide.pages()}
+        body = "The guide's first pages:\n\n" + "\n".join(
+            f"- [{titles.get(page, page)}](/pages/{page})" for page in result.written
+        )
         context.guide.write_page(Page(page_id, meta, body))
         result.digest = page_id
         return

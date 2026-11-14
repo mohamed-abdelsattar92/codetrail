@@ -167,6 +167,7 @@ def test_the_first_guide_after_facts_only_updates_gets_a_created_digest(paths: P
     assert generation is not None and generation.digest is not None
     digest = guide(paths).read_page(generation.digest)
     assert digest is not None and digest.title == "The guide was created"
+    assert "- [The API](/pages/areas/api)" in digest.body  # each first page by its title
 
 
 def test_the_update_stops_calling_claude_at_its_total_budget(paths: Paths) -> None:
