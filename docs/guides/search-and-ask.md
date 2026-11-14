@@ -30,7 +30,7 @@ Under **Actions**, the palette offers:
 
 1. Choose **See every result for "…"** in the palette, or submit the header's search box without the palette's script.
 2. The **Search** page lists up to 20 results, each with its kind and a snippet. Change the words in the box and choose **Search** to search again.
-   ![The Search page for "retry", with one saved answer found](../images/guides/search-ask-06-the-search-page.png)
+   ![The Search page for "retr", with six results: a saved answer, two concepts, a path, a digest and an area, each with its kind and a highlighted snippet](../images/guides/search-ask-06-the-search-page.png)
 
 ## Ask a question
 
@@ -40,7 +40,7 @@ Under **Actions**, the palette offers:
 4. Read the estimate on the **Send** button, for example `~32k tokens · ~$0.07`. Nothing is spent until you choose **Send**.
    ![The Ask panel with a question typed and the Send button showing its estimate](../images/guides/search-ask-02-a-question-and-its-estimate.png)
 5. Choose **Send**. The status line reads "The assistant is reading the code…" while your assistant reads the repository with read-only tools. Text streams in as plain text.
-6. When it finishes, the answer is shown formatted. Under it you see **Save to guide** and what the call used, for example `Used 12k tokens · $0.07`.
+6. When it finishes, the answer is shown formatted. Under it you see **Save to guide** and what the call used, for example `Used 4k tokens · $0.02`.
    ![The answer in the Ask panel, with Save to guide and what the call used](../images/guides/search-ask-03-the-answer.png)
 
 Your question goes with the page you are reading, so "how often does it retry?" on a page about charges is understood in that context. Answers can include diagrams drawn from the repository's facts.

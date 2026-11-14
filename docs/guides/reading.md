@@ -28,20 +28,20 @@ A path is a goal and an ordered list of pages.
 
 1. In the sidebar, open a path under **Paths**. Each path shows a small bar and a count such as `1/3`.
    ![The sidebar, with the paths, areas, concepts, saved answers and the More section](../images/guides/reading-02-the-sidebar.png)
-2. Read the path's short introduction, then open the first page in **Steps**. A page you have learned shows a check beside it.
-   ![A path page with its steps; the first step is marked learned](../images/guides/reading-03-a-path.png)
+2. Read the path's goal under its title, then open the first page in **Steps**. A page you have learned shows a check beside it.
+   ![A path page: 1 of 3 learned under the title, the goal Learn the app, and its three steps, the first marked learned](../images/guides/reading-03-a-path.png)
 3. At the bottom of each page, use **Previous** and **Next** (or **[** and **]**) to move along the path.
 
-A path page has no **Mark read** button. Its progress is the number of its pages you have learned.
+A path page has no **Mark read** button. Under its title it shows its progress, such as **1 of 3 learned**: the number of its pages you have learned.
 
 ## Read an area or a concept page
 
 An area page explains one part of the repository. A concept page explains one idea that runs through it. Both have the same shape.
 
 1. Open a page from the sidebar, from a path or from a tile on the home page.
-   ![An area page marked Learned, with a notice that its files changed, a documented block, an inferred block, a diagram and a passed check](../images/guides/reading-04-an-area-page.png)
+   ![An area page marked Learned, with a documented block, an inferred block, a diagram and a passed check](../images/guides/reading-04-an-area-page.png)
 2. Look under the title. The status says **Not read yet**, **Read**, **Learned**, or **Learned, but changed since**.
-3. Use **On this page** at the right to jump between sections. It is hidden on windows 1200 pixels wide or narrower, and while the Ask panel is open.
+3. Use **On this page** at the right to jump between sections. It is hidden on windows 1200 pixels wide or narrower, and while the Ask panel or an update's panel is open.
 4. Choose **Ask about this page** (or press **A**) to ask a question with this page as context. See [Search and ask](search-and-ask.md).
 
 If the files a page was written from have changed since, the page says so: "Files this page was written from have changed since. It will be checked again at the next update." This notice does not take away a page you have learned.

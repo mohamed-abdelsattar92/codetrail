@@ -94,7 +94,7 @@ Calls that run with no tools at all (grading, and a team's overview) never use C
    ```
 3. Run `codetrail providers` and check that `codex` says `ready`.
 
-`gpt-5.5-codex` is an example: use a model your Codex account offers. Keep `grade` on another provider: a check graded with Codex is refused.
+`gpt-5.5-codex` is an example: use a model your Codex account offers. Keep `grade` on another provider: a target whose `grade` names Codex is refused when it loads.
 
 If a target names a Codex model without `allow_codex = true`, Codetrail refuses to load the target and says that Codex can read outside the repository's allowed files.
 
@@ -223,6 +223,7 @@ Global settings go in `~/.config/codetrail/config.toml`. Per-repository settings
 | `models: Codex can read outside the repository's allowed files (design section 15.5); to use it for this target, set [assistant] allow_codex = true.` | A target names a Codex model without opting in. Add `allow_codex = true` only if you accept what Codex can read. |
 | `Start Ollama (ollama serve) or LM Studio's server, or set [providers.local] base_url (...)` | Nothing answers at the address. Start the server, or fix `base_url`. |
 | `... isn't a loopback address (127.0.0.1, ::1 or localhost, with no user).` | `base_url` points off your machine. Use an address on this machine. |
+| `<file>: models.grade: Value error, grade can't use Codex, which always has its shell; choose another provider for grade.` | The target's `[models] grade` names Codex. Set it to a Claude Code or local model. |
 | `'<name>' isn't a provider; use one of claude_code, codex, local.` | A `[models]` value has a prefix Codetrail doesn't know. |
 | `<provider> isn't ready.` followed by a fix | A paid action was refused because a provider it needs isn't ready. Run `codetrail providers` and follow the fix. |
 

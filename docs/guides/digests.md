@@ -16,7 +16,7 @@ The home page tells you whether the guide has caught up with the branch, and whe
    ![The Since the last update card, 1 commit behind, and the What changed card with two unread digests](../images/guides/digests-01-home-cards.png)
 3. Read **Since the last update**. The chip says one of:
    - **Up to date**, with "The guide matches the branch."
-   - **N commits behind**, with how many merges landed and up to three areas they touched, for example "0 merges landed · app".
+   - **N commits behind**, with how many merges landed (only when some did) and up to three areas the changes touched, for example "app" or "2 merges landed · app".
    - **No guide yet**, before the first update.
    - **…** with "An update is running.", or **—** with "Couldn't check for new commits just now."
 4. Under the chip, the card shows what the last update used, in the form "The last update used ~N tokens ($X at API prices)."
@@ -42,7 +42,7 @@ To bring the guide up to date, choose **Update the guide** (or press **U**) and 
    - **Documented** quotes a source (a commit's *Why* section or a decision record) and links to it.
    - **Inferred** is "the assistant's reading of the code".
    See [Reading and learning](reading.md).
-4. Follow the links to the pages the update changed.
+4. Follow the links to the guide pages it names. The guide's first digest, **The guide was created**, lists its first pages by title.
 5. Choose **Ask about this page** (or press **A**) to ask a question about the change. See [Search and ask](search-and-ask.md).
 
 ## Mark a digest read

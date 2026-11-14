@@ -11,11 +11,11 @@ You can update from the page or from the terminal. Both show the estimate first 
 1. Run `codetrail serve shop` and open the home page (see [Your first guide](first-guide.md)).
 2. Find the **Since the last update** card in the rail beside the main column.
 
-   ![The Since the last update card, with a chip that says 1 commit behind, an Update the guide button, and a line below that says 0 merges landed with the area app](../images/guides/updating-01-the-behind-card.png)
+   ![The Since the last update card, with a chip that says 1 commit behind, an Update the guide button, and the area app on the line below](../images/guides/updating-01-the-behind-card.png)
 
    The chip says how far the branch has moved:
    - **Up to date**, with "The guide matches the branch."
-   - **N commits behind**, with how many merges landed and the areas they touched.
+   - **N commits behind**, with how many merges landed (only when some did) and up to three areas the changes touched.
    - **No guide yet**, before the first update.
    - **…** and "An update is running." while an update runs.
    - **—** and "Couldn't check for new commits just now." when Codetrail couldn't read the branch.
@@ -39,13 +39,13 @@ The check is free. It counts from the commit of the latest update, including one
 
 3. Choose **Go ahead** to start, or **Cancel** to stop. Nothing is spent until you choose **Go ahead**. If you leave the dialog for longer than `[server] estimate_ttl_seconds` (300 seconds), the estimate expires and the panel says "The estimate expired before it was confirmed, so nothing was spent."
 
-4. Watch the **Updating the guide** panel. Each step appears as it happens; a finished call shows the provider, the model and the tokens it used.
+4. Watch the **Updating the guide** panel. On a wide window the page moves over to make room for it. Each step appears as it happens; a finished call shows the provider, the model and the tokens it used.
 
-   ![The Updating the guide panel beside a page, listing the facts refreshed, three pages planned, one page written and another being written, with Updating… at its foot](../images/guides/updating-03-the-update-running.png)
+   ![The Updating the guide panel beside the home page, listing the facts refreshed, three pages planned, one page written and another being written, with Updating… at its foot](../images/guides/updating-03-the-update-running.png)
 
 5. Wait for the foot of the panel to say **Updated.** A moment later the page reloads with the new pages.
 
-   ![The Updating the guide panel with the same steps, and Updated. at its foot, beside the page The app](../images/guides/updating-04-the-update-done.png)
+   ![The Updating the guide panel with every step: the facts refreshed, three pages planned and written, the digest written and Saved 3 pages to the guide, with Updated. at its foot, beside the home page](../images/guides/updating-04-the-update-done.png)
 
    The panel says **The update failed:** with the reason when it fails. If you cancel, it says the update was cancelled and that the facts were refreshed but the guide wasn't updated.
 

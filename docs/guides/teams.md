@@ -52,11 +52,11 @@ Run these commands yourself. Codetrail never runs them for you. Git must be able
    - **Follow the whole source** is on by default. Codetrail follows the repositories pushed to in the last 90 days (`[team] active_days`), and the ones that become active later. A source with 600 repositories of which 40 are active gets 40 targets. Archived, empty and disabled repositories are never followed. Azure DevOps reports no push time, so a whole project follows every enabled, non-empty repository.
    - **Filter** narrows the list by name. **Active in the last 90 days** is on by default, and **Show archived** is off.
    - Each row shows the repository's name, when it was last pushed to, its size when the service reports one, and a branch picker. The branch starts as the service's default branch.
-5. Untick any repository you don't want. The switch's label then counts them, and the button count follows. Here `payments-api` is unticked:
+5. Untick any repository you don't want. The switch's label then counts them, and the button count follows. For example, with `payments-api` unticked:
    ![The same screen with payments-api unticked. The switch now reads Follow the whole source (1 repository left out), and the button reads Add 1 repository.](../images/guides/teams-03-add-one-left-out.png)
-   To choose by hand instead, turn **Follow the whole source** off. The list becomes a selection that starts from what was ticked, and only ticked repositories are followed.
-6. Press **Add 1 repository** (the button names the number of new repositories; it reads **Save** when nothing new is added). The **Getting the repositories ready** section appears and shows each step.
-   ![The Add repositories screen after saving. The button now reads Save. Under Getting the repositories ready: Cloning web-shop and reading its facts, then web-shop is ready, then Done. Open a repository and use Update the guide to write its guide; you'll see the estimate first. A Go to the team page button follows.](../images/guides/teams-04-add-saved.png)
+   Tick it again to follow it after all; this example keeps both. To choose by hand instead, turn **Follow the whole source** off. The list becomes a selection that starts from what was ticked, and only ticked repositories are followed.
+6. Press **Add 2 repositories** (the button names the number of new repositories; it reads **Save** when nothing new is added). The **Getting the repositories ready** section appears and shows each step.
+   ![The Add repositories screen after saving, with both repositories ticked. The button now reads Save. Under Getting the repositories ready: Cloning payments-api and web-shop and reading their facts, then each is ready, then Done. Open a repository and use Update the guide to write its guide; you'll see the estimate first. A Go to the team page button follows.](../images/guides/teams-04-add-saved.png)
    Codetrail clones each new repository, reads its facts and builds its "you're behind" signal. This is free. No guide is written yet.
 7. Press **Go to the team page**.
 
@@ -78,8 +78,8 @@ If git can't fetch a repository, the refresh fails and the message names the com
    ```
    Add `--no-browser` to print the link without opening it. One sign-in covers the whole team and every repository's guide.
 2. Read the page from top to bottom.
-   ![The team page for acme. The header says Since you last caught up, with the time, and 0 of 2 repositories have new merges, with Catch up and Add repositories buttons. A line reads GitHub, acme-org, Every active repository. Across the team shows an overview with an Inferred mark and a Mark read button. Below, a card for payments-api and a dashed card for web-shop.](../images/guides/teams-05-the-team-page.png)
-   - **The header** says "Since you last caught up" with the time the last catch-up finished (or "You haven't caught up yet."), and how many repositories have new merges. **Catch up** and **Add repositories** are below it.
+   ![The team page for acme. The header says Since you last caught up, with the time, above the Catch up and Add repositories buttons. A line reads GitHub, acme-org, Every active repository. Across the team shows an overview with an Inferred mark and a Mark read button. Below, a card for payments-api and a dashed card for web-shop.](../images/guides/teams-05-the-team-page.png)
+   - **The header** says "Since you last caught up" with the time the last catch-up finished (or "You haven't caught up yet."), and, when any have, how many repositories have new merges, such as "1 of 2 repositories has new merges". **Catch up** and **Add repositories** are below it.
    - **The source line** says which service and source the team follows, how ("Every active repository" or "Chosen repositories"), and how many repositories are left out.
    - **Across the team** is the overview: a short text, written from this catch-up's digests, about how the changes in different repositories connect. It stays until you press **Mark read**. A line below it lists the digests it came from, each a link. A block marked **Inferred** is the assistant's reading of the code. A block marked documented carries a quote from a source that was checked. The overview is in English.
    - **Repositories** has one card for each repository with something new, the busiest first.
@@ -130,12 +130,12 @@ Catching up has a free part and a paid part. The free part always runs. The paid
    An unticked repository keeps its free part. Its card says "Not caught up: you left it out of the last catch-up." An unticked first guide is offered again at the next catch-up, until it runs or you leave the repository out. Unticking every repository declines the catch-up, as **Cancel** does. Nothing is spent.
 5. Press **Go ahead**. Nothing is spent before you do.
 6. Watch the **Catching up** panel. Each step starts with the repository's name.
-   ![The Catching up panel beside the team page. The steps so far: Refreshing every repository (free), the facts of payments-api and web-shop refreshed with none changed, and web-shop: Writing the digest. The footer says Catching up.](../images/guides/teams-10-catch-up-running.png)
+   ![The Catching up panel beside the team page, which moves over to make room. The steps so far: Refreshing every repository (free), the facts of payments-api and web-shop refreshed with none changed, and web-shop: Writing the digest. The footer says Catching up.](../images/guides/teams-10-catch-up-running.png)
    Codetrail runs the ticked repositories' updates, `[catch_up] concurrency` at a time. Each update has its own lock, its own budget and an all-or-nothing commit, as `codetrail update` does. No call starts past `[catch_up] max_budget_usd`. A repository that fails doesn't stop the others and commits nothing; the panel and its card say why.
 7. Wait for the footer to say **Caught up.** The last step reads "One repository caught up." (or the number of repositories).
    ![The Catching up panel after the run: web-shop: Saved 0 pages to the guide, then One repository caught up. The footer says Caught up.](../images/guides/teams-11-catch-up-done.png)
-8. When the catch-up is done, the team page shows the new cards.
-   ![The team page after the catch-up. The web-shop card shows a Changes digest and the earlier digest. The payments-api card says Not caught up: you left it out of the last catch-up. Both cards still show Not caught up yet: 1 commit touched app.](../images/guides/teams-12-after-the-catch-up.png)
+8. When the catch-up is done, the team page shows the new cards. It reads every repository afresh, so a repository just caught up no longer says it is behind.
+   ![The team page after the catch-up. The web-shop card, caught up, shows a Changes digest and the earlier digest. The dashed payments-api card says Not caught up yet: 1 commit touched app, and Not caught up: you left it out of the last catch-up.](../images/guides/teams-12-after-the-catch-up.png)
 
 After a catch-up, wait a few minutes before the next. The page says "A catch-up finished a moment ago; wait a few minutes before the next." until `[server] update_cooldown_seconds` (300 seconds) has passed. One catch-up runs per team at a time.
 

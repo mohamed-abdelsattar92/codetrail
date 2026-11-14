@@ -206,7 +206,7 @@ The Documentation page and the Repository page use these (see [Exploring the cod
 | `[models] write` | `"claude-sonnet-5-5"` | The same, for writing pages. |
 | `[models] digest` | `"claude-sonnet-5-5"` | The same, for digests. |
 | `[models] answer` | `"claude-sonnet-5-5"` | The same, for questions. |
-| `[models] grade` | `"claude-sonnet-5-5"` | The same, for grading checks. |
+| `[models] grade` | `"claude-sonnet-5-5"` | The same, for grading checks. Codex is refused. |
 | `[assistant] allow_codex` | `false` | Must be `true` before any call uses Codex. |
 | `[metrics] document_globs` | `["README*", "*.md", "*.rst", "*.adoc", "*.txt", "docs/**"]` | Which files count as documents. |
 | `[metrics] commit_why_pattern` | a pattern that matches a line starting with "why" | A regular expression that marks a commit that explains why. |
@@ -241,6 +241,7 @@ The page writes the `sources` lists when you use **Add repositories**. See [Team
 | `<file> isn't valid TOML: …` | The file has a syntax error. Fix the line the message names. |
 | `'…' isn't a loopback address (127.0.0.1, ::1 or localhost, with no user).` | `[providers.local] base_url` points off your machine. Use a loopback address. |
 | `models: Codex can read outside the repository's allowed files …; to use it for this target, set [assistant] allow_codex = true.` | A `[models]` entry uses Codex. Opt in, or choose another provider. See [Assistants](assistants.md). |
+| `<file>: models.grade: Value error, grade can't use Codex, which always has its shell; choose another provider for grade.` | `[models] grade` names Codex, which grading refuses. Choose `claude_code` or `local`. |
 | `'…' isn't a provider; use one of claude_code, codex, local.` | The word before the first `:` in a `[models]` value isn't a provider. |
 | `No target named '…'. Add it with: codetrail target add … <path>` | There is no `targets/<name>.toml`. Check the name, or add the target. |
 

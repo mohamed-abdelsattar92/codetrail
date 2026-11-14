@@ -185,7 +185,7 @@ You can skip `codetrail update` and write the guide from the page instead. Serve
 
 4. Watch the **Updating the guide** panel list each step as it finishes.
 
-   ![The Updating the guide panel on the right of the page, listing the facts refreshed, the outline planned and pages being written, with Updating… at its foot](../images/guides/first-guide-03-the-update-running.png)
+   ![The Updating the guide panel beside the home page, which moves over to make room, listing the facts refreshed, the outline planned and pages being written, with Updating… at its foot](../images/guides/first-guide-03-the-update-running.png)
 
    When it ends, the foot of the panel says **Updated.** and the home page shows the guide.
 

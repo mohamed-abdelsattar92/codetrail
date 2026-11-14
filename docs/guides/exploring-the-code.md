@@ -9,7 +9,7 @@ The guide's explanations sit on top of facts Codetrail extracted from the code. 
 The System page draws the repository's parts and how they connect, from facts: nothing on it is the assistant's guess.
 
 1. Choose **System** in the sidebar, or press **G** then **Y**. The link is missing when the repository has no projects, contracts or infrastructure to draw (see [Troubleshooting](#troubleshooting)).
-   ![The System page: a diagram of two parts and an arrow, the legend, the parts tables and the reasons for each arrow](../images/guides/system-01-the-system-page.png)
+   ![The System page: a diagram of shop, infra and Google Cloud with one arrow, deployed on, the legend, the parts tables and the reason for the arrow](../images/guides/system-01-the-system-page.png)
 2. Read the diagram. Each box is a part. Its shape says what kind it is, as the legend under the diagram shows:
    - **Service or app**: a rounded box.
    - **Library**: a plain box.
@@ -59,7 +59,7 @@ codetrail metrics shop
 ```
 
 1. Choose **Documentation** in the sidebar, or press **G** then **O**.
-   ![The Documentation page: four overview cards with their trends, and four sections that open to charts and lists](../images/guides/documentation-01-the-documentation-page.png)
+   ![The Documentation page: the overview cards with their trends, and four sections, with Mentioned and explained open on its lists](../images/guides/documentation-01-the-documentation-page.png)
 2. Read the overview cards on the left. Each shows a number, its bar and its trend over recent updates:
    - **Documented rationale**: the share of the guide's rationale blocks that are documented rather than inferred.
    - **Commits that explain why**: the share of the latest commits whose message gives a reason.

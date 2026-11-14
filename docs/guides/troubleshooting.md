@@ -86,7 +86,7 @@ See [Choose assistants and models](assistants.md).
 | `local isn't ready. Start Ollama (ollama serve) or LM Studio's server, or set [providers.local] base_url (…).` | Start the local server and pull a model, or fix `base_url`. |
 | `models: Codex can read outside the repository's allowed files …; to use it for this target, set [assistant] allow_codex = true.` | Opt in for this target, knowing what Codex can read, or use another provider. |
 | `This target doesn't allow Codex; set [assistant] allow_codex = true to use it.` | The same, at the time of the call. |
-| `Grading can't use Codex, which always has its shell; choose another provider for grade.` | Set `[models] grade` to a Claude Code or local model. |
+| `<file>: models.grade: Value error, grade can't use Codex, which always has its shell; choose another provider for grade.` | The target's `[models] grade` names Codex, so the target doesn't load. Set it to a Claude Code or local model. |
 | `The team's overview can't use Codex.` | Set the team's `[models] overview` to a Claude Code or local model. |
 | `… isn't installed (it isn't on PATH).` / `… isn't installed or isn't executable.` | The program named in `command` isn't there. Install it or set its absolute path. |
 | `The program '…' must be a name on PATH or an absolute path.` | Fix `command` under `[providers.…]`. |
