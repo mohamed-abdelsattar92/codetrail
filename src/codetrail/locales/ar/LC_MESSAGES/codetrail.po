@@ -2668,6 +2668,9 @@ msgstr "تغيّرت المصادر"
 msgid "subject only"
 msgstr "عنوان فقط"
 
+msgid "the assistant's reading of the code"
+msgstr "قراءة المساعد للكود"
+
 msgid "to close"
 msgstr "للإغلاق"
 

@@ -2313,6 +2313,9 @@ msgstr ""
 msgid "subject only"
 msgstr ""
 
+msgid "the assistant's reading of the code"
+msgstr ""
+
 msgid "to close"
 msgstr ""
 
