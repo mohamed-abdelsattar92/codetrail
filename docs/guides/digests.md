@@ -22,7 +22,7 @@ The home page tells you whether the guide has caught up with the branch, and whe
 4. Under the chip, the card shows what the last update used, in the form "The last update used ~N tokens ($X at API prices)."
 5. Read **What changed**. It links to the newest unread digest and counts unread ones, for example "2 unread digests". When you have read them all it says "You're caught up." Before the first digest it says "No digest yet."
 
-The count of commits behind is free. Codetrail fetches the branch and counts, and calls no assistant. It counts from the commit of the latest update, including one run with `--facts-only`. The result is cached for `[signal] cache_seconds` (60 by default).
+The count of commits behind is free. Codetrail fetches the branch and counts, and calls no assistant. It counts from the commit the newest digest covered, so an update run with `--facts-only` doesn't reset it. The result is cached for `[signal] cache_seconds` (60 by default).
 
 To bring the guide up to date, choose **Update the guide** (or press **U**) and read the estimate, or run `codetrail update shop`. See [Keeping the guide up to date](updating.md).
 

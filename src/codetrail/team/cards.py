@@ -88,14 +88,6 @@ def unread_digests(paths: Paths, target: str) -> list[Page]:
     return [page for page in digests if page.id in unread]
 
 
-def last_covered_commit(paths: Paths, target: str) -> str | None:
-    """The commit the target's guide last covered: its newest digest's end, or None without one."""
-    digests = GuideRepository(paths.target_data(target) / "guide").pages("digest")
-    newest = max(digests, key=lambda page: str(page.meta.get("written_at", "")), default=None)
-    covered = newest.meta.get("to_commit") if newest is not None else None
-    return covered if isinstance(covered, str) and COMMIT_ID.fullmatch(covered) else None
-
-
 def card_authors(paths: Paths, target: str, signal: Signal, unread: list[Page]) -> list[str]:
     """Who merged what a card covers, up to the branch's head: from where its oldest unread digest with a start commit
     starts, or else from its last update. A digest with no start commit (the first guide's) covers no commits, so it

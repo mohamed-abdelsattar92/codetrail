@@ -502,8 +502,9 @@ def _markdown_text(text: str) -> str:
 def _digest_range(context: GenerationContext, pages_written: bool) -> tuple[str | None, list[Commit]] | None:
     """The commits a digest covers, from the last digest to the head; None when no digest is due."""
     head = context.manifest.commit
-    digests = sorted(context.guide.pages("digest"), key=lambda page: str(page.meta.get("written_at", "")))
-    since = str(digests[-1].meta.get("to_commit")) if digests else context.previous_commit
+    digests = context.guide.pages("digest")
+    # The commit the guide last covered, as the "behind" signal counts it; an end that isn't a commit id counts as none.
+    since = (context.guide.covered_commit() if digests else None) or context.previous_commit
     if not digests and pages_written:
         since = None  # the guide's first pages: record its creation, whatever facts-only updates came before
     if since == head or (since is None and not pages_written):
