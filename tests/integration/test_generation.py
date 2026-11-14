@@ -379,6 +379,22 @@ def test_a_failed_digest_still_counts_what_it_cost(paths: Paths, tmp_path: Path)
     assert digest is not None and "commits since the last update" in digest.title
 
 
+@pytest.mark.parametrize("edited_end", ["HEAD~1", None])
+def test_a_digest_end_that_is_not_a_commit_id_starts_the_next_digest_at_the_last_update(
+    paths: Paths, tmp_path: Path, edited_end: str | None
+) -> None:
+    run_update(paths, "t", claude=FakeAssistant(plans=[PLAN], page_writer=good_page))
+    first = guide(paths).pages("digest")[0]
+    started = first.meta["to_commit"]
+    guide(paths).write_page(replace(first, meta={**first.meta, "to_commit": edited_end}))  # edited by hand
+    guide(paths).commit("An edit")
+    add_commit(tmp_path / "target", {"services/api/app/routes.py": "x = 1\n"}, "feat(api): routes\n\nWhy: need")
+    generation = run_update(paths, "t", claude=FakeAssistant(page_writer=good_page)).generation
+    assert generation is not None and generation.digest is not None
+    digest = guide(paths).read_page(generation.digest)
+    assert digest is not None and digest.meta["from_commit"] == started  # not a revision git would resolve
+
+
 def one_at_a_time(paths: Paths, budget_usd: float = 10.0, per_call_usd: float = 1.0) -> None:
     file = paths.target_file("t")
     file.write_text(file.read_text() + f"[generation]\nconcurrency = 1\nmax_budget_usd_per_update = {budget_usd}\n"

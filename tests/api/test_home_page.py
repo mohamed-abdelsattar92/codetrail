@@ -115,3 +115,21 @@ def test_commits_without_a_merge_never_read_as_none_landed(paths: Paths, tmp_pat
     assert "1 commit behind" in rail
     assert "merge landed" not in rail and "merges landed" not in rail  # no "0 merges landed" beside it
     assert '<span lang="en" dir="ltr">app</span>' in rail  # the area it touched
+
+
+def test_a_facts_only_update_leaves_the_guide_behind(paths: Paths, tmp_path: Path) -> None:
+    updated(paths)
+    add_commit(tmp_path / "target", {"app/main.py": "from app import db, jobs\n"}, "fix(app): import the jobs")
+    run_update(paths, "t", facts_only=True)  # the facts move on; the guide doesn't
+    client, _ = signed_in(paths)
+    _main, rail = split(client.get("/").text)
+    assert "1 commit behind" in rail and "Up to date" not in rail
+
+
+def test_the_next_paid_update_catches_the_guide_up(paths: Paths, tmp_path: Path) -> None:
+    updated(paths)
+    add_commit(tmp_path / "target", {"app/main.py": "from app import db, jobs\n"}, "fix(app): import the jobs")
+    run_update(paths, "t", facts_only=True)
+    run_update(paths, "t", claude=FakeAssistant(plans=[PLAN], page_writer=writer))  # its digest covers the commit
+    _main, rail = split(signed_in(paths)[0].get("/").text)
+    assert "Up to date" in rail

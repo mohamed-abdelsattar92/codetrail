@@ -343,8 +343,12 @@ def create_target_app(
         cached = signal_cache.get("signal")
         if cached and time.monotonic() - cached[0] < settings.signal.cache_seconds:
             return cached[1]
+        try:  # the commit the guide last covered, which a facts-only update doesn't move (design section 8.5)
+            since = guide.covered_commit()
+        except Exception:  # a page half-written or edited by hand: count from the snapshot instead
+            since = None
         try:
-            result: Signal | None = behind(paths, name)
+            result: Signal | None = behind(paths, name, since)
         except CodetrailError:
             result = None
         signal_cache["signal"] = (time.monotonic(), result)

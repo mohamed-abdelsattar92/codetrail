@@ -11,8 +11,10 @@ from pathlib import Path
 import pytest
 from playwright.sync_api import Page, expect
 
-from codetrail.config import RemoteSettings, TeamSource, write_remote_target
+from codetrail.config import Paths, RemoteSettings, TeamSource, write_remote_target
 from codetrail.database import connect
+from codetrail.guide import GuideRepository
+from codetrail.learn import LearningState
 from codetrail.team.settings import save_selection
 from codetrail.team.state import Overviews, TeamState, team_database
 from tests.browser.conftest import ready
@@ -40,6 +42,15 @@ def write_overview(site: TeamSite) -> None:
         connection.close()
 
 
+def read_digests(paths: Paths, target: str) -> None:
+    connection = connect(paths.target_data(target) / "codetrail.db")
+    try:
+        for digest in GuideRepository(paths.target_data(target) / "guide").pages("digest"):
+            LearningState(connection).mark_digest_read(digest.id)
+    finally:
+        connection.close()
+
+
 @pytest.fixture
 def two_guides(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TeamSite]:
     with serving_team(tmp_path, monkeypatch) as site:
@@ -52,7 +63,8 @@ def two_guides(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Team
             first_guide(site.paths, target)
         add_commit(site.checkout, {"app/charges.py": "RETRIES = 5\n"}, "fix(app): retry once more")
         publish(site.checkout, tmp_path / "served")
-        site.refresh("acme-payments-api")
+        read_digests(site.paths, "acme-payments-api")  # the reader read its first guide's digest
+        first_guide(site.paths, "acme-payments-api")  # caught up: a paid update took the commit in, with a digest
         write_overview(site)
         yield site
 

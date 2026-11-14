@@ -47,7 +47,6 @@ from codetrail.team.cards import (
     Row,
     build_cards,
     card_authors,
-    last_covered_commit,
     render_overview,
     unread_digests,
 )
@@ -235,12 +234,12 @@ def create_team_app(
         logger.warning("Couldn't read target %r's guide: %s", target, type(error).__name__)
         return _("Couldn't read this repository's guide (%(error)s).") % {"error": type(error).__name__}
 
-    def read_target(target: str, missed: bool) -> tuple[Signal | None, str, bool, list[str]]:
+    def read_target(target: str) -> tuple[Signal | None, str, bool, list[str]]:
         """The target's signal, why it couldn't be read, whether its guide has pages yet, and who merged what its card
-        covers. A target the last catch-up `missed` is measured from the commit its guide last covered, since that
-        catch-up's free part moved its snapshot past merges its guide never took in."""
+        covers. The signal counts from the commit the guide last covered (design section 8.5): a facts-only refresh,
+        such as a catch-up's free part, moves the snapshot past merges the guide never took in."""
         try:
-            since = last_covered_commit(paths, target) if missed else None
+            since = GuideRepository(paths.target_data(target) / "guide").covered_commit()
         except Exception:  # an unreadable guide is reported below; until then, the snapshot is the start
             since = None
         signal, reason = read_signal(target, since)
@@ -266,7 +265,7 @@ def create_team_app(
             return Row(target, repository, branch, Signal(updating=True))
         if not (paths.target_data(target) / "mirror.git" / "HEAD").exists():
             return Row(target, repository, branch, Signal())  # not updated yet
-        signal, reason, written, authors = signals.get(target, lambda: read_target(target, missed))
+        signal, reason, written, authors = signals.get(target, lambda: read_target(target))
         found = Row(target, repository, branch, signal, reason, has_guide=written, authors=authors)
         if not found.measured:
             return found

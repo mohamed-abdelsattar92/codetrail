@@ -44,3 +44,4 @@ Everything smaller is explained in the commit body, not in an ADR.
 | [0018](0018-lay-out-diagrams-with-elk.md) | Lay out the page's diagrams with ELK, and vendor D2's ELK build | proposed | 2026-10-22 |
 | [0019](0019-publish-to-pypi-as-codetrail-cli.md) | Publish each release to PyPI as codetrail-cli, by trusted publishing from GitHub Actions | proposed | 2026-10-27 |
 | [0020](0020-hosting-services-through-their-own-programs.md) | Reach GitHub, Azure DevOps and GitLab through the reader's own command-line programs, and never hold a token | accepted | 2026-11-10 |
+| [0021](0021-count-behind-from-the-guide.md) | Count the "you're behind" signal from the commit the guide last covered | proposed | 2026-11-14 |

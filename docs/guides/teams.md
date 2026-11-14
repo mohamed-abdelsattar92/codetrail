@@ -85,7 +85,7 @@ If git can't fetch a repository, the refresh fails and the message names the com
    - **Repositories** has one card for each repository with something new, the busiest first.
    - **Nothing new:** is a line listing the quiet repositories. Below it, **Archived, or no longer in their source** lists the repositories that are no longer refreshed.
 3. Read a card.
-   ![A repository card for payments-api: its name, the branch develop, the digest titled The guide was created, 3 guide pages changed, and a Mark read button.](../images/guides/teams-06-a-card.png)
+   ![A repository card for payments-api, caught up: its name, the branch develop, the digest titled Changes with its text Things changed., 0 guide pages changed, a Mark read button, and Merged by: Test Author.](../images/guides/teams-06-a-card.png)
    A card shows the repository's name and branch, how many merges landed and which areas they touched (from the free signal), the unread digest with its highlights (each marked documented or inferred), **Merged by** with the authors' names as git records them, and how many guide pages changed. Codetrail never counts or ranks people.
 4. Press **Mark read** on a card when you have read it.
    ![The team page after Mark read on the payments-api card. Only the web-shop card remains under Repositories; the overview is still shown.](../images/guides/teams-07-the-card-read.png)

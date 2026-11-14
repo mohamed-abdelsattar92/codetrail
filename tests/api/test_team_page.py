@@ -233,6 +233,19 @@ def test_a_missed_card_counts_from_its_last_digest(team: Team, tmp_path: Path) -
     assert "1 of 2 repositories has new merges" in header(page)
 
 
+def test_a_card_counts_from_its_guide_after_a_facts_only_refresh(team: Team, tmp_path: Path) -> None:
+    write_digest(team.paths, to_commit=snapshot_commit(team.paths))  # the guide covers up to the first update
+    checkout = tmp_path / "checkout"
+    merge_feature(checkout, "two", {"networking/retry.py": "z = 3\n"})
+    publish(checkout, tmp_path / "served")
+    caught_up(team)  # `codetrail update --facts-only` by hand: no catch-up missed it, yet its guide is behind
+
+    card = row(section(client_for(team).get("/").text, "repositories-title"), "acme-web-shop")
+
+    assert 'Not caught up yet: 2 merges touched <span lang="en" dir="ltr">networking, services</span>.' in card
+    assert "last catch-up" not in card
+
+
 def test_a_failed_target_with_no_commits_gets_a_card(team: Team) -> None:
     caught_up(team)  # its free part recorded the snapshot: no commits wait
     finish_catch_up(team.paths, failed={"acme-web-shop": "The team's budget is spent."})

@@ -111,6 +111,13 @@ class GuideRepository:
         text = yaml.safe_dump(outline, sort_keys=False, allow_unicode=True)
         (self.root / OUTLINE_FILE).write_text(text, encoding="utf-8")
 
+    def covered_commit(self) -> str | None:
+        """The target's commit the guide last covered: its newest digest's end, which every paid update with new
+        commits writes and a facts-only update doesn't move (design section 8.5); None without one."""
+        newest = max(self.pages("digest"), key=lambda page: str(page.meta.get("written_at", "")), default=None)
+        covered = newest.meta.get("to_commit") if newest is not None else None
+        return covered if isinstance(covered, str) and COMMIT_ID.fullmatch(covered) else None
+
     def has_uncommitted_changes(self) -> bool:
         # No optional locks: the page checks this while an update may be committing (design 16.3).
         return bool(self._git("--no-optional-locks", "status", "--porcelain", "--untracked-files=all").strip())
