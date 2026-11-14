@@ -12,7 +12,7 @@ from codetrail.errors import CodetrailError
 from codetrail.repo.secrets import SecretScanner
 from codetrail.update import run_update
 from codetrail.web.app import create_app
-from codetrail.web.security import SessionState
+from codetrail.web.security import TOKEN_HEADER, SessionState
 from tests.fixtures.repos import Commit, add_commit, fake_github_token, make_repository
 
 ORIGIN = "http://127.0.0.1:8765"
@@ -86,6 +86,26 @@ def test_after_a_paid_update_the_rationale_is_measured(paths: Paths) -> None:
     assert 'href="/pages/areas/app"' in page and "It reads well." in page
     assert "fix: c" in page and "Commit 0" in page  # commits without a why
     assert "feat: b" not in page.split('id="commits"', 1)[1].split("</section>", 1)[0]
+
+
+def test_the_repository_root_s_facts_are_named_in_words(paths: Paths, tmp_path: Path) -> None:
+    add_commit(tmp_path / "target", {"package.json": '{"name": "web", "dependencies": {"foo:.": "1"}}'}, "feat: web")
+    run_update(paths, "shop", claude=FakeAssistant(plans=[PLAN], page_writer=page_writer))
+    session = SessionState(60)
+    client = TestClient(create_app(paths, "shop", session, GlobalConfig()), base_url=ORIGIN, follow_redirects=False)
+    assert client.get(f"/login?code={session.issue_login_code()}").status_code == 303
+    root = 'project · <span lang="en" dir="ltr">repository root</span>'
+    fact = client.get("/facts/project:.").text
+    assert f'<h1 lang="en" dir="ltr">{root}</h1>' in fact
+    assert "<title>project · repository root" in fact
+    assert f'href="/facts/project%3A.">{root}</a>' in client.get("/facts/package:pypi/httpx").text  # depends on it
+    assert f'href="/facts/project%3A.">{root}</a>' in client.get("/documentation").text  # no page explains it
+    assert f"<td>{root}</td>" in client.get("/facts/module:app/main.py").text  # its project attribute
+    package = client.get("/facts/package:npm/foo:.").text  # a name the target chose, not the root
+    assert '<h1 lang="en" dir="ltr">package:npm/foo:.</h1>' in package and "foo · " not in package
+    assert client.post("/settings/language", json={"language": "ar"},
+                       headers={"origin": ORIGIN, TOKEN_HEADER: session.token}).status_code == 204  # fmt: skip
+    assert 'project · <span lang="ar" dir="rtl">جذر المستودع</span>' in client.get("/facts/project:.").text
 
 
 def test_a_flagged_commit_message_is_withheld(paths: Paths, tmp_path: Path) -> None:

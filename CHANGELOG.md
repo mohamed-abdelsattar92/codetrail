@@ -18,6 +18,7 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 - The README, the PyPI page and the banner used as GitHub's social preview present Codetrail as your onboarding guide to any codebase, whether you're new to it or coming back to it after months away, and the PyPI page lists keywords so searches for onboarding find it.
 
 ### Fixed
+- The repository root's facts are named "project · repository root", "part · repository root" and "worker · repository root", in the reader's language, instead of `project:.`, `part:.` and `worker:.`.
 - After `codetrail update --facts-only` or a catch-up's free part, the home page and the team page still say how many commits the guide is behind, counting from the commit its newest digest covered, instead of "Up to date" ([ADR 0021](docs/adr/0021-count-behind-from-the-guide.md)).
 - The home card's "Started on" and the repository page's first commit are the same date, the earliest in the history, which the timeline also starts from; a back-dated commit made them disagree.
 - On an Arabic page, the labels of documented and inferred blocks are in Arabic too.

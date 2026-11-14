@@ -2656,6 +2656,9 @@ msgstr[5] "مقترح منذ %(count)s يوم"
 msgid "proposed too long, or retired and still cited"
 msgstr "مقترحة منذ وقت طويل، أو متقاعدة وما زالت مُستشهَدًا بها"
 
+msgid "repository root"
+msgstr "جذر المستودع"
+
 msgid "revised"
 msgstr "مُراجَعة"
 
