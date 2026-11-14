@@ -204,6 +204,18 @@ def test_the_home_card_reads_the_first_commit_once_per_snapshot(paths: Paths, mo
     assert len(calls) == 1
 
 
+def test_the_page_and_the_home_card_give_the_same_first_commit(paths: Paths, tmp_path: Path) -> None:
+    # A later commit claiming an earlier date than the root commit, as a rebase or an imported patch can.
+    git(tmp_path / "target", "commit", "-q", "--allow-empty", "-m", "fix: old work", date=-30 * 24 * 60)
+    run_update(paths, "shop", facts_only=True)
+    client = client_for(paths)
+    assert "Started on 2026-08-22" in client.get("/").text
+    page = client.get("/repository").text
+    tile = page.split('id="tile-age"', 1)[1].split("</section>", 1)[0]
+    assert 'First commit on <span class="nowrap">2026-08-22</span>' in tile
+    assert chart_data(page)["days"]["start"] == "2026-08-22"  # where the timeline starts
+
+
 def test_the_home_card_catches_up_once_the_update_records_its_values(
     paths: Paths, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

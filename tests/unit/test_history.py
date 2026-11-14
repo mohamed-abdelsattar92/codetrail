@@ -216,7 +216,7 @@ def test_commit_totals_and_times_count_the_whole_history(tmp_path: Path) -> None
     assert commit_times(mirror, end, 2) == times[:2]
 
 
-def test_the_first_commit_time_is_the_earliest_root_commit(tmp_path: Path) -> None:
+def test_the_first_commit_time_counts_every_root_commit(tmp_path: Path) -> None:
     checkout = make_repository(tmp_path / "t", [{"a": "1"}, {"a": "2"}])
     git(checkout, "checkout", "-q", "--orphan", "imported")
     git(checkout, "commit", "-q", "--allow-empty", "-m", "Imported", date=9)
@@ -224,6 +224,13 @@ def test_the_first_commit_time_is_the_earliest_root_commit(tmp_path: Path) -> No
     git(checkout, "merge", "-q", "--allow-unrelated-histories", "imported", "-m", "Merge", date=10)
     mirror, end = mirror_of(checkout, tmp_path)
     assert first_commit_time(mirror, end) == 1_790_000_000
+
+
+def test_the_first_commit_time_is_the_earliest_author_time_even_after_the_root(tmp_path: Path) -> None:
+    checkout = make_repository(tmp_path / "t", [{"a": "1"}, {"a": "2"}])
+    git(checkout, "commit", "-q", "--allow-empty", "-m", "Back-dated", date=-60)  # a rebase or an imported patch
+    mirror, end = mirror_of(checkout, tmp_path)
+    assert first_commit_time(mirror, end) == 1_790_000_000 - 3600
 
 
 def test_a_tag_without_a_tagger_takes_its_commits_date(tmp_path: Path, scanner: SecretScanner) -> None:

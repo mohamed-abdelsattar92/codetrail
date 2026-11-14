@@ -135,8 +135,9 @@ def commit_times(mirror: Path, end: str, limit: int) -> list[int]:
 
 
 def first_commit_time(mirror: Path, end: str) -> int | None:
-    """The earliest author time among the root commits of `end`'s history: a cheap "started on" for the home card."""
-    output = run_git(["log", "--max-parents=0", "--format=%at", "--end-of-options", end], git_dir=mirror)
+    """The earliest author time in `end`'s whole history: the home card's "started on" and the repository page's first
+    commit, the same date the timeline starts from even when a later commit claims an earlier date than the root."""
+    output = run_git(["log", "--format=%at", "--end-of-options", end], git_dir=mirror)
     return min((int(line) for line in output.split()), default=None)
 
 

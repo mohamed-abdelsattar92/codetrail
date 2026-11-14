@@ -18,6 +18,7 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 - The README, the PyPI page and the banner used as GitHub's social preview present Codetrail as your onboarding guide to any codebase, whether you're new to it or coming back to it after months away, and the PyPI page lists keywords so searches for onboarding find it.
 
 ### Fixed
+- The home card's "Started on" and the repository page's first commit are the same date, the earliest in the history, which the timeline also starts from; a back-dated commit made them disagree.
 - The phone menu casts no shadow while closed, and dialogs taller than the window scroll inside, keeping their title and buttons in view.
 - Diagrams fill the text column and draw on their card, without a white box; diffs and long fact ids wrap instead of being cut off.
 - The page makes room for the update and catch-up panels instead of running under them, and a guide's text starts in the same place on every page.
