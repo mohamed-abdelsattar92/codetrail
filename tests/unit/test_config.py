@@ -288,6 +288,14 @@ def test_codex_needs_the_target_to_opt_in(paths: Paths, tmp_path: Path) -> None:
     assert load_target(paths, "shop").assistant.allow_codex
 
 
+def test_grading_with_codex_is_refused_when_the_target_loads(paths: Paths, tmp_path: Path) -> None:
+    write_target(paths, "shop", tmp_path / "repo", "main")
+    file = paths.target_file("shop")
+    file.write_text(file.read_text() + '[assistant]\nallow_codex = true\n[models]\ngrade = "codex:gpt-5.5-codex"\n')
+    with pytest.raises(CodetrailError, match="grade can't use Codex"):  # not at each grade, after the page is open
+        load_target(paths, "shop")
+
+
 def test_search_and_session_answer_defaults(paths: Paths) -> None:
     settings = load_global(paths)
     assert settings.search.max_query_chars == 200
