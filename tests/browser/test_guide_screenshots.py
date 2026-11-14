@@ -19,7 +19,7 @@ from pathlib import Path
 import pytest
 from playwright.sync_api import FloatRect, Locator, Page, ViewportSize, expect
 
-from codetrail.assistant import AnswerChunk, DigestDraft, PageDraft, PageRequest, PlanDraft, Usage
+from codetrail.assistant import AnswerChunk, DigestDraft, PageDraft, PageRequest, PlanDraft, Usage, Verdict
 from codetrail.assistant.fake import FakeAssistant
 from codetrail.config import Paths
 from codetrail.update import UpdateResult, run_update
@@ -76,6 +76,7 @@ ANSWER = [  # an answer as a real call reports it: the files it read and what it
     AnswerChunk(done=True, files_read=["app/charges.py"], cost_usd=0.02,
                 usage=Usage("claude_code", "claude-sonnet-5-5", 3_400, 0, 180, 0.02)),
 ]  # fmt: skip
+GRADE_USAGE = Usage("claude_code", "claude-sonnet-5-5", 3_600, 0, 140, 0.01)  # a grade as a real call reports it
 
 
 def shot(
@@ -201,6 +202,7 @@ def test_first_guide(page: Page, site: Site, tmp_path: Path) -> None:
 @pytest.mark.settings({"learn": {"grading_cooldown_seconds": 0}})  # three answers in a row
 def test_reading(page: Page, site: Site, tmp_path: Path) -> None:
     page.set_viewport_size(DESKTOP)
+    site.claude.verdicts = [Verdict("pass", [], "Well explained.", 0.01, GRADE_USAGE) for _ in range(3)]
     site.sign_in(page, "/pages/concepts/ledger")
     pass_check(page, "Charges fail sometimes.")  # learned now; the update below changes its check, so it goes stale
     update_again(tmp_path)
