@@ -10,6 +10,7 @@ page's update panel.
 from __future__ import annotations
 
 import json
+import re
 import threading
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
@@ -86,6 +87,7 @@ BUDGET_BELOW_CAP = (
     "generation.max_budget_usd_per_update, or lower generation.max_budget_usd_per_call (for a priced Codex model, "
     "providers.codex.max_tokens_per_call)."
 )
+MARKDOWN_SPECIAL = re.compile(r"[\\`*_{}\[\]()<>#+\-.!|~]")  # CommonMark's ASCII punctuation that can mark up
 ROUNDING_USD = 1e-9  # so caps that add up to the limit exactly still fit, whatever floating point makes of the sum
 
 
@@ -463,7 +465,7 @@ async def _write_digest(
         meta["title"] = "The guide was created"
         titles = {page.id: page.title for page in context.guide.pages()}
         body = "The guide's first pages:\n\n" + "\n".join(
-            f"- [{titles.get(page, page)}](/pages/{page})" for page in result.written
+            f"- [{_markdown_text(titles.get(page, page))}](/pages/{page})" for page in result.written
         )
         context.guide.write_page(Page(page_id, meta, body))
         result.digest = page_id
@@ -490,6 +492,11 @@ async def _write_digest(
         )
     context.guide.write_page(Page(page_id, meta, body))
     result.digest = page_id
+
+
+def _markdown_text(text: str) -> str:
+    """The text as Markdown that renders it literally: a planned title can't make a link or emphasis in the digest."""
+    return MARKDOWN_SPECIAL.sub(r"\\\g<0>", text)
 
 
 def _digest_range(context: GenerationContext, pages_written: bool) -> tuple[str | None, list[Commit]] | None:
