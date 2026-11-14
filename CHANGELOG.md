@@ -19,6 +19,7 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 
 ### Fixed
 - The repository root's facts are named "project · repository root" and "part · repository root", in the reader's language, instead of `project:.` and `part:.`.
+- On an Arabic page, the labels of documented and inferred blocks are in Arabic too.
 - The phone menu casts no shadow while closed, and dialogs taller than the window scroll inside, keeping their title and buttons in view.
 - Diagrams fill the text column and draw on their card, without a white box; diffs and long fact ids wrap instead of being cut off.
 - The page makes room for the update and catch-up panels instead of running under them, and a guide's text starts in the same place on every page.

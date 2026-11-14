@@ -30,13 +30,14 @@
 {% if fact_id.endswith(":.") %}{{ fact_id[:-2] }} · <span lang="{{ language.code }}" dir="{{ language.direction }}">{{ _("repository root") }}</span>{% else %}{{ fact_id }}{% endif %}
 {%- endmacro %}
 
-{# A rationale block of guide content, in English (design section 6.4): documented, with its citation and a link to
-   it when there is one, or inferred. #}
+{# A rationale block of guide content (design section 6.4): documented, with its citation and a link to it when there
+   is one, or inferred. Its label is the interface's, in the reader's language; the citation and the content stay
+   English. #}
 {% macro rationale(segment) -%}
 <aside class="rationale {{ segment.label }}">
-  <p class="rationale-label">
-    {% if segment.label == "documented" %}Documented{% if segment.citation %} · {% if segment.link %}<a href="{{ segment.link }}">{{ segment.citation }}</a>{% else %}{{ segment.citation }}{% endif %}{% endif %}
-    {% else %}Inferred · the assistant's reading of the code{% endif %}
+  <p class="rationale-label" lang="{{ language.code }}" dir="{{ language.direction }}">
+    {% if segment.label == "documented" %}{{ _("Documented") }}{% if segment.citation %} · <bdi lang="en" dir="ltr">{% if segment.link %}<a href="{{ segment.link }}">{{ segment.citation }}</a>{% else %}{{ segment.citation }}{% endif %}</bdi>{% endif %}
+    {% else %}{{ _("Inferred") }} · {{ _("the assistant's reading of the code") }}{% endif %}
   </p>
   {{ segment.html }}
 </aside>
