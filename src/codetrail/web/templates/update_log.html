@@ -5,7 +5,7 @@
 {%- if step.repository %}<bdi>{{ step.repository }}</bdi>: {% endif -%}
 {%- endmacro %}
 {% macro used(step) -%}
-<span class="muted">{% if step.provider %} · {{ step.provider }} · {{ step.model or _("default model") }}{% endif %}{% if step.tokens %} · {{ step.tokens|tokens }} {{ _("tokens") }}{% endif %}{% if step.cost_usd %} · {{ step.cost_usd|dollars }}{% endif %}</span>
+<span class="muted">{% if step.provider %} · <span class="nowrap">{{ step.provider }}</span> · <span class="nowrap">{{ step.model or _("default model") }}</span>{% endif %}{% if step.tokens %} · <span class="nowrap">{{ step.tokens|tokens }} {{ _("tokens") }}</span>{% endif %}{% if step.cost_usd %} · {{ step.cost_usd|dollars }}{% endif %}</span>
 {%- endmacro %}
 {% for step in steps %}
 {% if step.step == "facts" %}

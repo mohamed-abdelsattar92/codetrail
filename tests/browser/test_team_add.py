@@ -355,3 +355,21 @@ def test_the_progress_shows_while_the_source_is_listed_again(page: Page, team_si
     waiting[0].continue_()
     expect(page.locator("[data-save]")).to_have_text("Save")
     expect(page.locator("[data-refresh-state]")).to_have_text(FINISHED, timeout=REFRESH_SECONDS)
+
+
+def test_the_add_screen_lines_up_with_the_team_page(page: Page, team_site: TeamSite) -> None:
+    page.set_viewport_size({"width": 1440, "height": 900})
+    team_site.sign_in(page)
+    expect(page.locator("[data-services] li")).to_have_count(3)
+    add = page.locator("#content h1").bounding_box()
+    widths = {
+        round(box["width"])
+        for box in page.locator("[data-services] li").evaluate_all(
+            "items => items.map(item => item.getBoundingClientRect().toJSON())"
+        )
+    }
+    assert len(widths) == 1  # one list: every service as wide as the others
+    page.goto(f"{team_site.url}/")
+    ready(page)
+    team = page.locator("#content h1").bounding_box()
+    assert add is not None and team is not None and add["x"] == team["x"]

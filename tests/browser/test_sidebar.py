@@ -336,3 +336,13 @@ def test_the_page_at_the_root_keeps_its_storage_keys(page: Page, site: Site) -> 
     hide(page)
     stored = page.evaluate("Object.fromEntries(Object.entries(window.localStorage))")
     assert stored == {"codetrail.sidebar": "hidden"}
+
+
+def test_the_closed_drawer_casts_no_shadow_on_the_page(page: Page, site: Site) -> None:
+    page.set_viewport_size({"width": 375, "height": 812})
+    site.sign_in(page, "/pages/areas/app")
+    sidebar = page.locator("#sidebar")
+    expect(sidebar).to_have_css("box-shadow", "none")  # off screen, its shadow would still fall on the page's edge
+    page.locator("[data-menu]").click()
+    expect(sidebar).to_be_in_viewport()
+    expect(sidebar).not_to_have_css("box-shadow", "none")

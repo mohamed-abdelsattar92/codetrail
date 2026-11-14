@@ -113,3 +113,13 @@ def test_team_page_at_a_phone_s_width(page: Page, two_guides: TeamSite, errors: 
     assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
     assert axe_violations(page) == []
     assert errors == []
+
+
+def test_the_repositories_heading_lines_up_with_its_links(page: Page, two_guides: TeamSite) -> None:
+    page.set_viewport_size({"width": 1440, "height": 900})
+    two_guides.sign_in(page, "/")
+    ready(page)
+    heading = page.locator("#sidebar .nav-heading .nav-fold-label").bounding_box()
+    link = page.locator("#sidebar .nav-section .nav-link .label").first.bounding_box()
+    assert heading is not None and link is not None
+    assert abs(heading["x"] - link["x"]) <= 1

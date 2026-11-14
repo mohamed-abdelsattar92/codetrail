@@ -54,7 +54,7 @@
     <span class="stat-value">—</span><span class="stat-note">{{ _("The history couldn't be read just now.") }}</span>
     {% else %}
     {% set years, months = age %}
-    <span class="stat-value">{% if not years and not months %}{% trans count=[(today - activity.first).days, 0]|max %}{{ count }} day{% pluralize %}{{ count }} days{% endtrans %}{% else %}{% if years %}{% trans count=years %}{{ count }} year{% pluralize %}{{ count }} years{% endtrans %}{% endif %}{% if years and months %}, {% endif %}{% if months %}{% trans count=months %}{{ count }} month{% pluralize %}{{ count }} months{% endtrans %}{% endif %}{% endif %}</span>
+    <span class="stat-value stat-words">{% if not years and not months %}{% trans count=[(today - activity.first).days, 0]|max %}{{ count }} day{% pluralize %}{{ count }} days{% endtrans %}{% else %}{% if years %}{% trans count=years %}{{ count }} year{% pluralize %}{{ count }} years{% endtrans %}{% endif %}{% if years and months %}, {% endif %}{% if months %}{% trans count=months %}{{ count }} month{% pluralize %}{{ count }} months{% endtrans %}{% endif %}{% endif %}</span>
     <span class="stat-note">{% trans date=activity.first.isoformat() %}First commit on <span class="nowrap">{{ date }}</span>{% endtrans %}</span>
     {% endif %}
   </section>

@@ -219,7 +219,9 @@ function rowFor(row) {
   const name = element("bdi", "", row.name);
   label.append(box, " ", name);
   item.append(label);
-  for (const text of [pushedText(row), sizeText(row)]) if (text) item.append(element("span", "faint", text));
+  const pushed = pushedText(row);
+  if (pushed) item.append(element("span", "faint", pushed));
+  item.append(element("span", "faint repository-size", sizeText(row))); // empty when unknown: the rows still line up
   const waits = element("span", "faint", labels.text("whenActive"));
   waits.hidden = !(isTicked(row) && !willFollow(row));
   box.addEventListener("change", () => { waits.hidden = !(isTicked(row) && !willFollow(row)); });
