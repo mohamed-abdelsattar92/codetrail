@@ -22,7 +22,7 @@ You can update from the page or from the terminal. Both show the estimate first 
 
    When the guide has been updated, the card also says how much the last update used: "The last update used ~N tokens ($ at API prices)."
 
-The check is free. It counts from the commit of the latest update, including one run with `--facts-only`, so after a facts-only update the card can say **Up to date** while pages still wait to be rewritten. The result is kept for `[signal] cache_seconds` (60 by default), so a new commit can take up to a minute to show.
+The check is free. It counts from the commit the guide last covered, the end of its newest digest, so an update run with `--facts-only` doesn't reset it: the card keeps saying how far behind the guide is until a full update. The result is kept for `[signal] cache_seconds` (60 by default), so a new commit can take up to a minute to show.
 
 ## Update the guide from the page
 
