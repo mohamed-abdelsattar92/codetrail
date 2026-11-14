@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% from "macros.html" import fact_name with context %}
-{% block title %}{% if entity.id.endswith(":.") %}{{ entity.id[:-2] }} · {{ _("repository root") }}{% else %}{{ entity.id }}{% endif %}{% endblock %}
+{% block title %}{% if entity.id in ("project:.", "part:.", "worker:.") %}{{ entity.id[:-2] }} · {{ _("repository root") }}{% else %}{{ entity.id }}{% endif %}{% endblock %}
 {% block content %}
 <div class="wide">
 <header class="page-head">

@@ -24,10 +24,10 @@
 </ul>
 {%- endmacro %}
 
-{# A fact's id as the reader sees it: the repository root's facts (`project:.`, `part:.`) name the root in words, in
-   the reader's language; every other id is shown as is. #}
+{# A fact's id as the reader sees it: the repository root's facts (`project:.`, `part:.`, `worker:.`) name the root in
+   words, in the reader's language; every other id, a target's own name ending in ":." among them, is shown as is. #}
 {% macro fact_name(fact_id) -%}
-{% if fact_id.endswith(":.") %}{{ fact_id[:-2] }} · <span lang="{{ language.code }}" dir="{{ language.direction }}">{{ _("repository root") }}</span>{% else %}{{ fact_id }}{% endif %}
+{% if fact_id in ("project:.", "part:.", "worker:.") %}{{ fact_id[:-2] }} · <span lang="{{ language.code }}" dir="{{ language.direction }}">{{ _("repository root") }}</span>{% else %}{{ fact_id }}{% endif %}
 {%- endmacro %}
 
 {# A rationale block of guide content (design section 6.4): documented, with its citation and a link to it when there

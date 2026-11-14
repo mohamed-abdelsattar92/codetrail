@@ -88,7 +88,8 @@ def test_after_a_paid_update_the_rationale_is_measured(paths: Paths) -> None:
     assert "feat: b" not in page.split('id="commits"', 1)[1].split("</section>", 1)[0]
 
 
-def test_the_repository_root_s_facts_are_named_in_words(paths: Paths) -> None:
+def test_the_repository_root_s_facts_are_named_in_words(paths: Paths, tmp_path: Path) -> None:
+    add_commit(tmp_path / "target", {"package.json": '{"name": "web", "dependencies": {"foo:.": "1"}}'}, "feat: web")
     run_update(paths, "shop", claude=FakeAssistant(plans=[PLAN], page_writer=page_writer))
     session = SessionState(60)
     client = TestClient(create_app(paths, "shop", session, GlobalConfig()), base_url=ORIGIN, follow_redirects=False)
@@ -100,6 +101,8 @@ def test_the_repository_root_s_facts_are_named_in_words(paths: Paths) -> None:
     assert f'href="/facts/project%3A.">{root}</a>' in client.get("/facts/package:pypi/httpx").text  # depends on it
     assert f'href="/facts/project%3A.">{root}</a>' in client.get("/documentation").text  # no page explains it
     assert f"<td>{root}</td>" in client.get("/facts/module:app/main.py").text  # its project attribute
+    package = client.get("/facts/package:npm/foo:.").text  # a name the target chose, not the root
+    assert '<h1 lang="en" dir="ltr">package:npm/foo:.</h1>' in package and "foo · " not in package
     assert client.post("/settings/language", json={"language": "ar"},
                        headers={"origin": ORIGIN, TOKEN_HEADER: session.token}).status_code == 204  # fmt: skip
     assert 'project · <span lang="ar" dir="rtl">جذر المستودع</span>' in client.get("/facts/project:.").text
