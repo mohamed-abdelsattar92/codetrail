@@ -49,7 +49,7 @@ You can ask one question at a time. The panel keeps this session's answers while
 
 ### Read an answer
 
-Treat an answer as the assistant's reading of the code, not as documented fact. When a saved answer quotes a source, Codetrail checks that the quote is really there. A quote it cannot verify is saved as an inferred block instead of a documented one. See [Reading](reading.md) for what documented and inferred mean.
+Treat an answer as the assistant's reading of the code, not as documented fact. When a saved answer quotes a source, Codetrail checks that the quote is really there. A quote it cannot verify is saved as an inferred block instead of a documented one. See [Reading and learning](reading.md) for what documented and inferred mean.
 
 ## Save an answer
 
@@ -101,17 +101,17 @@ See [Settings](settings.md) for where each lives.
 | Search isn't available right now. The rest of the guide still works. | The search index couldn't be built. The log says why. Restart `codetrail serve`. |
 | Nothing in the guide matches "…". | No page, answer, decision or fact has those words. Try a shorter word. |
 | Questions are limited to N characters. | Shorten the question. |
-| Run `codetrail update <name>` first. | The guide has no snapshot yet. Run the update. |
+| Run codetrail update <name> first. | The guide has no snapshot yet. Run the update. |
 | That page doesn't exist. | The page you asked about is gone. Open another page and ask again. |
 | Another question is still being answered. | Wait for the current answer. |
-| The answer was withheld: it contains something that looks like a secret | The answer matched a secret pattern, so nothing was shown or kept. Ask a narrower question. |
+| The answer was withheld: it contains something that looks like a secret (…). | The answer matched a secret pattern, so nothing was shown or kept. Ask a narrower question. |
 | The answer failed (…). | The assistant's program failed. Run `codetrail providers` and try again. |
 | That answer is gone; ask again. | The answer was dropped from this session before you saved it. Ask again. |
 | An update is running; save again when it finishes. | Saving needs the guide, which an update is changing. Wait for it to finish. |
 
 ## See also
 
-- [Reading](reading.md)
+- [Reading and learning](reading.md)
 - [Getting around](getting-around.md): all the shortcuts
 - [Assistants](assistants.md): choosing the model that answers
 - [Exploring the code](exploring-the-code.md)

@@ -73,14 +73,14 @@ See [Keeping the guide up to date](updating.md).
 
 ## Assistants
 
-See [Assistants](assistants.md).
+See [Choose assistants and models](assistants.md).
 
 | You see | What it means and what to do |
 |---|---|
-| `claude_code isn't ready. Install Claude Code (https://code.claude.com/docs/en/setup), run claude once and sign in with /login …` | Claude Code isn't installed. Install it, run `claude`, and sign in with `/login`. |
-| `claude_code isn't ready. Run claude and sign in with /login using your Claude subscription.` | Claude Code is installed but not signed in. |
+| ``claude_code isn't ready. Install Claude Code (https://code.claude.com/docs/en/setup), run `claude` once and sign in with /login …`` | Claude Code isn't installed. Install it, run `claude`, and sign in with `/login`. |
+| ``claude_code isn't ready. Run `claude` and sign in with /login using your Claude subscription.`` | Claude Code is installed but not signed in. |
 | `claude_code isn't ready. Claude Code isn't signed in with a Claude subscription: …` | You signed in with an API (Console) account. Run `/login` again with your Claude account, or set `[providers.claude_code] auth = "api_key"` on purpose. |
-| `claude_code isn't ready. `claude auth status` didn't answer; run claude once to finish its setup.` | Run `claude` once and finish its setup. |
+| ``claude_code isn't ready. `claude auth status` didn't answer; run `claude` once to finish its setup.`` | Run `claude` once and finish its setup. |
 | `codex isn't ready. Install Codex …` or `Run codex login and choose Sign in with ChatGPT.` | Install Codex, run `codex login`, and choose **Sign in with ChatGPT**. |
 | `codex isn't ready. Codex is signed in with an API key: …` | Sign in with ChatGPT, or set `[providers.codex] auth = "api_key"` on purpose. |
 | `local isn't ready. Start Ollama (ollama serve) or LM Studio's server, or set [providers.local] base_url (…).` | Start the local server and pull a model, or fix `base_url`. |
@@ -156,7 +156,7 @@ See [Coding agents](coding-agents.md).
 
 | You see | What it means and what to do |
 |---|---|
-| `Run codetrail update … first: there are no facts to map yet.` | `codetrail agents` needs facts. Run `codetrail update <name>` or `--facts-only`. |
+| ``Run `codetrail update …` first: there are no facts to map yet.`` | `codetrail agents` needs facts. Run `codetrail update <name>` or `--facts-only`. |
 
 ## Teams
 
@@ -169,12 +169,12 @@ See [Teams](teams.md).
 | `No team named '…'.` | There is no `teams/<name>.toml`. Check `codetrail team list`. |
 | `Couldn't list the team's sources: …` | The hosting program failed. Check that `gh`, `az` or `glab` is installed and signed in. |
 | `git couldn't fetch …. If it needs your sign-in, run: …` | git can't read the repository without asking. Run the command it prints yourself. |
-| `That isn't a clone URL for …: use https on … or git@…, with no user, password or port.` | The repository's address isn't the service's own. Don't edit a team target's `[remote]` by hand. |
+| `That isn't a clone URL for …: use https on … (https://…/...) or git@…:..., with no user, password or port.` | The repository's address isn't the service's own. Don't edit a team target's `[remote]` by hand. |
 | `… has no branch '…'.` | The repository's default branch has changed or is missing. |
 | `'…' isn't a valid organization name for azure_devops.` / `… isn't a valid … name for ….` | Fix the name you typed for the source. |
 | `Team '…' is being removed.` | `codetrail team remove` is running. |
-| `Team '…' is in use: stop codetrail team serve for it, or wait for its sync to finish.` | Stop `codetrail team serve`, then remove the team. |
-| `'…' is followed by team …: leave it out on the team page (Add repositories), then run codetrail target remove again.` | Untick the repository on **Add repositories**, then remove its target. |
+| ``Team '…' is in use: stop `codetrail team serve` for it, or wait for its sync to finish.`` | Stop `codetrail team serve`, then remove the team. |
+| `… is followed by team …: leave it out on the team page (Add repositories), then run codetrail target remove again.` | Untick the repository on **Add repositories**, then remove its target. |
 | `The team's budget is spent, so this repository wasn't updated.` | The catch-up reached `[catch_up] max_budget_usd`. Catch up again, or raise the budget. |
 | A catch-up is already running. / A catch-up finished a moment ago; wait a few minutes before the next. | Only one catch-up runs at a time, with a cooldown after it. |
 | That estimate isn't waiting any more. | The estimate expired or was used. Choose **Catch up** again. |

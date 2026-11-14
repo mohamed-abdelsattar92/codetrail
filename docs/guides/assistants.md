@@ -94,6 +94,8 @@ Calls that run with no tools at all (grading, and a team's overview) never use C
    ```
 3. Run `codetrail providers` and check that `codex` says `ready`.
 
+`gpt-5.5-codex` is an example: use a model your Codex account offers. Keep `grade` on another provider: a check graded with Codex is refused.
+
 If a target names a Codex model without `allow_codex = true`, Codetrail refuses to load the target and says that Codex can read outside the repository's allowed files.
 
 A repository followed by a team is a target too, named `<team>-<repository>`. Its settings file is `~/.config/codetrail/targets/acme-web-shop.toml`. Codex stays off for it until you add the same lines to that file.
@@ -164,7 +166,7 @@ Budgets stop work before it passes what you decided:
 |---|---|---|---|
 | `[generation] max_budget_usd_per_update` | repository | 10.0 | One update, in dollars. |
 | `[generation] max_tokens_per_update` | repository | 5,000,000 | One update, in tokens, for every provider. |
-| `[generation] max_budget_usd_per_call` | repository | 1.0 | One page call. |
+| `[generation] max_budget_usd_per_call` | repository | 1.0 | One call of an update: the plan, a page or the digest. |
 | `[bridge] max_budget_usd` | global | 1.0 | One question. |
 | `[learn] max_budget_usd` | global | 0.25 | One graded check. |
 | `[catch_up] max_budget_usd` | team | 20.0 | A whole team catch-up. |
@@ -203,9 +205,9 @@ Global settings go in `~/.config/codetrail/config.toml`. Per-repository settings
 ## Costs
 
 - `codetrail providers` is free.
-- Every paid action shows its estimate first: `codetrail update`, the **Update the guide** dialog, the **Ask** button and **Check my answer**. After the work, the actual tokens and cost appear beside the estimate.
+- Every paid action shows its estimate first: `codetrail update`, the **Update the guide** dialog, the Ask panel's **Send** button and **Check my answer**. After the work, the actual tokens and cost appear beside the estimate.
 - Estimates start from sensible guesses (marked "a starting guess"), then use the median of your own last calls of the same kind, provider and model.
-- On a subscription you pay nothing extra, and the dollars shown are what the same work would cost through the API. The real cost is your plan's usage. The estimate says how much of your plan's usage windows you have used, when Claude Code reports it. Codex doesn't report this, so the page links to its usage page.
+- On a subscription you pay nothing extra, and the dollars shown are what the same work would cost through the API. The real cost is your plan's usage. The update's estimate also says how much of your plan's usage windows you have used, when Claude Code has reported it.
 - A local model costs nothing.
 
 ## Troubleshooting
@@ -226,7 +228,7 @@ Global settings go in `~/.config/codetrail/config.toml`. Per-repository settings
 
 ## See also
 
-- [Your first guide](first-guide.md) and [Update the guide](updating.md): where estimates appear.
+- [Your first guide](first-guide.md) and [Keeping the guide up to date](updating.md): where estimates appear.
 - [Teams](teams.md): the team's overview model and budget.
 - [Settings](settings.md): every setting in one place.
 - [Using Codetrail with your coding agent](coding-agents.md): a different use of Claude Code and Codex, which costs nothing.

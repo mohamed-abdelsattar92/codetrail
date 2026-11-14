@@ -1,6 +1,6 @@
 # Keeping the guide up to date
 
-The guide is a snapshot. When the repository moves on, the page tells you how far behind the guide is, and you update it. An update rewrites only the pages whose facts changed, learned pages first, and writes a digest of what changed and why.
+The guide is a snapshot. When the repository moves on, the page tells you how far behind the guide is, and you update it. An update rewrites only the pages whose facts changed, and writes a digest of what changed and why. Pages this update's changes touch go first, then the pages you learned, then new pages.
 
 You can update from the page or from the terminal. Both show the estimate first and spend nothing until you say so.
 
@@ -22,7 +22,7 @@ You can update from the page or from the terminal. Both show the estimate first 
 
    When the guide has been updated, the card also says how much the last update used: "The last update used ~N tokens ($ at API prices)."
 
-The check is free and is kept for `[signal] cache_seconds` (60 by default), so a new commit can take up to a minute to show.
+The check is free. It counts from the commit of the latest update, including one run with `--facts-only`, so after a facts-only update the card can say **Up to date** while pages still wait to be rewritten. The result is kept for `[signal] cache_seconds` (60 by default), so a new commit can take up to a minute to show.
 
 ## Update the guide from the page
 
@@ -32,20 +32,20 @@ The check is free and is kept for `[signal] cache_seconds` (60 by default), so a
 
 2. Read the estimate:
    - The table lists each kind of call (`plan`, `write`, `digest`), its provider and model, how many calls, the tokens each and the cost each. "a starting guess" marks a number made before Codetrail has a history of its own calls. A local model shows **free**; a model with no price shows **no price configured**.
-   - **Expected** is the likely total; "at most" counts every page being written twice, since a check that fails gets one retry.
+   - **Expected** is the likely total; "at most" counts every page being written twice, since a page that fails validation is written once more. It never goes past the budget.
    - The dollars are what the same work would cost at API prices. On a subscription the note under the table says there is no charge and that the work counts against your plan's usage limits.
    - A list of the pages follows, in the order they are written, each with the reason: a new page, one of its facts changed, its outline entry changed, or catching up. A page marked **revised** has only its affected sections rewritten.
    - The update stops at its budget, which the estimate also states.
 
 3. Choose **Go ahead** to start, or **Cancel** to stop. Nothing is spent until you choose **Go ahead**. If you leave the dialog for longer than `[server] estimate_ttl_seconds` (300 seconds), the estimate expires and the panel says "The estimate expired before it was confirmed, so nothing was spent."
 
-4. Watch the **Updating the guide** panel. Each step appears as it finishes, with the provider, the model and the tokens it used.
+4. Watch the **Updating the guide** panel. Each step appears as it happens; a finished call shows the provider, the model and the tokens it used.
 
-   ![The Updating the guide panel beside a page, listing the facts refreshed, three pages planned, one page written and another being written, with Updating at its foot](../images/guides/updating-03-the-update-running.png)
+   ![The Updating the guide panel beside a page, listing the facts refreshed, three pages planned, one page written and another being written, with Updating… at its foot](../images/guides/updating-03-the-update-running.png)
 
-5. Wait for the foot of the panel to say **Updated.** Close the panel with the close button.
+5. Wait for the foot of the panel to say **Updated.** A moment later the page reloads with the new pages.
 
-   ![The Updating the guide panel with the same steps, and Updated at its foot, beside the page The app](../images/guides/updating-04-the-update-done.png)
+   ![The Updating the guide panel with the same steps, and Updated. at its foot, beside the page The app](../images/guides/updating-04-the-update-done.png)
 
    The panel says **The update failed:** with the reason when it fails. If you cancel, it says the update was cancelled and that the facts were refreshed but the guide wasn't updated.
 
@@ -120,7 +120,7 @@ The first update writes up to 20 pages. To keep any update smaller, add to `~/.c
 max_pages_per_update = 8
 ```
 
-The pages left out are written by later updates, learned pages first.
+The pages left out are written by later updates.
 
 ## Settings
 
@@ -145,7 +145,7 @@ These are in the target's file (`~/.config/codetrail/targets/<name>.toml`) unles
 
 **Paid, on your assistant's plan:** the calls an update makes: `plan` (the outline), `write` (the pages) and `digest`. The estimate shows them before anything runs, in the terminal before `Continue? [y/N]` and on the page before **Go ahead**. A call to a local model is free. Questions and checks have their own estimates (see [Search and ask](search-and-ask.md) and [Reading and learning](reading.md)).
 
-**Estimates:** until Codetrail has recorded calls of its own, an estimate uses starting guesses and says so. After that it uses the median of your most recent calls (`[estimates] history_size`, 20 by default).
+**Estimates:** until Codetrail has recorded three calls of the same kind, provider and model, an estimate uses starting guesses and says so. After that it uses the median of your most recent calls (`[estimates] history_size`, 20 by default).
 
 **Budgets** cap what an update spends, whichever limit comes first:
 - Each paid call reserves its cap (`max_budget_usd_per_call`) in the update's budget before it starts. When the budget can't hold another cap, no more calls start, and the pages not yet written wait for the next update.

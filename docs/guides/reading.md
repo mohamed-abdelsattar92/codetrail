@@ -1,4 +1,4 @@
-# Learning with the guide
+# Reading and learning
 
 The guide is built to be read in order and checked as you go. This page covers the home page, guided paths, area and concept pages, the documented and inferred blocks, diagrams, marking a page read, the checks on your understanding, the Progress page, and what you see when an update changes a page you learned.
 
@@ -39,9 +39,9 @@ A path page has no **Mark read** button. Its progress is the number of its pages
 An area page explains one part of the repository. A concept page explains one idea that runs through it. Both have the same shape.
 
 1. Open a page from the sidebar, from a path or from a tile on the home page.
-   ![An area page with its status, a documented block, an inferred block, a diagram and a check](../images/guides/reading-04-an-area-page.png)
+   ![An area page marked Learned, with a notice that its files changed, a documented block, an inferred block, a diagram and a passed check](../images/guides/reading-04-an-area-page.png)
 2. Look under the title. The status says **Not read yet**, **Read**, **Learned**, or **Learned, but changed since**.
-3. Use **On this page** at the right to jump between sections. It is hidden on windows narrower than about 1200 pixels.
+3. Use **On this page** at the right to jump between sections. It is hidden on windows 1200 pixels wide or narrower, and while the Ask panel is open.
 4. Choose **Ask about this page** (or press **A**) to ask a question with this page as context. See [Search and ask](search-and-ask.md).
 
 If the files a page was written from have changed since, the page says so: "Files this page was written from have changed since. It will be checked again at the next update." This notice does not take away a page you have learned.
@@ -50,7 +50,7 @@ If the files a page was written from have changed since, the page says so: "File
 
 Every reason the guide gives is marked.
 
-- **Documented** (an indigo block) quotes a source and links to it, for example a decision record. Choose the link to open the source at that line. Codetrail checks that the quote is there.
+- **Documented** (an indigo block) quotes a source and links to it, for example a decision record. When it cites a file, choose the link to open the source at that line. Codetrail checks that the quote is there.
 - **Inferred** (an amber block) says "the assistant's reading of the code". It is a conclusion the assistant drew, not something written down. Treat it as a good lead and check it against the code.
 
 ![A concept page: a documented block with its source link, an inferred block, and a diagram](../images/guides/reading-05-a-concept-page.png)
@@ -132,8 +132,8 @@ Settings for one repository go in `~/.config/codetrail/targets/<name>.toml`. See
 | Another answer is being graded. | Only one answer is graded at a time. Wait for the first verdict. |
 | Answers are limited to N characters. | Shorten your answer. |
 | The grade couldn't be read, so nothing was recorded; try again. | The assistant's verdict was malformed. It is never counted as a pass. Choose the button again. |
-| The answer couldn't be graded. | The request failed. Run `codetrail providers` to check that the assistant is ready, then try again. |
-| The feedback was withheld: it contains something that looks like a secret | The feedback was replaced because it matched a secret pattern. Your answer was still recorded. |
+| The answer couldn’t be graded. | The request failed without a reason. If the assistant's own error shows instead, follow it. Run `codetrail providers` to check that the assistant is ready, then try again. |
+| The feedback was withheld: it contains something that looks like a secret (…). | The feedback was replaced because it matched a secret pattern. Your answer was still recorded. |
 | A page you learned shows "Learned, but changed since" | An update rewrote it. Read the diff and answer the changed checks. |
 
 ## See also
@@ -142,5 +142,5 @@ Settings for one repository go in `~/.config/codetrail/targets/<name>.toml`. See
 - [Getting around](getting-around.md): the sidebar, shortcuts and the header
 - [Search and ask](search-and-ask.md)
 - [Digests](digests.md): what changed at each update
-- [Updating](updating.md)
+- [Keeping the guide up to date](updating.md)
 - [Assistants](assistants.md): choosing the model that grades

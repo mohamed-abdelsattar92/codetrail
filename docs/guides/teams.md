@@ -83,7 +83,7 @@ If git can't fetch a repository, the refresh fails and the message names the com
    - **The source line** says which service and source the team follows, how ("Every active repository" or "Chosen repositories"), and how many repositories are left out.
    - **Across the team** is the overview: a short text, written from this catch-up's digests, about how the changes in different repositories connect. It stays until you press **Mark read**. A line below it lists the digests it came from, each a link. A block marked **Inferred** is the assistant's reading of the code. A block marked documented carries a quote from a source that was checked. The overview is in English.
    - **Repositories** has one card for each repository with something new, the busiest first.
-   - **Nothing new** is a line listing the quiet repositories, then archived repositories and those that left the source.
+   - **Nothing new:** is a line listing the quiet repositories. Below it, **Archived, or no longer in their source** lists the repositories that are no longer refreshed.
 3. Read a card.
    ![A repository card for payments-api: its name, the branch develop, the digest titled The guide was created, 3 guide pages changed, and a Mark read button.](../images/guides/teams-06-a-card.png)
    A card shows the repository's name and branch, how many merges landed and which areas they touched (from the free signal), the unread digest with its highlights (each marked documented or inferred), **Merged by** with the authors' names as git records them, and how many guide pages changed. Codetrail never counts or ranks people.
@@ -97,7 +97,7 @@ A repository with no guide yet shows on a list row with **No guide yet** and a *
 ## Open one repository's guide and come back
 
 1. Press a repository's name on the team page, or pick it in the sidebar under **Repositories**.
-2. The repository's guide opens under `/repos/<name>/`. It has all the pages described in [Read the guide](reading.md), and **← Team acme** at the top of its sidebar.
+2. The repository's guide opens under `/repos/<name>/`. It has all the pages described in [Reading and learning](reading.md), and **← Team acme** at the top of its sidebar.
    ![The guide of web-shop, opened from the team page. The sidebar begins with an arrow and Team acme, then Home, Progress, System, the paths, areas, concepts and more. The home page shows Continue where you left off and a card saying 1 commit behind with an Update the guide button.](../images/guides/teams-13-a-repository-s-guide.png)
 3. Press **← Team acme** to go back.
    ![The team page again, with the Across the team overview and the web-shop card.](../images/guides/teams-14-back-on-the-team-page.png)
@@ -135,7 +135,7 @@ Catching up has a free part and a paid part. The free part always runs. The paid
 7. Wait for the footer to say **Caught up.** The last step reads "One repository caught up." (or the number of repositories).
    ![The Catching up panel after the run: web-shop: Saved 0 pages to the guide, then One repository caught up. The footer says Caught up.](../images/guides/teams-11-catch-up-done.png)
 8. When the catch-up is done, the team page shows the new cards.
-   ![The team page after the catch-up. The web-shop card shows a Changes digest and the earlier digest. The payments-api card says Not caught up: you left it out of the last catch-up.](../images/guides/teams-12-after-the-catch-up.png)
+   ![The team page after the catch-up. The web-shop card shows a Changes digest and the earlier digest. The payments-api card says Not caught up: you left it out of the last catch-up. Both cards still show Not caught up yet: 1 commit touched app.](../images/guides/teams-12-after-the-catch-up.png)
 
 After a catch-up, wait a few minutes before the next. The page says "A catch-up finished a moment ago; wait a few minutes before the next." until `[server] update_cooldown_seconds` (300 seconds) has passed. One catch-up runs per team at a time.
 
@@ -216,7 +216,7 @@ Each new repository gets the free refresh at once. Its first guide waits for you
 
 You can also add another source (another organization, or a project on another service) by picking it in the **Source** picker and saving.
 
-`team serve` lists your sources once when it starts. A page view writes no settings and never clones. Restart `codetrail team serve acme` to see repositories added or archived on the service since.
+`team serve` lists your sources once when it starts. A page view writes no settings and never clones. To see repositories added or archived on the service since, restart `codetrail team serve acme`, or press **Catch up**, which lists the sources again.
 
 ## Leave a repository out
 
@@ -332,8 +332,8 @@ A followed repository's own settings (its models, budgets and `[assistant] allow
 | `There's no terminal to ask in, so nothing was spent. Run again with --yes to go ahead.` | `codetrail team update` ran without a terminal. Add `--yes` if you accept the estimate. |
 | `Nothing was updated.` | You answered no to the question. |
 | `Couldn't mark it read. Try again.` | The read mark wasn't saved. Press **Mark read** again. |
-| `Team 'acme' is in use: stop codetrail team serve for it, or wait for its sync to finish.` | Stop the server before `codetrail team remove`. |
-| `Target 'acme-web-shop' is in use: stop the Codetrail server serving it (codetrail serve or codetrail team serve), or wait for its update to finish.` | Stop the server before `codetrail target remove`. |
+| ``Team 'acme' is in use: stop `codetrail team serve` for it, or wait for its sync to finish.`` | Stop the server before `codetrail team remove`. |
+| ``Target 'acme-web-shop' is in use: stop the Codetrail server serving it (`codetrail serve` or `codetrail team serve`), or wait for its update to finish.`` | Stop the server before `codetrail target remove`. |
 | `acme-web-shop is followed by team acme: leave it out on the team page (Add repositories), then run codetrail target remove again.` | Leave the repository out first. |
 | `A team named 'acme' already exists: <file>` | Pick another name, or use the team that exists. |
 | `'<name>' isn't a valid team name: use lower-case letters, digits and hyphens, starting with a letter or digit, at most 30 characters.` | Change the name. |
@@ -343,7 +343,7 @@ A followed repository's own settings (its models, budgets and `[assistant] allow
 ## See also
 
 - [Choose assistants and models](assistants.md): the models and budgets a catch-up uses.
-- [Update the guide](updating.md): the same estimate for a single repository.
-- [Read the guide](reading.md) and [Digests](digests.md): what each followed repository's guide and digests contain.
+- [Keeping the guide up to date](updating.md): the same estimate for a single repository.
+- [Reading and learning](reading.md) and [Digests](digests.md): what each followed repository's guide and digests contain.
 - [Settings](settings.md): every setting in one place.
 - [Troubleshooting](troubleshooting.md).

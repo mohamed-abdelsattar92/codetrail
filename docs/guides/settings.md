@@ -13,7 +13,7 @@ Every setting you can set, its default and what it does. A setting you leave out
 | `~/.config/codetrail/targets/<name>.ignore` | The target's own exclusions, in gitignore syntax (see [What Codetrail reads](what-codetrail-reads.md)). |
 | `~/.config/codetrail/teams/<name>.toml` | One team's settings (see [Teams](teams.md)). |
 | `~/.local/share/codetrail/<name>/` | A private copy of the repository's allowed files, the facts, the guide (its own git repository) and `agents/`. Not settings; listed so you know where things are. |
-| `~/.local/state/codetrail/<name>/` | Logs. |
+| `~/.local/state/codetrail/` | Temporary folders of the secret scan. |
 
 The `XDG_CONFIG_HOME`, `XDG_DATA_HOME` and `XDG_STATE_HOME` variables move these folders. A relative value is ignored.
 
@@ -54,7 +54,7 @@ The server's host is always `127.0.0.1` and can't be changed.
 
 | Setting | Default | What it does |
 |---|---|---|
-| `[assistant] retry_attempts` | `2` | How many times a failed assistant call is retried (0 to 5). |
+| `[assistant] retry_attempts` | `2` | How many times a call that failed without using anything (a rate limit, an overload, a network error) is retried (0 to 5). |
 | `[providers] max_output_bytes` | `50000000` | A provider program that writes more than this to its output, or its error output, is stopped. |
 | `[providers.claude_code] command` | `"claude"` | The Claude Code program. |
 | `[providers.claude_code] auth` | `"subscription"` | `"subscription"` refuses an API-account sign-in; `"api_key"` passes `ANTHROPIC_API_KEY` to `claude` and you are billed by the API. |
@@ -181,7 +181,7 @@ The Documentation page and the Repository page use these (see [Exploring the cod
 | `[hosting] max_repositories_per_source` | `1000` | The most repositories read from one source. |
 | `[hosting] concurrency` | `4` | A team's signal fetches, and first refreshes, at once (1 to 16). |
 | `[team] active_days` | `90` | A source's repositories pushed to within this many days are followed. |
-| `[team] highlights_per_digest` | `3` | The highlights a digest carries (0 to 10). |
+| `[team] highlights_per_digest` | `3` | The highlights each digest carries, which the team page shows on a repository's card (0 to 10). |
 | `[team] max_overview_words` | `250` | The most words in a team's overview (50 to 1000). |
 
 ## Target settings (`targets/<name>.toml`)

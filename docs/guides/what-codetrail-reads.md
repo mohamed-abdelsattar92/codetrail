@@ -25,7 +25,7 @@ Codetrail runs an assistant over your repository, and repositories hold secrets.
 
 2. Read the three parts:
    - Above `Excluded:` is every file the assistant can read.
-   - Below it is every hidden file, one per line, as the reason, then the path. A reason can carry the rule that matched it, for example `ignore rules (legacy/**)`.
+   - Below it is every hidden file, one per line, as the reason, then the path. A file gitleaks flagged carries the gitleaks rule in brackets, for example `gitleaks (generic-api-key)`, and an `unscannable` file carries why it couldn't be read.
    - The last line counts them, groups the hidden files by reason, and names the commit it read.
 
 3. Run it again after any change to your exclusions. It is free: no assistant is called.
@@ -39,10 +39,10 @@ Some files are hidden whatever any setting says. The reason shown by `codetrail 
 | Reason | What it hides |
 |---|---|
 | **secret pattern** | `.env` and `.env.*`, `.dev.vars`, `*.p8`, `*.p12`, `*.pem`, `*.keystore`, `*.jks`, `*.tfstate`, `*.tfstate.backup`, `*.tfvars`, `*.tfvars.json`, `*.key`, `*.pfx`, `id_rsa*`, `id_ed25519*`, `*.ppk`, `.netrc`, `.npmrc`, `.pypirc`, and the `.terraform/` folder. Names match in any case. A template named `*.example` (such as `.env.example`) is not hidden. |
-| **scanner settings** | `.gitleaksignore` and `.gitleaks.toml`, which gitleaks would obey. |
+| **scanner settings** | `.gitleaksignore` and `.gitleaks.toml`, which gitleaks would obey. Codetrail scans with its own gitleaks settings, so these files can't hide a secret from it. |
 | **gitleaks** | Any file [gitleaks](https://github.com/gitleaks/gitleaks) flags as holding a secret. Codetrail scans every file before anything reads it. |
 | **symlink or submodule** | Every symlink and every submodule. |
-| **unsafe path** | A path or a file name longer than a disk can store. |
+| **unsafe path** | A path or a file name longer than a disk can store; a path with a `.git` or `..` part, a control character or bytes that aren't UTF-8; and paths that differ only in case, which would land on the same file on a Mac. |
 | **too large** | A file larger than `max_file_bytes` (50 MB by default). |
 | **unscannable** | A file that keeps text compressed (a zip, tar, gzip, bzip2 or xz file, or a PDF, so also a `.docx` or a `.jar`) that gitleaks couldn't read whole. The reason in brackets says why: it decodes to more than `max_inflated_bytes` (50 MB by default), or it is encrypted, damaged or encoded in a way Codetrail doesn't read. |
 
@@ -94,7 +94,7 @@ These go under `[source]` and `[tools]` in `~/.config/codetrail/config.toml`.
 | `[source] max_ignore_bytes` | `65536` | The largest size of a repository's own `.codetrailignore`. |
 | `[source] max_ignore_match_seconds` | `60` | The time allowed to match paths against the ignore rules when the repository has its own `.codetrailignore`. |
 | `[tools] gitleaks` | `gitleaks` | The gitleaks program: a name on your `PATH`, or an absolute path. |
-| `[tools] gitleaks_timeout_seconds` | `600` | How long each gitleaks run may take before the update fails. |
+| `[tools] gitleaks_timeout_seconds` | `600` | How long each gitleaks run may take before the refresh fails. |
 
 The limits on `.codetrailignore` exist because every line is matched against every path. They apply to the repository's own file, not to yours.
 

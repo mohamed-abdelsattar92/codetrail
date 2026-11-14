@@ -23,7 +23,7 @@ The System page draws the repository's parts and how they connect, from facts: n
 
 When the repository has too many parts to draw one by one, the page says so: libraries, then folders, are grouped, with the number of connections on each arrow. Every part is still listed in the tables.
 
-Each area page and each folder page shows the same diagram focused on its folder (**Where it fits**).
+Each folder page shows the same diagram focused on its folder (**Where it fits**).
 
 ## Look at the repository's history and shape
 
@@ -34,9 +34,9 @@ codetrail stats shop
 ```
 
 1. Choose **Repository** in the sidebar, or press **G** then **T**.
-2. Choose a range at the top: **All time**, **2 years**, **1 year** or **90 days**. The timeline and the figures follow it.
+2. Choose a range at the top: **All time**, **2 years**, **1 year** or **90 days**. The timeline follows it; the cards don't change.
    ![The top of the Repository page: the range, the five summary cards and the timeline of commits per month with a release marker](../images/guides/repository-01-the-top.png)
-3. Read the five cards: **Age** (with the date of the first commit), **Commits** (and how many were merges), **Releases** (and the latest), **Code** (lines and languages) and **Tests** (the share of lines in tests). Each shows its change since the last update.
+3. Read the five cards: **Age** (with the date of the first commit), **Commits** (and how many were merges), **Releases** (and the latest), **Code** (lines and languages) and **Tests** (the share of lines in tests). **Commits**, **Code** and **Tests** also show their change since the last update.
 4. Read the **Timeline**: commits per month by author date in UTC. Only dates and counts are read, never an author or a message. Hover or focus a bar for its count. Choose a release marker to see its notes, taken from the tag.
 5. Scroll for the rest of the page:
    - **Activity, day by day**: the last 53 weeks, a square per day.
@@ -136,7 +136,7 @@ The `[metrics]` rows marked (target) go in `~/.config/codetrail/targets/<name>.t
 
 ## See also
 
-- [Reading](reading.md): documented and inferred blocks
+- [Reading and learning](reading.md): documented and inferred blocks
 - [What Codetrail reads](what-codetrail-reads.md)
 - [Digests](digests.md)
 - [Settings](settings.md)

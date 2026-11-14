@@ -44,11 +44,12 @@ Codetrail only reads your repository. It never writes to it, and everything it m
    claude_code  ready      Claude subscription (max) · /usr/local/bin/claude
    codex        not ready
                 Install Codex (`npm install -g @openai/codex`), then run `codex login` and choose Sign in with ChatGPT.
+                Note: Codex reads outside the repository's allowed files (design section 15.5). …
    local        not ready  http://127.0.0.1:11434/v1
                 Start Ollama (`ollama serve`) or LM Studio's server, or set [providers.local] base_url (http://127.0.0.1:11434/v1).
    ```
 
-   Only the assistants you use need to be `ready`. Out of the box that is Claude Code. A line that is `not ready` ends with the fix. The plan name and the path on the first line are yours; they differ from this example.
+   Only the assistants you use need to be `ready`. Out of the box that is Claude Code. Under a line that is `not ready` comes the fix. Codex always carries a note that Codetrail can't confine it. The plan name and the path on the first line are yours; they differ from this example.
 
 Codetrail runs your own signed-in `claude` or `codex` program and never sees your password, token or key. By default it removes every API key from the environment those programs get, so the work counts against your subscription and never bills an API account by surprise.
 
@@ -184,7 +185,7 @@ You can skip `codetrail update` and write the guide from the page instead. Serve
 
 4. Watch the **Updating the guide** panel list each step as it finishes.
 
-   ![The Updating the guide panel on the right of the page, listing the facts refreshed, the outline planned and pages being written, with Updating at its foot](../images/guides/first-guide-03-the-update-running.png)
+   ![The Updating the guide panel on the right of the page, listing the facts refreshed, the outline planned and pages being written, with Updating… at its foot](../images/guides/first-guide-03-the-update-running.png)
 
    When it ends, the foot of the panel says **Updated.** and the home page shows the guide.
 
@@ -211,7 +212,7 @@ All of them are in [Settings](settings.md).
 | You see | Do this |
 |---|---|
 | `gitleaks wasn't found` | Install gitleaks and put it on your `PATH`, or set `[tools] gitleaks` in `~/.config/codetrail/config.toml`. |
-| `claude_code isn't ready. Run claude and sign in with /login …` | Run `claude`, then `/login` with your Claude account, then `codetrail providers`. |
+| ``claude_code isn't ready. Run `claude` and sign in with /login using your Claude subscription.`` | Run `claude`, then `/login` with your Claude account, then `codetrail providers`. |
 | `… isn't a git repository (it has no .git).` | Give `codetrail target add` the folder that holds `.git`. |
 | `… has no branch 'develop'.` | Add `--branch` with your branch's name. |
 | `update` stops after the estimate and exits with code 2 | There was no terminal to ask in. Read the estimate and run again with `--yes`. |

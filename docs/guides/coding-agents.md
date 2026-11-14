@@ -84,7 +84,7 @@ Text in the export came from an assistant reading the repository. Every response
 
 ## Costs
 
-Nothing an agent asks for costs a call to an assistant. The tool server calls no assistant. The briefs are written in the same call that already writes each page, so their small extra cost is part of the update's estimate, which you approve before it runs. See [Update the guide](updating.md).
+Nothing an agent asks for costs a call to an assistant. The tool server calls no assistant. The briefs are written in the same call that already writes each page, so their small extra cost is part of the update's estimate, which you approve before it runs. See [Keeping the guide up to date](updating.md).
 
 ## Settings
 
@@ -115,7 +115,7 @@ If the agent can't start the server, run the same command from your own terminal
 
 ## See also
 
-- [Your first guide](first-guide.md) and [Update the guide](updating.md): they keep the map and briefs current.
+- [Your first guide](first-guide.md) and [Keeping the guide up to date](updating.md): they keep the map and briefs current.
 - [What Codetrail reads](what-codetrail-reads.md): what the export is built from.
 - [Choose assistants and models](assistants.md): the assistants that write the guide.
 - [Settings](settings.md).

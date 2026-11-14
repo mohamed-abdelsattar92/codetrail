@@ -31,7 +31,7 @@ You can pin a path, an area, a concept or a saved answer.
    ![The sidebar with two pinned tiles, PR and TL, and the pin button on a row](../images/guides/getting-around-01-pinned-pages.png)
 3. To unpin, rest the pointer on the tile and choose the small **x** on it, or choose the pin on the page's row again.
 
-Pins are kept by Codetrail for this guide, so they follow you to any browser. You can pin up to 9 pages. At the limit the pin buttons read **Unpin a page first**.
+Pins are kept by Codetrail for this guide, so they follow you to any browser. You can pin up to 9 pages. At the limit the other pin buttons are turned off, and resting the pointer on one shows **Unpin a page first**.
 
 ### Hide the sidebar, and peek at it
 
@@ -49,7 +49,7 @@ From the keyboard, the edge of the window is a button named **Show the sidebar f
 1. Drag the thin handle on the sidebar's inner edge, or focus it and press the arrow keys (16 pixels a step). **Home** and **End** go to the smallest and largest width.
 2. Double-click the handle to reset it.
 
-The sidebar stays between 200 and 420 pixels wide. The width is remembered in this browser. The Ask panel has the same handle, between 320 and 720 pixels.
+The sidebar stays between 200 and 420 pixels wide, and never takes more than 30% of the window or leaves the reading column narrower than 480 pixels. The width is remembered in this browser. The Ask panel has the same handle, between 320 and 720 pixels and at most 45% of the window.
 
 ## Use the header
 
@@ -120,13 +120,13 @@ No shortcut spends anything. **A** only opens the Ask panel: a question is sent 
 
 On a narrow window (under 900 pixels) the page becomes a single column.
 
-1. Open the guide's address on your phone or in a narrow window.
+1. Make your browser window narrower than 900 pixels.
    ![An area page on a phone](../images/guides/getting-around-08-phone-page.png)
 2. Choose the menu button at the start of the header. The sidebar opens as a drawer.
    ![The sidebar open as a drawer on a phone](../images/guides/getting-around-09-phone-menu.png)
 3. Choose a page. Press **Esc** or choose the menu button again to close the drawer.
 
-On a narrow window the header keeps the menu button, the search box, **Ask** (as an icon) and the theme button. The language picker is hidden below 900 pixels, and the keyboard button below 560 pixels. Hiding and peeking at the sidebar do not apply, and the sidebar cannot be resized. Change the language in a wider window first, since your choice is saved for the guide.
+On a narrow window the header keeps the menu button, the search box, **Ask** and the theme button. The repository's name, the language picker and the **⌘K** hint are hidden at 900 pixels and below. At 560 pixels and below, **codetrail** and the word **Ask** shrink to their icons and the keyboard button is hidden; press **?** for the shortcuts. Hiding and peeking at the sidebar do not apply, and the sidebar cannot be resized. Change the language in a wider window first, since your choice is saved for the guide.
 
 The guide listens on `127.0.0.1` only, so a phone cannot reach it over the network. Use a narrow window on your computer to see this layout.
 
@@ -142,13 +142,13 @@ The guide listens on `127.0.0.1` only, so a phone cannot reach it over the netwo
 
 | You see | What it means and what to do |
 |---|---|
-| **Unpin a page first** on every pin button | You have the most pages pinned that `max_pins` allows. Unpin one, or raise the setting. |
+| The pin buttons are turned off and say **Unpin a page first** | You have the most pages pinned that `max_pins` allows. Unpin one, or raise the setting. |
 | The pin buttons don't appear | Pinning needs the page's script. Reload the page. Your existing tiles still work as links. |
 | A shortcut does nothing | You are typing in a field, a dialog is open, or a modifier key is held. Press **Esc**, click on the page, and try again. |
 | The theme or sidebar choice is not remembered | Your browser blocks site data (for example in a private window). The page still works, but forgets the choice on reload. |
 
 ## See also
 
-- [Reading](reading.md)
+- [Reading and learning](reading.md)
 - [Search and ask](search-and-ask.md)
 - [Settings](settings.md)

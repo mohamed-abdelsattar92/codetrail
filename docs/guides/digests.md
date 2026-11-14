@@ -2,7 +2,7 @@
 
 A digest tells you what changed in the repository since the last update, and why. Each update writes one, so you can come back to a repository after a few weeks and read what you missed, newest first.
 
-**Before you start:** build the guide with at least one update. See [Your first guide](first-guide.md). For how a digest gets written, see [Updating](updating.md).
+**Before you start:** build the guide with at least one update. See [Your first guide](first-guide.md). For how a digest gets written, see [Keeping the guide up to date](updating.md).
 
 ## See how far behind the guide is
 
@@ -22,9 +22,9 @@ The home page tells you whether the guide has caught up with the branch, and whe
 4. Under the chip, the card shows what the last update used, in the form "The last update used ~N tokens ($X at API prices)."
 5. Read **What changed**. It links to the newest unread digest and counts unread ones, for example "2 unread digests". When you have read them all it says "You're caught up." Before the first digest it says "No digest yet."
 
-The count of commits behind is free. Codetrail fetches the branch and counts, and calls no assistant. The result is cached for `signal.cache_seconds` (60 by default).
+The count of commits behind is free. Codetrail fetches the branch and counts, and calls no assistant. It counts from the commit of the latest update, including one run with `--facts-only`. The result is cached for `[signal] cache_seconds` (60 by default).
 
-To bring the guide up to date, choose **Update the guide** (or press **U**) and read the estimate, or run `codetrail update shop`. See [Updating](updating.md).
+To bring the guide up to date, choose **Update the guide** (or press **U**) and read the estimate, or run `codetrail update shop`. See [Keeping the guide up to date](updating.md).
 
 ## Open the list of digests
 
@@ -37,11 +37,11 @@ To bring the guide up to date, choose **Update the guide** (or press **U**) and 
 
 1. Open a digest from the list or from the **What changed** card.
    ![A digest: the commits it spans, its status, and a short account of the change with an inferred block](../images/guides/digests-03-a-digest.png)
-2. Under the title you see the two commits it spans, from the previous digest's end to this update's commit, each in its first 12 characters.
+2. Under the title you see the two commits it spans, from the previous digest's end to this update's commit, each in its first 12 characters. The guide's first digest shows only its own commit.
 3. Read the account of what changed and why. Each reason is marked as everywhere in the guide:
    - **Documented** quotes a source (a commit's *Why* section or a decision record) and links to it.
    - **Inferred** is "the assistant's reading of the code".
-   See [Reading](reading.md).
+   See [Reading and learning](reading.md).
 4. Follow the links to the pages the update changed.
 5. Choose **Ask about this page** (or press **A**) to ask a question about the change. See [Search and ask](search-and-ask.md).
 
@@ -57,7 +57,7 @@ A digest has only this read mark. It has no checks, so it is never **Learned**. 
 
 You don't write or schedule digests. They come from updates.
 
-- Every update that finds new commits writes one digest, in the same run as the pages. The update's estimate lists it as the `digest` call, with its model and cost. An update with no new commits writes none, and neither does `codetrail update shop --facts-only`, which calls no assistant.
+- Every update that finds new commits writes one digest, in the same run as the pages; so does the update that writes the guide's first pages. The update's estimate lists it as the `digest` call, with its model and cost. An update with no new commits writes none, and neither does `codetrail update shop --facts-only`, which calls no assistant.
 - A digest covers the commits since the previous digest ended, even if an earlier update failed or wrote only facts.
 - It is written from the commit log, the file changes and the change in facts. Commit messages and diffs are scanned for secrets first. A message or a file's patch that holds a finding is withheld.
 - Like pages, a digest is checked before it is kept. If it contains something that looks like a secret, it fails like any invalid page, naming the rule only.
@@ -77,7 +77,7 @@ You don't write or schedule digests. They come from updates.
 ## Costs
 
 - **Free:** the home cards, the "commits behind" count, the Digests list and reading a digest.
-- **Paid:** writing a digest, as part of an update. It appears in the update's estimate, which you see and confirm before anything is spent. See [Updating](updating.md).
+- **Paid:** writing a digest, as part of an update. It appears in the update's estimate, which you see and confirm before anything is spent. See [Keeping the guide up to date](updating.md).
 
 ## Troubleshooting
 
@@ -90,7 +90,7 @@ You don't write or schedule digests. They come from updates.
 
 ## See also
 
-- [Updating](updating.md)
-- [Reading](reading.md)
+- [Keeping the guide up to date](updating.md)
+- [Reading and learning](reading.md)
 - [Teams](teams.md): catching up across several repositories
 - [Coding agents](coding-agents.md): agents can read the digests too
