@@ -113,6 +113,10 @@ class TimedCache[Value]:
             self._values[key] = (time.monotonic(), value)
             return value
 
+    def clear(self) -> None:
+        with self._guard:
+            self._values.clear()
+
 
 def create_team_app(
     paths: Paths,
@@ -168,7 +172,10 @@ def create_team_app(
         return result
 
     def run(confirm: CatchUpConfirm, progress: Progress, stop: threading.Event) -> object:
-        return run_catch_up(paths, name, confirm, progress, stop, catch_up_sync, writer_for, overview_writer)
+        try:
+            return run_catch_up(paths, name, confirm, progress, stop, catch_up_sync, writer_for, overview_writer)
+        finally:  # it refreshed every target and wrote their guides: the page reads them afresh
+            signals.clear()
 
     catch_up = CatchUpJob(
         run,
