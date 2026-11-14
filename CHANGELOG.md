@@ -18,7 +18,7 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 - The README, the PyPI page and the banner used as GitHub's social preview present Codetrail as your onboarding guide to any codebase, whether you're new to it or coming back to it after months away, and the PyPI page lists keywords so searches for onboarding find it.
 
 ### Fixed
-- The repository root's facts are named "project · repository root" and "part · repository root", in the reader's language, instead of `project:.` and `part:.`.
+- The repository root's facts are named "project · repository root", "part · repository root" and "worker · repository root", in the reader's language, instead of `project:.`, `part:.` and `worker:.`.
 - On an Arabic page, the labels of documented and inferred blocks are in Arabic too.
 - The phone menu casts no shadow while closed, and dialogs taller than the window scroll inside, keeping their title and buttons in view.
 - Diagrams fill the text column and draw on their card, without a white box; diffs and long fact ids wrap instead of being cut off.
