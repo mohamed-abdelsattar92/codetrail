@@ -81,7 +81,7 @@ The choice is remembered in this browser, for every guide.
 1. Open the language picker in the header and choose a language. English is always available; other languages appear when their catalog is installed.
 2. The interface changes at once. Your choice is saved for this guide.
 
-The guide's own pages stay in English, and so do titles, file names and code. What changes is the interface: buttons, labels, the grader's feedback and answers to your questions, which are written in the language you chose.
+The guide's own pages stay in English, and so do titles, file names and code. What changes is the interface: buttons, labels (the documented and inferred blocks' too), the grader's feedback and answers to your questions, which are written in the language you chose.
 
 In a language written right to left, such as Arabic, the whole page mirrors: the sidebar sits on the right and peeks from the right edge.
 

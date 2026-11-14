@@ -124,3 +124,17 @@ def test_updates_from_the_page_wait_for_the_cooldown(paths: Paths) -> None:
             break
         time.sleep(0.05)
     assert client.post("/update", headers=headers).status_code == 429
+
+
+def test_rationale_labels_follow_the_interface_language(paths: Paths) -> None:
+    session = SessionState(60)
+    client = client_for(paths, session)
+    headers = {"origin": ORIGIN, TOKEN_HEADER: session.token}
+    assert client.post("/settings/language", json={"language": "ar"}, headers=headers).status_code == 204
+    page = client.get("/pages/areas/app").text
+    assert '<article class="guide-page" lang="en" dir="ltr">' in page  # the guide's content stays English
+    assert '<p class="rationale-label" lang="ar" dir="rtl">' in page
+    assert "موثّقة · <bdi" in page  # "Documented", then its citation isolated as English
+    assert 'lang="en" dir="ltr"><a href="/source/docs/adr/0001-x.md#L3">docs/adr/0001-x.md#L3-L3</a></bdi>' in page
+    assert "مُستنتَجة · قراءة المساعد للكود" in page  # "Inferred · the assistant's reading of the code"
+    assert "Documented" not in page and "assistant's reading" not in page
