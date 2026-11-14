@@ -24,7 +24,7 @@ codetrail update shop
 codetrail serve shop
 ```
 
-**[Get started in ten minutes →](docs/getting-started.md)**
+**[Get started in ten minutes →](docs/getting-started.md)** · **[How-to guides for every feature, with screenshots →](docs/guides/README.md)**
 
 ![Codetrail's home page for its own repository: pinned pages and folding sections in the sidebar; where to continue, every path's progress and the areas by state; and beside them, how far behind the guide is, what changed and the system, documentation and repository cards](docs/images/home.png)
 
@@ -331,6 +331,7 @@ Then `just ci` runs every check CI runs; `just lint`, `just format`, `just typec
 | Document | What's in it |
 |---|---|
 | [Getting started](docs/getting-started.md) | Install, connect an assistant, add a repository, build and read the guide |
+| [How-to guides](docs/guides/README.md) | One page per feature, with the steps, commands, screenshots, settings, costs and troubleshooting: your first guide, what Codetrail reads, updating, reading and learning, getting around, search and ask, exploring the code, digests, assistants, coding agents, teams, settings and troubleshooting |
 | [Changelog](CHANGELOG.md) | What changed in each release; release notes for [1.4.1](docs/releases/v1.4.1.md), [1.4.0](docs/releases/v1.4.0.md), [1.3.0](docs/releases/v1.3.0.md), [1.2.0](docs/releases/v1.2.0.md), [1.1.1](docs/releases/v1.1.1.md), [1.1.0](docs/releases/v1.1.0.md), [1.0.1](docs/releases/v1.0.1.md) and [1.0.0](docs/releases/v1.0.0.md) |
 | [Design](docs/design/2026-10-05-codetrail-design.md) | The whole system: architecture, exclusions, facts, generation, page and bridge, learning, providers and estimates, errors, testing, phases |
 | [Brainstorm decisions](docs/design/brainstorm-decisions.md) | The problem, every early decision and why |
