@@ -24,7 +24,7 @@
     {%- else %}
     <span>{{ _("You haven't caught up yet.") }}</span>
     {%- endif %}
-    {%- if rows %}
+    {%- if with_merges %}{# none: a card's own line says what landed, commits without a merge included #}
     <span>{% trans count=with_merges, total=rows|length %}{{ count }} of {{ total }} repositories has new merges{% pluralize %}{{ count }} of {{ total }} repositories have new merges{% endtrans %}</span>
     {%- endif %}
   </p>

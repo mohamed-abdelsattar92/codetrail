@@ -11,7 +11,7 @@ from codetrail.config import GlobalConfig, Paths, write_target
 from codetrail.update import run_update
 from codetrail.web.app import create_app
 from codetrail.web.security import TOKEN_HEADER, SessionState
-from tests.fixtures.repos import Commit, make_repository
+from tests.fixtures.repos import Commit, add_commit, make_repository
 
 ORIGIN = "http://127.0.0.1:8765"
 PLAN = PlanDraft(
@@ -70,7 +70,7 @@ def test_every_path_shows_its_progress(paths: Paths) -> None:
     client, headers = signed_in(updated(paths))
     learn(client, headers, "areas/app")
     main, _ = split(client.get("/").text)
-    listed = main.split('<section class="card home-paths"', 1)[1].split("</section>", 1)[0]
+    listed = main.split('<section class="home-paths"', 1)[1].split("</section>", 1)[0]
     assert 'href="/pages/paths/start"' in listed and "1/2" in listed
     assert 'href="/pages/paths/later"' in listed and "0/1" in listed
     assert "1 of 3 learned" in listed  # the guide's pages, across every path
@@ -105,3 +105,13 @@ def test_before_the_first_update_the_rail_stays(paths: Paths) -> None:
     assert "data-update-button" in rail
     assert 'aria-labelledby="repository-title"' in rail
     assert 'href="/areas/app"' in rail
+
+
+def test_commits_without_a_merge_never_read_as_none_landed(paths: Paths, tmp_path: Path) -> None:
+    updated(paths)
+    add_commit(tmp_path / "target", {"app/main.py": "from app import db, jobs\n"}, "fix(app): import the jobs")
+    client, _ = signed_in(paths)
+    _main, rail = split(client.get("/").text)
+    assert "1 commit behind" in rail
+    assert "merge landed" not in rail and "merges landed" not in rail  # no "0 merges landed" beside it
+    assert '<span lang="en" dir="ltr">app</span>' in rail  # the area it touched

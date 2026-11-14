@@ -70,6 +70,8 @@ function addToSidebar(pageId, question) {
   link.append(label);
   entry.append(link);
   list.prepend(entry);
+  const count = document.querySelector("[data-fold='answers'] .count"); // the section's heading counts it at once
+  if (count) count.textContent = String(Number(count.textContent) + 1);
 }
 
 async function loadSessionAnswers() {
