@@ -252,15 +252,14 @@ def _unread_digests(paths: Paths, found: list[dict[str, list[Page]]]) -> dict[st
 def digests_of(
     paths: Paths,
     record: CatchUpRecord,
-    team: str = "",
-    guides: dict[str, dict[str, Page]] | None = None,
+    team: str,
+    guides: dict[str, dict[str, Page]],
 ) -> dict[str, list[Page]]:
     """The digest pages of each target the catch-up caught up (ticked, not failed): the ones its record lists, or, for
     a catch-up from before design 25, the ones whose `written_at` lies in the time it ran. A target whose guide is
     gone or unreadable, or a recorded id the guide doesn't have as a digest, gives nothing. `guides` holds the
     digest pages already read, by target, so a page of many catch-ups reads each guide once; `team` names the team
     in the log."""
-    guides = {} if guides is None else guides
     result: dict[str, list[Page]] = {}
     for target in record.targets:
         if target in record.failed or not TARGET_NAME.fullmatch(target):

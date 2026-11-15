@@ -263,8 +263,8 @@ def test_digests_of_matches_by_time_only_without_a_record(team: Team) -> None:
     finally:
         connection.close()
 
-    assert digests_of(team.paths, recorded) == {TARGET: []}  # recorded as none: no matching by time
-    assert digests_of(team.paths, matched) == {TARGET: []}  # its window holds nothing
+    assert digests_of(team.paths, recorded, "acme", {}) == {TARGET: []}  # recorded as none: no matching by time
+    assert digests_of(team.paths, matched, "acme", {}) == {TARGET: []}  # its window holds nothing
 
 
 def test_a_recorded_digest_the_guide_doesn_t_have_is_left_out(team: Team) -> None:
@@ -433,16 +433,15 @@ def test_a_corrupt_digest_file_leaves_that_target_without_digests_beside_a_good_
     (folder / "2026-11-11-broken.md").write_text("---\n: [unclosed\n---\nSECRET body.\n", encoding="utf-8")
     (folder / "2026-11-11-binary.md").write_bytes(b"\xff\xfe\x00")
     add_record(team.paths)
-    followed = {**FOLLOWED}
 
     with caplog.at_level(logging.WARNING):
-        catch_ups, _, _ = past_catch_ups(team.paths, "acme", CHOSEN, followed, 25, 50)
+        catch_ups, _, _ = past_catch_ups(team.paths, "acme", CHOSEN, FOLLOWED, 25, 50)
 
     assert [len(catch_up.repositories) for catch_up in catch_ups] == [1, 1]
     by_target = {catch_up.repositories[0].target: catch_up.repositories[0] for catch_up in catch_ups}
     assert by_target[TARGET].digests == []
     assert [summary.id for summary in by_target["acme-payments-api"].digests] == ["digests/2026-11-12-a"]
-    assert "acme" in caplog.text and TARGET in caplog.text and "SECRET" not in caplog.text
+    assert "team 'acme'" in caplog.text and TARGET in caplog.text and "SECRET" not in caplog.text
 
 
 def test_each_guide_is_read_once_for_a_page_of_catch_ups(team: Team, monkeypatch: pytest.MonkeyPatch) -> None:
