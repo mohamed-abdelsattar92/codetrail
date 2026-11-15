@@ -36,6 +36,7 @@ from tests.browser.test_team_catch_up import (
     CATCH_UP_SECONDS,
     caught_up_once,  # noqa: F401 - a fixture the tests below use
 )
+from tests.browser.test_team_catch_ups_page import past_week  # noqa: F401 - a fixture the tests below use
 from tests.browser.test_team_page import two_guides  # noqa: F401 - a fixture the tests below use
 from tests.fixtures.repos import Commit, add_commit
 
@@ -471,3 +472,12 @@ def test_team_on_a_phone(page: Page, two_guides: TeamSite) -> None:  # noqa: F81
     expect(page.locator("#sidebar")).to_be_in_viewport()
     page.wait_for_timeout(SLIDE_MS)
     shot(page, "teams-17-phone-repository-menu")
+
+
+def test_team_past_catch_ups(page: Page, past_week: TeamSite) -> None:  # noqa: F811 - the fixture imported above
+    page.set_viewport_size(DESKTOP)
+    past_week.sign_in(page, "/")
+    page.goto(f"{past_week.url}/team/catch-ups")
+    ready(page)
+    page.locator("details.catch-up summary").nth(2).click()  # the oldest, which caught up both repositories
+    shot(page, "teams-18-past-catch-ups", full_page=True)
