@@ -253,6 +253,8 @@ class TeamSettings(Settings):
     active_days: int = Field(default=90, ge=1, le=3650)  # a source's repositories pushed to within this are followed
     highlights_per_digest: int = Field(default=3, ge=0, le=10)
     max_overview_words: int = Field(default=250, ge=50, le=1000)
+    history_days: int = Field(default=7, ge=1, le=366)  # the past catch-ups page lists this many days at first
+    max_history_catch_ups: int = Field(default=50, ge=1, le=500)  # the most catch-ups it lists for a range
 
 
 class ProvidersSettings(Settings):

@@ -1,5 +1,6 @@
 """The team's catch-up records, overviews folder and database (design section 24)."""
 
+from datetime import date
 from pathlib import Path
 
 import pytest
@@ -103,3 +104,135 @@ def test_overview_ids_are_ascii_digits_only(tmp_path: Path) -> None:
     assert OVERVIEW_ID.fullmatch("overviews/2026-11-11-101500") is not None
     with pytest.raises(CodetrailError, match="valid overview id"):
         Overviews(tmp_path / "overviews").write(arabic_indic, {}, "No.")
+
+
+def finished_at(
+    state: TeamState, monkeypatch: pytest.MonkeyPatch, started: str, finished: str, targets: list[str] | None = None
+) -> int:
+    monkeypatch.setattr("codetrail.team.state._now", lambda: started)
+    catch_up_id = state.start()
+    monkeypatch.setattr("codetrail.team.state._now", lambda: finished)
+    state.finish(catch_up_id, ["acme-api"] if targets is None else targets, None, None)
+    return catch_up_id
+
+
+def test_a_finished_catch_up_records_its_digests(tmp_path: Path) -> None:
+    state = TeamState(connect(tmp_path / "team.db"))
+    digests = [("acme-web-shop", "digests/2026-11-11-abc123")]
+
+    state.finish(state.start(), ["acme-web-shop"], None, None, digests=digests)
+    recorded = state.last_finished()
+    state.finish(state.start(), ["acme-web-shop"], None, None)
+    unrecorded = state.last_finished()
+
+    assert recorded is not None and recorded.digests == digests
+    assert unrecorded is not None and unrecorded.digests is None
+
+
+def test_finished_between_lists_ticked_catch_ups_by_day_newest_first(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    state = TeamState(connect(tmp_path / "team.db"))
+    finished_at(state, monkeypatch, "2026-11-10T23:50:00+00:00", "2026-11-10T23:59:59+00:00")
+    midnight = finished_at(state, monkeypatch, "2026-11-10T23:58:00+00:00", "2026-11-11T00:00:00+00:00")
+    morning = finished_at(state, monkeypatch, "2026-11-12T07:00:00+00:00", "2026-11-12T08:00:00+00:00")
+    after = finished_at(state, monkeypatch, "2026-11-13T00:00:00+00:00", "2026-11-13T00:00:01+00:00")
+
+    found = state.finished_between(date(2026, 11, 11), date(2026, 11, 12))
+
+    assert [record.id for record in found] == [morning, midnight]
+    assert after not in [record.id for record in found]
+
+
+def test_finished_between_leaves_out_declined_and_corrupt_rows(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    state = TeamState(connect(tmp_path / "team.db"))
+    finished_at(state, monkeypatch, "2026-11-11T09:00:00+00:00", "2026-11-11T09:01:00+00:00", targets=[])
+    bad_digests = finished_at(state, monkeypatch, "2026-11-11T10:00:00+00:00", "2026-11-11T10:01:00+00:00")
+    bad_targets = finished_at(state, monkeypatch, "2026-11-11T11:00:00+00:00", "2026-11-11T11:01:00+00:00")
+    good = finished_at(state, monkeypatch, "2026-11-11T12:00:00+00:00", "2026-11-11T12:01:00+00:00")
+    state.connection.execute("UPDATE catch_ups SET digests = '{\"x\": 1}' WHERE id = ?", (bad_digests,))
+    state.connection.execute("UPDATE catch_ups SET targets = 'not json' WHERE id = ?", (bad_targets,))
+
+    found = state.finished_between(date(2026, 11, 11), date(2026, 11, 11))
+
+    assert [record.id for record in found] == [good]
+
+
+@pytest.mark.parametrize(
+    ("column", "value"),
+    [
+        ("failed", "[]"),
+        ("failed", '{"acme-api": 3}'),
+        ("unticked", '{"a": "b"}'),
+        ("unticked", "[1]"),
+        pytest.param("unticked", "[" * 100_000 + "]" * 100_000, id="deeply-nested"),
+    ],
+)
+def test_finished_between_leaves_out_rows_with_a_wrong_shaped_column(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, column: str, value: str
+) -> None:
+    state = TeamState(connect(tmp_path / "team.db"))
+    bad = finished_at(state, monkeypatch, "2026-11-11T10:00:00+00:00", "2026-11-11T10:01:00+00:00")
+    good = finished_at(state, monkeypatch, "2026-11-11T12:00:00+00:00", "2026-11-11T12:01:00+00:00")
+    update = {
+        "failed": "UPDATE catch_ups SET failed = ? WHERE id = ?",
+        "unticked": "UPDATE catch_ups SET unticked = ? WHERE id = ?",
+    }[column]
+    state.connection.execute(update, (value, bad))
+
+    assert [record.id for record in state.finished_between(date(2026, 11, 11), date(2026, 11, 11))] == [good]
+
+
+def test_a_hand_edited_empty_target_list_counts_as_none_in_both_queries(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    state = TeamState(connect(tmp_path / "team.db"))
+    spaced = finished_at(state, monkeypatch, "2026-11-11T10:00:00+00:00", "2026-11-11T10:01:00+00:00")
+    state.connection.execute("UPDATE catch_ups SET targets = '[ ]' WHERE id = ?", (spaced,))
+
+    assert state.finished_between(date(2026, 11, 11), date(2026, 11, 11)) == []
+    assert not state.has_caught_up()
+
+
+def test_has_caught_up_needs_a_finished_catch_up_with_a_ticked_target(tmp_path: Path) -> None:
+    state = TeamState(connect(tmp_path / "team.db"))
+    assert not state.has_caught_up()
+    state.finish(state.start(), [], None, None)  # declined
+    state.start()  # still running
+    corrupt = state.start()
+    state.finish(corrupt, ["shop"], None, None)
+    state.connection.execute("UPDATE catch_ups SET failed = '[]' WHERE id = ?", (corrupt,))
+    assert not state.has_caught_up()
+
+    state.finish(state.start(), ["shop"], None, None)
+
+    assert state.has_caught_up()
+
+
+def test_last_finished_is_none_when_the_newest_row_is_corrupt(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    state = TeamState(connect(tmp_path / "team.db"))
+    finished_at(state, monkeypatch, "2026-11-11T10:00:00+00:00", "2026-11-11T10:01:00+00:00")
+    newest = finished_at(state, monkeypatch, "2026-11-11T12:00:00+00:00", "2026-11-11T12:01:00+00:00")
+    state.connection.execute("UPDATE catch_ups SET targets = 'not json' WHERE id = ?", (newest,))
+
+    assert state.last_finished() is None
+
+
+@pytest.mark.parametrize("bad_time", ["2026-11-11garbage", "2026-11-11T10:00:00", "2026-11-11T12:00:00+02:00"])
+@pytest.mark.parametrize("column", ["started_at", "finished_at"])
+def test_a_row_whose_time_is_not_utc_is_left_out(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, column: str, bad_time: str
+) -> None:
+    state = TeamState(connect(tmp_path / "team.db"))
+    bad = finished_at(state, monkeypatch, "2026-11-11T10:00:00+00:00", "2026-11-11T10:01:00+00:00")
+    good = finished_at(state, monkeypatch, "2026-11-11T12:00:00+00:00", "2026-11-11T12:01:00+00:00")
+    update = {
+        "started_at": "UPDATE catch_ups SET started_at = ? WHERE id = ?",
+        "finished_at": "UPDATE catch_ups SET finished_at = ? WHERE id = ?",
+    }[column]
+    state.connection.execute(update, (bad_time, bad))
+    first, last = date(2026, 11, 11), date(2026, 11, 12)
+
+    assert [record.id for record in state.finished_between(first, last)] == [good]
+    if column == "finished_at":
+        assert state.last_finished() is not None and state.last_finished().id == good  # type: ignore[union-attr]

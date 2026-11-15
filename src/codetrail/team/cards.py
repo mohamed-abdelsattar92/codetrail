@@ -10,6 +10,7 @@ here counts or ranks people.
 
 from __future__ import annotations
 
+import logging
 import re
 from collections.abc import Collection
 from dataclasses import dataclass, field, replace
@@ -17,14 +18,16 @@ from dataclasses import dataclass, field, replace
 from codetrail.config import TARGET_NAME, Paths
 from codetrail.database import connect
 from codetrail.generate.validate import DIAGRAM
-from codetrail.guide import COMMIT_ID, GuideRepository, Page
+from codetrail.guide import COMMIT_ID, PAGE_ID, GuideRepository, Page
 from codetrail.learn import LearningState
 from codetrail.repo.history import authors_between
 from codetrail.repo.signal import Signal
+from codetrail.team.state import Overviews
 from codetrail.web.links import BASE_PATH, site_path
 from codetrail.web.render import Segment, render_body
 
 BLANK_LINE = re.compile(r"\n[ \t]*\n")
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -118,12 +121,16 @@ def build_cards(rows: list[Row], max_nodes: int, missed: Collection[str] = froze
 
 
 def _card(row: Row, signal: Signal, max_nodes: int, missed: bool) -> Card:
-    prefix = BASE_PATH.set(f"/repos/{row.target}")  # the highlights' links lead into the repository's own guide
+    return Card(row, digest_summaries(row.target, row.unread, max_nodes), row.authors, signal.commits > 0 or missed)
+
+
+def digest_summaries(target: str, pages: list[Page], max_nodes: int) -> list[DigestSummary]:
+    """The digests as a card shows them, linked into the target's own guide."""
+    prefix = BASE_PATH.set(f"/repos/{target}")
     try:
-        digests = [_summary(page, max_nodes) for page in row.unread]
+        return [_summary(page, max_nodes) for page in pages]
     finally:
         BASE_PATH.reset(prefix)
-    return Card(row, digests, row.authors, signal.commits > 0 or missed)
 
 
 def _summary(page: Page, max_nodes: int) -> DigestSummary:
@@ -148,16 +155,48 @@ def _first_paragraph(body: str) -> str:
     return ""
 
 
-def render_overview(body: str, cited: list[str]) -> list[Segment]:
+def render_overview(body: str, cited: list[str], followed: Collection[str] | None = None) -> list[Segment]:
     """The overview's segments. A documented block links to its source in the repository whose digest it was copied
-    from (`cited`, one target per documented block, in order). Any other citation in an overview names no
-    repository, so it has no link."""
+    from (`cited`, one target per documented block, in order), unless `followed` is given and lacks that target.
+    Any other citation in an overview names no repository, so it has no link."""
     remaining = list(cited)
     segments = []
     for segment in render_body(body, None, 0):  # no diagram is drawn without a store, so no node limit applies
         if segment.kind == "rationale":
             target = remaining.pop(0) if segment.label == "documented" and remaining else None
             valid = isinstance(target, str) and TARGET_NAME.fullmatch(target) is not None and segment.link is not None
-            segment = replace(segment, link=f"/repos/{target}{segment.link}" if valid else None)
+            linked = valid and (followed is None or target in followed)
+            segment = replace(segment, link=f"/repos/{target}{segment.link}" if linked else None)
         segments.append(segment)
     return segments
+
+
+@dataclass(frozen=True)
+class Overview:
+    """An overview as a page shows it: its segments, and the digests it was written from."""
+
+    id: str
+    segments: list[Segment]
+    digests: list[tuple[str, str, str]]  # each digest's target, repository and id
+
+
+def load_overview(
+    overviews: Overviews, overview_id: str, team: str, followed: Collection[str] | None = None
+) -> Overview | None:
+    """The overview, rendered; None when it is missing, has an invalid id or can't be parsed. With `followed`, a
+    documented citation to a repository outside it has no link."""
+    try:
+        found = overviews.read(overview_id)
+    except Exception as error:  # an overview edited by hand mustn't stop the page
+        logger.warning("Couldn't read team %r's overview: %s", team, type(error).__name__)
+        return None
+    if found is None:
+        return None
+    meta, body = found
+    cited = meta.get("cited")
+    listed = meta.get("digests")
+    digests = [(str(digest.get("target")), str(digest.get("repository")), str(digest.get("id")))
+               for digest in (listed if isinstance(listed, list) else []) if isinstance(digest, dict)]  # fmt: skip
+    linked = [digest for digest in digests if TARGET_NAME.fullmatch(digest[0]) and PAGE_ID.fullmatch(digest[2])]
+    segments = render_overview(body, [str(target) for target in cited] if isinstance(cited, list) else [], followed)
+    return Overview(overview_id, segments, linked)

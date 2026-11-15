@@ -2504,7 +2504,8 @@ details.more > summary {
   background: color-mix(in srgb, var(--accent-tint) 45%, var(--raised));
 }
 
-.team-overview h2 {
+.team-overview h2,
+.team-overview h3 {
   margin-block: 0 var(--space-3);
   font-size: 1.15rem;
 }
@@ -2621,4 +2622,53 @@ details.more > summary {
 .team-quiet {
   margin-block: var(--space-4) 0;
   color: var(--text-muted);
+}
+
+/* The past catch-ups page (design section 25.3): the date form, the range's days outlined in the calendar, a linked
+   day's focus ring, the notes beside the calendar, and each catch-up's folding section (the Documentation page's). */
+.catch-ups-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-2) var(--space-4);
+  margin-block-start: var(--space-4);
+}
+
+.catch-ups-calendar .calendar .day.in-range {
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+
+.catch-ups-calendar .calendar a:focus-visible {
+  outline: none;
+}
+
+/* After the range's outline, so hover and focus show on its days too. */
+.catch-ups-calendar .calendar .day:hover,
+.catch-ups-calendar .calendar a:focus-visible .day {
+  stroke: var(--text);
+  stroke-width: 2;
+}
+
+.calendar-notes p {
+  margin: 0 0 var(--space-2);
+}
+
+.calendar-moves {
+  display: flex;
+  gap: var(--space-2);
+  margin-block: var(--space-3) var(--space-4);
+}
+
+.catch-ups {
+  margin-block-start: var(--space-8);
+}
+
+.catch-up-repository {
+  margin-block-start: var(--space-4);
+}
+
+.catch-up-repository h3 {
+  margin: 0;
+  font-size: 1rem;
 }

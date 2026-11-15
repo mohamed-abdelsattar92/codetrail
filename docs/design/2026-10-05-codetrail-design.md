@@ -628,6 +628,7 @@ Each phase is usable on its own, has its own implementation plan, and ends with 
 | 20. Context for coding agents | The map, briefs in the page call, the `agents/` export, `codetrail agents` and the `codetrail mcp` tool server (section 23) | Coding agents start a task from Codetrail's understanding of the repository instead of rediscovering it | ADR 0017 |
 | 21. Teams from hosting services | The spike, the `hosting` interface with the `github`, `azure_devops` and `gitlab` adapters and the fake, remote targets, teams, `codetrail team serve` with the team's server and a plain team page, the add-repositories screen, `codetrail team add`, `list` and `remove` (section 24) | A whole organization's repositories, or a chosen set, followed from GitHub, Azure DevOps or GitLab, each with its own guide | ADR 0020 |
 | 22. Catching up across a team (built) | The team page's cards, the catch-up with one estimate, highlights in digests, the overview across repositories (section 24) | One page each morning: what the team merged everywhere since you last looked, and why | Phase 21 |
+| 23. Past catch-ups (built) | The catch-ups' recorded digests and the past catch-ups page, with its calendar (section 25) | Any day's catch-up, or a week's, read again at no cost | Phase 22 |
 | 16. Decision inventory (planned) | An opt-in paid pass listing the decisions in the code and their documented "why" (section 18.8) | The share of the repository's decisions that are documented, beyond what the guide wrote about | Phase 13 |
 
 ## 14. Answers to the brainstorm's open questions
@@ -1521,3 +1522,70 @@ Phase 22's calls, for the founder to check:
 - **"Merged by"** lists first-parent authors since the oldest unread digest, alphabetical and never counted. A first guide's digest names nobody.
 - **A cancelled or unticked estimate** leaves dashed cards, since the free part moved each repository's snapshot.
 - **`codetrail team update`** asks all or nothing, like `codetrail update`.
+
+## 25. Past catch-ups
+
+Approved by the founder on 15 November 2026, in the design session of that day. The team page shows the latest overview only until the reader marks it read, and a card shows only unread digests (section 24.7), so once a tech lead has read a catch-up, the page offers no way back to it. Each repository's Digests page still lists its own digests, but nothing shows what the team learned on a given day, or over a week. Nothing is lost: every overview is kept as a dated file and every catch-up is recorded in `team.db` (section 24.9). This section adds one page that shows them again, at no cost.
+
+### 25.1 What it's for, and what it isn't
+- **For:** a tech lead goes back to what they read. Either one day ("what did we learn on Tuesday?") or a stretch, such as a week or a sprint before a review, on the same page: a day is a stretch one day long.
+- **Success:**
+  1. From the team page, one click reaches the past catch-ups, whether or not the latest was read.
+  2. A calendar shows which days had a catch-up; choosing a day shows that day's catch-ups, and choosing two dates shows every catch-up between them.
+  3. Each catch-up shows what the team page showed for it: its overview (or why it had none), and for each repository it caught up, the digests it wrote, with their highlights and marks, and a link to each.
+  4. A range is in the page's address, so a week can be opened again from a bookmark.
+- **Not, for now:** a written summary of a whole stretch (it would be a paid call each time, and the overviews already connect each catch-up); marking read from this page (the team page and each guide do that); deleting or editing past catch-ups; exporting them; past catch-ups from the command line.
+- **Failure even if it works:** a calendar or list that counts or ranks people or repositories (the calendar shades catch-ups, nothing else); any paid call; a past catch-up shown with content it didn't have, such as a digest written by another update attributed to it, or a different overview.
+
+### 25.2 Approaches
+The founder chose the first, on 15 November 2026:
+1. **One page, where a day is a one-day stretch.** The calendar above, the chosen range's catch-ups below in order, each folding. One view and one route serve both uses; a long stretch makes a long page, which folding keeps skimmable.
+2. **A calendar with one page per catch-up.** Each day reads as the team page did, but reviewing a week means opening each catch-up in turn, which is the use a tech lead has most.
+3. **A paid summary of a stretch,** dropped: a cost every time the reader looks back, for connections the overviews already made.
+
+### 25.3 The page
+`GET /team/catch-ups`, with `from` and `to` (dates, `YYYY-MM-DD`, UTC, both included) and `calendar` (a date in the calendar's last week). A missing or empty `to` is today; a missing or empty `from` is `team.history_days` days ending with `to` (7 by default: `to` and the six days before it); a missing or empty `calendar` is `to`. A `to` after today is allowed and simply finds nothing past today. Top to bottom:
+- **The title and range:** "Past catch-ups", the range ("From 2026-11-10 to 2026-11-16", or one date), and a form with the two dates and **Show**, a plain `GET` form, so no script is needed.
+- **The calendar:** the 53 weeks ending with the week of `calendar`, weeks starting as the Repository page's do, a square per day shaded by its number of catch-ups against the busiest day shown, in five steps, drawn as the Repository page's calendar is (section 20.3: the same indigo ramp in both themes, month labels, left to right in every language). The days of the range that fall in those weeks are outlined, and a range that starts or ends outside them says so beside the calendar. Each day with a catch-up is a link to that day (`from` and `to` both that date) that keeps `calendar`, so the calendar doesn't move under the reader; the other days aren't links. **Earlier** and **Later** links move `calendar` 53 weeks and keep the range; **Later** is left out once the calendar reaches today's week. The server renders it as links, so it works without a script; every square's label says its date and count ("2026-11-12: 2 catch-ups"), and its counts are also a table, folded away.
+- **A catch-up** here is one that finished with at least one repository ticked, whatever then happened to it; a declined or cancelled one (nothing ticked) isn't listed or shaded. It belongs to the UTC day it finished on.
+- **The catch-ups in the range, newest first,** at most `team.max_history_catch_ups`; past that, the page says how many it left out and that a narrower range shows them. Each is a folding section, open when the range is one day; otherwise the newest is open. Its summary line has the time it finished (UTC, as the team page shows times) and how many repositories it caught up. Inside:
+  - **"Across the team":** its overview, rendered as on the team page (section 24.7), with an "unread" pill while it isn't marked read; or the reason it has none (`overview_problem`); or nothing, when it was skipped (section 24.9).
+  - **One block per repository it caught up,** in the order its catch-up ran: the repository's name, linked to its guide; each digest the catch-up wrote for it, as the card shows a digest (its title linked to the digest, its highlights with their marks, or its first paragraph when it has none, and how many guide pages changed), with an "unread" pill while it is unread.
+  - **One line for the rest:** only what its record holds: each repository that failed, with the reason (its free part or its paid part; section 24.8), and each the reader left unticked. Repositories that had nothing new aren't recorded, so they aren't listed.
+- **With no catch-ups in the range,** the page says so and keeps the calendar, so the reader can pick another day. With no catch-up at all, it says that catching up from the team page fills it.
+
+The team page's header line gains a **Past catch-ups** link, shown once a catch-up has finished, and the team server's sidebar lists it after **Add repositories** (section 22). The page is in the team server's shell, like the team page, which has no palette.
+
+### 25.4 New data
+- **Each catch-up records the digests it wrote.** `catch_ups` gains `digests`, a JSON list of `[target, digest id]` in the order they were written, filled when the catch-up finishes (section 24.8), through a new migration of the team database.
+- **Catch-ups from before it** have none recorded, so their digests are found from the time they ran: the digests of the targets it caught up (its ticked targets, less those that failed) whose `written_at` lies between its `started_at` and `finished_at`. A target's update holds the target's lock (section 24.8), so no other update of that target writes a digest while its catch-up's update runs. The window can still hold a digest written by the reader's own `codetrail update` of a target before the catch-up reached it, which is why every catch-up from now on records its own.
+- **Read marks** come from where they live today: an overview's in `team.db`, a digest's in its target's learning state (section 8.3).
+
+### 25.5 Configuration
+In the global file, under `[team]`: `history_days = 7` (1 to 366), the default range; `max_history_catch_ups = 50` (1 to 500), the most catch-ups one page shows.
+
+### 25.6 Security
+- **Who can reach it:** one `GET` route, behind section 7.4's rules unchanged. It reads, calls nothing, writes nothing and starts no work.
+- **Its input:** `from`, `to` and `calendar` must be real dates in `YYYY-MM-DD` with ASCII digits, between 1970-01-01 and 9998-12-31, `from` no later than `to`, and the range at most 3660 days. A value longer than 10 characters is refused with a 422 before it is read; anything else wrong is a 400 page that names the problem, keeping the dates the reader typed. The query is never echoed into markup unescaped.
+- **What it reads:** overview ids from `team.db` pass `OVERVIEW_ID` before a file is read (section 24.9); a digest id from `team.db` is shown only if it names a digest page in that target's guide, and a target is read only if the team still has it. A repository the team no longer follows is shown by its target name, the only name the record holds, with no link: "No longer followed." If its data was removed too (section 24.4), its digests are simply not shown; that isn't an error.
+- **Text:** overviews, digests, repository names and failure reasons are rendered as on the team page: autoescaped, isolated in `<bdi>`, guide content in English (decision 7). The calendar has no script, so no data reaches a script.
+
+### 25.7 Testing
+- **Unit:** the default range and its end today, and each end missing or empty; a declined catch-up left out; a catch-up that started before midnight UTC and finished after it, on the later day; dates refused (`2026-02-30`, Arabic-Indic digits, `from` after `to`, a range past the limit); the calendar's counts per UTC day around midnight, and its weeks ending with `to`'s week; a catch-up's recorded digests; matching an older catch-up's digests by time, leaving out failed targets and digests outside the window; the cap and its note.
+- **API:** a read overview still shows here, with no pill; one day and a stretch; an overview skipped, missing and failed; a target no longer followed; a digest id the guide doesn't have, and an overview id that fails `OVERVIEW_ID`, both left out; the query reflected only escaped; `calendar` moving with **Earlier** and **Later** while the range stays, and **Later** absent at today; the route behind the session.
+- **Page:** the calendar's links reach a day, the form a stretch, and the folding sections open and close by keyboard; the accessibility scan in both themes; the Arabic page; phone width; the team page's link.
+
+### 25.8 Delivery
+**Phase 23, past catch-ups**, one branch: the migration and the recorded digests, the page, its link and sidebar entry, and its tests. The teams guide gains "Going back to past catch-ups" with a screenshot of a week, and the README's current state and `CHANGELOG.md` change with it.
+
+### 25.9 Calls made in writing this section
+The founder decided: being able to go back to past catch-ups, by day and by stretch, on one page, with a calendar. These were the design session's calls, for the founder to check:
+- Dates are written as ISO dates (`2026-11-12`), as everywhere in Codetrail.
+- Days are UTC days, as the team page's times and the Repository page's calendar are; a catch-up belongs to the day it finished, and one where nothing was ticked isn't shown.
+- The calendar has its own `calendar` parameter, so choosing a day or moving the calendar keeps the other; missing dates fall back to defaults instead of a 400.
+- Past catch-ups list only what their record holds: failures in the paid part and unticked repositories, not quiet ones; a repository no longer followed shows its target name.
+- The calendar shades catch-ups per day and spans 53 weeks, like the Repository page's; it is drawn by the server as links, with no script.
+- The calendar's shades are relative to its busiest day, as the Repository page's are, so a day with one catch-up stands out when one a day is usual.
+- The default range is the last 7 days, and a page shows at most 50 catch-ups.
+- Each catch-up shows its overview and its digests as the team page did, folded except the newest (or all, for one day), with "unread" pills and no Mark read buttons.
+- Catch-ups record their digests from now on; older ones are matched by the time they ran.

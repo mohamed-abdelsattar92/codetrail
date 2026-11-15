@@ -1,15 +1,10 @@
 {% extends "base.html" %}
 {% from "layout/icons.html" import icon %}
-{% from "macros.html" import rationale with context %}
+{% from "macros.html" import team_digest, team_overview, team_overview_problem with context %}
 {# The team page (design section 24.7), in the guides' shell: the header line, the latest overview until it is read, a
    card per repository with something new, busiest first, and one line for the rest. Its sidebar lists the team page,
-   the add-repositories screen and each followed repository. Every name comes from a service or from git, so it is
-   autoescaped and isolated in <bdi>; guide content (highlights, the overview) stays in English. #}
-{% macro segment_list(segments) -%}
-{%- for segment in segments -%}
-{%- if segment.kind == "html" %}{{ segment.html }}{% elif segment.kind == "rationale" %}{{ rationale(segment) }}{% endif -%}
-{%- endfor -%}
-{%- endmacro %}
+   the add-repositories screen, the past catch-ups and each followed repository. Every name comes from a service or
+   from git, so it is autoescaped and isolated in <bdi>; guide content (highlights, the overview) stays in English. #}
 {% block title %}{{ team }}{% endblock %}
 {% block scripts %}<script type="module" src="/static/js/team_catch_up.js"></script>
 <script type="module" src="/static/js/team_page.js"></script>{% endblock %}
@@ -23,6 +18,9 @@
     <span>{{ _("Since you last caught up: %(when)s", when=when) }}</span>
     {%- else %}
     <span>{{ _("You haven't caught up yet.") }}</span>
+    {%- endif %}
+    {%- if has_caught_up %}
+    <a href="/team/catch-ups">{{ _("Past catch-ups") }}</a>
     {%- endif %}
     {%- if with_merges %}{# none: a card's own line says what landed, commits without a merge included #}
     <span>{% trans count=with_merges, total=rows|length %}{{ count }} of {{ total }} repositories has new merges{% pluralize %}{{ count }} of {{ total }} repositories have new merges{% endtrans %}</span>
@@ -46,17 +44,12 @@
 {% if last_catch_up and last_catch_up.overview_problem %}
 <section class="team-overview" aria-labelledby="overview-title" data-overview>
   <h2 id="overview-title">{{ _("Across the team") }}</h2>
-  {% set problem %}<bdi>{{ last_catch_up.overview_problem }}</bdi>{% endset %}
-  <p class="muted">{{ _("This catch-up has no overview: %(problem)s", problem=problem) }}</p>
+  {{ team_overview_problem(last_catch_up.overview_problem) }}
 </section>
 {% elif overview %}
 <section class="team-overview" aria-labelledby="overview-title" data-overview>
   <h2 id="overview-title">{{ _("Across the team") }}</h2>
-  <div class="prose team-overview-body" lang="en" dir="ltr">{{ segment_list(overview.segments) }}</div>
-  <div class="team-foot">
-    <p class="faint">{{ _("From the digests of") }} {% for target, repository, digest_id in overview.digests %}<a href="/repos/{{ target }}/pages/{{ digest_id }}"><bdi>{{ repository }}</bdi></a>{% if not loop.last %}, {% endif %}{% endfor %}</p>
-    <button type="button" class="button small" data-overview-read="{{ overview.id }}">{{ _("Mark read") }}</button>
-  </div>
+  {{ team_overview(overview) }}
 </section>
 {% endif %}
 
@@ -85,18 +78,7 @@
       <p class="team-card-note">{{ _("Not caught up: you left it out of the last catch-up.") }}</p>
       {% endif %}
       {% for digest in card.digests %}
-      <div class="team-digest" data-digest="{{ digest.id }}">
-        <h4 class="team-digest-title" lang="en" dir="ltr"><a href="{{ digest.link }}"><bdi>{{ digest.title }}</bdi></a></h4>
-        <div class="team-digest-body" lang="en" dir="ltr">
-          {% if digest.highlights %}
-          <ul class="team-highlights">{% for highlight in digest.highlights %}<li>{{ segment_list(highlight) }}</li>{% endfor %}</ul>
-          {% else %}{{ segment_list(digest.first_paragraph) }}{% endif %}
-        </div>
-        <div class="team-foot">
-          <span class="faint">{% trans count=digest.pages_changed %}{{ count }} guide page changed{% pluralize %}{{ count }} guide pages changed{% endtrans %}</span>
-          <button type="button" class="button small" data-digest-read="{{ digest.id }}" data-target="{{ row.target }}">{{ _("Mark read") }}</button>
-        </div>
-      </div>
+      {{ team_digest(digest, row.target) }}
       {% endfor %}
       {% if card.authors %}
       <p class="team-card-authors">{{ _("Merged by:") }} {% for author in card.authors %}<bdi>{{ author }}</bdi>{% if not loop.last %}, {% endif %}{% endfor %}</p>

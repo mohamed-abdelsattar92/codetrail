@@ -193,6 +193,20 @@ codetrail team update acme --yes
 
 The terminal catch-up has no checkboxes. It updates every repository in the estimate, or none. To leave a repository out, untick it on the **Add repositories** screen (see [Leave a repository out](#leave-a-repository-out)).
 
+## Going back to past catch-ups
+
+Every catch-up that ticked at least one repository is kept, so you can read it again later at no cost. Nothing is called or written: the page only reads what the catch-up recorded.
+
+1. Open the team page and choose **Past catch-ups**, beside the time of the last catch-up in the header or in the sidebar. The link appears once a catch-up has finished with something ticked.
+2. The page opens on the last 7 days, newest catch-up first. The calendar shows 53 weeks, one square per day, shaded by how many catch-ups the day had compared with the busiest day shown, so a day with a catch-up stands out. The days in the range you are looking at are outlined.
+   ![The past catch-ups page. A range of one week sits above two date fields and Show. A calendar of 53 weeks follows, with the days that have a catch-up in darker squares. Three catch-ups come next, newest first: the newest, with its overview, and the oldest are open. Each repository's block lists only the digests that catch-up wrote, such as Product search ignores accents under web-shop and Refunds are written to the ledger under payments-api, with their highlights and unread marks.](../images/guides/teams-18-past-catch-ups.png)
+3. To read one day, select a square with a catch-up. The page shows that day's catch-ups, open, and the calendar stays where it was.
+4. To read a stretch, set **From** and **To** and choose **Show**. The address and the page's labels write dates as `2026-11-12`, while the date fields follow your browser's own format. A day runs from midnight to midnight UTC. A catch-up belongs to the day it finished.
+5. To look further back, choose **Earlier** under the calendar; **Later** moves forward again. The range stays the same. **Days with a catch-up, as a table** lists the counts as text.
+6. Each catch-up folds. Its summary has the time it finished and how many repositories it caught up. Inside are its "Across the team" overview, each repository's digests, only those that catch-up wrote (with an "unread" mark while you haven't read it) and one line for each repository that failed, with the reason, and each you left out. Reading here marks nothing read: **Mark read** is on the team page and in each guide.
+
+A catch-up where nothing was ticked, such as one you cancelled, isn't listed. A page shows at most `[team] max_history_catch_ups` catch-ups (50 by default) and says how many it left out; a narrower range shows them. `[team] history_days` (7 by default) sets the default range. A repository you no longer follow appears by its name, without a link.
+
 ## See your teams
 
 ```bash
@@ -280,6 +294,8 @@ Global settings go in `~/.config/codetrail/config.toml`. The team's own settings
 | `[team] active_days` | 90 | A whole source follows repositories pushed to within this many days (1 to 3650). |
 | `[team] highlights_per_digest` | 3 | Highlights a digest carries for the cards (0 to 10). |
 | `[team] max_overview_words` | 250 | Longest the overview may be (50 to 1000). |
+| `[team] history_days` | 7 | Days the past catch-ups page lists at first (1 to 366). |
+| `[team] max_history_catch_ups` | 50 | Most catch-ups that page lists for a range (1 to 500). |
 | `[hosting] gh`, `az`, `glab` | `gh`, `az`, `glab` | The service programs to run. |
 | `[hosting] timeout_seconds` | 60 | Time limit of each program run (5 to 600). |
 | `[hosting] max_output_bytes` | 10,000,000 | Largest output Codetrail accepts from one program run. |

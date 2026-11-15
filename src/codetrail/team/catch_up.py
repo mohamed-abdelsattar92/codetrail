@@ -391,7 +391,8 @@ def run_catch_up(
             reasons = {target.name: target.failure for target in targets if target.failure is not None}
             unticked = [line.target for line in estimate.lines if line.target not in chosen] if estimate else []
             state.finish(catch_up_id, chosen, overview.overview_id if overview else None,
-                         overview.problem if overview else None, reasons, unticked)  # fmt: skip
+                         overview.problem if overview else None, reasons, unticked,
+                         [(digest.target, digest.digest_id) for digest in digests])  # fmt: skip
         finally:
             connection.close()
     updated = [target.name for target in targets if target.result is not None and not target.result.declined]

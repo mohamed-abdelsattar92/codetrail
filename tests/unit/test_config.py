@@ -495,6 +495,10 @@ def test_location_is_the_path_or_the_url(tmp_path: Path) -> None:
         "[team]\nhighlights_per_digest = 11",
         "[team]\nmax_overview_words = 49",
         "[team]\nmax_overview_words = 1001",
+        "[team]\nhistory_days = 0",
+        "[team]\nhistory_days = 367",
+        "[team]\nmax_history_catch_ups = 0",
+        "[team]\nmax_history_catch_ups = 501",
     ],
 )
 def test_hosting_and_team_settings_refuse_values_out_of_range(paths: Paths, text: str) -> None:
@@ -646,6 +650,18 @@ def test_a_refused_remote_url_is_not_echoed_in_the_settings_error() -> None:
 def test_team_settings_defaults() -> None:
     settings = TeamSettings()
     assert (settings.highlights_per_digest, settings.max_overview_words) == (3, 250)
+
+
+def test_history_settings_defaults_and_ranges() -> None:
+    settings = TeamSettings()
+    assert (settings.history_days, settings.max_history_catch_ups) == (7, 50)
+    assert TeamSettings(history_days=1).history_days == 1 and TeamSettings(history_days=366).history_days == 366
+    assert TeamSettings(max_history_catch_ups=1).max_history_catch_ups == 1
+    assert TeamSettings(max_history_catch_ups=500).max_history_catch_ups == 500
+    for refused in ({"history_days": 0}, {"history_days": 367}, {"max_history_catch_ups": 0},
+                    {"max_history_catch_ups": 501}):  # fmt: skip
+        with pytest.raises(ValidationError):
+            TeamSettings(**refused)
 
 
 def test_estimate_overview_default() -> None:

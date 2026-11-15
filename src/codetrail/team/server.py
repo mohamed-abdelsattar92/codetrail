@@ -2,11 +2,12 @@
 
 The team page at `/` says when the team last caught up, shows the latest overview until it is read, and gives each
 repository with something new a card (its free "you're behind" signal, its unread digests' highlights, who wrote the
-commits); each repository's own page is mounted under `/repos/<target>/`. One security middleware wraps it all, so
-the token, `Origin`, session and `Sec-Fetch-Site` rules apply under a prefix as at `/`. The server holds the team's
-in-use lock, and every served target's, for as long as it runs. The sources are listed once, at the start, and the
-targets that listing adds get their free first refresh. A page view writes no settings, lists no source, never clones
-and never calls an assistant.
+commits); `/team/catch-ups` shows past catch-ups again, by day or stretch, with a calendar (design section 25); each
+repository's own page is mounted under `/repos/<target>/`. One security middleware wraps it all, so the token,
+`Origin`, session and `Sec-Fetch-Site` rules apply under a prefix as at `/`. The server holds the team's in-use lock,
+and every served target's, for as long as it runs. The sources are listed once, at the start, and the targets that
+listing adds get their free first refresh. A page view writes no settings, lists no source, never clones and never
+calls an assistant.
 """
 
 from __future__ import annotations
@@ -18,7 +19,7 @@ import webbrowser
 from collections.abc import AsyncIterator, Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack, asynccontextmanager
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from datetime import UTC, datetime
 from importlib.resources import files
 from pathlib import Path
@@ -36,7 +37,7 @@ from codetrail.config import TARGET_NAME, GlobalConfig, Paths, load_global, load
 from codetrail.database import connect
 from codetrail.errors import CodetrailError
 from codetrail.generate.run import Progress
-from codetrail.guide import PAGE_ID, GuideRepository
+from codetrail.guide import GuideRepository
 from codetrail.hosting import HostingService
 from codetrail.hosting.names import SERVICE_NAMES, Service
 from codetrail.hosting.services import services_for
@@ -44,23 +45,33 @@ from codetrail.lock import target_in_use, team_in_use
 from codetrail.repo.signal import Signal, behind
 from codetrail.server import HOST
 from codetrail.team.cards import (
+    Overview,
     Row,
     build_cards,
     card_authors,
-    render_overview,
+    load_overview,
     unread_digests,
 )
 from codetrail.team.catch_up import run_catch_up
 from codetrail.team.catch_up_job import CatchUpJob
 from codetrail.team.catch_up_job import Confirm as CatchUpConfirm
 from codetrail.team.follow import followed_targets
+from codetrail.team.history import (
+    CalendarDay,
+    RangeError,
+    calendar_span,
+    calendar_weeks,
+    history_query,
+    parse_range,
+    past_catch_ups,
+)
 from codetrail.team.refresh import TeamRefreshJob
 from codetrail.team.routes import team_router
 from codetrail.team.state import CatchUpRecord, Overviews, TeamState, team_database
 from codetrail.team.sync import TeamSync, sync_team
 from codetrail.web.app import EstimateDecision, LanguageChoice, UpdateJob, create_target_app, template_environment
 from codetrail.web.i18n import Language, installed_languages
-from codetrail.web.render import Segment
+from codetrail.web.repository_view import month_names, ramp_step, weekday_names
 from codetrail.web.security import SecurityMiddleware, SessionState, login_response
 
 LOGIN_NEXT = ("/", "/team/add")  # where the sign-in link may lead; anything else leads to the team page
@@ -80,15 +91,6 @@ class OverviewRead(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
     overview_id: str = Field(max_length=100)
-
-
-@dataclass(frozen=True)
-class Overview:
-    """The latest overview as the page shows it: its segments, and the digests it was written from."""
-
-    id: str
-    segments: list[Segment]
-    digests: list[tuple[str, str, str]]  # each digest's target, repository and id
 
 
 class TimedCache[Value]:
@@ -289,24 +291,26 @@ def create_team_app(
                 return record, None
         finally:
             connection.close()
+        return record, load_overview(overviews, overview_id, name)
+
+    def has_caught_up() -> bool:
+        """Whether a catch-up ever finished with a repository ticked: what the past catch-ups page lists. A team
+        that never caught up has no database yet, and a page view doesn't make one."""
+        database = team_database(paths, name)
+        if not database.exists():
+            return False
+        connection = connect(database)
         try:
-            found = overviews.read(overview_id)
-        except Exception as error:  # an overview edited by hand mustn't stop the page
-            logger.warning("Couldn't read team %r's overview: %s", name, type(error).__name__)
-            return record, None
-        if found is None:
-            return record, None
-        meta, body = found
-        cited = meta.get("cited")
-        listed = meta.get("digests")
-        digests = [(str(digest.get("target")), str(digest.get("repository")), str(digest.get("id")))
-                   for digest in (listed if isinstance(listed, list) else []) if isinstance(digest, dict)]  # fmt: skip
-        linked = [digest for digest in digests if TARGET_NAME.fullmatch(digest[0]) and PAGE_ID.fullmatch(digest[2])]
-        segments = render_overview(body, [str(target) for target in cited] if isinstance(cited, list) else [])
-        return record, Overview(overview_id, segments, linked)
+            return TeamState(connection).has_caught_up()
+        finally:
+            connection.close()
 
     def render(
-        template: str, active: str, targets: dict[str, tuple[str, str]] | None = None, **context: Any
+        template: str,
+        active: str,
+        targets: dict[str, tuple[str, str]] | None = None,
+        status_code: int = 200,
+        **context: Any,
     ) -> HTMLResponse:
         """A team page in the guides' shell: its sidebar lists each followed repository the server serves.
         `targets` are the followed ones, as `followed_targets()` gives them, when the caller has them already."""
@@ -320,7 +324,7 @@ def create_team_app(
             language=current, languages=list(languages.values()), token=session.token, team=name, active=active,
             team_repositories=[(target, targets[target][0]) for target in targets if target in mounted], **context,
         )  # fmt: skip
-        return HTMLResponse(html)
+        return HTMLResponse(html, status_code)
 
     @app.get("/login")
     def login(code: str = "", next_path: Annotated[str, Query(alias="next")] = "/") -> Response:
@@ -353,6 +357,53 @@ def create_team_app(
             with_merges=sum(1 for found in rows if found.signal is not None and found.signal.merges > 0),
             last_catch_up=record, failed=record.failed if record is not None else {},
             unticked=set(record.unticked) if record is not None else set(), overview=overview,
+            has_caught_up=has_caught_up(),
+        )  # fmt: skip
+
+    @app.get("/team/catch-ups", response_class=HTMLResponse)
+    def catch_ups_page(
+        from_text: Annotated[str, Query(alias="from", max_length=10)] = "",
+        to: Annotated[str, Query(max_length=10)] = "",
+        calendar: Annotated[str, Query(max_length=10)] = "",
+    ) -> Response:
+        """The past catch-ups between two dates, with a calendar of the 53 weeks ending with `calendar`'s (design
+        section 25.3). It reads only: no assistant, no fetch, no listing, and no write to the team or any guide."""
+        today = datetime.now(UTC).date()
+        try:
+            chosen = parse_range(from_text, to, calendar, today, settings.team.history_days, _)
+        except RangeError as error:
+            return render(
+                "catch_ups.html", "catch-ups", status_code=400, problem=str(error), typed_from=from_text, typed_to=to,
+                ever_caught_up=False,
+            )  # fmt: skip
+        try:
+            team = load_team(paths, name)
+        except CodetrailError as error:
+            return PlainTextResponse(str(error), 500)
+        targets = followed_targets(paths, name, team)
+        found, left_out, counts = past_catch_ups(
+            paths, name, chosen, targets, settings.diagrams.max_nodes, settings.team.max_history_catch_ups
+        )
+        first_day, last_day = calendar_span(chosen.calendar)
+        current = language()
+
+        def day_label(day: CalendarDay) -> str:
+            """A square's label, a plain string: the template escapes it, translation and all, in its attribute."""
+            text = current.translations.ngettext(
+                "%(date)s: %(count)s catch-up", "%(date)s: %(count)s catch-ups", day.count
+            )
+            return text % {"date": day.day.isoformat(), "count": day.count}
+
+        return render(
+            "catch_ups.html", "catch-ups", targets, problem="", chosen=chosen, catch_ups=found, left_out=left_out,
+            ever_caught_up=has_caught_up(), day_label=day_label,
+            weeks=calendar_weeks(chosen.calendar, counts, chosen, today),
+            highest=max(counts.values(), default=0), ramp_step=ramp_step,  # shades against the busiest day shown
+            day_counts=sorted(counts.items(), reverse=True),
+            starts_before=chosen.first < first_day, ends_after=chosen.last > last_day,
+            earlier=chosen.earlier(), later=chosen.later(today), history_query=history_query,
+            months=month_names(current), weekdays=weekday_names(current),
+            repository_names={target: repository for target, (repository, _branch) in targets.items()},
         )  # fmt: skip
 
     @app.post("/team/overview/read")
