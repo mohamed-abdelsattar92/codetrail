@@ -2104,6 +2104,14 @@ msgstr ""
 "تاريخ الـ branch كله، بتاريخ المؤلف بتوقيت UTC. تُقرأ التواريخ والأعداد "
 "فقط: لا مؤلف ولا رسالة."
 
+#, python-brace-format
+msgid "The calendar date {text} isn't a real date."
+msgstr "تاريخ التقويم {text} ليس تاريخًا حقيقيًا."
+
+#, python-brace-format
+msgid "The calendar date {text} must lie between {earliest} and {latest}."
+msgstr "يجب أن يقع تاريخ التقويم {text} بين {earliest} و{latest}."
+
 #, python-format
 msgid "The catch-up failed (%(error)s)."
 msgstr "فشلت المواكبة (%(error)s)."
@@ -2128,6 +2136,14 @@ msgstr "تعذّرت قراءة سجل commits الآن؛ السجل يذكر ا
 
 msgid "The commit messages couldn't be read just now; the log says why."
 msgstr "تعذّرت قراءة رسائل commits الآن؛ السجل يذكر السبب."
+
+#, python-brace-format
+msgid "The end date {text} isn't a real date."
+msgstr "تاريخ النهاية {text} ليس تاريخًا حقيقيًا."
+
+#, python-brace-format
+msgid "The end date {text} must lie between {earliest} and {latest}."
+msgstr "يجب أن يقع تاريخ النهاية {text} بين {earliest} و{latest}."
 
 msgid "The estimate expired before it was confirmed, so nothing was spent."
 msgstr "انتهت صلاحية التقدير قبل تأكيده، فلم يُنفَق شيء."
@@ -2228,6 +2244,14 @@ msgstr "الخادم يتوقف."
 msgid "The start date must not be after the end date."
 msgstr "يجب ألا يكون تاريخ البداية بعد تاريخ النهاية."
 
+#, python-brace-format
+msgid "The start date {text} isn't a real date."
+msgstr "تاريخ البداية {text} ليس تاريخًا حقيقيًا."
+
+#, python-brace-format
+msgid "The start date {text} must lie between {earliest} and {latest}."
+msgstr "يجب أن يقع تاريخ البداية {text} بين {earliest} و{latest}."
+
 msgid "The statistics aren't available just now"
 msgstr "الإحصاءات غير متاحة الآن"
 
@@ -2262,14 +2286,6 @@ msgstr ""
 
 msgid "The update was cancelled."
 msgstr "أُلغي التحديث."
-
-#, python-brace-format
-msgid "The {name} date {text} isn't a real date, written as YYYY-MM-DD."
-msgstr "التاريخ {text} ({name}) ليس تاريخًا حقيقيًا بصيغة YYYY-MM-DD."
-
-#, python-brace-format
-msgid "The {name} date {text} must lie between {earliest} and {latest}."
-msgstr "يجب أن يقع التاريخ {text} ({name}) بين {earliest} و{latest}."
 
 msgid "Theme: dark (switch to system)"
 msgstr "المظهر: داكن (التبديل إلى مظهر النظام)"

@@ -127,7 +127,13 @@ def test_moving_the_calendar_keeps_the_range() -> None:
 
 def test_moving_the_calendar_never_leaves_the_accepted_dates() -> None:
     earliest = HistoryRange(date(1970, 1, 1), date(1970, 1, 2), date(1970, 1, 1))
-    assert earliest.earlier().calendar == date(1970, 1, 1)
+    assert earliest.earlier() is None
+    same_week = HistoryRange(date(1970, 1, 1), date(1970, 1, 2), date(1970, 1, 3))
+    assert same_week.earlier() is None
+    near = HistoryRange(date(1970, 6, 1), date(1970, 6, 2), date(1970, 6, 1))
+    near_earlier = near.earlier()
+    assert near_earlier is not None
+    assert near_earlier.calendar == date(1970, 1, 1)
     latest = HistoryRange(date(2026, 1, 1), date(2026, 1, 2), date(9998, 12, 31))
     assert latest.later(date(9998, 12, 31)) is None
     assert calendar_weeks(date(9998, 12, 31), {}, latest, TODAY)[-1][-1].day <= date(9999, 1, 6)

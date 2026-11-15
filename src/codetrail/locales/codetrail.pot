@@ -1792,6 +1792,14 @@ msgid ""
 "are read: no author or message."
 msgstr ""
 
+#, python-brace-format
+msgid "The calendar date {text} isn't a real date."
+msgstr ""
+
+#, python-brace-format
+msgid "The calendar date {text} must lie between {earliest} and {latest}."
+msgstr ""
+
 #, python-format
 msgid "The catch-up failed (%(error)s)."
 msgstr ""
@@ -1813,6 +1821,14 @@ msgid "The commit history couldn't be read just now; the log says why."
 msgstr ""
 
 msgid "The commit messages couldn't be read just now; the log says why."
+msgstr ""
+
+#, python-brace-format
+msgid "The end date {text} isn't a real date."
+msgstr ""
+
+#, python-brace-format
+msgid "The end date {text} must lie between {earliest} and {latest}."
 msgstr ""
 
 msgid "The estimate expired before it was confirmed, so nothing was spent."
@@ -1905,6 +1921,14 @@ msgstr ""
 msgid "The start date must not be after the end date."
 msgstr ""
 
+#, python-brace-format
+msgid "The start date {text} isn't a real date."
+msgstr ""
+
+#, python-brace-format
+msgid "The start date {text} must lie between {earliest} and {latest}."
+msgstr ""
+
 msgid "The statistics aren't available just now"
 msgstr ""
 
@@ -1936,14 +1960,6 @@ msgid ""
 msgstr ""
 
 msgid "The update was cancelled."
-msgstr ""
-
-#, python-brace-format
-msgid "The {name} date {text} isn't a real date, written as YYYY-MM-DD."
-msgstr ""
-
-#, python-brace-format
-msgid "The {name} date {text} must lie between {earliest} and {latest}."
 msgstr ""
 
 msgid "Theme: dark (switch to system)"

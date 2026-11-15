@@ -27,8 +27,11 @@ class HistoryRange:
     last: date
     calendar: date
 
-    def earlier(self) -> HistoryRange:
-        return replace(self, calendar=max(EARLIEST, self.calendar - CALENDAR_SHIFT))
+    def earlier(self) -> HistoryRange | None:
+        moved = max(EARLIEST, self.calendar - CALENDAR_SHIFT)
+        if calendar_span(moved) == calendar_span(self.calendar):
+            return None
+        return replace(self, calendar=moved)
 
     def later(self, today: date) -> HistoryRange | None:
         if calendar_span(self.calendar)[1] >= today:
@@ -52,12 +55,32 @@ def parse_range(
     default_days: int,
     gettext: Callable[[str], str],
 ) -> HistoryRange:
-    last = _read_date(to_text, "end", gettext) if to_text else today
+    last = (
+        _read_date(
+            to_text,
+            gettext("The end date {text} isn't a real date."),
+            gettext("The end date {text} must lie between {earliest} and {latest}."),
+        )
+        if to_text
+        else today
+    )
     if from_text:
-        first = _read_date(from_text, "start", gettext)
+        first = _read_date(
+            from_text,
+            gettext("The start date {text} isn't a real date."),
+            gettext("The start date {text} must lie between {earliest} and {latest}."),
+        )
     else:
         first = max(EARLIEST, last - timedelta(days=default_days - 1))
-    calendar = _read_date(calendar_text, "calendar", gettext) if calendar_text else last
+    calendar = (
+        _read_date(
+            calendar_text,
+            gettext("The calendar date {text} isn't a real date."),
+            gettext("The calendar date {text} must lie between {earliest} and {latest}."),
+        )
+        if calendar_text
+        else last
+    )
     if first > last:
         raise RangeError(gettext("The start date must not be after the end date."))
     if (last - first).days + 1 > MAX_RANGE_DAYS:
@@ -88,21 +111,15 @@ def history_query(chosen: HistoryRange, day: date | None = None) -> str:
     return "?" + urlencode({"from": first.isoformat(), "to": last.isoformat(), "calendar": chosen.calendar.isoformat()})
 
 
-def _read_date(text: str, name: str, gettext: Callable[[str], str]) -> date:
+def _read_date(text: str, not_real_message: str, out_of_bounds_message: str) -> date:
+    """Read `YYYY-MM-DD`; the messages are already translated and hold `{text}`, `{earliest}`, `{latest}`."""
+    not_real = RangeError(not_real_message.format(text=text[:MAX_ECHOED_TEXT]))
+    if not ISO_DATE.fullmatch(text):
+        raise not_real
     try:
-        if not ISO_DATE.fullmatch(text):
-            raise ValueError(text)
         value = date.fromisoformat(text)
     except ValueError:
-        raise RangeError(
-            gettext("The {name} date {text} isn't a real date, written as YYYY-MM-DD.").format(
-                name=name, text=text[:MAX_ECHOED_TEXT]
-            )
-        ) from None
+        raise not_real from None
     if not EARLIEST <= value <= LATEST:
-        raise RangeError(
-            gettext("The {name} date {text} must lie between {earliest} and {latest}.").format(
-                name=name, text=text, earliest=EARLIEST, latest=LATEST
-            )
-        )
+        raise RangeError(out_of_bounds_message.format(text=text, earliest=EARLIEST, latest=LATEST))
     return value
