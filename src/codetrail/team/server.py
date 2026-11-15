@@ -2,11 +2,12 @@
 
 The team page at `/` says when the team last caught up, shows the latest overview until it is read, and gives each
 repository with something new a card (its free "you're behind" signal, its unread digests' highlights, who wrote the
-commits); each repository's own page is mounted under `/repos/<target>/`. One security middleware wraps it all, so
-the token, `Origin`, session and `Sec-Fetch-Site` rules apply under a prefix as at `/`. The server holds the team's
-in-use lock, and every served target's, for as long as it runs. The sources are listed once, at the start, and the
-targets that listing adds get their free first refresh. A page view writes no settings, lists no source, never clones
-and never calls an assistant.
+commits); `/team/catch-ups` shows past catch-ups again, by day or stretch, with a calendar (design section 25); each
+repository's own page is mounted under `/repos/<target>/`. One security middleware wraps it all, so the token,
+`Origin`, session and `Sec-Fetch-Site` rules apply under a prefix as at `/`. The server holds the team's in-use lock,
+and every served target's, for as long as it runs. The sources are listed once, at the start, and the targets that
+listing adds get their free first refresh. A page view writes no settings, lists no source, never clones and never
+calls an assistant.
 """
 
 from __future__ import annotations
@@ -55,12 +56,21 @@ from codetrail.team.catch_up import run_catch_up
 from codetrail.team.catch_up_job import CatchUpJob
 from codetrail.team.catch_up_job import Confirm as CatchUpConfirm
 from codetrail.team.follow import followed_targets
+from codetrail.team.history import (
+    RangeError,
+    calendar_span,
+    calendar_weeks,
+    history_query,
+    parse_range,
+    past_catch_ups,
+)
 from codetrail.team.refresh import TeamRefreshJob
 from codetrail.team.routes import team_router
 from codetrail.team.state import CatchUpRecord, Overviews, TeamState, team_database
 from codetrail.team.sync import TeamSync, sync_team
 from codetrail.web.app import EstimateDecision, LanguageChoice, UpdateJob, create_target_app, template_environment
 from codetrail.web.i18n import Language, installed_languages
+from codetrail.web.repository_view import month_names, weekday_names
 from codetrail.web.security import SecurityMiddleware, SessionState, login_response
 
 LOGIN_NEXT = ("/", "/team/add")  # where the sign-in link may lead; anything else leads to the team page
@@ -283,7 +293,11 @@ def create_team_app(
         return record, load_overview(overviews, overview_id, name)
 
     def render(
-        template: str, active: str, targets: dict[str, tuple[str, str]] | None = None, **context: Any
+        template: str,
+        active: str,
+        targets: dict[str, tuple[str, str]] | None = None,
+        status_code: int = 200,
+        **context: Any,
     ) -> HTMLResponse:
         """A team page in the guides' shell: its sidebar lists each followed repository the server serves.
         `targets` are the followed ones, as `followed_targets()` gives them, when the caller has them already."""
@@ -297,7 +311,7 @@ def create_team_app(
             language=current, languages=list(languages.values()), token=session.token, team=name, active=active,
             team_repositories=[(target, targets[target][0]) for target in targets if target in mounted], **context,
         )  # fmt: skip
-        return HTMLResponse(html)
+        return HTMLResponse(html, status_code)
 
     @app.get("/login")
     def login(code: str = "", next_path: Annotated[str, Query(alias="next")] = "/") -> Response:
@@ -330,6 +344,40 @@ def create_team_app(
             with_merges=sum(1 for found in rows if found.signal is not None and found.signal.merges > 0),
             last_catch_up=record, failed=record.failed if record is not None else {},
             unticked=set(record.unticked) if record is not None else set(), overview=overview,
+        )  # fmt: skip
+
+    @app.get("/team/catch-ups", response_class=HTMLResponse)
+    def catch_ups_page(
+        from_text: Annotated[str, Query(alias="from", max_length=10)] = "",
+        to: Annotated[str, Query(max_length=10)] = "",
+        calendar: Annotated[str, Query(max_length=10)] = "",
+    ) -> Response:
+        """The past catch-ups between two dates, with a calendar of the 53 weeks ending with `calendar`'s (design
+        section 25.3). It reads only: no assistant, no fetch, no listing, and no write to the team or any guide."""
+        today = datetime.now(UTC).date()
+        try:
+            chosen = parse_range(from_text, to, calendar, today, settings.team.history_days, _)
+        except RangeError as error:
+            return render("error.html", "catch-ups", status_code=400, heading=_("Past catch-ups"), message=str(error))
+        try:
+            team = load_team(paths, name)
+        except CodetrailError as error:
+            return PlainTextResponse(str(error), 500)
+        targets = followed_targets(paths, name, team)
+        found, left_out, counts = past_catch_ups(
+            paths, name, chosen, targets, settings.diagrams.max_nodes, settings.team.max_history_catch_ups
+        )
+        first_day, last_day = calendar_span(chosen.calendar)
+        current = language()
+        return render(
+            "catch_ups.html", "catch-ups", targets, chosen=chosen, catch_ups=found, left_out=left_out,
+            ever_caught_up=bool(counts or found) or last_catch_up()[0] is not None,
+            weeks=calendar_weeks(chosen.calendar, counts, chosen, today),
+            day_counts=sorted(counts.items(), reverse=True),
+            starts_before=chosen.first < first_day, ends_after=chosen.last > last_day,
+            earlier=chosen.earlier(), later=chosen.later(today), history_query=history_query,
+            months=month_names(current), weekdays=weekday_names(current),
+            repository_names={target: repository for target, (repository, _branch) in targets.items()},
         )  # fmt: skip
 
     @app.post("/team/overview/read")

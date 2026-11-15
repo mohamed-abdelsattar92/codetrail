@@ -247,6 +247,20 @@ msgid "%(count)s more"
 msgstr "%(count)s أخرى"
 
 #, python-format
+msgid ""
+"%(count)s more catch-up in this range isn't shown; a narrower range shows"
+" it."
+msgid_plural ""
+"%(count)s more catch-ups in this range aren't shown; a narrower range "
+"shows them."
+msgstr[0] "لا مواكبة أخرى مخفية في هذا النطاق."
+msgstr[1] "مواكبة أخرى في هذا النطاق لا تظهر هنا؛ نطاق أضيق يُظهرها."
+msgstr[2] "مواكبتان أخريان في هذا النطاق لا تظهران هنا؛ نطاق أضيق يُظهرهما."
+msgstr[3] "%(count)s مواكبات أخرى في هذا النطاق لا تظهر هنا؛ نطاق أضيق يُظهرها."
+msgstr[4] "%(count)s مواكبة أخرى في هذا النطاق لا تظهر هنا؛ نطاق أضيق يُظهرها."
+msgstr[5] "%(count)s مواكبةً أخرى في هذا النطاق لا تظهر هنا؛ نطاق أضيق يُظهرها."
+
+#, python-format
 msgid "%(count)s needs attention"
 msgid_plural "%(count)s need attention"
 msgstr[0] "لا شيء يحتاج إلى انتباه"
@@ -305,6 +319,16 @@ msgstr[2] "إصداران"
 msgstr[3] "%(count)s إصدارات"
 msgstr[4] "%(count)s إصدار"
 msgstr[5] "%(count)s إصدارًا"
+
+#, python-format
+msgid "%(count)s repository caught up"
+msgid_plural "%(count)s repositories caught up"
+msgstr[0] "لم يُواكَب أي مستودع"
+msgstr[1] "وُوكب مستودع واحد"
+msgstr[2] "وُوكب مستودعان"
+msgstr[3] "وُوكبت %(count)s مستودعات"
+msgstr[4] "وُوكب %(count)s مستودع"
+msgstr[5] "وُوكب %(count)s مستودعًا"
 
 #, python-format
 msgid "%(count)s smaller one isn't drawn."
@@ -377,6 +401,16 @@ msgstr[4] "%(count)s سنة"
 msgstr[5] "%(count)s سنة"
 
 #, python-format
+msgid "%(date)s: %(count)s catch-up"
+msgid_plural "%(date)s: %(count)s catch-ups"
+msgstr[0] "%(date)s: لا مواكبات"
+msgstr[1] "%(date)s: مواكبة واحدة"
+msgstr[2] "%(date)s: مواكبتان"
+msgstr[3] "%(date)s: %(count)s مواكبات"
+msgstr[4] "%(date)s: %(count)s مواكبة"
+msgstr[5] "%(date)s: %(count)s مواكبةً"
+
+#, python-format
 msgid "%(documented)s documented, %(inferred)s inferred"
 msgstr "%(documented)s موثّقة، %(inferred)s مُستنتَجة"
 
@@ -393,6 +427,10 @@ msgstr[2] "مستندان، الأسطر: %(lines)s"
 msgstr[3] "%(files)s مستندات، الأسطر: %(lines)s"
 msgstr[4] "%(files)s مستند، الأسطر: %(lines)s"
 msgstr[5] "%(files)s مستندًا، الأسطر: %(lines)s"
+
+#, python-format
+msgid "%(first)s to %(last)s"
+msgstr "من %(first)s إلى %(last)s"
 
 #, python-format
 msgid "%(learned)s of %(total)s learned"
@@ -494,6 +532,13 @@ msgstr "سنة"
 
 msgid "2 years"
 msgstr "سنتان"
+
+msgid ""
+"53 weeks, a square per day, shaded by its catch-ups. A day with one links"
+" to it."
+msgstr ""
+"53 أسبوعًا، مربع لكل يوم، بلون يتدرّج بعدد مواكباته. اليوم الذي فيه "
+"مواكبة رابط إليها."
 
 msgid "90 days"
 msgstr "90 يومًا"
@@ -781,6 +826,9 @@ msgstr "إلغاء"
 msgid "Catch up"
 msgstr "واكب"
 
+msgid "Catch-ups"
+msgstr "المواكبات"
+
 msgid "Catching up"
 msgstr "المواكبة"
 
@@ -943,6 +991,15 @@ msgstr "تعذّر حفظ الاختيار."
 
 msgid "Couldn’t save the answer."
 msgstr "تعذّر حفظ الإجابة."
+
+msgid "Day"
+msgstr "اليوم"
+
+msgid "Days with a catch-up"
+msgstr "أيام فيها مواكبة"
+
+msgid "Days with a catch-up, as a table"
+msgstr "أيام فيها مواكبة، في جدول"
 
 msgctxt "month"
 msgid "Dec"
@@ -1142,6 +1199,9 @@ msgstr "الجمعة"
 msgid "Friday"
 msgstr "الجمعة"
 
+msgid "From"
+msgstr "من"
+
 #, python-format
 msgid "From %(start)s to %(end)s"
 msgstr "من %(start)s إلى %(end)s"
@@ -1286,6 +1346,9 @@ msgstr "مُتعلَّمة"
 msgid "Learned, but changed since"
 msgstr "مُتعلَّمة، لكنها تغيّرت منذئذٍ"
 
+msgid "Left out:"
+msgstr "تُركت خارج المواكبة:"
+
 #, python-format
 msgid "Left: %(name)s"
 msgstr "أُزيلت: %(name)s"
@@ -1379,6 +1442,12 @@ msgid ""
 "say they live."
 msgstr "لم يُعثر على سجلات قرارات معمارية حيث تقول إعدادات الهدف إنها موجودة."
 
+msgid "No catch-ups between these dates. Pick another day in the calendar."
+msgstr "لا مواكبات بين هذين التاريخين. اختر يومًا آخر من التقويم."
+
+msgid "No catch-ups yet. Catching up from the team page fills this page."
+msgstr "لا مواكبات بعد. المواكبة من صفحة الفريق تملأ هذه الصفحة."
+
 msgid "No code to draw yet."
 msgstr "لا كود لرسمه بعد."
 
@@ -1411,6 +1480,9 @@ msgstr "لم يتغيّر أي ملف فيه في الـ commits المقروء�
 
 msgid "No guide yet"
 msgstr "لا دليل بعد"
+
+msgid "No longer followed."
+msgstr "لم يعد متابَعًا."
 
 msgid "No longer in the source"
 msgstr "لم يعد في المصدر"
@@ -1507,6 +1579,9 @@ msgstr[2] "لم يُواكَب بعد: %(count)s merges."
 msgstr[3] "لم يُواكَب بعد: %(count)s merges."
 msgstr[4] "لم يُواكَب بعد: %(count)s merges."
 msgstr[5] "لم يُواكَب بعد: %(count)s merges."
+
+msgid "Not caught up:"
+msgstr "لم يُواكَب:"
 
 #, python-format
 msgid "Not caught up: %(reason)s"
@@ -1696,6 +1771,9 @@ msgstr "الأجزاء"
 
 msgid "Passed"
 msgstr "نجحت"
+
+msgid "Past catch-ups"
+msgstr "المواكبات السابقة"
 
 msgid "Path"
 msgstr "مسار"
@@ -2214,9 +2292,15 @@ msgstr "المقاييس غير متاحة الآن"
 msgid "The parts in this folder and the parts they connect to."
 msgstr "الأجزاء في هذا المجلد والأجزاء المرتبطة بها."
 
+msgid "The range ends after this calendar."
+msgstr "ينتهي النطاق بعد هذا التقويم."
+
 #, python-brace-format
 msgid "The range is longer than {days} days."
 msgstr "النطاق أطول من {days} يومًا."
+
+msgid "The range starts before this calendar."
+msgstr "يبدأ النطاق قبل هذا التقويم."
 
 msgid "The releases couldn't be read just now; the log says why."
 msgstr "تعذّرت قراءة الإصدارات الآن؛ السجل يذكر السبب."
@@ -2324,6 +2408,9 @@ msgstr "الفترة الزمنية"
 
 msgid "Timeline"
 msgstr "الخط الزمني"
+
+msgid "To"
+msgstr "إلى"
 
 #, python-format
 msgid "To write it anyway: <code>codetrail update %(name)s --retry-failed</code>"

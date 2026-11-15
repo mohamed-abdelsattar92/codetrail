@@ -3,8 +3,8 @@
 {% from "macros.html" import team_digest, team_overview with context %}
 {# The team page (design section 24.7), in the guides' shell: the header line, the latest overview until it is read, a
    card per repository with something new, busiest first, and one line for the rest. Its sidebar lists the team page,
-   the add-repositories screen and each followed repository. Every name comes from a service or from git, so it is
-   autoescaped and isolated in <bdi>; guide content (highlights, the overview) stays in English. #}
+   the add-repositories screen, the past catch-ups and each followed repository. Every name comes from a service or
+   from git, so it is autoescaped and isolated in <bdi>; guide content (highlights, the overview) stays in English. #}
 {% block title %}{{ team }}{% endblock %}
 {% block scripts %}<script type="module" src="/static/js/team_catch_up.js"></script>
 <script type="module" src="/static/js/team_page.js"></script>{% endblock %}
@@ -16,6 +16,7 @@
   <p class="team-status">
     {%- if last_catch_up %}{% set when %}<time datetime="{{ last_catch_up.finished_at }}" dir="ltr">{{ last_catch_up.finished_at|utc }}</time>{% endset %}
     <span>{{ _("Since you last caught up: %(when)s", when=when) }}</span>
+    <a href="/team/catch-ups">{{ _("Past catch-ups") }}</a>
     {%- else %}
     <span>{{ _("You haven't caught up yet.") }}</span>
     {%- endif %}

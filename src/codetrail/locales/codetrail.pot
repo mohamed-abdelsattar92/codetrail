@@ -139,6 +139,16 @@ msgid "%(count)s more"
 msgstr ""
 
 #, python-format
+msgid ""
+"%(count)s more catch-up in this range isn't shown; a narrower range shows"
+" it."
+msgid_plural ""
+"%(count)s more catch-ups in this range aren't shown; a narrower range "
+"shows them."
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
 msgid "%(count)s needs attention"
 msgid_plural "%(count)s need attention"
 msgstr[0] ""
@@ -171,6 +181,12 @@ msgstr[1] ""
 #, python-format
 msgid "%(count)s release"
 msgid_plural "%(count)s releases"
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
+msgid "%(count)s repository caught up"
+msgid_plural "%(count)s repositories caught up"
 msgstr[0] ""
 msgstr[1] ""
 
@@ -217,6 +233,12 @@ msgstr[0] ""
 msgstr[1] ""
 
 #, python-format
+msgid "%(date)s: %(count)s catch-up"
+msgid_plural "%(date)s: %(count)s catch-ups"
+msgstr[0] ""
+msgstr[1] ""
+
+#, python-format
 msgid "%(documented)s documented, %(inferred)s inferred"
 msgstr ""
 
@@ -229,6 +251,10 @@ msgid "%(files)s document, %(lines)s lines"
 msgid_plural "%(files)s documents, %(lines)s lines"
 msgstr[0] ""
 msgstr[1] ""
+
+#, python-format
+msgid "%(first)s to %(last)s"
+msgstr ""
 
 #, python-format
 msgid "%(learned)s of %(total)s learned"
@@ -311,6 +337,11 @@ msgid "1 year"
 msgstr ""
 
 msgid "2 years"
+msgstr ""
+
+msgid ""
+"53 weeks, a square per day, shaded by its catch-ups. A day with one links"
+" to it."
 msgstr ""
 
 msgid "90 days"
@@ -570,6 +601,9 @@ msgstr ""
 msgid "Catch up"
 msgstr ""
 
+msgid "Catch-ups"
+msgstr ""
+
 msgid "Catching up"
 msgstr ""
 
@@ -723,6 +757,15 @@ msgid "Couldn't save the selection."
 msgstr ""
 
 msgid "Couldn’t save the answer."
+msgstr ""
+
+msgid "Day"
+msgstr ""
+
+msgid "Days with a catch-up"
+msgstr ""
+
+msgid "Days with a catch-up, as a table"
 msgstr ""
 
 msgctxt "month"
@@ -913,6 +956,9 @@ msgstr ""
 msgid "Friday"
 msgstr ""
 
+msgid "From"
+msgstr ""
+
 #, python-format
 msgid "From %(start)s to %(end)s"
 msgstr ""
@@ -1055,6 +1101,9 @@ msgstr ""
 msgid "Learned, but changed since"
 msgstr ""
 
+msgid "Left out:"
+msgstr ""
+
 #, python-format
 msgid "Left: %(name)s"
 msgstr ""
@@ -1148,6 +1197,12 @@ msgid ""
 "say they live."
 msgstr ""
 
+msgid "No catch-ups between these dates. Pick another day in the calendar."
+msgstr ""
+
+msgid "No catch-ups yet. Catching up from the team page fills this page."
+msgstr ""
+
 msgid "No code to draw yet."
 msgstr ""
 
@@ -1179,6 +1234,9 @@ msgid "No file in it changed in the commits read."
 msgstr ""
 
 msgid "No guide yet"
+msgstr ""
+
+msgid "No longer followed."
 msgstr ""
 
 msgid "No longer in the source"
@@ -1256,6 +1314,9 @@ msgid "Not caught up yet: %(count)s merge."
 msgid_plural "Not caught up yet: %(count)s merges."
 msgstr[0] ""
 msgstr[1] ""
+
+msgid "Not caught up:"
+msgstr ""
 
 #, python-format
 msgid "Not caught up: %(reason)s"
@@ -1406,6 +1467,9 @@ msgid "Parts"
 msgstr ""
 
 msgid "Passed"
+msgstr ""
+
+msgid "Past catch-ups"
 msgstr ""
 
 msgid "Path"
@@ -1891,8 +1955,14 @@ msgstr ""
 msgid "The parts in this folder and the parts they connect to."
 msgstr ""
 
+msgid "The range ends after this calendar."
+msgstr ""
+
 #, python-brace-format
 msgid "The range is longer than {days} days."
+msgstr ""
+
+msgid "The range starts before this calendar."
 msgstr ""
 
 msgid "The releases couldn't be read just now; the log says why."
@@ -1998,6 +2068,9 @@ msgid "Time range"
 msgstr ""
 
 msgid "Timeline"
+msgstr ""
+
+msgid "To"
 msgstr ""
 
 #, python-format
