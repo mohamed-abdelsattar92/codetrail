@@ -1,6 +1,6 @@
 # 0021. Count the "you're behind" signal from the commit the guide last covered
 
-- Status: proposed
+- Status: accepted (by the founder, 15 November 2026)
 - Date: 2026-11-14
 - Deciders: KoGy
 - Proposed by: Claude Code (Claude Opus 5.5), after the founder approved the fix on 14 November 2026
