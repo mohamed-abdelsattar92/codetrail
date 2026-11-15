@@ -100,7 +100,7 @@ def test_a_read_overview_still_shows_here(team: Team) -> None:
     assert "Across the team" in shown and "Both services now retry charges." in shown
     assert 'lang="en" dir="ltr"' in shown
     assert "pill" not in shown and "data-overview-read" not in shown
-    assert finished_at[:10] == today().isoformat()
+    assert when_text(finished_at) in shown
 
 
 def test_a_catch_up_s_digests_show_without_mark_read(team: Team) -> None:
@@ -341,6 +341,22 @@ def test_untrusted_names_are_escaped(team: Team, monkeypatch: pytest.MonkeyPatch
     assert f'<a href="/repos/acme-web-shop/"><bdi>{ESCAPED}</bdi></a>' in shown
     assert f"<bdi>payments-api</bdi> (<bdi>{ESCAPED}</bdi>)" in shown
     assert re.search(r"<[^>]*\sonerror=", page) is None
+
+
+def test_a_repository_no_longer_followed_shows_its_target_name(team: Team, monkeypatch: pytest.MonkeyPatch) -> None:
+    followed = follow.followed_targets
+
+    def without_web_shop(*arguments: object) -> dict[str, tuple[str, str]]:
+        return {target: names for target, names in followed(*arguments).items() if target != "acme-web-shop"}  # type: ignore[arg-type]
+
+    monkeypatch.setattr("codetrail.team.server.followed_targets", without_web_shop)
+    write_digest(team.paths)
+    record(team.paths, at(DAY, 10), digests=[("acme-web-shop", DIGEST)])
+
+    [shown] = catch_ups(client_for(team).get(f"/team/catch-ups{ONE_DAY}").text)
+
+    assert '<h3><bdi>acme-web-shop</bdi> <span class="faint">No longer followed.</span></h3>' in shown
+    assert 'href="/repos/acme-web-shop/' not in shown  # no link, and its guide isn't read
 
 
 def test_no_catch_ups_in_the_range(team: Team) -> None:
