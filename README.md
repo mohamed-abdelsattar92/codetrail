@@ -273,9 +273,9 @@ The interface is English first and switches language from the page; it ships in 
 
 ## Status
 
-The latest release is Codetrail 1.4.1 ([release notes](docs/releases/v1.4.1.md), [changelog](CHANGELOG.md)); 1.0.0 was the first public release. Phases 0 to 15 and 17 to 20 of the [design](docs/design/2026-10-05-codetrail-design.md) are built, tested and released; Phases 21 (teams from hosting services) 22 (catching up across a team) and 23 (past catch-ups) are built and not yet released; Phase 16 is planned. Codetrail is on PyPI as `codetrail-cli` ([ADR 0019](docs/adr/0019-publish-to-pypi-as-codetrail-cli.md)).
+The latest release is Codetrail 1.4.1 ([release notes](docs/releases/v1.4.1.md), [changelog](CHANGELOG.md)); 1.0.0 was the first public release. Phases 0 to 15 and 17 to 20 of the [design](docs/design/2026-10-05-codetrail-design.md) are built, tested and released; Phases 21 (teams from hosting services), 22 (catching up across a team) and 23 (past catch-ups) are built and not yet released; Phase 16 is planned. Codetrail is on PyPI as `codetrail-cli` ([ADR 0019](docs/adr/0019-publish-to-pypi-as-codetrail-cli.md)).
 
-![The design's phases: 0 to 15 and 17 to 20 built, 21 and 22 built and not yet released, 16 planned](docs/diagrams/phases.svg)
+![The design's phases: 0 to 15 and 17 to 20 built, 21, 22 and 23 built and not yet released, 16 planned](docs/diagrams/phases.svg)
 
 | Phase | What you can do | Status |
 |---|---|---|

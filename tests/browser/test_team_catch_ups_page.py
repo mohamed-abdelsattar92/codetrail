@@ -14,6 +14,7 @@ from playwright.sync_api import Locator, Page, expect
 
 from codetrail.database import connect
 from codetrail.guide import GuideRepository
+from codetrail.guide import Page as GuidePage
 from codetrail.team.state import team_database
 from tests.browser.conftest import ready
 from tests.browser.test_team_add import TeamSite
@@ -29,17 +30,62 @@ def days_ago(days: int) -> str:
     return (noon - timedelta(days=days)).isoformat(timespec="seconds")
 
 
-def digests_of(site: TeamSite, targets: list[str]) -> str:
-    """The digests the targets' guides now hold, as a catch-up's record holds them."""
-    return json.dumps([
-        [target, page.id]
-        for target in targets
-        for page in GuideRepository(site.paths.target_data(target) / "guide").pages("digest")
-    ])  # fmt: skip
+# Each catch-up's own digests: (target, title, highlights, pages changed). A digest is recorded on exactly one catch-up.
+CART = (
+    "acme-web-shop",
+    "The cart keeps its items across sign-in",
+    [
+        "A cart started signed out is **merged** into the account's cart at sign-in.",
+        "> [!inferred]\n> Merging adds quantities, so the same item twice may now show as two.",
+    ],
+    ["concepts/cart", "areas/app"],
+)
+RETRIES = (
+    "acme-payments-api",
+    "Failed charges are retried with a growing delay",
+    ["A failed charge is retried **three times**, waiting longer each time."],
+    ["concepts/retries"],
+)
+CANCEL = (
+    "acme-web-shop",
+    "Orders can be cancelled until they ship",
+    ["Cancelling an order before it ships **releases its stock** at once."],
+    ["concepts/orders"],
+)
+SEARCH = (
+    "acme-web-shop",
+    "Product search ignores accents",
+    [
+        "Searching for *cafe* now also finds products named *café*.",
+        "Results are sorted by **relevance**, then by name.",
+    ],
+    ["concepts/search", "areas/app"],
+)
+REFUNDS = (
+    "acme-payments-api",
+    "Refunds are written to the ledger",
+    ["Each refund adds a **ledger entry** that points at the charge it reverses."],
+    ["concepts/ledger"],
+)
 
 
-def write_past_catch_up(site: TeamSite, days: int, targets: list[str]) -> None:
-    """A catch-up that finished `days` ago and caught up `targets`, with the digests their guides now hold."""
+def write_digests(site: TeamSite, days: int, digests: list[tuple[str, str, list[str], list[str]]]) -> str:
+    """Writes each digest into its target's guide, dated `days` ago, and returns them as a catch-up's record holds
+    them."""
+    recorded = []
+    for number, (target, title, highlights, changed) in enumerate(digests):
+        digest_id = f"digests/{days_ago(days)[:10]}-{number}"
+        meta: dict[str, object] = {
+            "kind": "digest", "title": title, "from_commit": "a" * 40, "to_commit": "b" * 40,
+            "written_at": days_ago(days), "pages_changed": changed, "highlights": highlights,
+        }  # fmt: skip
+        GuideRepository(site.paths.target_data(target) / "guide").write_page(GuidePage(digest_id, meta, highlights[0]))
+        recorded.append([target, digest_id])
+    return json.dumps(recorded)
+
+
+def write_past_catch_up(site: TeamSite, days: int, targets: list[str], digests: str) -> None:
+    """A catch-up that finished `days` ago and caught up `targets`, with the digests it wrote."""
     finished_at = days_ago(days)
     started_at = (datetime.fromisoformat(finished_at) - timedelta(minutes=5)).isoformat(timespec="seconds")
     connection = connect(team_database(site.paths, "acme"))
@@ -47,22 +93,33 @@ def write_past_catch_up(site: TeamSite, days: int, targets: list[str]) -> None:
         connection.execute(
             "INSERT INTO catch_ups (started_at, finished_at, targets, failed, unticked, digests)"
             " VALUES (?, ?, ?, '{}', '[]', ?)",
-            (started_at, finished_at, json.dumps(targets), digests_of(site, targets)),
-        )  # fmt: skip
+            (started_at, finished_at, json.dumps(targets), digests),
+        )
     finally:
         connection.close()
 
 
 @pytest.fixture
 def past_week(two_guides: TeamSite) -> Iterator[TeamSite]:  # noqa: F811 - the fixture imported above
+    """The team's newest catch-up, the fixture's, and two earlier ones, each with digests of its own."""
     connection = connect(team_database(two_guides.paths, "acme"))
-    try:  # the newest catch-up, the fixture's, records the digests it wrote, as every catch-up now does
-        connection.execute("UPDATE catch_ups SET digests = ?", (digests_of(two_guides, list(TARGETS)),))
+    try:
+        connection.execute("UPDATE catch_ups SET digests = ?", (write_digests(two_guides, 0, [SEARCH, REFUNDS]),))
     finally:
         connection.close()
-    write_past_catch_up(two_guides, 3, list(TARGETS))
-    write_past_catch_up(two_guides, 2, [TARGETS[0]])
+    write_past_catch_up(two_guides, 3, list(TARGETS), write_digests(two_guides, 3, [CART, RETRIES]))
+    write_past_catch_up(two_guides, 2, [TARGETS[0]], write_digests(two_guides, 2, [CANCEL]))
     yield two_guides
+
+
+def tab_to(page: Page, target: Locator) -> None:
+    """Presses Tab until `target` has the focus."""
+    focused = "element => element === document.activeElement"
+    for _ in range(400):  # the calendar's 53 weeks have few links; the sidebar and the form come first
+        if target.evaluate(focused):
+            return
+        page.keyboard.press("Tab")
+    raise AssertionError("Tab never reached the element")
 
 
 def day_link(page: Page, days: int) -> Locator:
@@ -79,6 +136,12 @@ def test_past_catch_ups_page(page: Page, past_week: TeamSite, errors: list[str],
     ready(page)
     expect(page).to_have_url(f"{past_week.url}/team/catch-ups")
     expect(page.locator("details.catch-up")).to_have_count(3)  # the default range is the last 7 days
+    shown = [fold.text_content() or "" for fold in page.locator("details.catch-up").all()]  # newest first
+    for text, own, others in zip(shown, [(SEARCH, REFUNDS), (CANCEL,), (CART, RETRIES)],
+                                 [(CART, RETRIES, CANCEL), (SEARCH, REFUNDS, CART, RETRIES), (SEARCH, REFUNDS, CANCEL)],
+                                 strict=True):  # fmt: skip
+        assert all(digest[1] in text for digest in own)
+        assert not any(digest[1] in text for digest in others)
     assert axe_violations(page) == []
 
     # A day in the calendar shows that day.
@@ -86,7 +149,8 @@ def test_past_catch_ups_page(page: Page, past_week: TeamSite, errors: list[str],
     expect(link).to_have_attribute("aria-label", f"{days_ago(2)[:10]}: 1 catch-up")
     fill = "rect => getComputedStyle(rect).fill"
     assert link.locator("rect").evaluate(fill) != page.locator(".calendar rect.heat-0").first.evaluate(fill)  # shaded
-    link.click()
+    tab_to(page, link)  # a day with a catch-up is reached by Tab and opened with Enter
+    page.keyboard.press("Enter")
     ready(page)
     expect(page.locator("details.catch-up")).to_have_count(1)
     expect(page.locator("details.catch-up")).to_contain_text("1 repository caught up")
@@ -105,11 +169,7 @@ def test_past_catch_ups_page(page: Page, past_week: TeamSite, errors: list[str],
     older = page.locator("details.catch-up").nth(1)
     summary = older.locator("summary")
     assert not older.evaluate("details => details.open")
-    for _ in range(60):
-        if summary.evaluate("element => element === document.activeElement"):
-            break
-        page.keyboard.press("Tab")
-    assert summary.evaluate("element => element === document.activeElement")
+    tab_to(page, summary)
     page.keyboard.press("Enter")
     assert older.evaluate("details => details.open")
     expect(older).to_contain_text("2 repositories caught up")
