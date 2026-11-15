@@ -179,12 +179,12 @@ class Overview:
     digests: list[tuple[str, str, str]]  # each digest's target, repository and id
 
 
-def load_overview(overviews: Overviews, overview_id: str) -> Overview | None:
+def load_overview(overviews: Overviews, overview_id: str, team: str) -> Overview | None:
     """The overview, rendered; None when it is missing, has an invalid id or can't be parsed."""
     try:
         found = overviews.read(overview_id)
     except Exception as error:  # an overview edited by hand mustn't stop the page
-        logger.warning("Couldn't read overview %r: %s", overview_id, type(error).__name__)
+        logger.warning("Couldn't read team %r's overview: %s", team, type(error).__name__)
         return None
     if found is None:
         return None

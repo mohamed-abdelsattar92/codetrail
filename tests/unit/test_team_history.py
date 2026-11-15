@@ -1,6 +1,7 @@
 """The past catch-ups page's dates and calendar (design section 25)."""
 
 import json
+import logging
 import shutil
 from collections.abc import Iterator
 from datetime import date, timedelta
@@ -15,6 +16,7 @@ from codetrail.learn import LearningState
 from codetrail.team.cards import load_overview
 from codetrail.team.history import (
     HistoryRange,
+    PastCatchUp,
     RangeError,
     calendar_span,
     calendar_weeks,
@@ -204,7 +206,7 @@ def write_digest_at(paths: Paths, digest_id: str, written_at: str, target: str =
     GuideRepository(paths.target_data(target) / "guide").write_page(Page(digest_id, meta, "Body."))
 
 
-def assembled(team: Team, chosen: HistoryRange = CHOSEN, limit: int = 50) -> list:  # type: ignore[type-arg]
+def assembled(team: Team, chosen: HistoryRange = CHOSEN, limit: int = 50) -> list[PastCatchUp]:
     catch_ups, _, _ = past_catch_ups(team.paths, "acme", chosen, FOLLOWED, 25, limit)
     return catch_ups
 
@@ -278,9 +280,17 @@ def test_a_recorded_digest_the_guide_doesn_t_have_is_left_out(team: Team) -> Non
     assert [summary.id for summary in catch_up.repositories[0].digests] == ["digests/2026-11-11-a"]
 
 
-def test_a_target_no_longer_followed_keeps_its_target_name(team: Team) -> None:
-    write_digest_at(team.paths, "digests/2026-11-11-a", "2026-11-11T10:10:00+00:00")
+def test_a_target_no_longer_followed_keeps_its_target_name(team: Team, monkeypatch: pytest.MonkeyPatch) -> None:
+    write_digest_at(team.paths, "digests/2026-11-11-a", "2026-11-11T10:10:00+00:00", "acme-inventory")
     add_record(team.paths, targets=["acme-inventory"], digests=[["acme-inventory", "digests/2026-11-11-a"]])
+    read: list[Path] = []
+    original = GuideRepository.pages
+
+    def recording(self: GuideRepository, kind: str | None = None) -> list[Page]:
+        read.append(self.root)
+        return original(self, kind)
+
+    monkeypatch.setattr(GuideRepository, "pages", recording)
 
     (catch_up,) = assembled(team)
 
@@ -291,6 +301,7 @@ def test_a_target_no_longer_followed_keeps_its_target_name(team: Team) -> None:
         False,
     )
     assert repository.digests == []
+    assert team.paths.target_data("acme-inventory") / "guide" not in read
 
 
 def test_a_removed_guide_shows_no_digests(team: Team) -> None:
@@ -322,9 +333,12 @@ def test_the_overview_and_its_read_mark(team: Team) -> None:
     (catch_up,) = assembled(team)
 
     assert catch_up.overview_unread is True
-    overview = load_overview(Overviews(team.paths.team_data("acme") / "overviews"), OVERVIEW)
+    overview = load_overview(Overviews(team.paths.team_data("acme") / "overviews"), OVERVIEW, "acme")
     assert overview is not None and catch_up.overview == overview
     assert overview.digests == [(TARGET, "web-shop", DIGEST)]
+    assert any("Both services now retry charges." in segment.html for segment in overview.segments)
+    documented = [segment for segment in overview.segments if segment.kind == "rationale"]
+    assert [segment.link for segment in documented] == [f"/repos/{TARGET}/source/services/api/main.py#L1"]
 
     connection = connect(team_database(team.paths, "acme"))
     try:
@@ -343,7 +357,7 @@ def test_an_overview_id_that_fails_the_pattern_reads_as_none(team: Team) -> None
     (catch_up,) = assembled(team)
 
     assert catch_up.overview is None
-    assert load_overview(Overviews(team.paths.team_data("acme") / "overviews"), "overviews/nope") is None
+    assert load_overview(Overviews(team.paths.team_data("acme") / "overviews"), "overviews/nope", "acme") is None
 
 
 def test_a_corrupt_digests_column_leaves_that_catch_up_out(team: Team) -> None:
@@ -387,3 +401,61 @@ def test_the_counts_cover_the_calendar_and_the_list_only_the_range(team: Team) -
 def test_a_team_that_never_caught_up_makes_no_database(team: Team) -> None:
     assert past_catch_ups(team.paths, "acme", CHOSEN, FOLLOWED, 25, 50) == ([], 0, {})
     assert not team_database(team.paths, "acme").exists()
+
+
+def test_a_target_whose_name_is_not_valid_is_left_out(team: Team) -> None:
+    add_record(team.paths, targets=[TARGET, "../other"])
+
+    (catch_up,) = assembled(team)
+
+    assert [repository.target for repository in catch_up.repositories] == [TARGET]
+
+
+def test_digests_written_exactly_at_the_start_and_the_finish_are_found(team: Team) -> None:
+    write_digest_at(team.paths, "digests/2026-11-11-start", STARTED)
+    write_digest_at(team.paths, "digests/2026-11-11-finish", FINISHED)
+    add_record(team.paths)
+
+    (catch_up,) = assembled(team)
+
+    ids = {summary.id for summary in catch_up.repositories[0].digests}
+    assert ids == {"digests/2026-11-11-start", "digests/2026-11-11-finish"}
+
+
+def test_a_corrupt_digest_file_leaves_that_target_without_digests_beside_a_good_catch_up(
+    team: Team, caplog: pytest.LogCaptureFixture
+) -> None:
+    write_digest_at(team.paths, "digests/2026-11-12-a", "2026-11-12T10:10:00+00:00", "acme-payments-api")
+    add_record(team.paths, targets=["acme-payments-api"], finished="2026-11-12T10:30:00+00:00",
+               started="2026-11-12T10:00:00+00:00")  # fmt: skip
+    write_digest_at(team.paths, "digests/2026-11-11-a", "2026-11-11T10:10:00+00:00")
+    folder = team.paths.target_data(TARGET) / "guide" / "digests"
+    (folder / "2026-11-11-broken.md").write_text("---\n: [unclosed\n---\nSECRET body.\n", encoding="utf-8")
+    (folder / "2026-11-11-binary.md").write_bytes(b"\xff\xfe\x00")
+    add_record(team.paths)
+    followed = {**FOLLOWED}
+
+    with caplog.at_level(logging.WARNING):
+        catch_ups, _, _ = past_catch_ups(team.paths, "acme", CHOSEN, followed, 25, 50)
+
+    assert [len(catch_up.repositories) for catch_up in catch_ups] == [1, 1]
+    by_target = {catch_up.repositories[0].target: catch_up.repositories[0] for catch_up in catch_ups}
+    assert by_target[TARGET].digests == []
+    assert [summary.id for summary in by_target["acme-payments-api"].digests] == ["digests/2026-11-12-a"]
+    assert "acme" in caplog.text and TARGET in caplog.text and "SECRET" not in caplog.text
+
+
+def test_each_guide_is_read_once_for_a_page_of_catch_ups(team: Team, monkeypatch: pytest.MonkeyPatch) -> None:
+    for day in ("11", "12"):
+        add_record(team.paths, finished=f"2026-11-{day}T10:30:00+00:00", started=f"2026-11-{day}T10:00:00+00:00")
+    reads: list[Path] = []
+    original = GuideRepository.pages
+
+    def recording(self: GuideRepository, kind: str | None = None) -> list[Page]:
+        reads.append(self.root)
+        return original(self, kind)
+
+    monkeypatch.setattr(GuideRepository, "pages", recording)
+
+    assert len(assembled(team)) == 2
+    assert reads == [team.paths.target_data(TARGET) / "guide"]

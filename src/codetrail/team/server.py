@@ -280,7 +280,7 @@ def create_team_app(
                 return record, None
         finally:
             connection.close()
-        return record, load_overview(overviews, overview_id)
+        return record, load_overview(overviews, overview_id, name)
 
     def render(
         template: str, active: str, targets: dict[str, tuple[str, str]] | None = None, **context: Any

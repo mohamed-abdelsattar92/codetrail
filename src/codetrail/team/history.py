@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, replace
@@ -15,6 +16,7 @@ from codetrail.learn import LearningState
 from codetrail.team.cards import DigestSummary, Overview, digest_summaries, load_overview
 from codetrail.team.state import CatchUpRecord, Overviews, TeamState, team_database
 
+logger = logging.getLogger(__name__)
 EARLIEST = date(1970, 1, 1)
 LATEST = date(9998, 12, 31)  # a day short of the end, so moving the calendar can't overflow
 MAX_RANGE_DAYS = 3660
@@ -176,12 +178,13 @@ def past_catch_ups(
         records = state.finished_between(chosen.first, chosen.last)
         shown = records[:limit]
         overviews = Overviews(paths.team_data(name) / "overviews")
-        found = [_digest_pages(paths, record, followed) for record in shown]
+        guides: dict[str, dict[str, Page]] = {}  # each target's digest pages, read once for the whole page
+        found = [_digest_pages(paths, name, record, followed, guides) for record in shown]
         unread = _unread_digests(paths, found)
         past = []
         for record, pages in zip(shown, found, strict=True):
             overview_id = record.overview_id
-            overview = None if overview_id is None else load_overview(overviews, overview_id)
+            overview = None if overview_id is None else load_overview(overviews, overview_id, name)
             repositories = [
                 PastRepository(
                     target,
@@ -209,17 +212,20 @@ def past_catch_ups(
 
 
 def _digest_pages(
-    paths: Paths, record: CatchUpRecord, followed: Mapping[str, tuple[str, str]]
+    paths: Paths,
+    team: str,
+    record: CatchUpRecord,
+    followed: Mapping[str, tuple[str, str]],
+    guides: dict[str, dict[str, Page]],
 ) -> dict[str, list[Page]]:
     """The catch-up's digests per ticked target that didn't fail, newest first. A target the team no longer follows
-    has none: a target is read only if the team still has it."""
-    found = digests_of(paths, record)
+    has none, and its guide isn't read: a target is read only if the team still has it."""
+    found = digests_of(paths, replace(record, targets=[t for t in record.targets if t in followed]), team, guides)
     return {
-        target: sorted(found.get(target, []) if target in followed else [],
-                       key=lambda page: str(page.meta.get("written_at", "")), reverse=True)
+        target: sorted(found.get(target, []), key=lambda page: str(page.meta.get("written_at", "")), reverse=True)
         for target in record.targets
-        if target not in record.failed
-    }  # fmt: skip
+        if target not in record.failed and TARGET_NAME.fullmatch(target)
+    }
 
 
 def _unread_digests(paths: Paths, found: list[dict[str, list[Page]]]) -> dict[str, set[str]]:
@@ -232,7 +238,7 @@ def _unread_digests(paths: Paths, found: list[dict[str, list[Page]]]) -> dict[st
     unread = {}
     for target, digest_ids in ids.items():
         database = paths.target_data(target) / "codetrail.db"
-        if not digest_ids or not database.exists():
+        if not digest_ids or not database.exists():  # no database: nothing was ever marked read there
             unread[target] = digest_ids
             continue
         connection = connect(database)
@@ -243,19 +249,31 @@ def _unread_digests(paths: Paths, found: list[dict[str, list[Page]]]) -> dict[st
     return unread
 
 
-def digests_of(paths: Paths, record: CatchUpRecord) -> dict[str, list[Page]]:
+def digests_of(
+    paths: Paths,
+    record: CatchUpRecord,
+    team: str = "",
+    guides: dict[str, dict[str, Page]] | None = None,
+) -> dict[str, list[Page]]:
     """The digest pages of each target the catch-up caught up (ticked, not failed): the ones its record lists, or, for
     a catch-up from before design 25, the ones whose `written_at` lies in the time it ran. A target whose guide is
-    gone, or a recorded id the guide doesn't have as a digest, gives nothing."""
+    gone or unreadable, or a recorded id the guide doesn't have as a digest, gives nothing. `guides` holds the
+    digest pages already read, by target, so a page of many catch-ups reads each guide once; `team` names the team
+    in the log."""
+    guides = {} if guides is None else guides
     result: dict[str, list[Page]] = {}
     for target in record.targets:
         if target in record.failed or not TARGET_NAME.fullmatch(target):
             continue
-        guide = GuideRepository(paths.target_data(target) / "guide")
-        try:
-            available = {page.id: page for page in guide.pages("digest")}
-        except OSError:
-            available = {}
+        if target not in guides:
+            try:
+                guides[target] = {
+                    page.id: page for page in GuideRepository(paths.target_data(target) / "guide").pages("digest")
+                }
+            except Exception as error:  # a page edited by hand mustn't stop the page
+                logger.warning("Couldn't read team %r's target %r digests: %s", team, target, type(error).__name__)
+                guides[target] = {}
+        available = guides[target]
         if record.digests is None:
             result[target] = [
                 page

@@ -190,3 +190,23 @@ def test_last_finished_is_none_when_the_newest_row_is_corrupt(tmp_path: Path, mo
     state.connection.execute("UPDATE catch_ups SET targets = 'not json' WHERE id = ?", (newest,))
 
     assert state.last_finished() is None
+
+
+@pytest.mark.parametrize("bad_time", ["2026-11-11garbage", "2026-11-11T10:00:00", "2026-11-11T12:00:00+02:00"])
+@pytest.mark.parametrize("column", ["started_at", "finished_at"])
+def test_a_row_whose_time_is_not_utc_is_left_out(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, column: str, bad_time: str
+) -> None:
+    state = TeamState(connect(tmp_path / "team.db"))
+    bad = finished_at(state, monkeypatch, "2026-11-11T10:00:00+00:00", "2026-11-11T10:01:00+00:00")
+    good = finished_at(state, monkeypatch, "2026-11-11T12:00:00+00:00", "2026-11-11T12:01:00+00:00")
+    update = {
+        "started_at": "UPDATE catch_ups SET started_at = ? WHERE id = ?",
+        "finished_at": "UPDATE catch_ups SET finished_at = ? WHERE id = ?",
+    }[column]
+    state.connection.execute(update, (bad_time, bad))
+    first, last = date(2026, 11, 11), date(2026, 11, 12)
+
+    assert [record.id for record in state.finished_between(first, last)] == [good]
+    if column == "finished_at":
+        assert state.last_finished() is not None and state.last_finished().id == good  # type: ignore[union-attr]

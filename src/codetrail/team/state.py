@@ -41,8 +41,20 @@ class CatchUpRecord:
     digests: list[tuple[str, str]] | None  # (target, digest id) for each digest written; None before design 25
 
 
+def _utc_time(text: object) -> bool:
+    """Whether the text is an ISO date and time with a UTC offset of zero, as `_now` writes it."""
+    try:
+        parsed = datetime.fromisoformat(text)  # type: ignore[arg-type]
+    except ValueError, TypeError:
+        return False
+    return parsed.utcoffset() == timedelta(0)
+
+
 def _record(row: sqlite3.Row) -> CatchUpRecord | None:
-    """The record a row holds, or None when a JSON column doesn't parse or isn't the shape it should be."""
+    """The record a row holds, or None when a time isn't UTC, or a JSON column doesn't parse or isn't the shape it
+    should be."""
+    if not (_utc_time(row["started_at"]) and _utc_time(row["finished_at"])):
+        return None
     try:
         targets, failed, unticked = json.loads(row["targets"]), json.loads(row["failed"]), json.loads(row["unticked"])
         pairs = None if row["digests"] is None else json.loads(row["digests"])
