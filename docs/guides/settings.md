@@ -183,6 +183,8 @@ The Documentation page and the Repository page use these (see [Exploring the cod
 | `[team] active_days` | `90` | A source's repositories pushed to within this many days are followed. |
 | `[team] highlights_per_digest` | `3` | The highlights each digest carries, which the team page shows on a repository's card (0 to 10). |
 | `[team] max_overview_words` | `250` | The most words in a team's overview (50 to 1000). |
+| `[team] history_days` | `7` | How many days the past catch-ups page lists at first (1 to 366). |
+| `[team] max_history_catch_ups` | `50` | The most catch-ups that page lists for a range (1 to 500). |
 
 ## Target settings (`targets/<name>.toml`)
 

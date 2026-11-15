@@ -10,7 +10,7 @@ import re
 import sqlite3
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 from codetrail.config import Paths
@@ -38,6 +38,34 @@ class CatchUpRecord:
     overview_problem: str | None
     failed: dict[str, str]  # why each target that failed wasn't caught up, by target
     unticked: list[str]  # the targets whose estimate line the reader left unticked
+    digests: list[tuple[str, str]] | None  # (target, digest id) for each digest written; None before design 25
+
+
+def _record(row: sqlite3.Row) -> CatchUpRecord | None:
+    """The record a row holds, or None when a JSON column doesn't parse or isn't the shape it should be."""
+    try:
+        targets, failed, unticked = json.loads(row["targets"]), json.loads(row["failed"]), json.loads(row["unticked"])
+        pairs = None if row["digests"] is None else json.loads(row["digests"])
+        if not (_strings(targets) and _strings(unticked) and isinstance(failed, dict)):
+            return None
+        if not all(isinstance(key, str) and isinstance(reason, str) for key, reason in failed.items()):
+            return None
+        digests = None
+        if pairs is not None:
+            if not (
+                isinstance(pairs, list)
+                and all(isinstance(pair, list) and len(pair) == 2 and _strings(pair) for pair in pairs)
+            ):
+                return None
+            digests = [(pair[0], pair[1]) for pair in pairs]
+    except json.JSONDecodeError, TypeError:
+        return None
+    return CatchUpRecord(row["id"], row["started_at"], row["finished_at"], targets, row["overview_id"],
+                         row["overview_problem"], failed, unticked, digests)  # fmt: skip
+
+
+def _strings(value: object) -> bool:
+    return isinstance(value, list) and all(isinstance(item, str) for item in value)
 
 
 class TeamState:
@@ -57,10 +85,11 @@ class TeamState:
         overview_problem: str | None,
         failed: Mapping[str, str] | None = None,
         unticked: Sequence[str] | None = None,
+        digests: Sequence[tuple[str, str]] | None = None,
     ) -> None:
         self.connection.execute(
             "UPDATE catch_ups SET finished_at = ?, targets = ?, overview_id = ?, overview_problem = ?, failed = ?,"
-            " unticked = ? WHERE id = ?",
+            " unticked = ?, digests = ? WHERE id = ?",
             (
                 _now(),
                 json.dumps(targets),
@@ -68,6 +97,7 @@ class TeamState:
                 overview_problem,
                 json.dumps(dict(failed or {})),
                 json.dumps(list(unticked or [])),
+                None if digests is None else json.dumps([list(pair) for pair in digests]),
                 catch_up_id,
             ),
         )
@@ -76,18 +106,17 @@ class TeamState:
         row = self.connection.execute(
             "SELECT * FROM catch_ups WHERE finished_at IS NOT NULL ORDER BY id DESC LIMIT 1"
         ).fetchone()
-        if row is None:
-            return None
-        return CatchUpRecord(
-            row["id"],
-            row["started_at"],
-            row["finished_at"],
-            json.loads(row["targets"]),
-            row["overview_id"],
-            row["overview_problem"],
-            json.loads(row["failed"]),
-            json.loads(row["unticked"]),
-        )
+        return None if row is None else _record(row)
+
+    def finished_between(self, first: date, last: date) -> list[CatchUpRecord]:
+        """The finished catch-ups with a ticked target whose UTC day lies in `first..last`, newest first. A row
+        whose columns hold JSON of the wrong shape is left out."""
+        rows = self.connection.execute(
+            "SELECT * FROM catch_ups WHERE finished_at >= ? AND finished_at < ? AND targets != '[]'"
+            " ORDER BY finished_at DESC, id DESC",
+            (first.isoformat(), (last + timedelta(days=1)).isoformat()),
+        ).fetchall()
+        return [record for record in map(_record, rows) if record is not None]
 
     def mark_overview_read(self, overview_id: str) -> None:
         self.connection.execute(

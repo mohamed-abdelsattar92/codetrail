@@ -280,6 +280,8 @@ Global settings go in `~/.config/codetrail/config.toml`. The team's own settings
 | `[team] active_days` | 90 | A whole source follows repositories pushed to within this many days (1 to 3650). |
 | `[team] highlights_per_digest` | 3 | Highlights a digest carries for the cards (0 to 10). |
 | `[team] max_overview_words` | 250 | Longest the overview may be (50 to 1000). |
+| `[team] history_days` | 7 | Days the past catch-ups page lists at first (1 to 366). |
+| `[team] max_history_catch_ups` | 50 | Most catch-ups that page lists for a range (1 to 500). |
 | `[hosting] gh`, `az`, `glab` | `gh`, `az`, `glab` | The service programs to run. |
 | `[hosting] timeout_seconds` | 60 | Time limit of each program run (5 to 600). |
 | `[hosting] max_output_bytes` | 10,000,000 | Largest output Codetrail accepts from one program run. |

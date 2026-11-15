@@ -22,6 +22,7 @@ from httpx import Response
 from codetrail.assistant.estimate import CallEstimate, EstimateLine, UpdateEstimate
 from codetrail.assistant.fake import FakeAssistant
 from codetrail.config import GlobalConfig, Paths, ServerSettings, SignalSettings, TeamSource
+from codetrail.database import connect
 from codetrail.guide import GuideRepository
 from codetrail.hosting import HostedRepository, HostingService, HostingStatus, Source
 from codetrail.hosting.fake import FakeHosting
@@ -31,14 +32,15 @@ from codetrail.team.catch_up import CatchUpEstimate, CatchUpLine
 from codetrail.team.catch_up_job import CatchUpJob
 from codetrail.team.server import create_team_app
 from codetrail.team.settings import save_selection, write_team
+from codetrail.team.state import TeamState, team_database
 from codetrail.team.sync import sync_team
 from codetrail.update import run_update
 from codetrail.web.app import UpdateJob
 from codetrail.web.security import TOKEN_HEADER, SessionState
 from tests.api.test_team_add import hosted
 from tests.api.test_team_server import row, section
-from tests.fixtures.remote import allow_http_remotes, serving_repository
-from tests.fixtures.repos import make_repository
+from tests.fixtures.remote import allow_http_remotes, publish, serving_repository
+from tests.fixtures.repos import add_commit, make_repository
 from tests.integration.test_catch_up_across_targets import FILES, writer
 
 ORIGIN = "http://127.0.0.1:8765"
@@ -320,6 +322,30 @@ def test_catch_up_unticked_target_not_updated(team: Team) -> None:
     assert team.guide("acme-web-shop").read_page("areas/api") is not None
     assert team.guide("acme-payments-api").read_page("areas/api") is None
     assert team.writers["acme-payments-api"].requests == []
+
+
+def test_a_catch_up_records_the_digests_it_wrote(team: Team) -> None:
+    def digest_ids(target: str) -> set[str]:
+        return {page.id for page in team.guide(target).pages() if page.id.startswith("digests/")}
+
+    for target in TARGETS:  # each has a guide already, so the next update writes a digest
+        run_update(team.paths, target, claude=writer(), confirm=lambda estimate: True)
+    before = {target: digest_ids(target) for target in TARGETS}
+    tmp_path = team.paths.config_dir.parent
+    add_commit(tmp_path / "checkout", {"README.md": "The shop.\n"}, "docs: describe the shop")
+    publish(tmp_path / "checkout", tmp_path / "served")
+    with served(team) as page:
+        status = waiting(page)
+        assert page.confirm(status["estimate_id"], TARGETS).status_code == 204
+        assert page.wait_for("done", "failed", "declined")["state"] == "done"
+
+    record = TeamState(connect(team_database(team.paths, "acme"))).last_finished()
+    assert record is not None and record.digests is not None
+    written = []
+    for target in TARGETS:
+        [digest] = digest_ids(target) - before[target]
+        written.append((target, digest))
+    assert record.digests == written
 
 
 def test_catch_up_mounts_new_targets(team: Team) -> None:
