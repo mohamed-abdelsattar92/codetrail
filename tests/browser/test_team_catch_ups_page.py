@@ -15,7 +15,7 @@ from playwright.sync_api import Locator, Page, expect
 from codetrail.database import connect
 from codetrail.guide import GuideRepository
 from codetrail.guide import Page as GuidePage
-from codetrail.team.state import team_database
+from codetrail.team.state import Overviews, team_database
 from tests.browser.conftest import ready
 from tests.browser.test_team_add import TeamSite
 from tests.browser.test_team_page import axe_violations, two_guides  # noqa: F401 - a fixture the tests below use
@@ -102,9 +102,23 @@ def write_past_catch_up(site: TeamSite, days: int, targets: list[str], digests: 
 @pytest.fixture
 def past_week(two_guides: TeamSite) -> Iterator[TeamSite]:  # noqa: F811 - the fixture imported above
     """The team's newest catch-up, the fixture's, and two earlier ones, each with digests of its own."""
+    overview_id = f"overviews/{days_ago(0)[:10]}-130000"  # the newest catch-up's own, not the shared fixture's
+    meta: dict[str, object] = {
+        "kind": "overview", "cited": [],
+        "digests": [{"target": SEARCH[0], "repository": "web-shop", "id": f"digests/{days_ago(0)[:10]}-0"},
+                    {"target": REFUNDS[0], "repository": "payments-api", "id": f"digests/{days_ago(0)[:10]}-1"}],
+    }  # fmt: skip
+    body = (
+        "Search in web-shop and refunds in payments-api both changed.\n\n"
+        "> [!inferred]\n> The refund ledger could later feed order history in web-shop."
+    )
+    Overviews(two_guides.paths.team_data("acme") / "overviews").write(overview_id, meta, body)
     connection = connect(team_database(two_guides.paths, "acme"))
     try:
-        connection.execute("UPDATE catch_ups SET digests = ?", (write_digests(two_guides, 0, [SEARCH, REFUNDS]),))
+        connection.execute(
+            "UPDATE catch_ups SET digests = ?, overview_id = ?",
+            (write_digests(two_guides, 0, [SEARCH, REFUNDS]), overview_id),
+        )
     finally:
         connection.close()
     write_past_catch_up(two_guides, 3, list(TARGETS), write_digests(two_guides, 3, [CART, RETRIES]))
