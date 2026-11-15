@@ -209,13 +209,14 @@ def test_the_calendar_links_days_with_catch_ups(team: Team) -> None:
     now = today()
     day, quiet = now - timedelta(days=4), now - timedelta(days=5)
     record(team.paths, at(day, 10))
+    record(team.paths, at(now - timedelta(days=6), 10))  # one catch-up a day: each such day is the busiest
 
     page = client_for(team).get("/team/catch-ups").text
 
     link = f'<a href="/team/catch-ups?from={day}&amp;to={day}&amp;calendar={now}" aria-label="{day}: 1 catch-up">'
     assert link in page
     linked = re.search(rf"{re.escape(link)}<rect ([^>]*)><title>{day}: 1 catch-up</title></rect></a>", page)
-    assert linked is not None and 'class="day heat-1 in-range"' in linked.group(1)
+    assert linked is not None and 'class="day heat-4 in-range"' in linked.group(1)
     assert 'aria-hidden="true"' in linked.group(1)  # one name, the link's: the square's tooltip isn't a second
     quiet_square = re.search(rf"<rect ([^>]*)><title>{quiet}: 0 catch-ups</title></rect>", page)
     assert quiet_square is not None and 'aria-hidden="true"' in quiet_square.group(1)  # the table holds its count
@@ -298,7 +299,27 @@ def test_the_cap_s_note(team: Team) -> None:
     [shown] = catch_ups(page)
     assert when_text(at(DAY, 10)) in shown
     assert "1 more catch-up in this range isn't shown; a narrower range shows it." in page
-    assert re.search(r'class="day heat-2', page) is not None  # the calendar counts both
+    assert f'aria-label="{DAY}: 2 catch-ups"><rect class="day heat-4 in-range"' in page  # the calendar counts both
+
+
+def day_square(page: str, day: date) -> str:
+    """The class of the day's own square in the calendar."""
+    found = re.search(rf'<rect class="([^"]*)"[^>]*><title>{day}: ', page)
+    assert found is not None, day
+    return found.group(1)
+
+
+def test_the_calendar_shades_days_against_the_busiest(team: Team) -> None:
+    busy, light, quiet = DAY, DAY - timedelta(days=1), DAY - timedelta(days=2)
+    for hour in (9, 10, 11, 12):
+        record(team.paths, at(busy, hour))
+    record(team.paths, at(light, 10))
+
+    page = client_for(team).get(f"/team/catch-ups{ONE_DAY}").text
+
+    assert day_square(page, busy) == "day heat-4 in-range"
+    assert day_square(page, light) == "day heat-1"
+    assert day_square(page, quiet) == "day heat-0"
 
 
 def test_the_team_page_links_here_once_a_catch_up_finished(team: Team) -> None:

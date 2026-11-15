@@ -3,7 +3,7 @@
 {% from "macros.html" import team_digest, team_overview, team_overview_problem with context %}
 {# The past catch-ups page (design section 25.3), in the team server's shell: the range and its form, a calendar of the
    53 weeks ending with `chosen.calendar`'s, drawn by the server as the Repository page's script draws its own (squares
-   of 11 in cells of 14, left to right in every language), and the range's catch-ups, newest first, each folding. A
+   of 11 in cells of 14, shaded against the busiest day shown, left to right in every language), and the range's catch-ups, newest first, each folding. A
    day with a catch-up is a link to that day; no script is needed. Names and reasons come from services and records,
    so they are autoescaped and isolated in <bdi>; overviews and digests stay in English. #}
 {% block title %}{{ _("Past catch-ups") }}{% endblock %}
@@ -43,7 +43,7 @@
         {%- for day in week if not day.future %}
         {%- if day.day.weekday() == 0 and day.day.day <= 7 %}<text x="{{ x }}" y="10">{{ months[day.day.month - 1] }}</text>{% endif %}
         {%- set label = day_label(day) %}{# a plain string, escaped like any other #}
-        {%- set square %}<rect class="day heat-{{ [day.count, 4]|min }}{% if day.in_range %} in-range{% endif %}" x="{{ x }}" y="{{ top + day.day.weekday() * cell }}" width="11" height="11" rx="2" aria-hidden="true"><title>{{ label }}</title></rect>{% endset %}
+        {%- set square %}<rect class="day heat-{{ ramp_step(day.count, highest) }}{% if day.in_range %} in-range{% endif %}" x="{{ x }}" y="{{ top + day.day.weekday() * cell }}" width="11" height="11" rx="2" aria-hidden="true"><title>{{ label }}</title></rect>{% endset %}
         {%- if day.count %}<a href="/team/catch-ups{{ history_query(chosen, day.day) }}" aria-label="{{ label }}">{{ square }}</a>{% else %}{{ square }}{% endif %}
         {%- endfor %}
         {%- endfor %}

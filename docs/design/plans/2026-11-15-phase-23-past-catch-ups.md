@@ -14,7 +14,7 @@
 
 - AGENTS.md applies whole: test first; the plainest code, reusing what exists; no new dependency; never push, never `--no-verify`. Commits use Conventional Commits with a scope (`team`, `config`, `web`, `docs`), body sections What, Why, Alternatives considered, Risks, Agent and model, body lines of at most 100 characters, ending with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`; commit with `git commit -F <file>`.
 - Configuration, exact values (25.5): under `[team]`, `history_days = 7` (1 to 366) and `max_history_catch_ups = 50` (1 to 500).
-- The calendar spans 53 weeks, Monday first, ending with the week of `calendar`; a day's shade is `heat-<min(count, 4)>` (none, 1, 2, 3, 4 or more), using the existing `.heat-0` to `.heat-4` classes and `.calendar` styles (`static/css/components.css`).
+- The calendar spans 53 weeks, Monday first, ending with the week of `calendar`; a day's shade is `heat-<ramp_step(count, highest)>`, against the busiest day of the 53 weeks (`ramp_step` in `codetrail.web.repository_view`), using the existing `.heat-0` to `.heat-4` classes and `.calendar` styles (`static/css/components.css`).
 - Days are UTC days. A catch-up is listed and counted only when its record has at least one ticked target (`targets` not `[]`), on the UTC date of its `finished_at`.
 - The page is one `GET` route behind `SecurityMiddleware` (7.4). It reads only: no assistant call, no write to `team.db` or any guide, no fetch, no source listing.
 - Overviews and digests stay in English (`lang="en" dir="ltr"`, decision 7); every other string goes through gettext with an Arabic translation (`just catalogs`). Untrusted text (repository and target names, titles, failure reasons) is autoescaped and wrapped in `<bdi>`, as on the team page.

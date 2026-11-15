@@ -71,7 +71,7 @@ from codetrail.team.state import CatchUpRecord, Overviews, TeamState, team_datab
 from codetrail.team.sync import TeamSync, sync_team
 from codetrail.web.app import EstimateDecision, LanguageChoice, UpdateJob, create_target_app, template_environment
 from codetrail.web.i18n import Language, installed_languages
-from codetrail.web.repository_view import month_names, weekday_names
+from codetrail.web.repository_view import month_names, ramp_step, weekday_names
 from codetrail.web.security import SecurityMiddleware, SessionState, login_response
 
 LOGIN_NEXT = ("/", "/team/add")  # where the sign-in link may lead; anything else leads to the team page
@@ -395,6 +395,7 @@ def create_team_app(
             "catch_ups.html", "catch-ups", targets, chosen=chosen, catch_ups=found, left_out=left_out,
             ever_caught_up=has_caught_up(), day_label=day_label,
             weeks=calendar_weeks(chosen.calendar, counts, chosen, today),
+            highest=max(counts.values(), default=0), ramp_step=ramp_step,  # shades against the busiest day shown
             day_counts=sorted(counts.items(), reverse=True),
             starts_before=chosen.first < first_day, ends_after=chosen.last > last_day,
             earlier=chosen.earlier(), later=chosen.later(today), history_query=history_query,
