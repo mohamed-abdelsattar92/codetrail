@@ -191,6 +191,12 @@ def refuse_to_start_after(pid_file: Path, monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.setattr(runner.OutputReader, "start", start)
 
 
+def stop_escaped_child(pid_file: Path) -> None:
+    """Kills the child that left the program's group, if it got as far as writing its process id."""
+    if pid_file.exists() and pid_file.read_text():
+        os.kill(int(pid_file.read_text()), signal.SIGKILL)
+
+
 def open_descriptors() -> int:
     return len(os.listdir("/dev/fd"))
 
@@ -220,7 +226,7 @@ async def test_a_stopped_program_s_pipes_are_closed_even_while_a_child_outside_i
             await collect(command, "", tmp_path)
         assert open_descriptors() == before
     finally:
-        os.kill(int(pid_file.read_text()), signal.SIGKILL)
+        stop_escaped_child(pid_file)
 
 
 @pytest.mark.anyio
@@ -235,7 +241,7 @@ async def test_an_exited_program_s_output_is_closed_at_its_time_limit_while_a_ch
             await collect(command, "", tmp_path, timeout=2)
         assert open_descriptors() == before
     finally:
-        os.kill(int(pid_file.read_text()), signal.SIGKILL)
+        stop_escaped_child(pid_file)
 
 
 def test_a_short_command_s_reader_that_fails_to_start_stops_the_program(
