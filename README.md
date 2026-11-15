@@ -193,7 +193,7 @@ These screenshots are Codetrail's guide to its own repository, written by Claude
 
 Codetrail never writes to the repository it teaches. It keeps its own mirror, copies out only the files it is allowed to see, extracts facts from them, and has your assistant write the guide from the facts. The facts and the guide also become the map and briefs your coding agent reads.
 
-A team's repositories work the same way. Each one followed from GitHub, Azure DevOps or GitLab is its own target, mirrored over https or ssh with your own git sign-in, and `codetrail team serve` serves them all under one login. `codetrail team update <name>`, or **Catch up** on the team page, catches all of them up with one estimate: the free part first (sources re-read, new repositories cloned, facts refreshed), then one line and checkbox per repository and a total capped at the team's budget. The page then shows one card per repository with something new, busiest first, and an overview of what the team merged across repositories.
+A team's repositories work the same way. Each one followed from GitHub, Azure DevOps or GitLab is its own target, mirrored over https or ssh with your own git sign-in, and `codetrail team serve` serves them all under one login. `codetrail team update <name>`, or **Catch up** on the team page, catches all of them up with one estimate: the free part first (sources re-read, new repositories cloned, facts refreshed), then one line and checkbox per repository and a total capped at the team's budget. The page then shows one card per repository with something new, busiest first, and an overview of what the team merged across repositories. **Past catch-ups** on the team page reads any earlier catch-up again, by day from a calendar or by a stretch of dates, without calling an assistant.
 
 ![How Codetrail works: your checkout is fetched into a mirror, filtered by the exclusions into source/, extracted into codetrail.db; your assistant reads the facts and the allowed files and writes the guide, which the local page shows and sends questions from; the facts and the guide also become agents/, the map and briefs, which codetrail mcp serves to your coding agent](docs/diagrams/how-it-works.svg)
 
@@ -273,7 +273,7 @@ The interface is English first and switches language from the page; it ships in 
 
 ## Status
 
-The latest release is Codetrail 1.4.1 ([release notes](docs/releases/v1.4.1.md), [changelog](CHANGELOG.md)); 1.0.0 was the first public release. Phases 0 to 15 and 17 to 20 of the [design](docs/design/2026-10-05-codetrail-design.md) are built, tested and released; Phases 21 (teams from hosting services) and 22 (catching up across a team) are built and not yet released; Phase 16 is planned. Codetrail is on PyPI as `codetrail-cli` ([ADR 0019](docs/adr/0019-publish-to-pypi-as-codetrail-cli.md)).
+The latest release is Codetrail 1.4.1 ([release notes](docs/releases/v1.4.1.md), [changelog](CHANGELOG.md)); 1.0.0 was the first public release. Phases 0 to 15 and 17 to 20 of the [design](docs/design/2026-10-05-codetrail-design.md) are built, tested and released; Phases 21 (teams from hosting services) 22 (catching up across a team) and 23 (past catch-ups) are built and not yet released; Phase 16 is planned. Codetrail is on PyPI as `codetrail-cli` ([ADR 0019](docs/adr/0019-publish-to-pypi-as-codetrail-cli.md)).
 
 ![The design's phases: 0 to 15 and 17 to 20 built, 21 and 22 built and not yet released, 16 planned](docs/diagrams/phases.svg)
 
@@ -301,6 +301,7 @@ The latest release is Codetrail 1.4.1 ([release notes](docs/releases/v1.4.1.md),
 | 20. Context for coding agents | A map and a brief per page for coding agents, exported on every update and served by `codetrail mcp` to Claude Code and Codex; `codetrail agents` prints how to connect them | Done |
 | 21. Teams from hosting services | Follow a team's repositories from GitHub, Azure DevOps or GitLab with `codetrail team add`, `list`, `serve` and `remove`; a plain team page shows each one's "you're behind" signal and its guide under one sign-in | Built, unreleased |
 | 22. Catching up across a team | Catch up on all of a team's repositories at once, with one estimate, from the team page or `codetrail team update`; highlights in digests and an overview on the team page | Built, unreleased |
+| 23. Past catch-ups | Read any day's catch-up, or a week's, again at no cost, on a page with a calendar, linked from the team page and its sidebar | Built, unreleased |
 | 16. Decision inventory | An opt-in paid pass that lists the decisions in the code and looks for a documented "why" for each ([design section 18.8](docs/design/2026-10-05-codetrail-design.md#188-delivery-and-later-work)) | Planned |
 
 Codex and local models are tested against stand-ins and Codetrail's own tests; Claude Code is also tested live. Codex's provider decision is [ADR 0006](docs/adr/0006-assistant-providers-and-subscriptions.md).
