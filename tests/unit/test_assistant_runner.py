@@ -1,6 +1,7 @@
 """Running a provider's program: stdin in, lines out, bounded in time, and nothing left running (design 15.5)."""
 
 import os
+import signal
 import sys
 import time
 from contextlib import aclosing
@@ -30,6 +31,21 @@ ENDLESS = (
     "while True:\n"
     "    stream.write(b'x' * 65536)\n"
     "    stream.flush()\n"
+)
+# Starts a child in a session of its own, out of reach of the program's group, holding the program's pipes open.
+ESCAPED_CHILD = (
+    "import subprocess, sys, time\n"
+    "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'], start_new_session=True)\n"
+    "open(sys.argv[1], 'w').write(str(child.pid))\n"
+    "print('started', flush=True)\n"
+    "time.sleep(60)\n"
+)
+# Exits at once, leaving a child in a session of its own that holds its output open.
+EXITED_WITH_ESCAPED_CHILD = (
+    "import subprocess, sys\n"
+    "child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(60)'], start_new_session=True,\n"
+    "                         stdin=subprocess.DEVNULL, stderr=subprocess.DEVNULL)\n"
+    "open(sys.argv[1], 'w').write(str(child.pid))\n"
 )
 LONG_LINE = "import sys\nsys.stdout.write('y' * 3_000_000 + '\\nend\\n')\n"
 
@@ -175,6 +191,12 @@ def refuse_to_start_after(pid_file: Path, monkeypatch: pytest.MonkeyPatch) -> No
     monkeypatch.setattr(runner.OutputReader, "start", start)
 
 
+def stop_escaped_child(pid_file: Path) -> None:
+    """Kills the child that left the program's group, if it got as far as writing its process id."""
+    if pid_file.exists() and pid_file.read_text():
+        os.kill(int(pid_file.read_text()), signal.SIGKILL)
+
+
 def open_descriptors() -> int:
     return len(os.listdir("/dev/fd"))
 
@@ -189,6 +211,37 @@ async def test_a_reader_that_fails_to_start_stops_the_program(tmp_path: Path, mo
         await collect(command, "", tmp_path)
     assert_stopped(pid_file)
     assert open_descriptors() == before
+
+
+@pytest.mark.anyio
+async def test_a_stopped_program_s_pipes_are_closed_even_while_a_child_outside_its_group_holds_them(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    pid_file = tmp_path / "child.pid"
+    command = [*script(tmp_path, "escaped.py", ESCAPED_CHILD), str(pid_file)]
+    refuse_to_start_after(pid_file, monkeypatch)
+    before = open_descriptors()
+    try:
+        with pytest.raises(RuntimeError, match="new thread"):
+            await collect(command, "", tmp_path)
+        assert open_descriptors() == before
+    finally:
+        stop_escaped_child(pid_file)
+
+
+@pytest.mark.anyio
+async def test_an_exited_program_s_output_is_closed_at_its_time_limit_while_a_child_outside_its_group_holds_it(
+    tmp_path: Path,
+) -> None:
+    pid_file = tmp_path / "child.pid"
+    command = [*script(tmp_path, "exited.py", EXITED_WITH_ESCAPED_CHILD), str(pid_file)]
+    before = open_descriptors()
+    try:
+        with pytest.raises(AssistantError, match="time limit"):
+            await collect(command, "", tmp_path, timeout=2)
+        assert open_descriptors() == before
+    finally:
+        stop_escaped_child(pid_file)
 
 
 def test_a_short_command_s_reader_that_fails_to_start_stops_the_program(

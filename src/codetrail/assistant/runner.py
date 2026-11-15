@@ -1,11 +1,12 @@
 """Runs a provider's program: the prompt on stdin, its output as lines, bounded in time and size (design section 15.5).
 
-Each program runs in its own process group, which is killed when the call ends for any reason (done, failed, timed
-out, wrote too much, or the reader stopped listening), so nothing it started keeps running. Its output is read as it
-comes, and its error output in a thread, so a talkative program can't fill a pipe and stall; once either passes
-`max_output_bytes`, the program is killed and the call fails, so its output is never used. One race remains, and is
-harmless: a program that writes too much error output and exits cleanly before the reader stops it succeeds, since
-its error output is read only to explain a failure and what passed the limit is never kept.
+Each program runs in its own process group, which is killed when the call ends for any reason (done, failed, timed out,
+wrote too much, or the reader stopped listening), so nothing it started keeps running. Its output pipe, and its input
+pipe once the prompt was sent, are closed then too, even while a child that left the group still holds their other ends.
+Its output is read as it comes, and its error output in a thread, so a talkative program can't fill a pipe and stall;
+once either passes `max_output_bytes`, the program is killed and the call fails, so its output is never used. One race
+remains, and is harmless: a program that writes too much error output and exits cleanly before the reader stops it
+succeeds, since its error output is read only to explain a failure and what passed the limit is never kept.
 """
 
 from __future__ import annotations
@@ -22,6 +23,7 @@ from typing import IO
 
 import anyio
 from anyio.abc import Process
+from anyio.lowlevel import checkpoint
 
 from codetrail.assistant import AssistantError
 
@@ -206,6 +208,10 @@ def _kill(process_id: int) -> None:
 
 
 async def _stop(process: Process) -> None:
+    """Kills the program's group and closes its pipes. Waiting returns once the program exits, but a pipe closes by
+    itself only once nothing else holds its other end, and a child that left the group can. An input pipe still holding
+    part of the prompt closes only once that is written, which asyncio waits for and anyio can't cancel."""
     with anyio.CancelScope(shield=True):
         _kill(process.pid)
-        await process.wait()
+        await process.aclose()
+        await checkpoint()  # asyncio closes the pipes on its next turn
