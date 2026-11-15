@@ -116,6 +116,18 @@ def test_a_catch_up_s_digests_show_without_mark_read(team: Team) -> None:
     assert "<strong>twice</strong>" in shown and "1 guide page changed" in shown
     assert '<span class="pill pill-read" lang="en" dir="ltr">unread</span>' in shown
     assert "data-digest-read" not in shown and "Mark read" not in shown
+    assert "No digest from this catch-up to show." not in shown
+
+
+def test_a_repository_without_digests_to_show_says_so(team: Team) -> None:
+    write_digest(team.paths)  # written on 2026-11-11 at 10:15, outside the older catch-up's time window
+    record(team.paths, at(DAY, 12))  # from before design 25: its digests are matched by time, and none match
+
+    [shown] = catch_ups(client_for(team).get(f"/team/catch-ups{ONE_DAY}").text)
+
+    name = '<h3><a href="/repos/acme-web-shop/"><bdi>web-shop</bdi></a></h3>'
+    assert re.search(rf'{re.escape(name)}\s*<p class="muted">No digest from this catch-up to show.</p>', shown)
+    assert "data-digest=" not in shown
 
 
 def test_one_day_and_a_stretch(team: Team) -> None:
@@ -207,6 +219,7 @@ def test_the_calendar_links_days_with_catch_ups(team: Team) -> None:
     assert 'aria-hidden="true"' in linked.group(1)  # one name, the link's: the square's tooltip isn't a second
     quiet_square = re.search(rf"<rect ([^>]*)><title>{quiet}: 0 catch-ups</title></rect>", page)
     assert quiet_square is not None and 'aria-hidden="true"' in quiet_square.group(1)  # the table holds its count
+    assert quiet_square.group(1).startswith('class="day heat-0 in-range"')  # the day's own square, not the legend
     assert re.search(rf'<a [^>]*aria-label="{quiet}:', page) is None
     assert f"from={quiet}&amp;to={quiet}" not in page
     assert "Earlier" in page and "Later" not in page
@@ -397,6 +410,7 @@ def test_a_repository_no_longer_followed_shows_its_target_name(team: Team, monke
 
     assert '<h3><bdi>acme-web-shop</bdi> <span class="faint">No longer followed.</span></h3>' in shown
     assert 'href="/repos/acme-web-shop/' not in shown  # no link, and its guide isn't read
+    assert "No digest from this catch-up to show." not in shown  # "No longer followed." says why
 
 
 def test_no_catch_ups_in_the_range(team: Team) -> None:

@@ -1223,6 +1223,9 @@ msgstr ""
 msgid "No dependency changes in this window."
 msgstr ""
 
+msgid "No digest from this catch-up to show."
+msgstr ""
+
 msgid "No digest yet."
 msgstr ""
 

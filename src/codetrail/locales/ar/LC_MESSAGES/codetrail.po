@@ -1468,6 +1468,9 @@ msgstr "لم يُعثر على قرارات"
 msgid "No dependency changes in this window."
 msgstr "لا تغييرات في الاعتماديات في هذه الفترة."
 
+msgid "No digest from this catch-up to show."
+msgstr "لا ملخص من هذه المواكبة لعرضه."
+
 msgid "No digest yet."
 msgstr "لا يوجد ملخص بعد."
 

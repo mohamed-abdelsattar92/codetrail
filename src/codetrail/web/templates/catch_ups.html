@@ -94,6 +94,9 @@
   {% for repository in past.repositories %}
   <section class="catch-up-repository">
     <h3>{% if repository.followed %}<a href="/repos/{{ repository.target }}/"><bdi>{{ repository.repository }}</bdi></a>{% else %}<bdi>{{ repository.repository }}</bdi> <span class="faint">{{ _("No longer followed.") }}</span>{% endif %}</h3>
+    {% if repository.followed and not repository.digests %}
+    <p class="muted">{{ _("No digest from this catch-up to show.") }}</p>
+    {% endif %}
     {% for digest in repository.digests %}
     {{ team_digest(digest, repository.target, read_button=False, unread=digest.id in repository.unread) }}
     {% endfor %}
