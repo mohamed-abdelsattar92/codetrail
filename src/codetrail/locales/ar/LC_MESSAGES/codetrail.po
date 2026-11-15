@@ -2198,6 +2198,10 @@ msgstr "المقاييس غير متاحة الآن"
 msgid "The parts in this folder and the parts they connect to."
 msgstr "الأجزاء في هذا المجلد والأجزاء المرتبطة بها."
 
+#, python-brace-format
+msgid "The range is longer than {days} days."
+msgstr "النطاق أطول من {days} يومًا."
+
 msgid "The releases couldn't be read just now; the log says why."
 msgstr "تعذّرت قراءة الإصدارات الآن؛ السجل يذكر السبب."
 
@@ -2220,6 +2224,9 @@ msgstr "أجزاء المستودع وكيف ترتبط، مرسومة من ال
 
 msgid "The server is stopping."
 msgstr "الخادم يتوقف."
+
+msgid "The start date must not be after the end date."
+msgstr "يجب ألا يكون تاريخ البداية بعد تاريخ النهاية."
 
 msgid "The statistics aren't available just now"
 msgstr "الإحصاءات غير متاحة الآن"
@@ -2255,6 +2262,14 @@ msgstr ""
 
 msgid "The update was cancelled."
 msgstr "أُلغي التحديث."
+
+#, python-brace-format
+msgid "The {name} date {text} isn't a real date, written as YYYY-MM-DD."
+msgstr "التاريخ {text} ({name}) ليس تاريخًا حقيقيًا بصيغة YYYY-MM-DD."
+
+#, python-brace-format
+msgid "The {name} date {text} must lie between {earliest} and {latest}."
+msgstr "يجب أن يقع التاريخ {text} ({name}) بين {earliest} و{latest}."
 
 msgid "Theme: dark (switch to system)"
 msgstr "المظهر: داكن (التبديل إلى مظهر النظام)"

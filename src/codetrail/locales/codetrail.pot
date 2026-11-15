@@ -1875,6 +1875,10 @@ msgstr ""
 msgid "The parts in this folder and the parts they connect to."
 msgstr ""
 
+#, python-brace-format
+msgid "The range is longer than {days} days."
+msgstr ""
+
 msgid "The releases couldn't be read just now; the log says why."
 msgstr ""
 
@@ -1896,6 +1900,9 @@ msgid ""
 msgstr ""
 
 msgid "The server is stopping."
+msgstr ""
+
+msgid "The start date must not be after the end date."
 msgstr ""
 
 msgid "The statistics aren't available just now"
@@ -1929,6 +1936,14 @@ msgid ""
 msgstr ""
 
 msgid "The update was cancelled."
+msgstr ""
+
+#, python-brace-format
+msgid "The {name} date {text} isn't a real date, written as YYYY-MM-DD."
+msgstr ""
+
+#, python-brace-format
+msgid "The {name} date {text} must lie between {earliest} and {latest}."
 msgstr ""
 
 msgid "Theme: dark (switch to system)"
