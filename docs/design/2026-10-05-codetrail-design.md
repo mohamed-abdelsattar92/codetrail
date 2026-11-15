@@ -628,7 +628,7 @@ Each phase is usable on its own, has its own implementation plan, and ends with 
 | 20. Context for coding agents | The map, briefs in the page call, the `agents/` export, `codetrail agents` and the `codetrail mcp` tool server (section 23) | Coding agents start a task from Codetrail's understanding of the repository instead of rediscovering it | ADR 0017 |
 | 21. Teams from hosting services | The spike, the `hosting` interface with the `github`, `azure_devops` and `gitlab` adapters and the fake, remote targets, teams, `codetrail team serve` with the team's server and a plain team page, the add-repositories screen, `codetrail team add`, `list` and `remove` (section 24) | A whole organization's repositories, or a chosen set, followed from GitHub, Azure DevOps or GitLab, each with its own guide | ADR 0020 |
 | 22. Catching up across a team (built) | The team page's cards, the catch-up with one estimate, highlights in digests, the overview across repositories (section 24) | One page each morning: what the team merged everywhere since you last looked, and why | Phase 21 |
-| 23. Past catch-ups (proposed) | The catch-ups' recorded digests and the past catch-ups page, with its calendar (section 25) | Any day's catch-up, or a week's, read again at no cost | Phase 22 |
+| 23. Past catch-ups (planned) | The catch-ups' recorded digests and the past catch-ups page, with its calendar (section 25) | Any day's catch-up, or a week's, read again at no cost | Phase 22 |
 | 16. Decision inventory (planned) | An opt-in paid pass listing the decisions in the code and their documented "why" (section 18.8) | The share of the repository's decisions that are documented, beyond what the guide wrote about | Phase 13 |
 
 ## 14. Answers to the brainstorm's open questions
@@ -1525,7 +1525,7 @@ Phase 22's calls, for the founder to check:
 
 ## 25. Past catch-ups
 
-Proposed on 15 November 2026, for the founder's approval. The team page shows the latest overview only until the reader marks it read, and a card shows only unread digests (section 24.7), so once a tech lead has read a catch-up, the page offers no way back to it. Each repository's Digests page still lists its own digests, but nothing shows what the team learned on a given day, or over a week. Nothing is lost: every overview is kept as a dated file and every catch-up is recorded in `team.db` (section 24.9). This section adds one page that shows them again, at no cost.
+Approved by the founder on 15 November 2026, in the design session of that day. The team page shows the latest overview only until the reader marks it read, and a card shows only unread digests (section 24.7), so once a tech lead has read a catch-up, the page offers no way back to it. Each repository's Digests page still lists its own digests, but nothing shows what the team learned on a given day, or over a week. Nothing is lost: every overview is kept as a dated file and every catch-up is recorded in `team.db` (section 24.9). This section adds one page that shows them again, at no cost.
 
 ### 25.1 What it's for, and what it isn't
 - **For:** a tech lead goes back to what they read. Either one day ("what did we learn on Tuesday?") or a stretch, such as a week or a sprint before a review, on the same page: a day is a stretch one day long.
@@ -1554,7 +1554,7 @@ The founder chose the first, on 15 November 2026:
   - **One line for the rest:** only what its record holds: each repository whose paid part failed, with the reason, and each the reader left unticked (section 24.8). Repositories that had nothing new, or whose free part failed, aren't recorded, so they aren't listed.
 - **With no catch-ups in the range,** the page says so and keeps the calendar, so the reader can pick another day. With no catch-up at all, it says that catching up from the team page fills it.
 
-The team page's header line gains a **Past catch-ups** link, shown once a catch-up has finished, and the palette lists the page (section 16.3). The page is in the team server's shell, like the team page.
+The team page's header line gains a **Past catch-ups** link, shown once a catch-up has finished, and the team server's sidebar lists it after **Add repositories** (section 22). The page is in the team server's shell, like the team page, which has no palette.
 
 ### 25.4 New data
 - **Each catch-up records the digests it wrote.** `catch_ups` gains `digests`, a JSON list of `[target, digest id]` in the order they were written, filled when the catch-up finishes (section 24.8), through a new migration of the team database.
@@ -1576,7 +1576,7 @@ In the global file, under `[team]`: `history_days = 7` (1 to 366), the default r
 - **Page:** the calendar's links reach a day, the form a stretch, and the folding sections open and close by keyboard; the accessibility scan in both themes; the Arabic page; phone width; the team page's link.
 
 ### 25.8 Delivery
-**Phase 23, past catch-ups**, one branch: the migration and the recorded digests, the page, its link and palette entry, and its tests. The teams guide gains "Going back to past catch-ups" with a screenshot of a week, and the README's current state and `CHANGELOG.md` change with it.
+**Phase 23, past catch-ups**, one branch: the migration and the recorded digests, the page, its link and sidebar entry, and its tests. The teams guide gains "Going back to past catch-ups" with a screenshot of a week, and the README's current state and `CHANGELOG.md` change with it.
 
 ### 25.9 Calls made in writing this section
 The founder decided: being able to go back to past catch-ups, by day and by stretch, on one page, with a calendar. These were the design session's calls, for the founder to check:
