@@ -204,3 +204,28 @@ def test_past_catch_ups_at_a_phone_s_width(page: Page, past_week: TeamSite, erro
     assert page.locator(".calendar").evaluate("box => getComputedStyle(box).overflowX") in {"auto", "scroll"}
     assert axe_violations(page) == []
     assert errors == []
+
+
+def test_past_catch_ups_in_arabic(page: Page, past_week: TeamSite, errors: list[str]) -> None:
+    page.set_viewport_size({"width": 1440, "height": 900})
+    past_week.sign_in(page, "/")
+    ready(page)
+    page.locator("[data-language-form] select").select_option("ar")
+    expect(page.locator("html")).to_have_attribute("dir", "rtl")
+    page.goto(f"{past_week.url}/team/catch-ups")
+    ready(page)
+
+    expect(page).to_have_title("المواكبات السابقة · Codetrail")
+    text = page.locator("main").text_content() or ""
+    assert not any(0x0660 <= ord(character) <= 0x0669 for character in text)  # Western digits for dates and counts
+    assert days_ago(2)[:10] in text
+    expect(page.locator(".calendar")).to_have_attribute("dir", "ltr")
+    assert page.locator(".calendar svg").evaluate("svg => getComputedStyle(svg).direction") == "ltr"
+    first, last = page.locator(".calendar rect").first, page.locator(".calendar rect").last
+    assert first.bounding_box()["x"] < last.bounding_box()["x"]  # type: ignore[index]  # the oldest week is on the left
+    for english in (page.locator(".team-overview-body").first, page.locator(".team-digest-body").first,
+                    page.locator(".team-digest-title").first):  # fmt: skip
+        expect(english).to_have_attribute("lang", "en")
+        expect(english).to_have_attribute("dir", "ltr")
+    assert axe_violations(page) == []
+    assert errors == []

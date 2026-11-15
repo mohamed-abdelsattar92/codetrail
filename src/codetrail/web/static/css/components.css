@@ -2634,18 +2634,18 @@ details.more > summary {
   margin-block-start: var(--space-4);
 }
 
-.calendar .day.in-range {
+.catch-ups-calendar .calendar .day.in-range {
   stroke: var(--accent);
   stroke-width: 1.5;
 }
 
-.calendar a:focus-visible {
+.catch-ups-calendar .calendar a:focus-visible {
   outline: none;
 }
 
 /* After the range's outline, so hover and focus show on its days too. */
-.calendar .day:hover,
-.calendar a:focus-visible .day {
+.catch-ups-calendar .calendar .day:hover,
+.catch-ups-calendar .calendar a:focus-visible .day {
   stroke: var(--text);
   stroke-width: 2;
 }

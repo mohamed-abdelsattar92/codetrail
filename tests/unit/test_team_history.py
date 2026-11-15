@@ -445,16 +445,58 @@ def test_a_corrupt_digest_file_leaves_that_target_without_digests_beside_a_good_
 
 
 def test_each_guide_is_read_once_for_a_page_of_catch_ups(team: Team, monkeypatch: pytest.MonkeyPatch) -> None:
-    for day in ("11", "12"):
+    for day in ("11", "12"):  # from before design 25: matched by time, from one listing
         add_record(team.paths, finished=f"2026-11-{day}T10:30:00+00:00", started=f"2026-11-{day}T10:00:00+00:00")
-    reads: list[Path] = []
+    listed: list[Path] = []
     original = GuideRepository.pages
 
     def recording(self: GuideRepository, kind: str | None = None) -> list[Page]:
-        reads.append(self.root)
+        listed.append(self.root)
         return original(self, kind)
 
     monkeypatch.setattr(GuideRepository, "pages", recording)
 
     assert len(assembled(team)) == 2
-    assert reads == [team.paths.target_data(TARGET) / "guide"]
+    assert listed == [team.paths.target_data(TARGET) / "guide"]
+
+
+def test_recorded_digests_are_read_by_id_and_each_only_once(team: Team, monkeypatch: pytest.MonkeyPatch) -> None:
+    for name in ("a", "b", "unrelated"):
+        write_digest_at(team.paths, f"digests/2026-11-11-{name}", "2026-11-11T10:10:00+00:00")
+    add_record(team.paths, digests=[[TARGET, "digests/2026-11-11-a"], [TARGET, "digests/2026-11-11-b"]])
+    add_record(team.paths, finished="2026-11-12T10:30:00+00:00", started="2026-11-12T10:00:00+00:00",
+               digests=[[TARGET, "digests/2026-11-11-a"], [TARGET, "digests/2026-11-11-gone"]])  # fmt: skip
+    listed: list[Path] = []
+    read: list[str] = []
+    list_original, read_original = GuideRepository.pages, GuideRepository.read_page
+
+    def listing(self: GuideRepository, kind: str | None = None) -> list[Page]:
+        listed.append(self.root)
+        return list_original(self, kind)
+
+    def reading(self: GuideRepository, page_id: str) -> Page | None:
+        read.append(page_id)
+        return read_original(self, page_id)
+
+    monkeypatch.setattr(GuideRepository, "pages", listing)
+    monkeypatch.setattr(GuideRepository, "read_page", reading)
+
+    newer, older = assembled(team)
+
+    assert listed == []  # no full read of the guide
+    assert sorted(read) == ["digests/2026-11-11-a", "digests/2026-11-11-b", "digests/2026-11-11-gone"]
+    assert [summary.id for summary in newer.repositories[0].digests] == ["digests/2026-11-11-a"]
+    assert {summary.id for summary in older.repositories[0].digests} == {"digests/2026-11-11-a", "digests/2026-11-11-b"}
+
+
+def test_a_corrupt_recorded_digest_leaves_out_only_itself(team: Team, caplog: pytest.LogCaptureFixture) -> None:
+    write_digest_at(team.paths, "digests/2026-11-11-a", "2026-11-11T10:10:00+00:00")
+    folder = team.paths.target_data(TARGET) / "guide" / "digests"
+    (folder / "2026-11-11-broken.md").write_text("---\n: [unclosed\n---\nSECRET body.\n", encoding="utf-8")
+    add_record(team.paths, digests=[[TARGET, "digests/2026-11-11-broken"], [TARGET, "digests/2026-11-11-a"]])
+
+    with caplog.at_level(logging.WARNING):
+        (catch_up,) = assembled(team)
+
+    assert [summary.id for summary in catch_up.repositories[0].digests] == ["digests/2026-11-11-a"]
+    assert "team 'acme'" in caplog.text and "SECRET" not in caplog.text

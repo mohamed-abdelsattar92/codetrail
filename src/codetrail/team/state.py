@@ -131,13 +131,13 @@ class TeamState:
 
     def finished_between(self, first: date, last: date) -> list[CatchUpRecord]:
         """The finished catch-ups with a ticked target whose UTC day lies in `first..last`, newest first. A row
-        whose columns hold JSON of the wrong shape is left out."""
+        whose columns hold JSON of the wrong shape, or an empty list of targets, is left out."""
         rows = self.connection.execute(
             "SELECT * FROM catch_ups WHERE finished_at >= ? AND finished_at < ? AND targets != '[]'"
             " ORDER BY finished_at DESC, id DESC",
             (first.isoformat(), (last + timedelta(days=1)).isoformat()),
         ).fetchall()
-        return [record for record in map(_record, rows) if record is not None]
+        return [record for record in map(_record, rows) if record is not None and record.targets]
 
     def mark_overview_read(self, overview_id: str) -> None:
         self.connection.execute(

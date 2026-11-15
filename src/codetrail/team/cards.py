@@ -155,17 +155,18 @@ def _first_paragraph(body: str) -> str:
     return ""
 
 
-def render_overview(body: str, cited: list[str]) -> list[Segment]:
+def render_overview(body: str, cited: list[str], followed: Collection[str] | None = None) -> list[Segment]:
     """The overview's segments. A documented block links to its source in the repository whose digest it was copied
-    from (`cited`, one target per documented block, in order). Any other citation in an overview names no
-    repository, so it has no link."""
+    from (`cited`, one target per documented block, in order), unless `followed` is given and lacks that target.
+    Any other citation in an overview names no repository, so it has no link."""
     remaining = list(cited)
     segments = []
     for segment in render_body(body, None, 0):  # no diagram is drawn without a store, so no node limit applies
         if segment.kind == "rationale":
             target = remaining.pop(0) if segment.label == "documented" and remaining else None
             valid = isinstance(target, str) and TARGET_NAME.fullmatch(target) is not None and segment.link is not None
-            segment = replace(segment, link=f"/repos/{target}{segment.link}" if valid else None)
+            linked = valid and (followed is None or target in followed)
+            segment = replace(segment, link=f"/repos/{target}{segment.link}" if linked else None)
         segments.append(segment)
     return segments
 
@@ -179,8 +180,11 @@ class Overview:
     digests: list[tuple[str, str, str]]  # each digest's target, repository and id
 
 
-def load_overview(overviews: Overviews, overview_id: str, team: str) -> Overview | None:
-    """The overview, rendered; None when it is missing, has an invalid id or can't be parsed."""
+def load_overview(
+    overviews: Overviews, overview_id: str, team: str, followed: Collection[str] | None = None
+) -> Overview | None:
+    """The overview, rendered; None when it is missing, has an invalid id or can't be parsed. With `followed`, a
+    documented citation to a repository outside it has no link."""
     try:
         found = overviews.read(overview_id)
     except Exception as error:  # an overview edited by hand mustn't stop the page
@@ -194,5 +198,5 @@ def load_overview(overviews: Overviews, overview_id: str, team: str) -> Overview
     digests = [(str(digest.get("target")), str(digest.get("repository")), str(digest.get("id")))
                for digest in (listed if isinstance(listed, list) else []) if isinstance(digest, dict)]  # fmt: skip
     linked = [digest for digest in digests if TARGET_NAME.fullmatch(digest[0]) and PAGE_ID.fullmatch(digest[2])]
-    segments = render_overview(body, [str(target) for target in cited] if isinstance(cited, list) else [])
+    segments = render_overview(body, [str(target) for target in cited] if isinstance(cited, list) else [], followed)
     return Overview(overview_id, segments, linked)

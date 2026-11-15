@@ -1,11 +1,16 @@
-"""The past catch-ups page's dates and calendar (design section 25)."""
+"""The past catch-ups page's dates, calendar and catch-ups (design section 25).
+
+Dates: the range the reader asks for, read strictly as ISO dates, and the calendar of 53 weeks around it. Catch-ups:
+`past_catch_ups` assembles each earlier catch-up from the team's records, its overview and the digests its
+repositories wrote, reading only: each guide's pages and each target's read marks are opened once per page view, and
+a page that can't be read is left out with a log line instead of stopping the page."""
 
 from __future__ import annotations
 
 import logging
 import re
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, timedelta
 from urllib.parse import urlencode
 
@@ -178,13 +183,13 @@ def past_catch_ups(
         records = state.finished_between(chosen.first, chosen.last)
         shown = records[:limit]
         overviews = Overviews(paths.team_data(name) / "overviews")
-        guides: dict[str, dict[str, Page]] = {}  # each target's digest pages, read once for the whole page
+        guides: dict[str, GuideReads] = {}  # what was read of each target's guide, shared by the whole page
         found = [_digest_pages(paths, name, record, followed, guides) for record in shown]
         unread = _unread_digests(paths, found)
         past = []
         for record, pages in zip(shown, found, strict=True):
             overview_id = record.overview_id
-            overview = None if overview_id is None else load_overview(overviews, overview_id, name)
+            overview = None if overview_id is None else load_overview(overviews, overview_id, name, followed)
             repositories = [
                 PastRepository(
                     target,
@@ -216,7 +221,7 @@ def _digest_pages(
     team: str,
     record: CatchUpRecord,
     followed: Mapping[str, tuple[str, str]],
-    guides: dict[str, dict[str, Page]],
+    guides: dict[str, GuideReads],
 ) -> dict[str, list[Page]]:
     """The catch-up's digests per ticked target that didn't fail, newest first. A target the team no longer follows
     has none, and its guide isn't read: a target is read only if the team still has it."""
@@ -249,39 +254,67 @@ def _unread_digests(paths: Paths, found: list[dict[str, list[Page]]]) -> dict[st
     return unread
 
 
+@dataclass
+class GuideReads:
+    """What a page view has read of one target's guide: the digests read by id (None where there is none), and, once
+    an older catch-up needed it, every digest."""
+
+    repository: GuideRepository
+    by_id: dict[str, Page | None] = field(default_factory=dict)
+    listing: dict[str, Page] | None = None
+
+
 def digests_of(
     paths: Paths,
     record: CatchUpRecord,
     team: str,
-    guides: dict[str, dict[str, Page]],
+    guides: dict[str, GuideReads],
 ) -> dict[str, list[Page]]:
-    """The digest pages of each target the catch-up caught up (ticked, not failed): the ones its record lists, or, for
-    a catch-up from before design 25, the ones whose `written_at` lies in the time it ran. A target whose guide is
-    gone or unreadable, or a recorded id the guide doesn't have as a digest, gives nothing. `guides` holds the
-    digest pages already read, by target, so a page of many catch-ups reads each guide once; `team` names the team
-    in the log."""
+    """The digest pages of each target the catch-up caught up (ticked, not failed): the ones its record lists, each
+    read by its id, or, for a catch-up from before design 25, the ones whose `written_at` lies in the time it ran,
+    from a listing of the guide's digests. A target whose guide is gone or unreadable, or a recorded id the guide
+    doesn't have as a digest, gives nothing. `guides` holds what was already read, by target, so a page of many
+    catch-ups reads each page, and lists each guide, once; `team` names the team in the log."""
     result: dict[str, list[Page]] = {}
     for target in record.targets:
         if target in record.failed or not TARGET_NAME.fullmatch(target):
             continue
-        if target not in guides:
-            try:
-                guides[target] = {
-                    page.id: page for page in GuideRepository(paths.target_data(target) / "guide").pages("digest")
-                }
-            except Exception as error:  # a page edited by hand mustn't stop the page
-                logger.warning("Couldn't read team %r's target %r digests: %s", team, target, type(error).__name__)
-                guides[target] = {}
-        available = guides[target]
+        reads = guides.setdefault(target, GuideReads(GuideRepository(paths.target_data(target) / "guide")))
         if record.digests is None:
             result[target] = [
                 page
-                for page in available.values()
+                for page in _listing(reads, team, target).values()
                 if record.started_at <= str(page.meta.get("written_at", "")) <= record.finished_at
             ]
         else:
             wanted = [
                 digest_id for owner, digest_id in record.digests if owner == target and PAGE_ID.fullmatch(digest_id)
             ]
-            result[target] = [available[digest_id] for digest_id in wanted if digest_id in available]
+            found = [_digest(reads, digest_id, team, target) for digest_id in wanted]
+            result[target] = [page for page in found if page is not None]
     return result
+
+
+def _listing(reads: GuideReads, team: str, target: str) -> dict[str, Page]:
+    """Every digest of the guide, read once."""
+    if reads.listing is None:
+        try:
+            reads.listing = {page.id: page for page in reads.repository.pages("digest")}
+        except Exception as error:  # a page edited by hand mustn't stop the page
+            logger.warning("Couldn't read team %r's target %r digests: %s", team, target, type(error).__name__)
+            reads.listing = {}
+    return reads.listing
+
+
+def _digest(reads: GuideReads, digest_id: str, team: str, target: str) -> Page | None:
+    """The digest with this id, read once; None when there is no such digest page or it can't be read."""
+    if reads.listing is not None:
+        return reads.listing.get(digest_id)
+    if digest_id not in reads.by_id:
+        try:
+            page = reads.repository.read_page(digest_id)
+        except Exception as error:  # a page edited by hand mustn't stop the page
+            logger.warning("Couldn't read team %r's target %r digest: %s", team, target, type(error).__name__)
+            page = None
+        reads.by_id[digest_id] = page if page is not None and page.kind == "digest" else None
+    return reads.by_id[digest_id]

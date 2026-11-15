@@ -107,6 +107,14 @@ def test_render_overview_never_links_outside_a_named_target() -> None:
     assert [segment.link for segment in segments] == [None, None]  # an invalid name, then no name at all
 
 
+def test_render_overview_leaves_a_citation_of_an_unfollowed_target_unlinked() -> None:
+    body = DOCUMENTED + "\n\n" + DOCUMENTED.replace("a.py", "c.py")
+
+    segments = render_overview(body, ["acme-web-shop", "acme-payments-api"], {"acme-payments-api"})
+
+    assert [segment.link for segment in segments] == [None, "/repos/acme-payments-api/source/src/c.py#L1"]
+
+
 def test_a_repository_the_last_catch_up_missed_has_a_card() -> None:
     missed, quiet = row("web-shop"), row("docs-site")  # both caught up by their free part: no commits waiting
 

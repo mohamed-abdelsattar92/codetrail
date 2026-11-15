@@ -51,11 +51,12 @@
 {%- endmacro %}
 
 {# A team overview's body and the digests it was written from (design section 24.9), in English; the team page gives it
-   a Mark read button, the past catch-ups page doesn't (design section 25.3). #}
-{% macro team_overview(overview, read_button=True) -%}
+   a Mark read button, the past catch-ups page doesn't (design section 25.3). That page passes `linked`, the targets the
+   team still follows: a digest's repository outside it is named without a link. #}
+{% macro team_overview(overview, read_button=True, linked=None) -%}
   <div class="prose team-overview-body" lang="en" dir="ltr">{{ segment_list(overview.segments) }}</div>
   <div class="team-foot">
-    <p class="faint">{{ _("From the digests of") }} {% for target, repository, digest_id in overview.digests %}<a href="/repos/{{ target }}/pages/{{ digest_id }}"><bdi>{{ repository }}</bdi></a>{% if not loop.last %}, {% endif %}{% endfor %}</p>
+    <p class="faint">{{ _("From the digests of") }} {% for target, repository, digest_id in overview.digests %}{% if linked is none or target in linked %}<a href="/repos/{{ target }}/pages/{{ digest_id }}"><bdi>{{ repository }}</bdi></a>{% else %}<bdi>{{ repository }}</bdi>{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}</p>
     {% if read_button %}<button type="button" class="button small" data-overview-read="{{ overview.id }}">{{ _("Mark read") }}</button>{% endif %}
   </div>
 {%- endmacro %}

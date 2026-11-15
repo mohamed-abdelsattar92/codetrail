@@ -183,6 +183,17 @@ def test_finished_between_leaves_out_rows_with_a_wrong_shaped_column(
     assert [record.id for record in state.finished_between(date(2026, 11, 11), date(2026, 11, 11))] == [good]
 
 
+def test_a_hand_edited_empty_target_list_counts_as_none_in_both_queries(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    state = TeamState(connect(tmp_path / "team.db"))
+    spaced = finished_at(state, monkeypatch, "2026-11-11T10:00:00+00:00", "2026-11-11T10:01:00+00:00")
+    state.connection.execute("UPDATE catch_ups SET targets = '[ ]' WHERE id = ?", (spaced,))
+
+    assert state.finished_between(date(2026, 11, 11), date(2026, 11, 11)) == []
+    assert not state.has_caught_up()
+
+
 def test_has_caught_up_needs_a_finished_catch_up_with_a_ticked_target(tmp_path: Path) -> None:
     state = TeamState(connect(tmp_path / "team.db"))
     assert not state.has_caught_up()

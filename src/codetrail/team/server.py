@@ -372,7 +372,10 @@ def create_team_app(
         try:
             chosen = parse_range(from_text, to, calendar, today, settings.team.history_days, _)
         except RangeError as error:
-            return render("error.html", "catch-ups", status_code=400, heading=_("Past catch-ups"), message=str(error))
+            return render(
+                "catch_ups.html", "catch-ups", status_code=400, problem=str(error), typed_from=from_text, typed_to=to,
+                ever_caught_up=False,
+            )  # fmt: skip
         try:
             team = load_team(paths, name)
         except CodetrailError as error:
@@ -392,7 +395,7 @@ def create_team_app(
             return text % {"date": day.day.isoformat(), "count": day.count}
 
         return render(
-            "catch_ups.html", "catch-ups", targets, chosen=chosen, catch_ups=found, left_out=left_out,
+            "catch_ups.html", "catch-ups", targets, problem="", chosen=chosen, catch_ups=found, left_out=left_out,
             ever_caught_up=has_caught_up(), day_label=day_label,
             weeks=calendar_weeks(chosen.calendar, counts, chosen, today),
             highest=max(counts.values(), default=0), ramp_step=ramp_step,  # shades against the busiest day shown

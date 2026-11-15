@@ -191,6 +191,7 @@ def test_a_catch_up_with_nothing_missed_has_no_rest_line(team: Team) -> None:
 
 
 def test_a_bad_date_is_a_400_that_names_it(team: Team) -> None:
+    record(team.paths, at(DAY, 10))
     client = client_for(team)
 
     impossible = client.get("/team/catch-ups?from=2026-02-30")
@@ -200,8 +201,16 @@ def test_a_bad_date_is_a_400_that_names_it(team: Team) -> None:
     assert impossible.status_code == 400
     assert "The start date 2026-02-30 isn&#39;t a real date." in impossible.text
     assert '<main id="content"' in impossible.text  # in the team's shell
+    assert '<p class="notice" role="alert"><bdi>The start date 2026-02-30 isn&#39;t a real date.</bdi></p>' in (
+        impossible.text
+    )
+    assert '<form class="catch-ups-form"' in impossible.text  # the date form stays, holding what was typed
+    assert '<input type="date" name="from" value="2026-02-30">' in impossible.text
+    assert 'name="to" value=""' in impossible.text
+    assert "calendar-title" not in impossible.text and "data-catch-up" not in impossible.text
     assert hostile.status_code == 400
     assert "The end date &lt;script&gt; isn&#39;t a real date." in hostile.text and "<script>" not in hostile.text
+    assert 'name="to" value="&lt;script&gt;"' in hostile.text
     assert too_long.status_code == 422  # refused by the query's length limit, before it is parsed
 
 
@@ -348,8 +357,10 @@ def test_the_page_needs_the_session(team: Team) -> None:
 
 
 def modification_times(paths: Paths) -> dict[Path, int]:
-    """team.db's, each target's codetrail.db (the digests' read marks), and every file's in each guide."""
+    """team.db's, each target's codetrail.db (the digests' read marks), every file's in each guide, and every one in
+    the team's overviews folder."""
     files = [team_database(paths, "acme")]
+    files += [found for found in (paths.team_data("acme") / "overviews").rglob("*") if found.is_file()]
     for target in TARGETS:
         database = paths.target_data(target) / "codetrail.db"
         files += [database] if database.exists() else []
@@ -432,6 +443,29 @@ def test_a_repository_no_longer_followed_shows_its_target_name(team: Team, monke
     assert '<h3><bdi>acme-web-shop</bdi> <span class="faint">No longer followed.</span></h3>' in shown
     assert 'href="/repos/acme-web-shop/' not in shown  # no link, and its guide isn't read
     assert "No digest from this catch-up to show." not in shown  # "No longer followed." says why
+
+
+def test_an_overview_here_doesn_t_link_a_repository_no_longer_followed(
+    team: Team, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    followed = follow.followed_targets
+
+    def without_web_shop(*arguments: object) -> dict[str, tuple[str, str]]:
+        return {target: names for target, names in followed(*arguments).items() if target != "acme-web-shop"}  # type: ignore[arg-type]
+
+    write_overview(team.paths)
+    write_digest(team.paths)
+    record(team.paths, at(DAY, 10), overview_id=OVERVIEW)
+    team_page = client_for(team).get("/").text  # still followed: the team page links as ever
+    monkeypatch.setattr("codetrail.team.server.followed_targets", without_web_shop)
+
+    [shown] = catch_ups(client_for(team).get(f"/team/catch-ups{ONE_DAY}").text)
+
+    assert "From the digests of <bdi>web-shop</bdi>" in shown
+    assert 'href="/repos/acme-web-shop/source/' not in shown  # the documented block's citation
+    assert f'href="/repos/acme-web-shop/pages/{DIGEST}"' not in shown.split("From the digests of")[1]
+    assert "Both services now retry charges." in shown
+    assert 'href="/repos/acme-web-shop/source/services/api/main.py#L1"' in team_page
 
 
 def test_no_catch_ups_in_the_range(team: Team) -> None:

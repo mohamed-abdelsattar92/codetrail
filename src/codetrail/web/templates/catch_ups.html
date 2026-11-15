@@ -13,20 +13,28 @@
 <header class="page-head">
   <p class="card-label">{{ _("Team") }}</p>
   <h1>{{ _("Past catch-ups") }}</h1>
-  {% if ever_caught_up %}
+  {% if problem %}
+  <p class="notice" role="alert"><bdi>{{ problem }}</bdi></p>
+  {% endif %}
+  {% if ever_caught_up and not problem %}
   {% set first %}<time datetime="{{ chosen.first.isoformat() }}" dir="ltr">{{ chosen.first.isoformat() }}</time>{% endset %}
   {% set last %}<time datetime="{{ chosen.last.isoformat() }}" dir="ltr">{{ chosen.last.isoformat() }}</time>{% endset %}
   <p class="muted">{% if chosen.first == chosen.last %}{{ first }}{% else %}{{ _("From %(start)s to %(end)s", start=first, end=last) }}{% endif %}</p>
   {# No `calendar`: showing a new range moves the calendar to it. #}
+  {% endif %}
+  {% if problem or ever_caught_up %}
+  {# A refused date comes back in the form as typed (the query allows 10 characters), so the reader can correct it. #}
   <form class="catch-ups-form" method="get" action="/team/catch-ups">
-    <label class="field">{{ _("From") }}<input type="date" name="from" value="{{ chosen.first.isoformat() }}"></label>
-    <label class="field">{{ _("To") }}<input type="date" name="to" value="{{ chosen.last.isoformat() }}"></label>
+    <label class="field">{{ _("From") }}<input type="date" name="from" value="{{ typed_from if problem else chosen.first.isoformat() }}"></label>
+    <label class="field">{{ _("To") }}<input type="date" name="to" value="{{ typed_to if problem else chosen.last.isoformat() }}"></label>
     <button type="submit" class="button">{{ _("Show") }}</button>
   </form>
   {% endif %}
 </header>
 
-{% if not ever_caught_up %}
+{% if problem %}
+{# Nothing else: the range is not known, so there is no calendar or list. #}
+{% elif not ever_caught_up %}
 <div class="empty">
   <p>{{ _("No catch-ups yet. Catching up from the team page fills this page.") }}</p>
   <p><a class="button" href="/">{{ _("Back to the team page") }}</a></p>
@@ -88,7 +96,7 @@
   {% elif past.overview %}
   <section class="team-overview" aria-labelledby="overview-{{ number }}">
     <h3 id="overview-{{ number }}">{{ _("Across the team") }}{% if past.overview_unread %} <span class="pill pill-read">{{ _("unread") }}</span>{% endif %}</h3>
-    {{ team_overview(past.overview, read_button=False) }}
+    {{ team_overview(past.overview, read_button=False, linked=repository_names) }}
   </section>
   {% endif %}
   {% for repository in past.repositories %}
