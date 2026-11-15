@@ -1566,7 +1566,7 @@ In the global file, under `[team]`: `history_days = 7` (1 to 366), the default r
 
 ### 25.6 Security
 - **Who can reach it:** one `GET` route, behind section 7.4's rules unchanged. It reads, calls nothing, writes nothing and starts no work.
-- **Its input:** `from` and `to` must be real dates in `YYYY-MM-DD` with ASCII digits, `from` no later than `to`, and the range at most 3660 days; anything else is a 400 that names the problem, and the query is never echoed into markup unescaped.
+- **Its input:** `from`, `to` and `calendar` must be real dates in `YYYY-MM-DD` with ASCII digits, between 1970-01-01 and 9998-12-31, `from` no later than `to`, and the range at most 3660 days. A value longer than 10 characters is refused with a 422 before it is read; anything else wrong is a 400 page that names the problem, keeping the dates the reader typed. The query is never echoed into markup unescaped.
 - **What it reads:** overview ids from `team.db` pass `OVERVIEW_ID` before a file is read (section 24.9); a digest id from `team.db` is shown only if it names a digest page in that target's guide, and a target is read only if the team still has it. A repository the team no longer follows is shown by its target name, the only name the record holds, with no link: "No longer followed." If its data was removed too (section 24.4), its digests are simply not shown; that isn't an error.
 - **Text:** overviews, digests, repository names and failure reasons are rendered as on the team page: autoescaped, isolated in `<bdi>`, guide content in English (decision 7). The calendar has no script, so no data reaches a script.
 

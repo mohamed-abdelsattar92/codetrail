@@ -1,10 +1,9 @@
 {% extends "base.html" %}
-{# A page that can't be shown: not found by default, or a page's own `heading` and `message`, already translated. #}
-{% block title %}{{ heading or _("Not found") }}{% endblock %}
+{% block title %}{{ _("Not found") }}{% endblock %}
 {% block content %}
 <section class="empty">
-  <h1>{{ heading or _("Not found") }}</h1>
-  <p>{{ message or _("There's nothing here. It may be excluded, or not in the guide yet.") }}</p>
+  <h1>{{ _("Not found") }}</h1>
+  <p>{{ _("There's nothing here. It may be excluded, or not in the guide yet.") }}</p>
   <p><a class="button" href="{{ site_path('/') }}">{{ _("Back to the start") }}</a></p>
 </section>
 {% endblock %}
