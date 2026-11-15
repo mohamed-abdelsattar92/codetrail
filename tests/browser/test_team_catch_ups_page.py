@@ -29,22 +29,25 @@ def days_ago(days: int) -> str:
     return (noon - timedelta(days=days)).isoformat(timespec="seconds")
 
 
+def digests_of(site: TeamSite, targets: list[str]) -> str:
+    """The digests the targets' guides now hold, as a catch-up's record holds them."""
+    return json.dumps([
+        [target, page.id]
+        for target in targets
+        for page in GuideRepository(site.paths.target_data(target) / "guide").pages("digest")
+    ])  # fmt: skip
+
+
 def write_past_catch_up(site: TeamSite, days: int, targets: list[str]) -> None:
     """A catch-up that finished `days` ago and caught up `targets`, with the digests their guides now hold."""
     finished_at = days_ago(days)
     started_at = (datetime.fromisoformat(finished_at) - timedelta(minutes=5)).isoformat(timespec="seconds")
-    digests = [
-        (target, page.id)
-        for target in targets
-        for page in GuideRepository(site.paths.target_data(target) / "guide").pages("digest")
-    ]
     connection = connect(team_database(site.paths, "acme"))
     try:
         connection.execute(
             "INSERT INTO catch_ups (started_at, finished_at, targets, failed, unticked, digests)"
             " VALUES (?, ?, ?, '{}', '[]', ?)",
-            (started_at, finished_at, json.dumps(targets),
-             json.dumps([list(pair) for pair in digests])),
+            (started_at, finished_at, json.dumps(targets), digests_of(site, targets)),
         )  # fmt: skip
     finally:
         connection.close()
@@ -52,6 +55,11 @@ def write_past_catch_up(site: TeamSite, days: int, targets: list[str]) -> None:
 
 @pytest.fixture
 def past_week(two_guides: TeamSite) -> Iterator[TeamSite]:  # noqa: F811 - the fixture imported above
+    connection = connect(team_database(two_guides.paths, "acme"))
+    try:  # the newest catch-up, the fixture's, records the digests it wrote, as every catch-up now does
+        connection.execute("UPDATE catch_ups SET digests = ?", (digests_of(two_guides, list(TARGETS)),))
+    finally:
+        connection.close()
     write_past_catch_up(two_guides, 3, list(TARGETS))
     write_past_catch_up(two_guides, 2, [TARGETS[0]])
     yield two_guides
