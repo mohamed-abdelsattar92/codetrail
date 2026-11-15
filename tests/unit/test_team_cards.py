@@ -3,7 +3,7 @@ highlights, or an older digest's first paragraph, linked into its own guide."""
 
 from codetrail.guide import Page
 from codetrail.repo.signal import Signal
-from codetrail.team.cards import Row, build_cards, render_overview
+from codetrail.team.cards import Row, build_cards, digest_summaries, render_overview
 from codetrail.web.links import BASE_PATH
 
 MAX_NODES = 25
@@ -124,3 +124,11 @@ def test_a_first_guide_digest_shows_only_its_title() -> None:
 
     [summary] = card.digests
     assert summary.highlights == [] and summary.first_paragraph == [] and summary.pages_changed == 2
+
+
+def test_digest_summaries_link_into_the_target_s_guide() -> None:
+    summaries = digest_summaries("acme-web-shop", [digest("2026-11-10-a", ["Charges retry **twice**."])], MAX_NODES)
+
+    assert [summary.link for summary in summaries] == ["/repos/acme-web-shop/pages/digests/2026-11-10-a"]
+    assert summaries[0].pages_changed == 2
+    assert BASE_PATH.get() == ""  # the prefix is put back

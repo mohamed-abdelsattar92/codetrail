@@ -1,17 +1,31 @@
 """The past catch-ups page's dates and calendar (design section 25)."""
 
+import json
+import shutil
+from collections.abc import Iterator
 from datetime import date, timedelta
+from pathlib import Path
 
 import pytest
 
+from codetrail.config import Paths
+from codetrail.database import connect
+from codetrail.guide import GuideRepository, Page
+from codetrail.learn import LearningState
+from codetrail.team.cards import load_overview
 from codetrail.team.history import (
     HistoryRange,
     RangeError,
     calendar_span,
     calendar_weeks,
+    digests_of,
     history_query,
     parse_range,
+    past_catch_ups,
 )
+from codetrail.team.state import Overviews, TeamState, team_database
+from tests.api.test_team_page import DIGEST, OVERVIEW, write_digest, write_overview
+from tests.api.test_team_server import Team, following_team
 
 TODAY = date(2026, 11, 15)
 ARABIC_INDIC_ZERO = 0x0660
@@ -143,3 +157,233 @@ def test_a_day_s_link_keeps_the_calendar() -> None:
     chosen = HistoryRange(date(2026, 11, 9), TODAY, date(2026, 11, 12))
     assert history_query(chosen, date(2026, 11, 11)) == "?from=2026-11-11&to=2026-11-11&calendar=2026-11-12"
     assert history_query(chosen) == "?from=2026-11-09&to=2026-11-15&calendar=2026-11-12"
+
+
+# Past catch-ups, assembled from team.db, the overviews and the guides (design section 25.4).
+
+TARGET = "acme-web-shop"
+FOLLOWED = {TARGET: ("web-shop", "develop"), "acme-payments-api": ("payments-api", "develop")}
+STARTED = "2026-11-11T10:00:00+00:00"
+FINISHED = "2026-11-11T10:30:00+00:00"
+CHOSEN = HistoryRange(date(2026, 11, 9), TODAY, TODAY)
+
+
+@pytest.fixture
+def team(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Iterator[Team]:
+    with following_team(tmp_path, monkeypatch) as followed:
+        yield followed
+
+
+def add_record(
+    paths: Paths,
+    finished: str = FINISHED,
+    started: str = STARTED,
+    targets: list[str] | None = None,
+    overview_id: str | None = None,
+    failed: dict[str, str] | None = None,
+    unticked: list[str] | None = None,
+    digests: object = None,
+) -> None:
+    connection = connect(team_database(paths, "acme"))
+    try:
+        connection.execute(
+            "INSERT INTO catch_ups (started_at, finished_at, targets, overview_id, failed, unticked, digests)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?)",
+            (started, finished, json.dumps([TARGET] if targets is None else targets), overview_id,
+             json.dumps(failed or {}), json.dumps(unticked or []),
+             None if digests is None else json.dumps(digests)),
+        )  # fmt: skip
+    finally:
+        connection.close()
+
+
+def write_digest_at(paths: Paths, digest_id: str, written_at: str, target: str = TARGET) -> None:
+    meta: dict[str, object] = {"kind": "digest", "title": f"Digest {digest_id}", "from_commit": None,
+                               "to_commit": "b" * 40, "written_at": written_at, "pages_changed": [],
+                               "highlights": ["It changed."]}  # fmt: skip
+    GuideRepository(paths.target_data(target) / "guide").write_page(Page(digest_id, meta, "Body."))
+
+
+def assembled(team: Team, chosen: HistoryRange = CHOSEN, limit: int = 50) -> list:  # type: ignore[type-arg]
+    catch_ups, _, _ = past_catch_ups(team.paths, "acme", chosen, FOLLOWED, 25, limit)
+    return catch_ups
+
+
+def test_recorded_digests_are_shown_in_order(team: Team) -> None:
+    write_digest_at(team.paths, "digests/2026-11-11-a", "2026-11-11T10:10:00+00:00")
+    write_digest_at(team.paths, "digests/2026-11-11-b", "2026-11-11T10:20:00+00:00")
+    add_record(team.paths, digests=[[TARGET, "digests/2026-11-11-a"], [TARGET, "digests/2026-11-11-b"]])
+
+    (catch_up,) = assembled(team)
+
+    (repository,) = catch_up.repositories
+    assert (repository.target, repository.repository, repository.followed) == (TARGET, "web-shop", True)
+    assert [summary.id for summary in repository.digests] == ["digests/2026-11-11-b", "digests/2026-11-11-a"]
+    assert repository.digests[0].link == f"/repos/{TARGET}/pages/digests/2026-11-11-b"
+    assert repository.unread == {"digests/2026-11-11-a", "digests/2026-11-11-b"}
+
+
+def test_a_digest_marked_read_is_not_unread(team: Team) -> None:
+    write_digest_at(team.paths, "digests/2026-11-11-a", "2026-11-11T10:10:00+00:00")
+    add_record(team.paths, digests=[[TARGET, "digests/2026-11-11-a"]])
+    connection = connect(team.paths.target_data(TARGET) / "codetrail.db")
+    try:
+        LearningState(connection).mark_digest_read("digests/2026-11-11-a")
+    finally:
+        connection.close()
+
+    (catch_up,) = assembled(team)
+
+    assert catch_up.repositories[0].unread == set()
+
+
+def test_an_older_catch_up_s_digests_are_matched_by_time(team: Team) -> None:
+    write_digest_at(team.paths, "digests/2026-11-11-inside", "2026-11-11T10:15:00+00:00")
+    write_digest_at(team.paths, "digests/2026-11-11-late", "2026-11-11T10:30:01+00:00")
+    write_digest_at(team.paths, "digests/2026-11-11-early", "2026-11-11T09:59:59+00:00")
+    write_digest_at(team.paths, "digests/2026-11-11-failed", "2026-11-11T10:15:00+00:00", "acme-payments-api")
+    add_record(team.paths, targets=[TARGET, "acme-payments-api"], failed={"acme-payments-api": "Out of tokens."})
+
+    (catch_up,) = assembled(team)
+
+    assert [repository.target for repository in catch_up.repositories] == [TARGET]
+    assert [summary.id for summary in catch_up.repositories[0].digests] == ["digests/2026-11-11-inside"]
+    assert catch_up.failed == {"acme-payments-api": "Out of tokens."}
+
+
+def test_digests_of_matches_by_time_only_without_a_record(team: Team) -> None:
+    write_digest_at(team.paths, "digests/2026-11-11-inside", "2026-11-11T10:15:00+00:00")
+    add_record(team.paths, digests=[])
+    add_record(team.paths, finished="2026-11-12T10:30:00+00:00", started="2026-11-12T10:00:00+00:00")
+    connection = connect(team_database(team.paths, "acme"))
+    try:
+        recorded, matched = TeamState(connection).finished_between(date(2026, 11, 11), date(2026, 11, 12))[::-1]
+    finally:
+        connection.close()
+
+    assert digests_of(team.paths, recorded) == {TARGET: []}  # recorded as none: no matching by time
+    assert digests_of(team.paths, matched) == {TARGET: []}  # its window holds nothing
+
+
+def test_a_recorded_digest_the_guide_doesn_t_have_is_left_out(team: Team) -> None:
+    write_digest_at(team.paths, "digests/2026-11-11-a", "2026-11-11T10:10:00+00:00")
+    add_record(
+        team.paths,
+        digests=[[TARGET, "digests/2026-11-11-a"], [TARGET, "digests/2026-11-11-gone"], [TARGET, "../../etc/passwd"],
+                 [TARGET, "concepts/orders"], ["../other", "digests/2026-11-11-a"]],
+    )  # fmt: skip
+
+    (catch_up,) = assembled(team)
+
+    assert [summary.id for summary in catch_up.repositories[0].digests] == ["digests/2026-11-11-a"]
+
+
+def test_a_target_no_longer_followed_keeps_its_target_name(team: Team) -> None:
+    write_digest_at(team.paths, "digests/2026-11-11-a", "2026-11-11T10:10:00+00:00")
+    add_record(team.paths, targets=["acme-inventory"], digests=[["acme-inventory", "digests/2026-11-11-a"]])
+
+    (catch_up,) = assembled(team)
+
+    (repository,) = catch_up.repositories
+    assert (repository.target, repository.repository, repository.followed) == (
+        "acme-inventory",
+        "acme-inventory",
+        False,
+    )
+    assert repository.digests == []
+
+
+def test_a_removed_guide_shows_no_digests(team: Team) -> None:
+    write_digest_at(team.paths, "digests/2026-11-11-a", "2026-11-11T10:10:00+00:00")
+    add_record(team.paths)
+    shutil.rmtree(team.paths.target_data(TARGET) / "guide")
+
+    (catch_up,) = assembled(team)
+
+    assert catch_up.repositories[0].digests == []
+    shutil.rmtree(team.paths.target_data(TARGET))
+    assert assembled(team)[0].repositories[0].digests == []
+
+
+def test_the_failed_and_unticked_are_copied_from_the_record(team: Team) -> None:
+    add_record(team.paths, targets=[TARGET], failed={"acme-payments-api": "Timed out."}, unticked=["acme-inventory"])
+
+    (catch_up,) = assembled(team)
+
+    assert (catch_up.failed, catch_up.unticked) == ({"acme-payments-api": "Timed out."}, ["acme-inventory"])
+    assert catch_up.overview is None
+
+
+def test_the_overview_and_its_read_mark(team: Team) -> None:
+    write_overview(team.paths)
+    write_digest(team.paths)
+    add_record(team.paths, overview_id=OVERVIEW)
+
+    (catch_up,) = assembled(team)
+
+    assert catch_up.overview_unread is True
+    overview = load_overview(Overviews(team.paths.team_data("acme") / "overviews"), OVERVIEW)
+    assert overview is not None and catch_up.overview == overview
+    assert overview.digests == [(TARGET, "web-shop", DIGEST)]
+
+    connection = connect(team_database(team.paths, "acme"))
+    try:
+        TeamState(connection).mark_overview_read(OVERVIEW)
+    finally:
+        connection.close()
+
+    (read,) = assembled(team)
+    assert read.overview_unread is False
+    assert read.overview == overview
+
+
+def test_an_overview_id_that_fails_the_pattern_reads_as_none(team: Team) -> None:
+    add_record(team.paths, overview_id="overviews/../../etc/passwd")
+
+    (catch_up,) = assembled(team)
+
+    assert catch_up.overview is None
+    assert load_overview(Overviews(team.paths.team_data("acme") / "overviews"), "overviews/nope") is None
+
+
+def test_a_corrupt_digests_column_leaves_that_catch_up_out(team: Team) -> None:
+    add_record(team.paths, digests={"not": "a list"})
+    add_record(team.paths, finished="2026-11-12T10:30:00+00:00", started="2026-11-12T10:00:00+00:00")
+
+    catch_ups = assembled(team)
+
+    assert [catch_up.record.finished_at for catch_up in catch_ups] == ["2026-11-12T10:30:00+00:00"]
+
+
+def test_the_list_is_capped_and_the_calendar_counts_all(team: Team) -> None:
+    first_day = date(2026, 9, 20)
+    for index in range(500):
+        day = first_day + timedelta(days=index % 50)
+        stamp = f"{day.isoformat()}T{index // 50:02d}:30:00+00:00"
+        add_record(team.paths, finished=stamp, started=stamp)
+    chosen = HistoryRange(first_day, first_day + timedelta(days=49), TODAY)
+
+    catch_ups, left_out, counts = past_catch_ups(team.paths, "acme", chosen, FOLLOWED, 25, 50)
+
+    assert len(catch_ups) == 50
+    assert left_out == 450
+    assert sum(counts.values()) == 500
+    assert counts[first_day] == 10
+    finished = [catch_up.record.finished_at for catch_up in catch_ups]
+    assert finished == sorted(finished, reverse=True)
+
+
+def test_the_counts_cover_the_calendar_and_the_list_only_the_range(team: Team) -> None:
+    add_record(team.paths)  # 2026-11-11, in the range
+    add_record(team.paths, finished="2026-03-02T10:30:00+00:00", started="2026-03-02T10:00:00+00:00")
+    add_record(team.paths, finished="2024-03-02T10:30:00+00:00", started="2024-03-02T10:00:00+00:00")
+
+    catch_ups, left_out, counts = past_catch_ups(team.paths, "acme", CHOSEN, FOLLOWED, 25, 50)
+
+    assert len(catch_ups) == 1 and left_out == 0
+    assert counts == {date(2026, 11, 11): 1, date(2026, 3, 2): 1}
+
+
+def test_a_team_that_never_caught_up_makes_no_database(team: Team) -> None:
+    assert past_catch_ups(team.paths, "acme", CHOSEN, FOLLOWED, 25, 50) == ([], 0, {})
+    assert not team_database(team.paths, "acme").exists()

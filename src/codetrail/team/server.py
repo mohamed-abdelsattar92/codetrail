@@ -18,7 +18,7 @@ import webbrowser
 from collections.abc import AsyncIterator, Callable, Mapping
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import ExitStack, asynccontextmanager
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from datetime import UTC, datetime
 from importlib.resources import files
 from pathlib import Path
@@ -36,7 +36,7 @@ from codetrail.config import TARGET_NAME, GlobalConfig, Paths, load_global, load
 from codetrail.database import connect
 from codetrail.errors import CodetrailError
 from codetrail.generate.run import Progress
-from codetrail.guide import PAGE_ID, GuideRepository
+from codetrail.guide import GuideRepository
 from codetrail.hosting import HostingService
 from codetrail.hosting.names import SERVICE_NAMES, Service
 from codetrail.hosting.services import services_for
@@ -44,10 +44,11 @@ from codetrail.lock import target_in_use, team_in_use
 from codetrail.repo.signal import Signal, behind
 from codetrail.server import HOST
 from codetrail.team.cards import (
+    Overview,
     Row,
     build_cards,
     card_authors,
-    render_overview,
+    load_overview,
     unread_digests,
 )
 from codetrail.team.catch_up import run_catch_up
@@ -60,7 +61,6 @@ from codetrail.team.state import CatchUpRecord, Overviews, TeamState, team_datab
 from codetrail.team.sync import TeamSync, sync_team
 from codetrail.web.app import EstimateDecision, LanguageChoice, UpdateJob, create_target_app, template_environment
 from codetrail.web.i18n import Language, installed_languages
-from codetrail.web.render import Segment
 from codetrail.web.security import SecurityMiddleware, SessionState, login_response
 
 LOGIN_NEXT = ("/", "/team/add")  # where the sign-in link may lead; anything else leads to the team page
@@ -80,15 +80,6 @@ class OverviewRead(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
     overview_id: str = Field(max_length=100)
-
-
-@dataclass(frozen=True)
-class Overview:
-    """The latest overview as the page shows it: its segments, and the digests it was written from."""
-
-    id: str
-    segments: list[Segment]
-    digests: list[tuple[str, str, str]]  # each digest's target, repository and id
 
 
 class TimedCache[Value]:
@@ -289,21 +280,7 @@ def create_team_app(
                 return record, None
         finally:
             connection.close()
-        try:
-            found = overviews.read(overview_id)
-        except Exception as error:  # an overview edited by hand mustn't stop the page
-            logger.warning("Couldn't read team %r's overview: %s", name, type(error).__name__)
-            return record, None
-        if found is None:
-            return record, None
-        meta, body = found
-        cited = meta.get("cited")
-        listed = meta.get("digests")
-        digests = [(str(digest.get("target")), str(digest.get("repository")), str(digest.get("id")))
-                   for digest in (listed if isinstance(listed, list) else []) if isinstance(digest, dict)]  # fmt: skip
-        linked = [digest for digest in digests if TARGET_NAME.fullmatch(digest[0]) and PAGE_ID.fullmatch(digest[2])]
-        segments = render_overview(body, [str(target) for target in cited] if isinstance(cited, list) else [])
-        return record, Overview(overview_id, segments, linked)
+        return record, load_overview(overviews, overview_id)
 
     def render(
         template: str, active: str, targets: dict[str, tuple[str, str]] | None = None, **context: Any
