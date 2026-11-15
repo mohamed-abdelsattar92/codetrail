@@ -156,3 +156,37 @@ def test_finished_between_leaves_out_declined_and_corrupt_rows(tmp_path: Path, m
     found = state.finished_between(date(2026, 11, 11), date(2026, 11, 11))
 
     assert [record.id for record in found] == [good]
+
+
+@pytest.mark.parametrize(
+    ("column", "value"),
+    [
+        ("failed", "[]"),
+        ("failed", '{"acme-api": 3}'),
+        ("unticked", '{"a": "b"}'),
+        ("unticked", "[1]"),
+        pytest.param("unticked", "[" * 100_000 + "]" * 100_000, id="deeply-nested"),
+    ],
+)
+def test_finished_between_leaves_out_rows_with_a_wrong_shaped_column(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, column: str, value: str
+) -> None:
+    state = TeamState(connect(tmp_path / "team.db"))
+    bad = finished_at(state, monkeypatch, "2026-11-11T10:00:00+00:00", "2026-11-11T10:01:00+00:00")
+    good = finished_at(state, monkeypatch, "2026-11-11T12:00:00+00:00", "2026-11-11T12:01:00+00:00")
+    update = {
+        "failed": "UPDATE catch_ups SET failed = ? WHERE id = ?",
+        "unticked": "UPDATE catch_ups SET unticked = ? WHERE id = ?",
+    }[column]
+    state.connection.execute(update, (value, bad))
+
+    assert [record.id for record in state.finished_between(date(2026, 11, 11), date(2026, 11, 11))] == [good]
+
+
+def test_last_finished_is_none_when_the_newest_row_is_corrupt(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    state = TeamState(connect(tmp_path / "team.db"))
+    finished_at(state, monkeypatch, "2026-11-11T10:00:00+00:00", "2026-11-11T10:01:00+00:00")
+    newest = finished_at(state, monkeypatch, "2026-11-11T12:00:00+00:00", "2026-11-11T12:01:00+00:00")
+    state.connection.execute("UPDATE catch_ups SET targets = 'not json' WHERE id = ?", (newest,))
+
+    assert state.last_finished() is None

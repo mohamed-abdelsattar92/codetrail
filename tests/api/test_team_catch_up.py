@@ -324,14 +324,13 @@ def test_catch_up_unticked_target_not_updated(team: Team) -> None:
     assert team.writers["acme-payments-api"].requests == []
 
 
-def test_a_catch_up_records_the_digests_it_wrote(team: Team) -> None:
+def test_a_catch_up_records_the_digests_it_wrote(team: Team, tmp_path: Path) -> None:
     def digest_ids(target: str) -> set[str]:
         return {page.id for page in team.guide(target).pages() if page.id.startswith("digests/")}
 
     for target in TARGETS:  # each has a guide already, so the next update writes a digest
         run_update(team.paths, target, claude=writer(), confirm=lambda estimate: True)
     before = {target: digest_ids(target) for target in TARGETS}
-    tmp_path = team.paths.config_dir.parent
     add_commit(tmp_path / "checkout", {"README.md": "The shop.\n"}, "docs: describe the shop")
     publish(tmp_path / "checkout", tmp_path / "served")
     with served(team) as page:

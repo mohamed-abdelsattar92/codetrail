@@ -58,7 +58,7 @@ def _record(row: sqlite3.Row) -> CatchUpRecord | None:
             ):
                 return None
             digests = [(pair[0], pair[1]) for pair in pairs]
-    except json.JSONDecodeError, TypeError:
+    except json.JSONDecodeError, TypeError, RecursionError:
         return None
     return CatchUpRecord(row["id"], row["started_at"], row["finished_at"], targets, row["overview_id"],
                          row["overview_problem"], failed, unticked, digests)  # fmt: skip
