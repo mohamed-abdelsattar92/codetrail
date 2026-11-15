@@ -419,6 +419,10 @@ msgid "%(expected)s to %(maximum)s"
 msgstr "من %(expected)s إلى %(maximum)s"
 
 #, python-format
+msgid "%(failed)s · %(left_out)s"
+msgstr "%(failed)s · %(left_out)s"
+
+#, python-format
 msgid "%(files)s document, %(lines)s lines"
 msgid_plural "%(files)s documents, %(lines)s lines"
 msgstr[0] "%(files)s مستند، الأسطر: %(lines)s"
@@ -427,10 +431,6 @@ msgstr[2] "مستندان، الأسطر: %(lines)s"
 msgstr[3] "%(files)s مستندات، الأسطر: %(lines)s"
 msgstr[4] "%(files)s مستند، الأسطر: %(lines)s"
 msgstr[5] "%(files)s مستندًا، الأسطر: %(lines)s"
-
-#, python-format
-msgid "%(first)s to %(last)s"
-msgstr "من %(first)s إلى %(last)s"
 
 #, python-format
 msgid "%(learned)s of %(total)s learned"
@@ -497,6 +497,10 @@ msgstr "%(reason)s حُدّثت الحقائق، ولم يُحدَّث أي دل
 #, python-format
 msgid "%(reason)s The facts were refreshed; the guide wasn't updated."
 msgstr "%(reason)s حُدّثت الحقائق، ولم يُحدَّث الدليل."
+
+#, python-format
+msgid "%(repository)s (%(reason)s)"
+msgstr "%(repository)s (%(reason)s)"
 
 #, python-format
 msgid "%(repository)s couldn't be refreshed: %(reason)s"
@@ -1346,8 +1350,9 @@ msgstr "مُتعلَّمة"
 msgid "Learned, but changed since"
 msgstr "مُتعلَّمة، لكنها تغيّرت منذئذٍ"
 
-msgid "Left out:"
-msgstr "تُركت خارج المواكبة:"
+#, python-format
+msgid "Left out: %(repositories)s"
+msgstr "تُركت خارج المواكبة: %(repositories)s"
 
 #, python-format
 msgid "Left: %(name)s"
@@ -1580,12 +1585,13 @@ msgstr[3] "لم يُواكَب بعد: %(count)s merges."
 msgstr[4] "لم يُواكَب بعد: %(count)s merges."
 msgstr[5] "لم يُواكَب بعد: %(count)s merges."
 
-msgid "Not caught up:"
-msgstr "لم يُواكَب:"
-
 #, python-format
 msgid "Not caught up: %(reason)s"
 msgstr "لم يُواكَب: %(reason)s"
+
+#, python-format
+msgid "Not caught up: %(repositories)s"
+msgstr "لم يُواكَب: %(repositories)s"
 
 msgid "Not caught up: you left it out of the last catch-up."
 msgstr "لم يُواكَب: تركته خارج المواكبة الأخيرة."

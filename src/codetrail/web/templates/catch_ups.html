@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% from "layout/icons.html" import icon %}
-{% from "macros.html" import team_digest, team_overview with context %}
+{% from "macros.html" import team_digest, team_overview, team_overview_problem with context %}
 {# The past catch-ups page (design section 25.3), in the team server's shell: the range and its form, a calendar of the
    53 weeks ending with `chosen.calendar`'s, drawn by the server as the Repository page's script draws its own (squares
    of 11 in cells of 14, left to right in every language), and the range's catch-ups, newest first, each folding. A
@@ -16,7 +16,7 @@
   {% if ever_caught_up %}
   {% set first %}<time datetime="{{ chosen.first.isoformat() }}" dir="ltr">{{ chosen.first.isoformat() }}</time>{% endset %}
   {% set last %}<time datetime="{{ chosen.last.isoformat() }}" dir="ltr">{{ chosen.last.isoformat() }}</time>{% endset %}
-  <p class="muted">{% if chosen.first == chosen.last %}{{ first }}{% else %}{{ _("%(first)s to %(last)s", first=first, last=last) }}{% endif %}</p>
+  <p class="muted">{% if chosen.first == chosen.last %}{{ first }}{% else %}{{ _("From %(start)s to %(end)s", start=first, end=last) }}{% endif %}</p>
   {# No `calendar`: showing a new range moves the calendar to it. #}
   <form class="catch-ups-form" method="get" action="/team/catch-ups">
     <label class="field">{{ _("From") }}<input type="date" name="from" value="{{ chosen.first.isoformat() }}"></label>
@@ -42,8 +42,8 @@
         {%- for week in weeks %}{% set x = left + loop.index0 * cell %}
         {%- for day in week if not day.future %}
         {%- if day.day.weekday() == 0 and day.day.day <= 7 %}<text x="{{ x }}" y="10">{{ months[day.day.month - 1] }}</text>{% endif %}
-        {%- set label %}{% trans count=day.count, date=day.day.isoformat() %}{{ date }}: {{ count }} catch-up{% pluralize %}{{ date }}: {{ count }} catch-ups{% endtrans %}{% endset %}
-        {%- set square %}<rect class="day heat-{{ [day.count, 4]|min }}{% if day.in_range %} in-range{% endif %}" x="{{ x }}" y="{{ top + day.day.weekday() * cell }}" width="11" height="11" rx="2"><title>{{ label }}</title></rect>{% endset %}
+        {%- set label = day_label(day) %}{# a plain string, escaped like any other #}
+        {%- set square %}<rect class="day heat-{{ [day.count, 4]|min }}{% if day.in_range %} in-range{% endif %}" x="{{ x }}" y="{{ top + day.day.weekday() * cell }}" width="11" height="11" rx="2" aria-hidden="true"><title>{{ label }}</title></rect>{% endset %}
         {%- if day.count %}<a href="/team/catch-ups{{ history_query(chosen, day.day) }}" aria-label="{{ label }}">{{ square }}</a>{% else %}{{ square }}{% endif %}
         {%- endfor %}
         {%- endfor %}
@@ -57,10 +57,12 @@
     {% endif %}
   </div>
   <div class="ramp-legend" aria-hidden="true"><span>{{ _("Fewer") }}</span>{% for step in range(5) %}<span class="ramp-swatch heat-{{ step }}"></span>{% endfor %}<span>{{ _("More") }}</span></div>
+  {% if earlier or later %}
   <p class="calendar-moves">
     {%- if earlier %}<a class="button small" href="/team/catch-ups{{ history_query(earlier) }}">{{ _("Earlier") }}</a>{% endif %}
     {%- if later %}<a class="button small" href="/team/catch-ups{{ history_query(later) }}">{{ _("Later") }}</a>{% endif -%}
   </p>
+  {% endif %}
   {% if day_counts %}
   <details class="more">
     <summary>{{ _("Days with a catch-up, as a table") }}</summary>
@@ -81,8 +83,7 @@
   {% if past.record.overview_problem %}
   <section class="team-overview" aria-labelledby="overview-{{ number }}">
     <h3 id="overview-{{ number }}">{{ _("Across the team") }}</h3>
-    {% set problem %}<bdi>{{ past.record.overview_problem }}</bdi>{% endset %}
-    <p class="muted">{{ _("This catch-up has no overview: %(problem)s", problem=problem) }}</p>
+    {{ team_overview_problem(past.record.overview_problem) }}
   </section>
   {% elif past.overview %}
   <section class="team-overview" aria-labelledby="overview-{{ number }}">
@@ -99,10 +100,13 @@
   </section>
   {% endfor %}
   {% if past.failed or past.unticked %}
+  {%- set failed_list %}{% for target, reason in past.failed.items() %}{% set repository %}<bdi>{{ repository_names.get(target, target) }}</bdi>{% endset %}{% set why %}<bdi>{{ reason }}</bdi>{% endset %}{{ _("%(repository)s (%(reason)s)", repository=repository, reason=why) }}{% if not loop.last %}, {% endif %}{% endfor %}{% endset %}
+  {%- set unticked_list %}{% for target in past.unticked %}<bdi>{{ repository_names.get(target, target) }}</bdi>{% if not loop.last %}, {% endif %}{% endfor %}{% endset %}
+  {%- set failed_part = _("Not caught up: %(repositories)s", repositories=failed_list) %}
+  {%- set unticked_part = _("Left out: %(repositories)s", repositories=unticked_list) %}
   <p class="team-quiet catch-up-rest">
-    {%- if past.failed %}{{ _("Not caught up:") }} {% for target, reason in past.failed.items() %}<bdi>{{ repository_names.get(target, target) }}</bdi> (<bdi>{{ reason }}</bdi>){% if not loop.last %}, {% endif %}{% endfor %}{% endif %}
-    {%- if past.failed and past.unticked %} · {% endif %}
-    {%- if past.unticked %}{{ _("Left out:") }} {% for target in past.unticked %}<bdi>{{ repository_names.get(target, target) }}</bdi>{% if not loop.last %}, {% endif %}{% endfor %}{% endif -%}
+    {%- if past.failed and past.unticked %}{{ _("%(failed)s · %(left_out)s", failed=failed_part, left_out=unticked_part) }}
+    {%- elif past.failed %}{{ failed_part }}{% else %}{{ unticked_part }}{% endif -%}
   </p>
   {% endif %}
   </div>

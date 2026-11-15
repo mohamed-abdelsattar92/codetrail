@@ -60,6 +60,12 @@
   </div>
 {%- endmacro %}
 
+{# Why a catch-up has no overview (design section 24.9), its reason isolated: it comes from the catch-up's record. #}
+{% macro team_overview_problem(problem) -%}
+  {% set reason %}<bdi>{{ problem }}</bdi>{% endset %}
+  <p class="muted">{{ _("This catch-up has no overview: %(problem)s", problem=reason) }}</p>
+{%- endmacro %}
+
 {# A digest as a team card shows it (design section 24.7): its title linked to it, its highlights with their marks or
    its first paragraph, and how many guide pages changed; then a Mark read button, or, without one, an "unread" pill
    while it is unread (design section 25.3). #}

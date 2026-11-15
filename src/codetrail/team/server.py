@@ -57,6 +57,7 @@ from codetrail.team.catch_up_job import CatchUpJob
 from codetrail.team.catch_up_job import Confirm as CatchUpConfirm
 from codetrail.team.follow import followed_targets
 from codetrail.team.history import (
+    CalendarDay,
     RangeError,
     calendar_span,
     calendar_weeks,
@@ -292,6 +293,18 @@ def create_team_app(
             connection.close()
         return record, load_overview(overviews, overview_id, name)
 
+    def has_caught_up() -> bool:
+        """Whether a catch-up ever finished with a repository ticked: what the past catch-ups page lists. A team
+        that never caught up has no database yet, and a page view doesn't make one."""
+        database = team_database(paths, name)
+        if not database.exists():
+            return False
+        connection = connect(database)
+        try:
+            return TeamState(connection).has_caught_up()
+        finally:
+            connection.close()
+
     def render(
         template: str,
         active: str,
@@ -344,6 +357,7 @@ def create_team_app(
             with_merges=sum(1 for found in rows if found.signal is not None and found.signal.merges > 0),
             last_catch_up=record, failed=record.failed if record is not None else {},
             unticked=set(record.unticked) if record is not None else set(), overview=overview,
+            has_caught_up=has_caught_up(),
         )  # fmt: skip
 
     @app.get("/team/catch-ups", response_class=HTMLResponse)
@@ -369,9 +383,17 @@ def create_team_app(
         )
         first_day, last_day = calendar_span(chosen.calendar)
         current = language()
+
+        def day_label(day: CalendarDay) -> str:
+            """A square's label, a plain string: the template escapes it, translation and all, in its attribute."""
+            text = current.translations.ngettext(
+                "%(date)s: %(count)s catch-up", "%(date)s: %(count)s catch-ups", day.count
+            )
+            return text % {"date": day.day.isoformat(), "count": day.count}
+
         return render(
             "catch_ups.html", "catch-ups", targets, chosen=chosen, catch_ups=found, left_out=left_out,
-            ever_caught_up=bool(counts or found) or last_catch_up()[0] is not None,
+            ever_caught_up=has_caught_up(), day_label=day_label,
             weeks=calendar_weeks(chosen.calendar, counts, chosen, today),
             day_counts=sorted(counts.items(), reverse=True),
             starts_before=chosen.first < first_day, ends_after=chosen.last > last_day,

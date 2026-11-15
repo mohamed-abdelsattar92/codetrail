@@ -4,6 +4,7 @@ Team acme follows web-shop, payments-api and inventory (see tests/api/test_team_
 straight into the team's database, so each finishes when a test says; the page reads them and spends nothing.
 """
 
+import gettext
 import json
 import re
 from collections.abc import Iterator, Mapping
@@ -19,6 +20,7 @@ from codetrail.config import Paths, TeamSettings
 from codetrail.database import connect
 from codetrail.hosting.fake import FakeHosting
 from codetrail.team import follow, server
+from codetrail.team.history import HistoryRange
 from codetrail.team.state import team_database
 from codetrail.web.security import TOKEN_HEADER, SessionState
 from tests.api.test_team_page import (
@@ -123,9 +125,13 @@ def test_one_day_and_a_stretch(team: Team) -> None:
     record(team.paths, before)
     client = client_for(team)
 
-    day = catch_ups(client.get(f"/team/catch-ups{ONE_DAY}").text)
-    stretch = catch_ups(client.get(f"/team/catch-ups?from={DAY - timedelta(days=1)}&to={DAY}&calendar={DAY}").text)
+    one_day = client.get(f"/team/catch-ups{ONE_DAY}").text
+    stretch_page = client.get(f"/team/catch-ups?from={DAY - timedelta(days=1)}&to={DAY}&calendar={DAY}").text
+    day, stretch = catch_ups(one_day), catch_ups(stretch_page)
 
+    assert f'<p class="muted"><time datetime="{DAY}" dir="ltr">{DAY}</time></p>' in one_day
+    first = DAY - timedelta(days=1)
+    assert f'From <time datetime="{first}" dir="ltr">{first}</time> to <time datetime="{DAY}"' in stretch_page
     assert len(day) == 2 and all(section.startswith("<details open") for section in day)
     assert len(stretch) == 3
     assert [section.startswith("<details open") for section in stretch] == [True, False, False]
@@ -159,6 +165,7 @@ def test_the_rest_line_lists_failed_and_unticked_only(team: Team) -> None:
     assert rest is not None, shown
     assert "<bdi>payments-api</bdi> (<bdi>The plan was &lt;refused&gt;.</bdi>)" in rest.group(0)
     assert "Left out: <bdi>inventory</bdi>" in rest.group(0)
+    assert "&lt;refused&gt;.</bdi>) · Left out:" in rest.group(0)
     assert "web-shop" not in rest.group(0) and "Nothing new" not in shown
     assert "1 repository caught up" in shown
 
@@ -195,11 +202,42 @@ def test_the_calendar_links_days_with_catch_ups(team: Team) -> None:
 
     link = f'<a href="/team/catch-ups?from={day}&amp;to={day}&amp;calendar={now}" aria-label="{day}: 1 catch-up">'
     assert link in page
-    assert f"<title>{quiet}: 0 catch-ups</title>" in page
+    linked = re.search(rf"{re.escape(link)}<rect ([^>]*)><title>{day}: 1 catch-up</title></rect></a>", page)
+    assert linked is not None and 'class="day heat-1 in-range"' in linked.group(1)
+    assert 'aria-hidden="true"' in linked.group(1)  # one name, the link's: the square's tooltip isn't a second
+    quiet_square = re.search(rf"<rect ([^>]*)><title>{quiet}: 0 catch-ups</title></rect>", page)
+    assert quiet_square is not None and 'aria-hidden="true"' in quiet_square.group(1)  # the table holds its count
     assert re.search(rf'<a [^>]*aria-label="{quiet}:', page) is None
     assert f"from={quiet}&amp;to={quiet}" not in page
     assert "Earlier" in page and "Later" not in page
-    assert re.search(r'class="day heat-1 in-range"', page) is not None
+
+
+def test_a_day_s_label_can_t_break_its_attribute(team: Team, monkeypatch: pytest.MonkeyPatch) -> None:
+    english = gettext.NullTranslations.ngettext
+
+    def hostile(self: gettext.NullTranslations, singular: str, plural: str, count: int) -> str:
+        if singular == "%(date)s: %(count)s catch-up":
+            return '%(date)s" onfocus="alert(1)'
+        return english(self, singular, plural, count)
+
+    monkeypatch.setattr(gettext.NullTranslations, "ngettext", hostile)
+    record(team.paths, at(DAY, 10))
+
+    page = client_for(team).get(f"/team/catch-ups{ONE_DAY}").text
+
+    assert f'aria-label="{DAY}&#34; onfocus=&#34;alert(1)"' in page
+    assert re.search(r'<[^>]*\sonfocus="', page) is None  # no attribute of its own, only escaped text
+
+
+def test_the_calendar_moves_are_left_out_when_neither_applies(team: Team, monkeypatch: pytest.MonkeyPatch) -> None:
+    record(team.paths, at(today(), 0))
+    client = client_for(team)
+    assert 'class="calendar-moves"' in client.get("/team/catch-ups").text
+
+    monkeypatch.setattr(HistoryRange, "earlier", lambda self: None)
+
+    page = client.get("/team/catch-ups").text  # its calendar holds today, so there's no Later either
+    assert 'class="calendar-moves"' not in page and "Earlier" not in page
 
 
 def test_earlier_moves_the_calendar_and_keeps_the_range(team: Team) -> None:
@@ -276,9 +314,11 @@ def test_the_page_needs_the_session(team: Team) -> None:
 
 
 def modification_times(paths: Paths) -> dict[Path, int]:
-    """team.db's, and every file's in each guide."""
+    """team.db's, each target's codetrail.db (the digests' read marks), and every file's in each guide."""
     files = [team_database(paths, "acme")]
     for target in TARGETS:
+        database = paths.target_data(target) / "codetrail.db"
+        files += [database] if database.exists() else []
         files += [found for found in (paths.target_data(target) / "guide").rglob("*") if found.is_file()]
     return {found: found.stat().st_mtime_ns for found in files}
 
@@ -367,6 +407,17 @@ def test_no_catch_ups_in_the_range(team: Team) -> None:
 
     assert "No catch-ups between these dates. Pick another day in the calendar." in page
     assert '<div class="calendar" dir="ltr">' in page and catch_ups(page) == []
+
+
+def test_a_declined_catch_up_is_no_catch_up(team: Team) -> None:
+    record(team.paths, at(today(), 0), targets=[])  # nothing was ticked
+    client = client_for(team)
+
+    page = client.get("/team/catch-ups").text
+
+    assert 'href="/team/catch-ups"' not in header(client.get("/").text)
+    assert "No catch-ups yet. Catching up from the team page fills this page." in page
+    assert 'class="calendar"' not in page
 
 
 def test_no_catch_ups_at_all(team: Team) -> None:

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% from "layout/icons.html" import icon %}
-{% from "macros.html" import team_digest, team_overview with context %}
+{% from "macros.html" import team_digest, team_overview, team_overview_problem with context %}
 {# The team page (design section 24.7), in the guides' shell: the header line, the latest overview until it is read, a
    card per repository with something new, busiest first, and one line for the rest. Its sidebar lists the team page,
    the add-repositories screen, the past catch-ups and each followed repository. Every name comes from a service or
@@ -16,9 +16,11 @@
   <p class="team-status">
     {%- if last_catch_up %}{% set when %}<time datetime="{{ last_catch_up.finished_at }}" dir="ltr">{{ last_catch_up.finished_at|utc }}</time>{% endset %}
     <span>{{ _("Since you last caught up: %(when)s", when=when) }}</span>
-    <a href="/team/catch-ups">{{ _("Past catch-ups") }}</a>
     {%- else %}
     <span>{{ _("You haven't caught up yet.") }}</span>
+    {%- endif %}
+    {%- if has_caught_up %}
+    <a href="/team/catch-ups">{{ _("Past catch-ups") }}</a>
     {%- endif %}
     {%- if with_merges %}{# none: a card's own line says what landed, commits without a merge included #}
     <span>{% trans count=with_merges, total=rows|length %}{{ count }} of {{ total }} repositories has new merges{% pluralize %}{{ count }} of {{ total }} repositories have new merges{% endtrans %}</span>
@@ -42,8 +44,7 @@
 {% if last_catch_up and last_catch_up.overview_problem %}
 <section class="team-overview" aria-labelledby="overview-title" data-overview>
   <h2 id="overview-title">{{ _("Across the team") }}</h2>
-  {% set problem %}<bdi>{{ last_catch_up.overview_problem }}</bdi>{% endset %}
-  <p class="muted">{{ _("This catch-up has no overview: %(problem)s", problem=problem) }}</p>
+  {{ team_overview_problem(last_catch_up.overview_problem) }}
 </section>
 {% elif overview %}
 <section class="team-overview" aria-labelledby="overview-title" data-overview>

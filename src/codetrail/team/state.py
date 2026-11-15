@@ -120,6 +120,15 @@ class TeamState:
         ).fetchone()
         return None if row is None else _record(row)
 
+    def has_caught_up(self) -> bool:
+        """Whether a catch-up finished with at least one target ticked, in a row `_record` reads."""
+        rows = self.connection.execute("SELECT * FROM catch_ups WHERE finished_at IS NOT NULL AND targets != '[]'")
+        for row in rows:
+            record = _record(row)
+            if record is not None and record.targets:
+                return True
+        return False
+
     def finished_between(self, first: date, last: date) -> list[CatchUpRecord]:
         """The finished catch-ups with a ticked target whose UTC day lies in `first..last`, newest first. A row
         whose columns hold JSON of the wrong shape is left out."""

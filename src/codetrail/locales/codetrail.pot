@@ -247,14 +247,14 @@ msgid "%(expected)s to %(maximum)s"
 msgstr ""
 
 #, python-format
+msgid "%(failed)s · %(left_out)s"
+msgstr ""
+
+#, python-format
 msgid "%(files)s document, %(lines)s lines"
 msgid_plural "%(files)s documents, %(lines)s lines"
 msgstr[0] ""
 msgstr[1] ""
-
-#, python-format
-msgid "%(first)s to %(last)s"
-msgstr ""
 
 #, python-format
 msgid "%(learned)s of %(total)s learned"
@@ -306,6 +306,10 @@ msgstr ""
 
 #, python-format
 msgid "%(reason)s The facts were refreshed; the guide wasn't updated."
+msgstr ""
+
+#, python-format
+msgid "%(repository)s (%(reason)s)"
 msgstr ""
 
 #, python-format
@@ -1101,7 +1105,8 @@ msgstr ""
 msgid "Learned, but changed since"
 msgstr ""
 
-msgid "Left out:"
+#, python-format
+msgid "Left out: %(repositories)s"
 msgstr ""
 
 #, python-format
@@ -1315,11 +1320,12 @@ msgid_plural "Not caught up yet: %(count)s merges."
 msgstr[0] ""
 msgstr[1] ""
 
-msgid "Not caught up:"
+#, python-format
+msgid "Not caught up: %(reason)s"
 msgstr ""
 
 #, python-format
-msgid "Not caught up: %(reason)s"
+msgid "Not caught up: %(repositories)s"
 msgstr ""
 
 msgid "Not caught up: you left it out of the last catch-up."

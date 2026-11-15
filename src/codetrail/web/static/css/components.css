@@ -2643,6 +2643,8 @@ details.more > summary {
   outline: none;
 }
 
+/* After the range's outline, so hover and focus show on its days too. */
+.calendar .day:hover,
 .calendar a:focus-visible .day {
   stroke: var(--text);
   stroke-width: 2;

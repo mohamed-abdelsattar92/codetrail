@@ -183,6 +183,21 @@ def test_finished_between_leaves_out_rows_with_a_wrong_shaped_column(
     assert [record.id for record in state.finished_between(date(2026, 11, 11), date(2026, 11, 11))] == [good]
 
 
+def test_has_caught_up_needs_a_finished_catch_up_with_a_ticked_target(tmp_path: Path) -> None:
+    state = TeamState(connect(tmp_path / "team.db"))
+    assert not state.has_caught_up()
+    state.finish(state.start(), [], None, None)  # declined
+    state.start()  # still running
+    corrupt = state.start()
+    state.finish(corrupt, ["shop"], None, None)
+    state.connection.execute("UPDATE catch_ups SET failed = '[]' WHERE id = ?", (corrupt,))
+    assert not state.has_caught_up()
+
+    state.finish(state.start(), ["shop"], None, None)
+
+    assert state.has_caught_up()
+
+
 def test_last_finished_is_none_when_the_newest_row_is_corrupt(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     state = TeamState(connect(tmp_path / "team.db"))
     finished_at(state, monkeypatch, "2026-11-11T10:00:00+00:00", "2026-11-11T10:01:00+00:00")
