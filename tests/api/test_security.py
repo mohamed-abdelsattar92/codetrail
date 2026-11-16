@@ -4,8 +4,18 @@ import pytest
 from fastapi import FastAPI
 from fastapi.responses import PlainTextResponse
 from fastapi.testclient import TestClient
+from starlette.applications import Starlette
+from starlette.routing import Mount
 
-from codetrail.web.security import SESSION_COOKIE, TOKEN_HEADER, SecurityMiddleware, SessionState, login_response
+from codetrail.web.links import BasePathMiddleware
+from codetrail.web.security import (
+    SESSION_COOKIE,
+    TOKEN_HEADER,
+    SecurityMiddleware,
+    SessionState,
+    login_response,
+    route_path,
+)
 
 PORT = 8765
 ORIGIN = f"http://127.0.0.1:{PORT}"
@@ -236,3 +246,152 @@ def test_the_d2_worker_alone_may_evaluate_and_reaches_only_its_wasm(client: Test
 def test_the_worker_policy_is_never_sent_for_another_path(client: TestClient) -> None:
     for path in ("/static/js/d2-worker.js/", "/static/js/d2-worker.jsx", "/static/vendor/d2/wasm_exec.js"):
         assert "unsafe-eval" not in client.get(path).headers["content-security-policy"], path
+
+
+PREFIX = "/repos/web-shop"
+
+
+@pytest.fixture
+def mounted(session: SessionState) -> TestClient:
+    """A target's routes under its prefix, as the team page mounts them, and the static files at the root."""
+    target = FastAPI()
+
+    @target.get("/")
+    def home() -> PlainTextResponse:
+        return PlainTextResponse("home")
+
+    @target.get("/login")
+    def login(code: str = "") -> object:
+        return login_response(session, code)
+
+    @target.get("/bridge/answers")
+    @target.get("/search/results")
+    def token_read() -> PlainTextResponse:
+        return PlainTextResponse("read")
+
+    @target.post("/echo")
+    def echo() -> PlainTextResponse:
+        return PlainTextResponse("written")
+
+    @target.get("/static/page.js")
+    @target.get("/static/js/d2-worker.js")
+    def target_static() -> PlainTextResponse:
+        return PlainTextResponse("// the target's own copy")
+
+    static = FastAPI()
+
+    @static.get("/page.js")
+    @static.get("/js/d2-worker.js")
+    def script() -> PlainTextResponse:
+        return PlainTextResponse("// script")
+
+    app = Starlette(routes=[Mount(PREFIX, app=BasePathMiddleware(target)), Mount("/static", app=static)])
+    secured = SecurityMiddleware(app, session=session, port=PORT, mounted_targets={"web-shop"})
+    return TestClient(secured, base_url=ORIGIN, follow_redirects=False)
+
+
+@pytest.mark.parametrize(
+    ("path", "route"),
+    [
+        ("/repos/web-shop/bridge/answers", "/bridge/answers"),
+        ("/repos/web-shop/", "/"),
+        ("/repos/web-shop", ""),
+        ("/bridge/answers", "/bridge/answers"),
+        ("/repos/other/bridge/answers", "/repos/other/bridge/answers"),  # not mounted
+        ("/repos/web-shopx/login", "/repos/web-shopx/login"),
+        ("/repos/web-shop\n/login", "/repos/web-shop\n/login"),
+        ("/repos/web-shop/repos/web-shop/login", "/repos/web-shop/login"),  # one prefix only
+        ("/static/page.js", "/static/page.js"),
+        ("/xrepos/web-shop/login", "/xrepos/web-shop/login"),
+    ],
+)
+def test_the_route_path_drops_one_mounted_target_s_prefix(path: str, route: str) -> None:
+    assert route_path(path, {"web-shop"}) == route
+
+
+def test_nothing_is_stripped_when_nothing_is_mounted() -> None:
+    assert route_path("/repos/web-shop/login", frozenset()) == "/repos/web-shop/login"
+
+
+def test_a_name_that_isn_t_mounted_keeps_its_prefix(mounted: TestClient, session: SessionState) -> None:
+    signed_in_mounted(mounted, session)
+    # Checked as the path it is, which no route serves, rather than as the token read it would be if mounted.
+    assert mounted.get("/repos/other/bridge/answers").status_code == 404
+    assert mounted.get("/repos/other/login?code=wrong").status_code == 404
+
+
+def test_a_target_mounted_later_is_checked_like_the_others(session: SessionState) -> None:
+    app = FastAPI()
+
+    @app.get("/login")
+    def login(code: str = "") -> object:
+        return login_response(session, code)
+
+    @app.get("/repos/later/bridge/answers")
+    def token_read() -> PlainTextResponse:
+        return PlainTextResponse("read")
+
+    mounted_targets: set[str] = set()
+    secured = SecurityMiddleware(app, session=session, port=PORT, mounted_targets=mounted_targets)
+    client = signed_in(TestClient(secured, base_url=ORIGIN, follow_redirects=False), session)
+    assert client.get("/repos/later/bridge/answers").text == "read"  # not mounted: not a token read
+    mounted_targets.add("later")  # the team page mounts a target while it runs
+    assert client.get("/repos/later/bridge/answers").status_code == 403
+
+
+def test_signing_in_under_a_prefix_leads_back_to_it(mounted: TestClient, session: SessionState) -> None:
+    response = mounted.get(f"{PREFIX}/login?code={session.issue_login_code()}")
+    assert response.status_code == 303
+    assert response.headers["location"] == f"{PREFIX}/"
+    assert "Path=/" in response.headers["set-cookie"]  # one session for the whole team page
+
+
+def test_pages_under_a_prefix_need_the_session(mounted: TestClient, session: SessionState) -> None:
+    assert mounted.get(f"{PREFIX}/").status_code == 403
+    signed_in_mounted(mounted, session)
+    assert mounted.get(f"{PREFIX}/").text == "home"
+
+
+def signed_in_mounted(client: TestClient, session: SessionState) -> TestClient:
+    assert client.get(f"{PREFIX}/login?code={session.issue_login_code()}").status_code == 303
+    return client
+
+
+@pytest.mark.parametrize("path", ["/bridge/answers", "/search/results"])
+def test_token_reads_under_a_prefix_need_the_token(mounted: TestClient, session: SessionState, path: str) -> None:
+    signed_in_mounted(mounted, session)
+    response = mounted.get(PREFIX + path)
+    assert response.status_code == 403
+    assert_security_headers(response)
+    assert mounted.get(PREFIX + path, headers={TOKEN_HEADER: "wrong"}).status_code == 403
+    assert mounted.get(PREFIX + path, headers={TOKEN_HEADER: session.token}).text == "read"
+
+
+def test_writes_under_a_prefix_need_origin_and_token(mounted: TestClient, session: SessionState) -> None:
+    path = f"{PREFIX}/echo"
+    assert mounted.post(path, headers={"origin": ORIGIN, TOKEN_HEADER: session.token}).status_code == 403  # no session
+    signed_in_mounted(mounted, session)
+    assert mounted.post(path).status_code == 403
+    assert mounted.post(path, headers={"origin": "http://evil.example", TOKEN_HEADER: session.token}).status_code == 403
+    assert mounted.post(path, headers={"origin": ORIGIN}).status_code == 403
+    assert mounted.post(path, headers={"origin": ORIGIN, TOKEN_HEADER: "wrong"}).status_code == 403
+    assert mounted.post(path, headers={"origin": ORIGIN, TOKEN_HEADER: session.token}).text == "written"
+
+
+@pytest.mark.parametrize("site", ["cross-site", "same-site"])
+def test_other_sites_are_refused_under_a_prefix(mounted: TestClient, session: SessionState, site: str) -> None:
+    signed_in_mounted(mounted, session)
+    for path in (f"{PREFIX}/", f"{PREFIX}/login?code={session.issue_login_code()}"):
+        assert mounted.get(path, headers={"sec-fetch-site": site}).status_code == 403
+
+
+def test_static_files_are_open_only_at_the_root(mounted: TestClient, session: SessionState) -> None:
+    response = mounted.get("/static/page.js")
+    assert response.status_code == 200
+    assert response.headers["cache-control"] == "no-cache"
+    assert mounted.get(f"{PREFIX}/static/page.js").status_code == 403  # under a prefix, a page like any other
+    signed_in_mounted(mounted, session)
+    assert mounted.get(f"{PREFIX}/static/page.js").headers["cache-control"] == "no-store"
+    worker = mounted.get(f"{PREFIX}/static/js/d2-worker.js")
+    assert "unsafe-eval" not in worker.headers["content-security-policy"]
+    assert "unsafe-eval" in mounted.get("/static/js/d2-worker.js").headers["content-security-policy"]

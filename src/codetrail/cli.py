@@ -3,10 +3,14 @@
 from __future__ import annotations
 
 import argparse
+import os
 import signal
+import stat
 import sys
+import threading
 import unicodedata
 from collections import Counter
+from collections.abc import Callable
 from datetime import UTC, date, datetime
 from pathlib import Path
 from types import FrameType
@@ -18,20 +22,34 @@ from codetrail.agents.protocol import serve_stdio
 from codetrail.agents.tools import AgentTools
 from codetrail.assistant.estimate import UpdateEstimate, describe, tokens_text
 from codetrail.assistant.status import provider_status
-from codetrail.config import PROVIDERS, Paths, load_global, load_target, validate_target_name, write_target
+from codetrail.config import (
+    PROVIDERS,
+    Paths,
+    load_global,
+    load_target,
+    load_team,
+    validate_target_name,
+    write_target,
+)
 from codetrail.database import connect
 from codetrail.errors import CodetrailError
 from codetrail.facts import FactDiff
 from codetrail.facts.store import FactStore
-from codetrail.lock import target_in_use
+from codetrail.hosting.services import services_for
+from codetrail.lock import target_in_use, team_in_use
 from codetrail.metrics.history import values_before
 from codetrail.metrics.report import Metric, build_report
 from codetrail.metrics.repository import RepositoryReport, build_repository_report
-from codetrail.remove import remove_target
+from codetrail.remove import remove_target, remove_team
 from codetrail.repo.mirror import check_branch
 from codetrail.repo.refresh import refresh_source
 from codetrail.repo.rules import Reason
+from codetrail.repo.secrets import SCANS_FOLDER, remove_stale_scans
 from codetrail.server import serve
+from codetrail.team.catch_up import CatchUpEstimate, describe_catch_up, run_catch_up
+from codetrail.team.server import serve_team
+from codetrail.team.settings import team_names, team_target_names, write_team
+from codetrail.team.sync import TeamSync, sync_team
 from codetrail.update import run_update
 from codetrail.web.documentation import COUNTS, age, build_tiles, percent_of
 
@@ -54,6 +72,26 @@ def build_parser() -> argparse.ArgumentParser:
     )
     remove.add_argument("name")
     remove.add_argument("--yes", action="store_true", help="delete without asking")
+
+    team = commands.add_parser("team", help="manage the teams, each following the repositories of its sources")
+    team_commands = team.add_subparsers(dest="team_command", required=True)
+    team_add = team_commands.add_parser("add", help="write a new team's settings and open its add-repositories screen")
+    team_add.add_argument("name", help="a short name: lower-case letters, digits and hyphens")
+    team_add.add_argument("--no-browser", action="store_true", help="print the sign-in link without opening it")
+    team_commands.add_parser("list", help="show each team with its sources and target count")
+    team_serve = team_commands.add_parser("serve", help="serve the team's page and every guide it follows on 127.0.0.1")
+    team_serve.add_argument("name")
+    team_serve.add_argument("--no-browser", action="store_true", help="print the sign-in link without opening it")
+    team_update_command = team_commands.add_parser(
+        "update", help="catch the whole team up: one estimate, one question, then every followed repository"
+    )
+    team_update_command.add_argument("name")
+    team_update_command.add_argument("--yes", action="store_true", help="go ahead without asking")
+    team_remove = team_commands.add_parser(
+        "remove", help="delete a team and every target it created; nothing on the service is touched"
+    )
+    team_remove.add_argument("name")
+    team_remove.add_argument("--yes", action="store_true", help="delete without asking")
 
     files = commands.add_parser("files", help="refresh a target's sources and list exactly what Codetrail can see")
     files.add_argument("name")
@@ -84,6 +122,9 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+PRIVATE_UMASK = 0o077  # folders 0700, files 0600
+
+
 def main(argv: list[str] | None = None) -> int:
     for signal_number in (signal.SIGHUP, signal.SIGTERM):
         if signal.getsignal(signal_number) == signal.SIG_DFL:  # one ignored at start (nohup) stays ignored
@@ -94,9 +135,16 @@ def main(argv: list[str] | None = None) -> int:
         parser.print_help(file=sys.stderr)
         return 2
     paths = Paths.from_environment()
+    # Codetrail's folders hold a target's whole history, excluded secrets included: everything it creates, and
+    # everything git creates for it, is the reader's alone. Restored on return, for callers in the same process.
+    previous_umask = os.umask(PRIVATE_UMASK)
     try:
+        close_folders(paths)
+        remove_stale_scans(paths.state_dir / SCANS_FOLDER)
         if arguments.command == "target" and arguments.target_command == "remove":
             return remove_target_command(paths, arguments.name, yes=arguments.yes)
+        if arguments.command == "team":
+            return team_command(paths, arguments)
         if arguments.command == "target":
             return add_target(paths, arguments.name, arguments.path, arguments.branch)
         if arguments.command == "providers":
@@ -119,6 +167,18 @@ def main(argv: list[str] | None = None) -> int:
     except CodetrailError as error:
         print(f"codetrail: {error}", file=sys.stderr)
         return 1
+    finally:
+        os.umask(previous_umask)
+
+
+def close_folders(paths: Paths) -> None:
+    """Makes the data and state folders the reader's alone, when an older version left them readable to others."""
+    for folder in (paths.data_dir, paths.state_dir):
+        if not folder.is_dir() or folder.is_symlink():
+            continue
+        status = folder.stat()
+        if status.st_uid == os.getuid() and stat.S_IMODE(status.st_mode) & 0o077:
+            folder.chmod(0o700)
 
 
 def connect_agents(paths: Paths, name: str) -> int:
@@ -130,8 +190,8 @@ def connect_agents(paths: Paths, name: str) -> int:
 def serve_agent_tools(paths: Paths, name: str) -> int:
     """Runs the tool server until the agent closes standard input (design section 23.5)."""
     target = load_target(paths, name)
-    tools = AgentTools(paths, name, load_global(paths).agents, str(target.repository))
-    serve_stdio(tools, server_instructions(name, str(target.repository)), sys.stdin.buffer, sys.stdout.buffer)
+    tools = AgentTools(paths, name, load_global(paths).agents, target.location)
+    serve_stdio(tools, server_instructions(name, target.location), sys.stdin.buffer, sys.stdout.buffer)
     return 0
 
 
@@ -163,32 +223,139 @@ def add_target(paths: Paths, name: str, path: Path, branch: str) -> int:
 
 
 def remove_target_command(paths: Paths, name: str, yes: bool = False) -> int:
+    return _remove(
+        f"target {name!r}",
+        "The repository itself isn't touched.",
+        yes,
+        lambda confirm: remove_target(paths, name, confirm),
+    )
+
+
+def team_command(paths: Paths, arguments: argparse.Namespace) -> int:
+    if arguments.team_command == "add":
+        file = write_team(paths, arguments.name)
+        print(f"Added team {arguments.name!r}. Settings: {file}")
+        serve_team(paths, arguments.name, open_browser=not arguments.no_browser, start_path="/team/add")
+        return 0
+    if arguments.team_command == "list":
+        return list_teams(paths)
+    if arguments.team_command == "update":
+        return team_update(paths, arguments.name, yes=arguments.yes)
+    if arguments.team_command == "serve":
+        serve_team(paths, arguments.name, open_browser=not arguments.no_browser)
+        return 0
+    return _remove(
+        f"team {arguments.name!r}",
+        "Nothing on the hosting services is touched.",
+        arguments.yes,
+        lambda confirm: remove_team(paths, arguments.name, confirm),
+    )
+
+
+def team_update(paths: Paths, name: str, yes: bool = False) -> int:
+    """Catches the team up from the terminal, with the estimate and question of `codetrail update` (design 24.8)."""
+    no_terminal = False
+    stop = threading.Event()
+
+    def confirm(estimate: CatchUpEstimate) -> list[str] | None:
+        nonlocal no_terminal
+        for line in describe_catch_up(estimate):
+            print(printable(line))
+        answer = ask_to_continue(yes)
+        no_terminal = answer is None
+        return [line.target for line in estimate.lines] if answer else None
+
+    def sync() -> TeamSync:
+        try:
+            return sync_team(paths, name, services_for(load_global(paths)), datetime.now(UTC))
+        except CodetrailError as error:
+            print(f"Couldn't list the team's sources: {printable(str(error))}")
+            return TeamSync()
+
+    def progress(event: dict[str, object]) -> None:
+        if event["step"] == "overview":
+            print("Writing the team overview.")
+        elif "repository" in event and (text := _catch_up_step(event)) is not None:
+            print(f"{printable(str(event['repository']))}: {printable(text)}")
+
+    with team_in_use(paths, name):
+        result = run_catch_up(paths, name, confirm, progress, stop, sync)
+    if result.declined:
+        print("Nothing was spent." if no_terminal else "Nothing was updated.")
+        return 2 if no_terminal else 0
+    if result.overview is None:
+        print("No overview was written.")
+    elif result.overview.overview_id is None:
+        print(f"No overview was written: {printable(result.overview.problem or 'it had a problem')}")
+    else:
+        print(f"Overview written ({result.overview.overview_id}).")
+    return 0
+
+
+def _catch_up_step(event: dict[str, object]) -> str | None:
+    """One repository's step of a catch-up, as a line for the terminal, or None for a step it doesn't show: when it
+    starts, each page written or not, its digest, and how it ended."""
+    step, title = event["step"], event.get("title")
+    if step == "facts":
+        return "started, refreshing the facts (free)."
+    if step == "page_written":
+        return f"wrote “{title}”."
+    if step == "page_failed":
+        return f"“{title}” wasn't written: {event.get('reason')}"
+    if step == "digest":
+        return "writing the digest."
+    if step == "committed":
+        pages, failed = event.get("pages"), event.get("failed")
+        saved = f"done, {_plural(pages, 'page')} saved to the guide" if isinstance(pages, int) else "done"
+        return saved + (f", {failed} not written." if isinstance(failed, int) and failed else ".")
+    if step == "target_failed":
+        return f"not updated ({event.get('reason')})"
+    return None
+
+
+def list_teams(paths: Paths) -> int:
+    for name in team_names(paths):
+        count = len(team_target_names(paths, name))
+        targets = _plural(count, "target")
+        try:
+            sources = [
+                f"{source.service}:{source.source} ({source.follow})" for source in load_team(paths, name).sources
+            ]
+        except CodetrailError:
+            print(f"{printable(name)}: its settings don't load - {targets}")
+            continue
+        print(f"{printable(name)}: {printable(', '.join(sources)) or 'no sources'} - {targets}")
+    return 0
+
+
+def _remove(what: str, reassurance: str, yes: bool, remove: Callable[[Callable[[list[Path]], bool]], bool]) -> int:
+    """Shows what removing a target or a team deletes, asks unless `--yes`, and removes it."""
     no_terminal = False
 
     def confirm(locations: list[Path]) -> bool:
         nonlocal no_terminal
-        print(f"Removing target {name!r} deletes:")
+        print(f"Removing {what} deletes:")
         for location in locations:
             print(f"  {printable(str(location))}")
-        print("The repository itself isn't touched.")
+        print(reassurance)
         if yes:
             return True
         if not sys.stdin.isatty():
             no_terminal = True
             print("There's no terminal to ask in, so nothing was removed. Run again with --yes to go ahead.")
             return False
-        return input(f"Remove target {name!r} and delete these? [y/N] ").strip().lower() in ("y", "yes")
+        return input(f"Remove {what} and delete these? [y/N] ").strip().lower() in ("y", "yes")
 
-    if not remove_target(paths, name, confirm):
+    if not remove(confirm):
         if not no_terminal:
             print("Nothing was removed.")
         return 2 if no_terminal else 0
-    print(f"Removed target {name!r}.")
+    print(f"Removed {what}.")
     return 0
 
 
 def printable(path: str) -> str:
-    """A path from a target, quoted with escapes if it holds characters a terminal would act on."""
+    """Text from a target or a provider, quoted with escapes if it holds characters a terminal would act on."""
     if any(unicodedata.category(character) in ("Cc", "Cf", "Cs", "Zl", "Zp") for character in path):
         return repr(path)
     return path
@@ -217,14 +384,25 @@ def show_providers(paths: Paths) -> int:
         status = provider_status(provider, settings)
         state = "ready" if status.ready else "not ready"
         how = " · ".join(part for part in (status.method, status.program) if part)
-        print(f"{provider:<12} {state:<10} {how}")
+        # The sign-in method, models and messages come from the provider's own output.
+        print(f"{provider:<12} {state:<10} {printable(how)}")
         if status.models:
-            print(f"{'':<12} models: {', '.join(status.models)}")
+            print(f"{'':<12} models: {printable(', '.join(status.models))}")
         if status.fix:
-            print(f"{'':<12} {status.fix}")
+            print(f"{'':<12} {printable(status.fix)}")
         if status.warning:
-            print(f"{'':<12} Note: {status.warning}")
+            print(f"{'':<12} Note: {printable(status.warning)}")
     return 0
+
+
+def ask_to_continue(yes: bool) -> bool | None:
+    """Asks before paid work; None when there's no terminal to ask in (nothing is spent)."""
+    if yes:
+        return True
+    if not sys.stdin.isatty():
+        print("There's no terminal to ask in, so nothing was spent. Run again with --yes to go ahead.")
+        return None
+    return input("Continue? [y/N] ").strip().lower() in ("y", "yes")
 
 
 def update_target(
@@ -238,15 +416,11 @@ def update_target(
         if not estimate.lines:
             print("Nothing for the assistant to do in this update.")
             return True
-        for line in describe(estimate):
-            print(printable(line) if line.startswith("  ") or line.startswith("Skipped") else line)
-        if yes:
-            return True
-        if not sys.stdin.isatty():
-            no_terminal = True
-            print("There's no terminal to ask in, so nothing was spent. Run again with --yes to go ahead.")
-            return False
-        return input("Continue? [y/N] ").strip().lower() in ("y", "yes")
+        for line in describe(estimate):  # page titles come from the target, account lines from the providers
+            print(printable(line))
+        answer = ask_to_continue(yes)
+        no_terminal = answer is None
+        return bool(answer)
 
     result = run_update(paths, name, facts_only=facts_only, confirm=None if facts_only else confirm,
                         retry_failed=retry_failed)  # fmt: skip

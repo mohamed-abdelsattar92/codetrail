@@ -12,9 +12,8 @@ from dataclasses import dataclass
 from pathspec import GitIgnoreSpec
 
 from codetrail.generate.validate import parse_rationale
-from codetrail.guide import Page
+from codetrail.guide import Page, guide_pages
 
-GUIDE_KINDS = ("area", "concept")
 SOURCE_KINDS = ("adr", "docs", "code", "commit")
 
 
@@ -38,10 +37,6 @@ class RationaleMetric:
     by_source: dict[str, int]
     pages: list[PageRationale]  # most inferred first, then by title
     inferred_blocks: list[InferredBlock]
-
-
-def guide_pages(pages: Iterable[Page]) -> list[Page]:
-    return [page for page in pages if page.kind in GUIDE_KINDS]
 
 
 def citation_source(citation: str, adr: GitIgnoreSpec, documents: GitIgnoreSpec) -> str:

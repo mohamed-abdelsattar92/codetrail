@@ -1,0 +1,30 @@
+[
+  {
+    "id": 9001,
+    "name": "web-shop",
+    "path": "web-shop",
+    "path_with_namespace": "example-group/web-shop",
+    "default_branch": "main",
+    "archived": false,
+    "empty_repo": false,
+    "last_activity_at": "2026-11-03T12:00:00.000Z",
+    "http_url_to_repo": "https://gitlab.com/example-group/web-shop.git",
+    "ssh_url_to_repo": "git@gitlab.com:example-group/web-shop.git",
+    "web_url": "https://gitlab.com/example-group/web-shop",
+    "repository_access_level": "enabled"
+  },
+  {
+    "id": 9002,
+    "name": "Payments API #2",
+    "path": "payments-api",
+    "path_with_namespace": "example-group/tools/payments-api",
+    "default_branch": "master",
+    "archived": true,
+    "empty_repo": false,
+    "last_activity_at": "2025-02-14T08:30:00.000Z",
+    "http_url_to_repo": "https://gitlab.com/example-group/tools/payments-api.git",
+    "ssh_url_to_repo": "git@gitlab.com:example-group/tools/payments-api.git",
+    "web_url": "https://gitlab.com/example-group/tools/payments-api",
+    "repository_access_level": "enabled"
+  }
+]

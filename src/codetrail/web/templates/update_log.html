@@ -1,30 +1,34 @@
-{# The update's steps, for the update panel (design section 15.4). Titles and reasons come from the assistant and
-   the repository, so they are only ever autoescaped text. #}
+{# The update's steps, for the update panel (design section 15.4); in a team's catch-up, each is prefixed by its
+   repository's name (design section 24.8). Titles, reasons and names come from the assistant, the repository and the
+   hosting service, so they are only ever autoescaped text. #}
+{% macro from_repository(step) -%}
+{%- if step.repository %}<bdi>{{ step.repository }}</bdi>: {% endif -%}
+{%- endmacro %}
 {% macro used(step) -%}
-<span class="muted">{% if step.provider %} · {{ step.provider }} · {{ step.model or _("default model") }}{% endif %}{% if step.tokens %} · {{ step.tokens|tokens }} {{ _("tokens") }}{% endif %}{% if step.cost_usd %} · {{ step.cost_usd|dollars }}{% endif %}</span>
+<span class="muted">{% if step.provider %} · <span class="nowrap">{{ step.provider }} · {{ step.model or _("default model") }}</span>{% endif %}{% if step.tokens %} · <span class="nowrap">{{ step.tokens|tokens }} {{ _("tokens") }}</span>{% endif %}{% if step.cost_usd %} · {{ step.cost_usd|dollars }}{% endif %}</span>
 {%- endmacro %}
 {% for step in steps %}
 {% if step.step == "facts" %}
-<li class="update-line">{{ _("Refreshing the facts (free)…") }}</li>
+<li class="update-line">{{ from_repository(step) }}{{ _("Refreshing the facts (free)…") }}</li>
 {% elif step.step == "facts_recorded" %}
-<li class="update-line">{% if step.changes %}{% trans count=step.changes %}The facts are refreshed: one changed.{% pluralize %}The facts are refreshed: {{ count }} changed.{% endtrans %}{% else %}{{ _("The facts are refreshed: none changed.") }}{% endif %}</li>
+<li class="update-line">{{ from_repository(step) }}{% if step.changes %}{% trans count=step.changes %}The facts are refreshed: one changed.{% pluralize %}The facts are refreshed: {{ count }} changed.{% endtrans %}{% else %}{{ _("The facts are refreshed: none changed.") }}{% endif %}</li>
 {% elif step.step == "plan" %}
-<li class="update-line">{{ _("Planning the outline…") }}</li>
+<li class="update-line">{{ from_repository(step) }}{{ _("Planning the outline…") }}</li>
 {% elif step.step == "planned" %}
-<li class="update-line done">{% trans count=step.pages %}Planned one new page.{% pluralize %}Planned {{ count }} new pages.{% endtrans %}{{ used(step) }}</li>
+<li class="update-line done">{{ from_repository(step) }}{% trans count=step.pages %}Planned one new page.{% pluralize %}Planned {{ count }} new pages.{% endtrans %}{{ used(step) }}</li>
 {% elif step.step == "page" %}
-<li class="update-line">{% if step.attempt != 1 and step.revise %}{% trans title=step.title %}Revising “{{ title }}” again, with its problems…{% endtrans %}{% elif step.attempt != 1 %}{% trans title=step.title %}Writing “{{ title }}” again, with its problems…{% endtrans %}{% elif step.revise and step.reason == "update" %}{% trans title=step.title, count=step.changed %}Revising “{{ title }}” (one of its facts changed in this update)…{% pluralize count %}Revising “{{ title }}” ({{ count }} of its facts changed in this update)…{% endtrans %}{% elif step.revise %}{% trans title=step.title %}Revising “{{ title }}” (catching up: its facts changed after it was written)…{% endtrans %}{% elif step.reason == "update" %}{% trans title=step.title, count=step.changed %}Writing “{{ title }}” (one of its facts changed in this update)…{% pluralize count %}Writing “{{ title }}” ({{ count }} of its facts changed in this update)…{% endtrans %}{% elif step.reason == "new" %}{% trans title=step.title %}Writing “{{ title }}” (a new page)…{% endtrans %}{% elif step.reason == "outline" %}{% trans title=step.title %}Writing “{{ title }}” (its outline entry changed)…{% endtrans %}{% elif step.reason == "catching_up" %}{% trans title=step.title %}Writing “{{ title }}” (catching up: its facts changed after it was written)…{% endtrans %}{% else %}{% trans title=step.title %}Writing “{{ title }}”…{% endtrans %}{% endif %}</li>
+<li class="update-line">{{ from_repository(step) }}{% if step.attempt != 1 and step.revise %}{% trans title=step.title %}Revising “{{ title }}” again, with its problems…{% endtrans %}{% elif step.attempt != 1 %}{% trans title=step.title %}Writing “{{ title }}” again, with its problems…{% endtrans %}{% elif step.revise and step.reason == "update" %}{% trans title=step.title, count=step.changed %}Revising “{{ title }}” (one of its facts changed in this update)…{% pluralize count %}Revising “{{ title }}” ({{ count }} of its facts changed in this update)…{% endtrans %}{% elif step.revise %}{% trans title=step.title %}Revising “{{ title }}” (catching up: its facts changed after it was written)…{% endtrans %}{% elif step.reason == "update" %}{% trans title=step.title, count=step.changed %}Writing “{{ title }}” (one of its facts changed in this update)…{% pluralize count %}Writing “{{ title }}” ({{ count }} of its facts changed in this update)…{% endtrans %}{% elif step.reason == "new" %}{% trans title=step.title %}Writing “{{ title }}” (a new page)…{% endtrans %}{% elif step.reason == "outline" %}{% trans title=step.title %}Writing “{{ title }}” (its outline entry changed)…{% endtrans %}{% elif step.reason == "catching_up" %}{% trans title=step.title %}Writing “{{ title }}” (catching up: its facts changed after it was written)…{% endtrans %}{% else %}{% trans title=step.title %}Writing “{{ title }}”…{% endtrans %}{% endif %}</li>
 {% elif step.step == "page_written" %}
-<li class="update-line done">{% if step.unchanged %}{% trans title=step.title %}“{{ title }}” needed no change.{% endtrans %}{% elif step.revise %}{% trans title=step.title %}Revised “{{ title }}”.{% endtrans %}{% else %}{% trans title=step.title %}Wrote “{{ title }}”.{% endtrans %}{% endif %}{{ used(step) }}</li>
+<li class="update-line done">{{ from_repository(step) }}{% if step.unchanged %}{% trans title=step.title %}“{{ title }}” needed no change.{% endtrans %}{% elif step.revise %}{% trans title=step.title %}Revised “{{ title }}”.{% endtrans %}{% else %}{% trans title=step.title %}Wrote “{{ title }}”.{% endtrans %}{% endif %}{{ used(step) }}</li>
 {% elif step.step == "page_failed" %}
-<li class="update-line failed">{% trans title=step.title, reason=step.reason %}“{{ title }}” wasn’t written: {{ reason }}{% endtrans %}</li>
+<li class="update-line failed">{{ from_repository(step) }}{% trans title=step.title, reason=step.reason %}“{{ title }}” wasn’t written: {{ reason }}{% endtrans %}</li>
 {% elif step.step == "page_later" %}
-<li class="update-line">{% trans title=step.title %}“{{ title }}” waits for the next update: the budget is spent.{% endtrans %}</li>
+<li class="update-line">{{ from_repository(step) }}{% trans title=step.title %}“{{ title }}” waits for the next update: the budget is spent.{% endtrans %}</li>
 {% elif step.step == "page_skipped" %}
-<li class="update-line">{% trans title=step.title %}“{{ title }}” is skipped: it failed last time, and nothing in it changed since.{% endtrans %} {% trans name=target %}To write it anyway: <code>codetrail update {{ name }} --retry-failed</code>{% endtrans %}</li>
+<li class="update-line">{{ from_repository(step) }}{% trans title=step.title %}“{{ title }}” is skipped: it failed last time, and nothing in it changed since.{% endtrans %} {% trans name=step.target or target %}To write it anyway: <code>codetrail update {{ name }} --retry-failed</code>{% endtrans %}</li>
 {% elif step.step == "digest" %}
-<li class="update-line">{{ _("Writing the digest…") }}</li>
+<li class="update-line">{{ from_repository(step) }}{{ _("Writing the digest…") }}</li>
 {% elif step.step == "committed" %}
-<li class="update-line done">{% trans count=step.pages %}Saved one page to the guide.{% pluralize %}Saved {{ count }} pages to the guide.{% endtrans %}{% if step.failed %} {% trans count=step.failed %}One page wasn’t written.{% pluralize %}{{ count }} pages weren’t written.{% endtrans %}{% endif %}{% if step.later %} {% trans count=step.later %}One waits for the next update.{% pluralize %}{{ count }} wait for the next update.{% endtrans %}{% endif %}</li>
+<li class="update-line done">{{ from_repository(step) }}{% trans count=step.pages %}Saved one page to the guide.{% pluralize %}Saved {{ count }} pages to the guide.{% endtrans %}{% if step.failed %} {% trans count=step.failed %}One page wasn’t written.{% pluralize %}{{ count }} pages weren’t written.{% endtrans %}{% endif %}{% if step.later %} {% trans count=step.later %}One waits for the next update.{% pluralize %}{{ count }} wait for the next update.{% endtrans %}{% endif %}</li>
 {% endif %}
 {% endfor %}

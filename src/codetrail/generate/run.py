@@ -10,9 +10,12 @@ page's update panel.
 from __future__ import annotations
 
 import json
-from collections.abc import Callable, Sequence
+import re
+import threading
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
+from functools import partial
 from pathlib import Path
 
 import anyio
@@ -24,9 +27,12 @@ from codetrail.assistant import (
     DigestRequest,
     PageDraft,
     PageRequest,
+    PaidCallFailed,
     PlanDraft,
     PlanRequest,
+    Usage,
 )
+from codetrail.assistant.routing import CallBound
 from codetrail.assistant.usage import UsageLog
 from codetrail.errors import CodetrailError
 from codetrail.facts import EntityKind, FactDiff
@@ -52,7 +58,13 @@ from codetrail.generate.scope import (
     scope_changes,
     scope_hash,
 )
-from codetrail.generate.validate import FLAGGED_PROBLEM, ValidationContext, validate_brief, validate_page
+from codetrail.generate.validate import (
+    FLAGGED_PROBLEM,
+    ValidationContext,
+    validate_brief,
+    validate_highlights,
+    validate_page,
+)
 from codetrail.guide import GuideRepository, Page
 from codetrail.repo.history import Commit, commits_between, recent_commits
 from codetrail.repo.secrets import SecretScanner
@@ -67,6 +79,51 @@ Progress = Callable[[dict[str, object]], None]  # one step of an update, such as
 
 def no_progress(event: dict[str, object]) -> None:
     """Reports nowhere: the command line prints its summary at the end instead."""
+
+
+TEAM_BUDGET_SPENT = "The team's budget is spent, so this repository wasn't updated."
+BUDGET_BELOW_CAP = (
+    "The update's budget (${budget:.2f}) is smaller than one call's cap (${cap:.2f}), so no call can start; raise "
+    "generation.max_budget_usd_per_update, or lower generation.max_budget_usd_per_call (for a priced Codex model, "
+    "providers.codex.max_tokens_per_call)."
+)
+MARKDOWN_SPECIAL = re.compile(r"[\\`*_{}\[\]()<>#+\-.!|~]")  # CommonMark's ASCII punctuation that can mark up
+ROUNDING_USD = 1e-9  # so caps that add up to the limit exactly still fit, whatever floating point makes of the sum
+
+
+class SharedBudget:
+    """A spending limit that calls running together count against: an update's pages, or every update of a team's
+    catch-up, in threads (design 6.7, 24.8). Each call reserves its cap before it starts and settles with what it
+    cost when it ends, so the calls in flight can never take the total past the limit."""
+
+    def __init__(self, limit_usd: float) -> None:
+        self._limit_usd = limit_usd
+        self._spent_usd = 0.0
+        self._reserved_usd = 0.0
+        self._lock = threading.Lock()
+
+    def reserve(self, cap_usd: float) -> bool:
+        """Reserves a call's cap if it fits beside what is spent and reserved; False, reserving nothing, if not."""
+        with self._lock:
+            if self._spent_usd + self._reserved_usd + cap_usd > self._limit_usd + ROUNDING_USD:
+                return False
+            self._reserved_usd += cap_usd
+            return True
+
+    def settle(self, cap_usd: float, cost_usd: float) -> None:
+        """Ends a reserved call: its cap is released and what it cost is spent."""
+        with self._lock:
+            self._reserved_usd -= cap_usd
+            self._spent_usd += cost_usd
+
+    @property
+    def spent_usd(self) -> float:
+        with self._lock:
+            return self._spent_usd
+
+    @property
+    def exhausted(self) -> bool:
+        return self.spent_usd >= self._limit_usd
 
 
 @dataclass
@@ -84,6 +141,9 @@ class GenerationContext:
     max_budget_usd: float
     previous_commit: str | None  # the snapshot before this update, or None on the first
     diff: FactDiff
+    # Each kind of call's bound (plan, write, digest), reserved in the update's budget and the team's before it starts,
+    # so a call can't start past either (6.7).
+    call_bounds: Mapping[str, CallBound]
     learned: set[str] = field(default_factory=set)  # pages the reader has learned: rewritten first
     usage: UsageLog | None = None  # records each call's usage; its costs count against the update's budget
     max_tokens: int | None = None  # the update's token budget, which counts every provider, priced or not
@@ -91,7 +151,13 @@ class GenerationContext:
     failed_pages: FailedPages | None = None  # pages that failed validation, skipped until their scope changes
     retry_failed: bool = False  # try them anyway
     revise_max_changes: int = 0  # an affected page with at most this many changes in its scope is revised (6.3)
+    shared_budget: SharedBudget | None = None  # a team catch-up's budget, which every update in it counts against
+    max_highlights: int = 0  # the highlights a digest carries for the team page (24)
     max_brief_words: int = 300  # the brief for coding agents each page carries (23.3)
+    budget: SharedBudget = field(init=False)  # the update's own, from max_budget_usd
+
+    def __post_init__(self) -> None:
+        self.budget = SharedBudget(self.max_budget_usd)
 
 
 @dataclass
@@ -114,6 +180,7 @@ async def generate_guide(context: GenerationContext, claude: Assistant) -> Gener
         raise CodetrailError(
             f"The guide at {guide.root} has uncommitted edits; commit or discard them before updating."
         )
+    _check_budget(context)
     result = GenerationResult()
     try:
         entries = await _outline(context, claude, result)
@@ -129,11 +196,6 @@ async def generate_guide(context: GenerationContext, claude: Assistant) -> Gener
 
         async def write(planned: PlannedPage) -> None:
             async with limiter:
-                entry = planned.entry
-                if _budget_spent(context, result):  # the update's total budget, in dollars or tokens, is spent
-                    result.left_for_later.append(entry.id)
-                    context.progress({"step": "page_later", "id": entry.id, "title": entry.title})
-                    return
                 await _write_page(planned, context, claude, validation, result)
 
         try:
@@ -164,41 +226,42 @@ async def _outline(context: GenerationContext, claude: Assistant, result: Genera
     entries = outline_entries(stored)
     paths: list[OutlinePath] = []
     if not entries:
-        context.progress({"step": "plan"})
-        draft = await claude.plan(PlanRequest(context.target, facts_summary(store, context.manifest), ""))
-        spent = _spend(context, result, "plan", draft)
-        entries, problems = validate_outline(draft.pages, store, context.manifest)
+        if context.shared_budget is not None and context.shared_budget.exhausted:
+            raise CodetrailError(TEAM_BUDGET_SPENT)
+        if not _reserve(context, result, "plan"):  # the update's own budget holds it: _check_budget made sure
+            raise CodetrailError(TEAM_BUDGET_SPENT)
+        request = PlanRequest(context.target, facts_summary(store, context.manifest), "")
+        draft, spent = await _plan(context, claude, result, request)
+        entries, problems = validate_outline(draft.pages, store, context.manifest, context.scanner)
         context.progress({"step": "planned", "pages": len(entries), **spent})
         result.outline_problems += problems
         if not entries:
             raise CodetrailError("The assistant's outline had no page Codetrail could use: " + "; ".join(problems[:3]))
-        paths, problems = validate_paths(draft.paths, {entry.id for entry in entries})
+        paths, problems = validate_paths(draft.paths, {entry.id for entry in entries}, context.scanner)
         result.outline_problems += problems
     else:
         paths = outline_paths(stored, {entry.id for entry in entries})
         new_facts = set(context.diff.added_entities)
         uncovered = [fact for fact in uncovered_facts(store, entries) if fact in new_facts]
-        if uncovered:
+        if uncovered and _reserve(context, result, "plan"):
             current = json.dumps(outline_data(entries, paths), indent=1)
-            context.progress({"step": "plan"})
-            draft = await claude.plan(PlanRequest(context.target, facts_summary(store, context.manifest), current,
-                                                  uncovered[:200]))  # fmt: skip
-            spent = _spend(context, result, "plan", draft)
-            added, problems = validate_outline(draft.pages, store, context.manifest, existing=entries)
+            request = PlanRequest(context.target, facts_summary(store, context.manifest), current, uncovered[:200])
+            draft, spent = await _plan(context, claude, result, request)
+            added, problems = validate_outline(draft.pages, store, context.manifest, context.scanner, entries)
             context.progress({"step": "planned", "pages": len(added), **spent})
             result.outline_problems += problems
             entries = [*entries, *added]
-        if stored is not None and "paths" not in stored:  # an outline written before paths existed: plan them once
+        # an outline written before paths existed: plan them once
+        if stored is not None and "paths" not in stored and _reserve(context, result, "plan"):
             current = json.dumps(outline_data(entries), indent=1)
-            context.progress({"step": "plan"})
             try:
-                draft = await claude.plan(PlanRequest(context.target, "", current, paths_only=True))
+                request = PlanRequest(context.target, "", current, paths_only=True)
+                draft, spent = await _plan(context, claude, result, request)
             except AssistantError as error:
                 result.outline_problems.append(f"Guided paths couldn't be planned: {error}")
             else:
-                spent = _spend(context, result, "plan", draft)
                 context.progress({"step": "planned", "pages": 0, **spent})
-                paths, problems = validate_paths(draft.paths, {entry.id for entry in entries})
+                paths, problems = validate_paths(draft.paths, {entry.id for entry in entries}, context.scanner)
                 result.outline_problems += problems
     if outline_data(entries, paths) != stored:
         guide.write_outline(outline_data(entries, paths))
@@ -206,21 +269,86 @@ async def _outline(context: GenerationContext, claude: Assistant, result: Genera
     return entries
 
 
-def _budget_spent(context: GenerationContext, result: GenerationResult) -> bool:
-    over_tokens = context.max_tokens is not None and result.tokens >= context.max_tokens
-    return result.cost_usd >= context.max_budget_usd or over_tokens
+def _check_budget(context: GenerationContext) -> None:
+    """Refuses, before anything is called, an update that would make a paid call its own budget can't hold even once
+    (design section 6.7)."""
+    work = planned_work(context)
+    kinds = [kind for kind, due in (("plan", work.plan_calls), ("write", work.page_calls_max),
+                                    ("digest", work.digest_possible)) if due]  # fmt: skip
+    cap = max((context.call_bounds[kind].cap_usd for kind in kinds), default=0.0)
+    if cap > context.max_budget_usd + ROUNDING_USD:
+        raise CodetrailError(BUDGET_BELOW_CAP.format(budget=context.max_budget_usd, cap=cap))
+
+
+def _bound(context: GenerationContext, kind: str) -> CallBound:
+    return context.call_bounds["write" if kind == "revise" else kind]  # a revision is a write call
+
+
+def _reserve(context: GenerationContext, result: GenerationResult, kind: str) -> bool:
+    """Reserves one call's bound in the update's budget and in the team's, before the call starts; False, reserving
+    nothing, when it doesn't fit in either or the update's tokens are spent. Every reserved call is settled, by
+    `_paid`, with what it cost."""
+    if context.max_tokens is not None and result.tokens >= context.max_tokens:
+        return False
+    cap = _bound(context, kind).cap_usd
+    if not context.budget.reserve(cap):
+        return False
+    if context.shared_budget is not None and not context.shared_budget.reserve(cap):
+        context.budget.settle(cap, 0.0)
+        return False
+    return True
+
+
+def _settle(context: GenerationContext, kind: str, cost_usd: float) -> None:
+    cap = _bound(context, kind).cap_usd
+    context.budget.settle(cap, cost_usd)
+    if context.shared_budget is not None:
+        context.shared_budget.settle(cap, cost_usd)
+
+
+async def _paid[Draft: (PlanDraft, PageDraft, DigestDraft)](
+    context: GenerationContext, result: GenerationResult, kind: str, call: Callable[[], Awaitable[Draft]]
+) -> tuple[Draft, dict[str, object]]:
+    """Makes a call whose bound `_reserve` reserved, and settles it: with its cost; with what a call that failed after
+    the provider counted it used; with nothing when it failed before using anything (it couldn't start, say); and
+    with its whole bound when it was cancelled while its program ran, since no result says what it used."""
+    try:
+        draft = await call()
+    except PaidCallFailed as error:
+        _spend(context, result, kind, error.usage, error.cost_usd)
+        raise
+    except AssistantError:
+        _settle(context, kind, 0.0)
+        raise
+    except BaseException:
+        bound = _bound(context, kind)
+        if bound.cap_usd:
+            _spend(context, result, kind, Usage(bound.provider, bound.model, cost_usd=bound.cap_usd), bound.cap_usd)
+        else:
+            _settle(context, kind, 0.0)
+        raise
+    return draft, _spend(context, result, kind, draft.usage, draft.cost_usd)
+
+
+async def _plan(
+    context: GenerationContext, claude: Assistant, result: GenerationResult, request: PlanRequest
+) -> tuple[PlanDraft, dict[str, object]]:
+    """Asks for a plan, once `_reserve` reserved its cap, and counts what it used."""
+    context.progress({"step": "plan"})
+    return await _paid(context, result, "plan", partial(claude.plan, request))
 
 
 def _spend(
-    context: GenerationContext, result: GenerationResult, kind: str, draft: PlanDraft | PageDraft | DigestDraft
+    context: GenerationContext, result: GenerationResult, kind: str, usage: Usage, cost_usd: float
 ) -> dict[str, object]:
-    """Records the call's usage, and adds its cost (which counts against the update's budget) and tokens.
+    """Records the call's usage, settles its reservation with its cost, and adds its cost and tokens to the update's.
+    `cost_usd` is the draft's own figure, used when no usage log prices it.
 
     Returns what the call used, for the progress report: its provider, model, tokens and counted cost."""
-    usage = draft.usage
-    cost = context.usage.record(kind, usage) if context.usage is not None and usage.provider else draft.cost_usd
+    cost = context.usage.record(kind, usage) if context.usage is not None and usage.provider else cost_usd
     tokens = usage.input_tokens + usage.cached_input_tokens + usage.output_tokens
     result.cost_usd += cost
+    _settle(context, kind, cost)
     result.tokens += tokens
     return {"provider": usage.provider, "model": usage.model, "tokens": tokens, "cost_usd": cost}
 
@@ -268,11 +396,15 @@ async def _write_page(
     problems: list[str] = []
     try:
         for attempt in range(1, PAGE_ATTEMPTS + 1):
+            if not _reserve(context, result, "write"):  # the budget can't hold another call: no page, or no retry
+                result.left_for_later.append(entry.id)
+                context.progress({"step": "page_later", "id": entry.id, "title": entry.title})
+                return
             context.progress({"step": "page", "id": entry.id, "title": entry.title, "attempt": attempt,
                               "reason": planned.reason, "changed": planned.changed_now,
                               "revise": revising})  # fmt: skip
-            draft = await claude.write_page(request)
-            spent = _spend(context, result, "revise" if revising else "write", draft)
+            draft, spent = await _paid(context, result, "revise" if revising else "write",
+                                       partial(claude.write_page, request))  # fmt: skip
             body, checks, brief = draft.body, draft.checks, draft.brief
             if current is not None:
                 body = apply_sections(request.current_body, draft.sections)
@@ -310,6 +442,9 @@ async def _write_page(
             context.failed_pages.record(entry.id, scope_hash(context.store, entry))
     except AssistantError as error:
         reason = str(error)
+        # A paid failure (counted by _paid) ran out of turns, budget or time: unchanged, it would again.
+        if isinstance(error, PaidCallFailed) and context.failed_pages is not None:
+            context.failed_pages.record(entry.id, scope_hash(context.store, entry))
     result.failed.append((entry.id, reason))
     context.progress({"step": "page_failed", "id": entry.id, "title": entry.title, "reason": reason})
 
@@ -328,20 +463,29 @@ async def _write_digest(
             "written_at": datetime.now(UTC).isoformat(timespec="seconds"), "pages_changed": result.written}  # fmt: skip
     if not commits:
         meta["title"] = "The guide was created"
-        body = "The guide's first pages:\n\n" + "\n".join(f"- [{page}](/pages/{page})" for page in result.written)
+        titles = {page.id: page.title for page in context.guide.pages()}
+        body = "The guide's first pages:\n\n" + "\n".join(
+            f"- [{_markdown_text(titles.get(page, page))}](/pages/{page})" for page in result.written
+        )
         context.guide.write_page(Page(page_id, meta, body))
         result.digest = page_id
         return
-    request = DigestRequest(context.target, commits_text(commits), fact_changes_text(context.diff), result.written)
+    request = DigestRequest(context.target, commits_text(commits), fact_changes_text(context.diff), result.written,
+                            context.max_highlights)  # fmt: skip
     try:
-        if _budget_spent(context, result):
+        if not _reserve(context, result, "digest"):
             raise AssistantError("the update's budget is spent")
-        draft = await claude.write_digest(request)
-        _spend(context, result, "digest", draft)
-        if validate_page(draft.body, None, validation):
+        draft, _spent = await _paid(context, result, "digest", partial(claude.write_digest, request))
+        highlights = draft.highlights if context.max_highlights else []  # none asked for: any returned are dropped
+        if (
+            validate_page(draft.body, None, validation)
+            or validate_highlights(highlights, context.max_highlights, validation)
+            or validation.scanner.scan_text(draft.title)  # the title is shown too
+        ):
             raise AssistantError("the digest failed validation")
         meta["title"], body = draft.title, draft.body
-    except AssistantError:
+        meta["highlights"] = highlights
+    except AssistantError:  # a failed call is counted by _paid
         meta["title"] = f"{len(commits)} commits since the last update"
         body = "The assistant's digest couldn't be checked, so here are the commits:\n\n" + "\n".join(
             f"- {commit.subject}" for commit in commits
@@ -350,11 +494,17 @@ async def _write_digest(
     result.digest = page_id
 
 
+def _markdown_text(text: str) -> str:
+    """The text as Markdown that renders it literally: a planned title can't make a link or emphasis in the digest."""
+    return MARKDOWN_SPECIAL.sub(r"\\\g<0>", text)
+
+
 def _digest_range(context: GenerationContext, pages_written: bool) -> tuple[str | None, list[Commit]] | None:
     """The commits a digest covers, from the last digest to the head; None when no digest is due."""
     head = context.manifest.commit
-    digests = sorted(context.guide.pages("digest"), key=lambda page: str(page.meta.get("written_at", "")))
-    since = str(digests[-1].meta.get("to_commit")) if digests else context.previous_commit
+    digests = context.guide.pages("digest")
+    # The commit the guide last covered, as the "behind" signal counts it; an end that isn't a commit id counts as none.
+    since = (context.guide.covered_commit() if digests else None) or context.previous_commit
     if not digests and pages_written:
         since = None  # the guide's first pages: record its creation, whatever facts-only updates came before
     if since == head or (since is None and not pages_written):

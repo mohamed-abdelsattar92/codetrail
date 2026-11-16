@@ -16,7 +16,7 @@ import shlex
 import tempfile
 from collections.abc import AsyncIterator, Iterator, Mapping
 from contextlib import aclosing, contextmanager
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any, Final
 
@@ -28,6 +28,8 @@ from codetrail.assistant import (
     DigestDraft,
     DigestRequest,
     GradeRequest,
+    OverviewDraft,
+    OverviewRequest,
     PageDraft,
     PageRequest,
     PlanDraft,
@@ -35,20 +37,18 @@ from codetrail.assistant import (
     QuestionRequest,
     Usage,
     Verdict,
+    call_failed,
     runner,
 )
-from codetrail.assistant.environment import child_environment, resolve_program
+from codetrail.assistant.environment import GIT_GUARD, child_environment, resolve_program
 from codetrail.assistant.prompts import (
     ANSWER_RULES,
     DIGEST_SCHEMA,
-    GRADE_RULES,
-    GRADE_SCHEMA,
     GROUND_RULES,
     PAGE_SYNTAX,
     PLAN_SCHEMA,
     answer_prompt,
     digest_prompt,
-    grade_prompt,
     neutralize,
     page_task,
     plan_prompt,
@@ -57,7 +57,18 @@ from codetrail.config import CodexSettings, GenerationSettings
 
 PROVIDER: Final = "codex"
 # Switch off what the reader's Codex configuration and the target's instructions could add (design section 15.5).
-ISOLATION = ("mcp_servers={}", "notify=[]", "project_doc_max_bytes=0", 'shell_environment_policy.inherit="none"')
+# The commands Codex runs start from an empty environment, so they get git's guard against a bare repository too.
+ISOLATION = (
+    "mcp_servers={}",
+    "notify=[]",
+    "project_doc_max_bytes=0",
+    'shell_environment_policy.inherit="none"',
+    # Codex 0.167 accepts disabled, cached, indexed or live; a search would carry what Codex read off the machine.
+    'web_search="disabled"',
+    # The older key, still a typed setting in 0.167 (a boolean or a table): a config.toml setting it can't win.
+    "tools.web_search=false",
+    *(f"shell_environment_policy.set.{name}={json.dumps(value)}" for name, value in GIT_GUARD.items()),
+)
 
 
 class _ProgramFailed(AssistantError):
@@ -83,6 +94,7 @@ class CodexAssistant:
         limits: GenerationSettings,
         retries: int = 2,
         environ: Mapping[str, str] = os.environ,
+        max_output_bytes: int = runner.MAX_OUTPUT_BYTES,
     ) -> None:
         self.root = source_root.resolve()
         self.models = dict(models)
@@ -90,6 +102,7 @@ class CodexAssistant:
         self.limits = limits
         self.retries = retries
         self.environ = dict(environ)
+        self.max_output_bytes = max_output_bytes  # [providers] max_output_bytes
         self.program = resolve_program(settings.command, self.environ.get("PATH", ""))
 
     async def plan(self, request: PlanRequest) -> PlanDraft:
@@ -106,12 +119,17 @@ class CodexAssistant:
         data, outcome, usage = await self._run(
             "digest", GROUND_RULES + "\n" + PAGE_SYNTAX, digest_prompt(request), DIGEST_SCHEMA
         )
-        return DigestDraft(str(data.get("title", "")), str(data.get("body", "")), outcome.files_read, 0.0, usage)
+        highlights = [str(item) for item in data.get("highlights", [])]
+        title, body = str(data.get("title", "")), str(data.get("body", ""))
+        return DigestDraft(title, body, highlights, outcome.files_read, 0.0, usage)
 
     async def grade(self, request: GradeRequest) -> Verdict:
-        data, _outcome, usage = await self._run("grade", GRADE_RULES, grade_prompt(request), GRADE_SCHEMA)
-        missed = [str(item) for item in data.get("missed", [])]
-        return Verdict(str(data.get("verdict", "")), missed, str(data.get("feedback", "")), 0.0, usage)
+        """Refused: grading has no tools at all (design section 8.2), and Codex can't run without its shell."""
+        raise AssistantError("Grading can't use Codex, which always has its shell; choose another provider for grade.")
+
+    async def write_overview(self, request: OverviewRequest) -> OverviewDraft:
+        """Refused: Codex can't be confined, and a team has no opt-in for it (design section 24.9)."""
+        raise AssistantError("The team's overview can't use Codex.")
 
     async def answer(self, request: QuestionRequest) -> AsyncIterator[AnswerChunk]:
         outcome = await self._call(
@@ -132,13 +150,14 @@ class CodexAssistant:
             except _ProgramFailed as error:
                 last_error = error
                 continue
+            usage = self._usage(kind, outcome)
             try:
                 data = json.loads(outcome.message or "")
             except ValueError as error:
-                raise AssistantError("Codex's answer wasn't the JSON it was asked for.") from error
+                raise call_failed("Codex's answer wasn't the JSON it was asked for.", usage) from error
             if not isinstance(data, dict):
-                raise AssistantError("Codex's answer wasn't a JSON object.")
-            return data, outcome, self._usage(kind, outcome)
+                raise call_failed("Codex's answer wasn't a JSON object.", usage)
+            return data, outcome, usage
         raise last_error or AssistantError("Codex couldn't be run.")
 
     async def _call(self, kind: str, rules: str, prompt: str, schema: dict[str, Any] | None) -> _Outcome:
@@ -168,22 +187,42 @@ class CodexAssistant:
                 command += ["--output-schema", str(schema_file)]
             # Codex has no system prompt flag; Codetrail's rules lead the prompt, above the task.
             text = neutralize(f"{rules}\n\n{prompt}")
+            started = anyio.current_time()
             try:
-                lines = runner.run_program(command, text, self.root, environment, self.settings.timeout_seconds)
+                lines = runner.run_program(command, text, self.root, environment, self.settings.timeout_seconds,
+                                           max_output_bytes=self.max_output_bytes)  # fmt: skip
                 async with aclosing(lines):
                     async for line in lines:
                         self._note(line, outcome)
-            except _LimitPassed:
-                raise
+            except _LimitPassed as error:
+                raise call_failed(str(error), self._usage(kind, outcome)) from error
             except AssistantError as error:
+                if anyio.current_time() - started >= self.settings.timeout_seconds:  # not retried: see _cap_spent
+                    raise self._cap_spent(error, kind, outcome) from error
+                if outcome.failure is not None:
+                    unfinished = f"Codex didn't finish the task: {outcome.failure[:300]}"
+                    raise self._failure(unfinished, kind, outcome) from error
                 if outcome.message is None:
-                    raise _ProgramFailed(str(error)) from error
-                raise
+                    raise self._failure(str(error), kind, outcome) from error
+                raise call_failed(str(error), self._usage(kind, outcome)) from error
         if outcome.failure is not None:
-            raise AssistantError(f"Codex didn't finish the task: {outcome.failure[:300]}")
+            raise call_failed(f"Codex didn't finish the task: {outcome.failure[:300]}", self._usage(kind, outcome))
         if outcome.message is None:
-            raise _ProgramFailed("Codex ended without an answer.")
+            raise self._failure("Codex ended without an answer.", kind, outcome)
         return outcome
+
+    def _cap_spent(self, error: AssistantError, kind: str, outcome: _Outcome) -> AssistantError:
+        """A call stopped at its time limit: Codex reports tokens only when a turn ends, so the turn it was stopped in
+        is unreported, and its token limit counts as used (design section 15.3); what it reported keeps its kind."""
+        usage = self._usage(kind, outcome)
+        unreported = max(self.settings.max_tokens_per_call - usage.tokens, 0)
+        message = f"{error} It counts as its whole token limit of {self.settings.max_tokens_per_call}."
+        return call_failed(message, replace(usage, input_tokens=usage.input_tokens + unreported))
+
+    def _failure(self, message: str, kind: str, outcome: _Outcome) -> AssistantError:
+        """A failure worth another try, unless Codex counted tokens: then it carries them, for the caller's budget."""
+        usage = self._usage(kind, outcome)
+        return call_failed(message, usage) if usage.tokens else _ProgramFailed(message)
 
     def _note(self, line: str, outcome: _Outcome) -> None:
         try:

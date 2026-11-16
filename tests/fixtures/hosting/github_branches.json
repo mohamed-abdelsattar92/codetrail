@@ -1,0 +1,18 @@
+[
+  {
+    "name": "main",
+    "commit": {
+      "sha": "0123456789abcdef0123456789abcdef01234567",
+      "url": "https://api.github.com/repos/acme-org/web-shop/commits/0123456789abcdef0123456789abcdef01234567"
+    },
+    "protected": true
+  },
+  {
+    "name": "feature/checkout",
+    "commit": {
+      "sha": "89abcdef0123456789abcdef0123456789abcdef",
+      "url": "https://api.github.com/repos/acme-org/web-shop/commits/89abcdef0123456789abcdef0123456789abcdef"
+    },
+    "protected": false
+  }
+]

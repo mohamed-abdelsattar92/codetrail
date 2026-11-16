@@ -12,8 +12,7 @@ from datetime import date
 
 from codetrail.facts import Entity
 from codetrail.generate.validate import FACT_LINK, parse_rationale
-from codetrail.guide import Page
-from codetrail.metrics.rationale import guide_pages
+from codetrail.guide import Page, guide_pages
 
 RETIRED = ("superseded", "deprecated")
 

@@ -1,7 +1,7 @@
 // The sidebar (design section 22): hiding and showing it, peeking at it while hidden, folding its sections and
 // pinning pages. Hidden and folded are remembered in this browser; pins are kept by Codetrail. Titles are only ever
 // moved with textContent and attributes.
-import { post, remember } from "./api.js";
+import { post, remember, sitePath } from "./api.js";
 
 const root = document.documentElement;
 const SECTIONS = ["paths", "areas", "concepts", "answers", "more"];
@@ -111,7 +111,7 @@ function setUpFolding() {
   }
 }
 
-const pageHref = (id) => `/pages/${id.split("/").map(encodeURIComponent).join("/")}`;
+const pageHref = (id) => sitePath(`/pages/${id.split("/").map(encodeURIComponent).join("/")}`);
 
 function setUpPins() {
   const sidebar = panel();

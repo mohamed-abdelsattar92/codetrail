@@ -196,13 +196,7 @@ def tokens_text(tokens: int) -> str:
 def describe(estimate: UpdateEstimate) -> list[str]:
     """The estimate as lines of text, for the command line."""
     lines = ["This update will call:"]
-    for line in estimate.lines:
-        count = str(line.expected) if line.expected == line.maximum else f"{line.expected} to {line.maximum}"
-        cost = "free" if line.call.cost_usd == 0 else (
-            "no price configured" if line.call.cost_usd is None else f"~${line.call.cost_usd:.2f} each")  # fmt: skip
-        source = "" if line.call.from_history else " (a starting guess)"
-        lines.append(f"  {line.call.kind:<7} {line.call.provider} · {line.call.model or 'default model'}: "
-                     f"{count} call(s), ~{tokens_text(line.call.tokens)} tokens each{source}, {cost}")  # fmt: skip
+    lines += [f"  {call_text(line)}" for line in estimate.lines]
     expected, maximum = estimate.expected_usd, estimate.maximum_usd
     money = "" if expected is None or maximum is None else f", ~${expected:.2f} (at most ${maximum:.2f})"
     lines.append(f"Expected: ~{tokens_text(estimate.expected_tokens)} tokens (at most "
@@ -214,12 +208,28 @@ def describe(estimate: UpdateEstimate) -> list[str]:
         lines += [f"  {page.title}{' (revised)' if page.revise else ''}: {_why(page)}" for page in estimate.pages]
     if estimate.skipped:
         lines.append("Skipped, since they failed last time and nothing in them changed: " + ", ".join(estimate.skipped))
-    for provider, method in estimate.sign_ins.items():
+    return lines + account_text(estimate.sign_ins, estimate.plan_usage)
+
+
+def call_text(line: EstimateLine) -> str:
+    """One kind of call in an estimate, for the command line."""
+    count = str(line.expected) if line.expected == line.maximum else f"{line.expected} to {line.maximum}"
+    cost = "free" if line.call.cost_usd == 0 else (
+        "no price configured" if line.call.cost_usd is None else f"~${line.call.cost_usd:.2f} each")  # fmt: skip
+    source = "" if line.call.from_history else " (a starting guess)"
+    return (f"{line.call.kind:<7} {line.call.provider} · {line.call.model or 'default model'}: "
+            f"{count} call(s), ~{tokens_text(line.call.tokens)} tokens each{source}, {cost}")  # fmt: skip
+
+
+def account_text(sign_ins: Mapping[str, str], readings: list[PlanUsageReading]) -> list[str]:
+    """How each provider is signed in, and the latest plan usage, for the command line."""
+    lines = []
+    for provider, method in sign_ins.items():
         if "subscription" in method.lower():
             lines.append(f"{provider}: {method}, so no charge; the work counts against your plan's usage limits.")
         elif provider != "local":
             lines.append(f"{provider}: {method}, billed to that account at its prices.")
-    for reading in estimate.plan_usage:
+    for reading in readings:
         lines.append(f"Plan usage ({reading.provider}, {reading.window.replace('_', ' ')}): "
                      f"{reading.utilization:.0%}, as of {when_text(reading.observed_at)}.")  # fmt: skip
     return lines

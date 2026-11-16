@@ -49,5 +49,11 @@ jobs:
             echo "The release's tag is $TAG but pyproject.toml says $version." >&2
             exit 1
           fi
+      # PyPI shows the README without the repository: point its images and links at this tag on GitHub
+      - name: Absolute paths in the README
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+          REPOSITORY: ${{ github.repository }}
+        run: python3 tools/pypi_readme.py "$REPOSITORY" "$TAG"
       - run: uv build
       - run: uv publish --trusted-publishing always

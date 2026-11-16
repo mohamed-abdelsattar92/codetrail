@@ -10,11 +10,14 @@ from __future__ import annotations
 import json
 import re
 import shutil
+import unicodedata
 from collections.abc import Callable, Mapping
 from dataclasses import asdict, dataclass, field
 from pathlib import Path, PurePosixPath
 
+from codetrail.config import SourceSettings
 from codetrail.errors import CodetrailError
+from codetrail.repo.compressed import Unscannable, inflated_text
 from codetrail.repo.mirror import list_tree, read_blobs
 from codetrail.repo.rules import ExclusionRules, Reason, on_disk_key
 from codetrail.repo.secrets import SecretScanner
@@ -55,13 +58,26 @@ class SourceManifest:
 
 
 def safe_path(path: str) -> bool:
-    """A relative path with no empty, `.`, `..` or `.git` parts (in any case), which stays inside its folder."""
+    """A relative path with no empty, `.`, `..` or `.git` parts (in any case) and no control characters, which stays
+    inside its folder."""
     if not path or path.startswith("/") or "\\" in path:
         return False
     if any("\udc80" <= character <= "\udcff" for character in path):  # bytes that aren't UTF-8 (surrogateescape)
         return False
+    if any(_poses_as_structure(character) for character in path):
+        return False
     parts = path.split("/")
     return all(part and part not in (".", "..") and on_disk_key(part) != ".git" for part in parts)
+
+
+BIDI_CONTROLS = frozenset("\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069")
+
+
+def _poses_as_structure(character: str) -> bool:
+    """A control character (C0, DEL or C1), a line or paragraph separator, or a bidi embedding, override or isolate:
+    in a prompt or the agents' export it can start a line or reorder text. Zero-width joiners stay, since ordinary
+    Persian spelling and emoji use them."""
+    return unicodedata.category(character) in ("Cc", "Zl", "Zp") or character in BIDI_CONTROLS
 
 
 def allowed_reader(source: Path, files: Mapping[str, str], max_bytes: int) -> Callable[[str], bytes | None]:
@@ -86,32 +102,51 @@ def allowed_reader(source: Path, files: Mapping[str, str], max_bytes: int) -> Ca
 
 
 def build_source(
-    mirror: Path, commit: str, rules: ExclusionRules, scanner: SecretScanner, data_dir: Path
+    mirror: Path, commit: str, rules: ExclusionRules, scanner: SecretScanner, data_dir: Path, limits: SourceSettings
 ) -> SourceManifest:
     source, next_source = data_dir / "source", data_dir / "source.next"
+    # The text zip and PDF files store compressed, inflated beside source.next/ at the same paths for the scan only.
+    inflated = data_dir / "source.inflated"
     shutil.rmtree(next_source, ignore_errors=True)
+    shutil.rmtree(inflated, ignore_errors=True)
     next_source.mkdir(parents=True)
+    inflated.mkdir()
     try:
         files: dict[str, str] = {}
         excluded: list[Excluded] = []
         entries = list_tree(mirror, commit)
         colliding = _colliding_paths([entry.path for entry in entries])
+        sizes: dict[str, int] = {}
         for entry in entries:
             reason = Reason.UNSAFE_PATH if entry.path in colliding else _reason(entry.mode, entry.path, rules)
+            if reason is None and (entry.size or 0) > limits.max_file_bytes:
+                reason = Reason.TOO_LARGE
             if reason is None:
                 files[entry.path] = entry.blob
+                sizes[entry.blob] = entry.size or 0
             else:
                 excluded.append(Excluded(entry.path, reason))
         paths_by_blob: dict[str, list[str]] = {}
         for path, blob in files.items():
             paths_by_blob.setdefault(blob, []).append(path)
-        for blob, content in read_blobs(mirror, list(paths_by_blob)):
-            for path in paths_by_blob[blob]:
-                destination = next_source / PurePosixPath(path)
-                destination.parent.mkdir(parents=True, exist_ok=True)
-                destination.write_bytes(content)
+        for group in _groups(list(paths_by_blob), sizes, limits.max_file_bytes):
+            for blob, content in read_blobs(mirror, group):
+                try:
+                    text = inflated_text(content, limits.max_inflated_bytes)
+                except Unscannable as error:
+                    for path in paths_by_blob[blob]:
+                        del files[path]
+                        excluded.append(Excluded(path, Reason.UNSCANNABLE, str(error)))
+                    continue
+                for path in paths_by_blob[blob]:
+                    _write(next_source, path, content)
+                    if text is not None:
+                        _write(inflated, path, text)
+        findings = scanner.scan_directory(next_source)
+        if any(inflated.iterdir()):
+            findings += scanner.scan_directory(inflated)
         flagged: dict[str, str] = {}
-        for finding in scanner.scan_directory(next_source):
+        for finding in findings:
             flagged.setdefault(finding.path, finding.rule)
         for path, rule in sorted(flagged.items()):
             (next_source / PurePosixPath(path)).unlink()
@@ -126,6 +161,28 @@ def build_source(
     except BaseException:
         shutil.rmtree(next_source, ignore_errors=True)
         raise
+    finally:
+        shutil.rmtree(inflated, ignore_errors=True)
+
+
+def _write(root: Path, path: str, content: bytes) -> None:
+    destination = root / PurePosixPath(path)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_bytes(content)
+
+
+def _groups(blobs: list[str], sizes: Mapping[str, int], max_bytes: int) -> list[list[str]]:
+    """The blobs in groups of at most `max_bytes` together, each read with one `git cat-file`, so memory holds one
+    group's content at a time."""
+    groups: list[list[str]] = [[]]
+    total = 0
+    for blob in blobs:
+        if groups[-1] and total + sizes[blob] > max_bytes:
+            groups.append([])
+            total = 0
+        groups[-1].append(blob)
+        total += sizes[blob]
+    return groups
 
 
 def _colliding_paths(paths: list[str]) -> set[str]:

@@ -17,6 +17,27 @@ class AssistantError(CodetrailError):
     """The assistant couldn't complete a task: an error, a limit reached, or no usable answer."""
 
 
+class PaidCallFailed(AssistantError):
+    """The call failed after the provider counted what it used: callers record that usage and count its cost.
+
+    Adapters never retry it, since only the caller knows whether the budget allows another paid call."""
+
+    def __init__(self, message: str, usage: Usage) -> None:
+        super().__init__(message)
+        self.usage = usage
+
+    @property
+    def cost_usd(self) -> float:
+        return self.usage.cost_usd or 0.0
+
+
+def call_failed(message: str, usage: Usage) -> AssistantError:
+    """The error for a failed call: one carrying its usage when the provider counted any tokens or cost."""
+    if usage.tokens or usage.cost_usd:
+        return PaidCallFailed(message, usage)
+    return AssistantError(message)
+
+
 @dataclass(frozen=True)
 class PlanWindow:
     """How much of a subscription's usage window is used (0 to 1), and when it resets (seconds since the epoch)."""
@@ -40,6 +61,10 @@ class Usage:
     output_tokens: int = 0
     cost_usd: float | None = None
     plan_windows: tuple[PlanWindow, ...] = ()
+
+    @property
+    def tokens(self) -> int:
+        return self.input_tokens + self.cached_input_tokens + self.output_tokens
 
 
 @dataclass(frozen=True)
@@ -97,12 +122,14 @@ class DigestRequest:
     commits: str
     fact_changes: str
     pages_changed: list[str] = field(default_factory=list)
+    max_highlights: int = 0
 
 
 @dataclass(frozen=True)
 class DigestDraft:
     title: str
     body: str
+    highlights: list[str] = field(default_factory=list)
     files_read: list[str] = field(default_factory=list)
     cost_usd: float = 0.0
     usage: Usage = field(default_factory=Usage)
@@ -149,6 +176,34 @@ class Verdict:
     usage: Usage = field(default_factory=Usage)
 
 
+@dataclass(frozen=True)
+class OverviewDigest:
+    """A digest a team's catch-up wrote, for the overview: its target, repository, page id, title and text."""
+
+    target: str
+    repository: str
+    digest_id: str
+    title: str
+    body: str
+    highlights: list[str]
+
+
+@dataclass(frozen=True)
+class OverviewRequest:
+    team: str
+    digests: list[OverviewDigest]
+    max_words: int
+    problems: list[str] = field(default_factory=list)  # from a failed validation, for the retry
+    previous_body: str = ""
+
+
+@dataclass(frozen=True)
+class OverviewDraft:
+    body: str
+    cost_usd: float = 0.0
+    usage: Usage = field(default_factory=Usage)
+
+
 class Assistant(Protocol):
     async def plan(self, request: PlanRequest) -> PlanDraft: ...
 
@@ -159,3 +214,5 @@ class Assistant(Protocol):
     def answer(self, request: QuestionRequest) -> AsyncIterator[AnswerChunk]: ...
 
     async def grade(self, request: GradeRequest) -> Verdict: ...
+
+    async def write_overview(self, request: OverviewRequest) -> OverviewDraft: ...

@@ -4,6 +4,83 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-11-16
+
+Release notes: [docs/releases/v1.5.0.md](docs/releases/v1.5.0.md).
+
+### Added
+- Past catch-ups: a page at `/team/catch-ups`, linked from the team page and its sidebar, reads any earlier catch-up again at no cost, with its overview and digests, by day from a calendar of 53 weeks or by a range of dates (`[team] history_days`, `max_history_catch_ups`). Each catch-up now records the digests it wrote.
+- Catching up across a team. **Catch up** on the team page and `codetrail team update <name> [--yes]` re-read the sources, clone new repositories and refresh every repository's facts for free, then show one estimate with a line and checkbox per repository, capped at the team's budget (`[catch_up] max_budget_usd`, `concurrency`, and `max_budget_usd_per_call` for the overview). Once the budget is spent, a repository whose turn hadn't come isn't updated, and its card and the panel say why; a repository the last catch-up missed, first guides included, says why on its card or row, and its card counts the merges its guide hasn't taken in. `codetrail team update` asks the same `Continue? [y/N]` as `codetrail update`. The team page shows one card per repository with something new, busiest first: its unread digests' highlights marked documented or inferred, who merged (never counted), and a link to the digest, with **Mark read**. "Across the team" is an overview written in one call with no tools, which may only copy documented blocks from the digests (`[team] max_overview_words`, `[models] overview`, no Codex).
+- Digests carry up to three highlights, for every target (`[team] highlights_per_digest`).
+- How-to guides for every feature, one page each with the steps, commands, a screenshot at every step, the settings, costs and troubleshooting: your first guide, what Codetrail reads, updating, reading and learning, getting around, search and ask, exploring the code, digests, assistants, coding agents, teams, settings and troubleshooting ([docs/guides](docs/guides/README.md)). Their screenshots are regenerated from test data by `tests/browser/test_guide_screenshots.py`.
+- Teams from hosting services: `codetrail team add`, `list`, `serve` and `remove` follow the repositories of a GitHub organization, an Azure DevOps project or a GitLab group. Codetrail reads the service through `gh`, `az` or `glab` and clones with your own git sign-in, over https or ssh; it never holds a token and never writes to the service. `codetrail team serve` shows each repository's "you're behind" signal and its guide under one sign-in. Catching up on all of them is described above ([ADR 0020](docs/adr/0020-hosting-services-through-their-own-programs.md)).
+
+### Changed
+- The team page and the add-repositories screen use the guides' header and sidebar: the theme switch, the language picker, and links to the team page, the screen and each followed repository. A guide served by `codetrail team serve` links back to its team, and shows the repository's own name; `codetrail serve` on a team's repository says which team it belongs to.
+- The add-repositories screen shows the Azure DevOps organization field only once Azure DevOps is signed in, links each program's install page, names repositories in its progress, lists them again after a save, and says how to write their first guides.
+- A guide with no pages yet says "No guide yet" instead of "Up to date", on its home page and on the team page; the team page also says how many of a source's repositories are left out.
+- The README and the getting-started guide install Codetrail from PyPI: `uv tool install codetrail-cli`.
+- The README, the PyPI page and the banner used as GitHub's social preview present Codetrail as your onboarding guide to any codebase, whether you're new to it or coming back to it after months away, and the PyPI page lists keywords so searches for onboarding find it.
+
+### Fixed
+- When Claude Code or Codex is stopped, Codetrail closes its output pipe, and its input pipe once the prompt was sent, at once, even while something it started outside its process group still holds them, instead of keeping them open until that exits.
+- The repository root's facts are named "project · repository root", "part · repository root" and "worker · repository root", in the reader's language, instead of `project:.`, `part:.` and `worker:.`.
+- After `codetrail update --facts-only` or a catch-up's free part, the home page and the team page still say how many commits the guide is behind, counting from the commit its newest digest covered, instead of "Up to date" ([ADR 0021](docs/adr/0021-count-behind-from-the-guide.md)).
+- The home card's "Started on" and the repository page's first commit are the same date, the earliest in the history, which the timeline also starts from; a back-dated commit made them disagree.
+- On an Arabic page, the labels of documented and inferred blocks are in Arabic too.
+- The phone menu casts no shadow while closed, and dialogs taller than the window scroll inside, keeping their title and buttons in view.
+- Diagrams fill the text column and draw on their card, without a white box; diffs and long fact ids wrap instead of being cut off.
+- The page makes room for the update and catch-up panels instead of running under them, and a guide's text starts in the same place on every page.
+- The Documentation overview fades at its edge while more tiles follow; the system page's tables line up; the team screens and sidebar line up with the guides.
+- A path lists its steps once, with how many are learned; the saved-answers count updates when you save one.
+- A commit without a merge no longer reads as "0 merges landed", and the team header no longer says "0 of N repositories have new merges".
+- The team page shows a catch-up's results right away instead of up to a minute later.
+- The first guide's digest names its pages by title.
+- Choosing Codex for grading is refused when the configuration loads, instead of at every check.
+- Codex planning requests include `scope_kinds` among the schema's required properties, as OpenAI strict structured output requires.
+- A failed Codex process reports its structured request error when available, instead of replacing it with the last standard-error diagnostic.
+- Codex signed in with ChatGPT is correctly reported as ready when `codex login status` writes its status to standard error.
+- The PyPI page shows the README's screenshots, diagrams and logo, and its links open the files on GitHub, at the release's tag.
+
+### Security
+- The page's update status now needs the per-session token, like every other JSON read.
+- The git hooks refuse to run while a local lefthook configuration, `LEFTHOOK_CONFIG`, `LEFTHOOK=0`, `LEFTHOOK_EXCLUDE`, or an untracked `.gitleaks.toml` or `.gitleaksignore` could skip a check.
+- Claude Code asks you before an agent edits any agent guardrail (its hooks, settings and instructions, the Codex rules, the git hooks, the security checklist, CI, the lefthook, mise and gitleaks files) in any checkout, `~/.claude/settings.json` included, and refuses the shell writes to them it recognises.
+- Agents' searches that would reach an env or key file, in the repository, the home folder or any named folder, are refused; all of Codex's home and every `.env.*` file except `.env.example` are unreadable to them.
+- Codex asks before `az`, `git reset` and `git symbolic-ref`, and refuses `-Bdevelop`-style resets of develop or main.
+- CI lets a commit skip the message rules for Dependabot's sign-off only when GitHub verifies it as Dependabot's.
+- Codetrail's folders and files are now private to you (0700 and 0600), git's mirror included, and an older readable data folder is closed.
+- Committed files over `[source] max_file_bytes` (50 MB) are excluded as "too large" before they are read; a `.codetrailignore` over `[source] max_ignore_bytes` (64 KiB), with a line over 4,096 bytes, or with more than `[source] max_ignore_lines` (200) pattern lines fails the refresh.
+- Matching a repository's own `.codetrailignore` stops after `[source] max_ignore_match_seconds` (60 s), so crafted ignore lines and paths can't hang an update.
+- Secrets inside compressed files are now scanned: zip-based files (.docx, .xlsx, .jar, .zip), tar archives, gzip, bzip2 and xz files, and the streams of PDFs. A file that can't be decoded whole within `[source] max_inflated_bytes` (50 MB), or is encrypted, damaged or uses an encoding Codetrail doesn't read, is excluded as unscannable. Text a PDF draws through its fonts, and images, can't be scanned, so the assistant never reads a PDF, an image or a notebook with image outputs or image attachments; Claude Code's own rules deny reading PDFs and images too.
+- gitleaks now reads its input from a file kept in Codetrail's own state folder, not the shared temporary folder, closing a way for text to be skipped as binary; leftovers from a crash are removed by the next command.
+- Mirrors refuse malformed git objects (`transfer.fsckObjects`, which a reader's own `fetch.fsckObjects` can no longer switch off); old histories with cosmetic flaws (odd dates, missing emails, zero-padded modes) are still accepted, and git's security checks stay fatal. A failed read of a target's `.codetrailignore` now fails the refresh instead of counting as no file.
+- Credentials in dependency URLs are stripped more thoroughly: passwords holding "/", "@" or "://", and password, pwd, pat, token and other credential-like query values, also in scp-style specifiers.
+- `codetrail agents` checks that the data folder isn't inside the repository, and provider output in estimates and `codetrail providers` is escaped.
+- Everything a prompt carries from the repository or the assistant (page titles, scope paths, the outline, retry problems, check questions and rubrics, diagram placeholders) is fenced as data, not instructions.
+- Budgets reserve each call's most possible cost before it starts (Claude Code's cap, a priced Codex model's token limit at its price, nothing for a local model), so no call starts past the update's or the team's budget, and a running call can pass its own cap only by its last turn. An update that would make a paid call whose cap is larger than its whole budget refuses before calling anything.
+- A call stopped at its time limit isn't retried and counts as its whole cap (Claude Code) or token limit (Codex); a call cancelled while it runs (an update or catch-up stopped, a question whose page is closed mid-answer) counts as its whole cap too. A graded check whose grade can't be read, and an answer whose secret scan fails, record what the call used.
+- A page whose paid call failed is skipped until its facts change, like a page that failed validation.
+- Codex runs with web search off (both its current and older settings), and grading refuses Codex, as the team overview does.
+- Claude Code calls deny every MCP tool and turn off auto memory, claude.ai connectors and synced skills and plugins, in case the guard hook fails to run.
+- A local model's searches stop at the call's time limit, and its Glob no longer slows to a crawl on long file names.
+- A provider or hosting program that writes more than its output limit (`[providers] max_output_bytes`, 50 MB per stream by default, for providers; `hosting.max_output_bytes` for hosting reads) is stopped at once, instead of being read whole first.
+- A third repository whose name matches two others no longer stops a team's sync: target names are numbered until one is free.
+- Azure DevOps names holding a lone surrogate, a private-use or unassigned character, or a line or paragraph separator are refused, so they can no longer crash `team serve` or leave empty target files.
+- A catch-up started just as another finished can no longer skip the cooldown.
+- The hosting read guard checks every argument after `gh repo list`, and `api` reads take exactly one path.
+- `inf` and `nan` are refused in every setting, including the `[catch_up]`, `[bridge]`, `[learn]` and `[generation]` budgets and prices, so a budget can no longer mean no limit or make a team file stop loading.
+- The add-repositories screen links only Codetrail's own install pages in a service's hint.
+- Dependencies with known vulnerabilities are updated: certifi 2026.10.23 (it dropped root certificates whose intermediate keys were compromised), opentelemetry-api 1.45.2 (unbounded `tracestate` parsing), and, in the commit-message tooling, fast-uri 3.1.9.
+- A target that commits a bare repository's files at its root (`HEAD`, `config`, `objects/`, `refs/`) can no longer make a provider's own `git status` run a command it planted: providers' git refuses implicit bare repositories.
+- Links and images in guide pages, digests, overviews and answers keep only `http`, `https` or relative addresses, so text a target plants can no longer make a link that opens another app (`vscode:`, `smb:`, `ssh:` and the like).
+- Every file is scanned for secrets before it reaches `source/`, including those gitleaks' defaults skip: lock files, `node_modules/` and other folders on its allowlist, images, paths holding `gitleaks.toml`, and files that start like a binary one.
+- Commit and tag messages, pages, digests, overviews and answers that start like a binary file ("SQLite: …", "MZ-123 …", "%PDF …") are scanned for secrets too; gitleaks used to skip the whole text, so one such commit subject hid a token in any other message read with it.
+- A target's `.codetrailignore` line with more wildcards than Codetrail can match quickly (more than two `**` parts and extra `*` within one part, together) now fails the update with the line's number, instead of letting the line hang updates, the page's "behind" count and a team's catch-up.
+- Saving on a team's Add repositories screen keeps every `[catch_up]` setting; it used to drop `max_budget_usd_per_call`, which went back to $1.00.
+- Page titles in the outline, guided paths' titles and goals, and digest titles are scanned for secrets before they reach the guide, like page bodies: a flagged entry or path is left out, and a flagged digest falls back to its list of commits. A guided path's title with a control character is left out, as a page's is.
+- A call to the assistant that fails after the provider counted it, such as Claude Code passing its turns or its budget, now counts against the update's and the team's budget and appears in the usage history, so a run of failed pages can no longer spend past the budget.
+
 ## [1.4.1] - 2026-10-27
 
 Release notes: [docs/releases/v1.4.1.md](docs/releases/v1.4.1.md).
@@ -152,7 +229,8 @@ The first public release. Release notes: [docs/releases/v1.0.0.md](docs/releases
 - The page and the bridge listen on 127.0.0.1 only, check `Host`, `Origin` and `Sec-Fetch-Site`, need a single-use login code and a per-session token, and send a strict content security policy.
 - The assistant gets read-only tools (Read, Grep, Glob) confined to the filtered sources: for Claude Code through two independent guards, and for local models through Codetrail's own tools. Codex can't be confined the same way, so it stays off unless a target opts in. Every provider gets an allowlisted environment: Codetrail never reads, stores or passes a key or token, unless you set `auth = "api_key"`, when the provider's key variable is handed to its program by name.
 
-[Unreleased]: https://github.com/mohamed-abdelsattar92/codetrail/compare/v1.4.1...develop
+[Unreleased]: https://github.com/mohamed-abdelsattar92/codetrail/compare/v1.5.0...develop
+[1.5.0]: https://github.com/mohamed-abdelsattar92/codetrail/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/mohamed-abdelsattar92/codetrail/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/mohamed-abdelsattar92/codetrail/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/mohamed-abdelsattar92/codetrail/compare/v1.2.0...v1.3.0

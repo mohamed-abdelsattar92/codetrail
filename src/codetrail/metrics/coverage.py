@@ -14,8 +14,7 @@ from pathlib import PurePosixPath
 from codetrail.facts import Entity, EntityKind
 from codetrail.generate.outline import OutlineEntry
 from codetrail.generate.scope import entities_in_scope
-from codetrail.guide import Page
-from codetrail.metrics.rationale import guide_pages
+from codetrail.guide import Page, guide_pages
 
 MENTIONABLE = (EntityKind.PACKAGE, EntityKind.PROJECT, EntityKind.RESOURCE)
 WORD = re.compile(r"[A-Za-z0-9@/._-]+")

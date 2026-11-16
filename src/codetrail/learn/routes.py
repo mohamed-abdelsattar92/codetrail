@@ -17,7 +17,7 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, ConfigDict, Field
 
-from codetrail.assistant import Assistant, AssistantError, GradeRequest
+from codetrail.assistant import Assistant, AssistantError, GradeRequest, PaidCallFailed
 from codetrail.assistant.usage import UsageLog
 from codetrail.config import Paths, Price, ToolsSettings
 from codetrail.database import connect
@@ -110,20 +110,31 @@ def learning_router(
             )  # fmt: skip
             verdict = await assistant_for().grade(request)
         except AssistantError as error:
+            if isinstance(error, PaidCallFailed):  # what the failed call used is recorded all the same
+                connection = connect(data / "codetrail.db")
+                try:
+                    UsageLog(connection, prices or {}).record("grade", error.usage)
+                finally:
+                    connection.close()
             return JSONResponse({"error": str(error)}, 502)
         finally:
             grading["busy"] = False
+        # The call is paid for whatever follows: its usage is recorded before anything can fail or be cancelled.
+        connection = connect(data / "codetrail.db")
+        try:
+            cost = UsageLog(connection, prices or {}).record("grade", verdict.usage) or verdict.cost_usd
+        finally:
+            connection.close()
+        if verdict.verdict not in VERDICTS:
+            unread = _("The grade couldn't be read, so nothing was recorded; try again.")
+            return JSONResponse({"error": unread}, 502)
         feedback = verdict.feedback
         findings = await anyio.to_thread.run_sync(SecretScanner(tools).scan_text, feedback)
         if findings:
             withheld = _("The feedback was withheld: it contains something that looks like a secret (%(rule)s).")
             feedback = withheld % {"rule": findings[0].rule}
-        if verdict.verdict not in VERDICTS:
-            unread = _("The grade couldn't be read, so nothing was recorded; try again.")
-            return JSONResponse({"error": unread}, 502)
         connection = connect(data / "codetrail.db")
         try:
-            cost = UsageLog(connection, prices or {}).record("grade", verdict.usage) or verdict.cost_usd
             status = LearningState(connection).record_attempt(
                 page, check, submitted.answer, verdict.verdict, feedback, language.code, guide.head()
             )

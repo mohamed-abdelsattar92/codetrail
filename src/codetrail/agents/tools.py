@@ -16,6 +16,7 @@ from datetime import date
 
 from codetrail.agents.convert import limit_words
 from codetrail.agents.export import AgentExport, ExportedPage, read_export
+from codetrail.assistant.prompts import neutralize
 from codetrail.config import AgentSettings, Paths
 from codetrail.errors import CodetrailError
 from codetrail.generate.outline import in_scope
@@ -84,7 +85,8 @@ class AgentTools:
     def definitions(self) -> list[dict[str, object]]:
         """The tools, each saying which repository it covers: the server is registered for the reader, so agents
         working in other repositories see it too."""
-        scope = f"For {self.name}, the repository at {self.repository}, only; in any other repository don't call it. "
+        repository = neutralize(self.repository)  # a remote's `git@` would reach the agent as a mention
+        scope = f"For {self.name}, the repository at {repository}, only; in any other repository don't call it. "
         return [{**tool, "description": scope + str(tool["description"])} for tool in TOOLS]
 
     def call(self, tool: str, arguments: Mapping[str, object]) -> str:

@@ -1,5 +1,6 @@
 // Keyboard shortcuts (design section 16.4). None of them spends anything: Ask and Update only open the panel or the
 // estimate dialog. Single keys are ignored while typing and whenever Command, Control or Alt is held.
+import { sitePath } from "./api.js";
 import { closeAsk, isAskOpen, openAsk } from "./ask.js";
 import { toggleRead } from "./learning.js";
 import { openPalette } from "./palette.js";
@@ -56,10 +57,10 @@ export function setUpShortcuts() {
     if (awaitingPlace) {
       clearTimeout(awaitingPlace);
       awaitingPlace = null;
-      const place = PLACES[key.toLowerCase()];
+      const place = help && PLACES[key.toLowerCase()]; // a guide's places: the team's own pages have none
       if (place) {
         event.preventDefault();
-        window.location.href = place;
+        window.location.href = sitePath(place);
       }
       return;
     }

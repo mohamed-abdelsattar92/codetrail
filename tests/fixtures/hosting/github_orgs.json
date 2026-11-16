@@ -1,0 +1,10 @@
+[
+  {
+    "login": "acme-org",
+    "id": 1001,
+    "node_id": "O_kgDOAAAD6Q",
+    "url": "https://api.github.com/orgs/acme-org",
+    "repos_url": "https://api.github.com/orgs/acme-org/repos",
+    "description": "Acme"
+  }
+]

@@ -66,3 +66,58 @@ def test_hooks_fail_when_lefthook_yml_is_missing(tmp_path: pathlib.Path) -> None
                             capture_output=True, text=True)
     assert result.returncode == 1
     assert "lefthook.yml" in result.stderr
+
+
+# Every name lefthook 2.1.14 loads a local configuration from: each one can skip a hook (`skip: true`) or a job,
+# the pre-commit gitleaks scan included.
+LOCAL_CONFIGS = [f"{stem}.{extension}" for stem in ("lefthook-local", ".lefthook-local", ".config/lefthook-local")
+                 for extension in ("yml", "yaml", "json", "jsonc", "toml")]
+
+
+@pytest.mark.parametrize("name", LOCAL_CONFIGS)
+def test_hooks_refuse_a_local_lefthook_config(tmp_path: pathlib.Path, name: str) -> None:
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    (tmp_path / "lefthook.yml").write_text("pre-commit:\n  jobs: []\n")
+    (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
+    (tmp_path / name).write_text("pre-commit:\n  skip: true\n")
+    result = subprocess.run(["sh", str(HOOKS / "run-lefthook"), "pre-commit"], cwd=tmp_path, env=clean_env(),
+                            capture_output=True, text=True)
+    assert result.returncode == 1
+    assert name in result.stderr
+
+
+def test_hooks_refuse_another_lefthook_config(tmp_path: pathlib.Path) -> None:
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    (tmp_path / "lefthook.yml").write_text("pre-commit:\n  jobs: []\n")
+    result = subprocess.run(["sh", str(HOOKS / "run-lefthook"), "pre-commit"], cwd=tmp_path,
+                            env=clean_env(LEFTHOOK_CONFIG="other.yml"), capture_output=True, text=True)
+    assert result.returncode == 1
+    assert "LEFTHOOK_CONFIG" in result.stderr
+
+
+
+@pytest.mark.parametrize("setting", [{"LEFTHOOK": "0"}, {"LEFTHOOK": "false"}, {"LEFTHOOK": "False"},
+                                     {"LEFTHOOK_EXCLUDE": "secrets"}])
+def test_hooks_refuse_settings_that_skip_checks(tmp_path: pathlib.Path, setting: dict[str, str]) -> None:
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    (tmp_path / "lefthook.yml").write_text("pre-commit:\n  jobs: []\n")
+    result = subprocess.run(["sh", str(HOOKS / "run-lefthook"), "pre-commit"], cwd=tmp_path,
+                            env=clean_env(**setting), capture_output=True, text=True)
+    assert result.returncode == 1
+    assert next(iter(setting)) in result.stderr
+
+
+
+@pytest.mark.parametrize("name", [".gitleaks.toml", ".gitleaksignore"])
+def test_hooks_refuse_an_untracked_gitleaks_setting(tmp_path: pathlib.Path, name: str) -> None:
+    # The pre-commit gitleaks job reads these from the repository's root, so an untracked one could hide a leak.
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    (tmp_path / "lefthook.yml").write_text("pre-commit:\n  jobs: []\n")
+    (tmp_path / name).write_text("x\n")
+    run = ["sh", str(HOOKS / "run-lefthook"), "pre-commit"]
+    result = subprocess.run(run, cwd=tmp_path, env=clean_env(), capture_output=True, text=True)
+    assert result.returncode == 1
+    assert name in result.stderr
+    subprocess.run(["git", "-C", str(tmp_path), "add", name], check=True)
+    tracked = subprocess.run(run, cwd=tmp_path, env=clean_env(), capture_output=True, text=True)
+    assert name not in tracked.stderr  # a tracked one is reviewed; lefthook may be missing here

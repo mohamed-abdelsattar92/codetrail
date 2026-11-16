@@ -1,8 +1,10 @@
 """Rendering a guide page (design sections 6.4 and 7.4).
 
-Markdown is rendered by markdown-it-py with raw HTML disabled and its link validation on (no `javascript:`,
-`vbscript:`, `file:` or `data:` links). Rationale blocks become labelled boxes, `[[fact]]` links point at the fact's
-view, and diagram placeholders are replaced by diagrams drawn from facts.
+Markdown is rendered by markdown-it-py with raw HTML disabled, and links and images keep only `http`, `https` or no
+scheme (relative links and anchors): markdown-it's own check refuses only a few schemes, and a link such as `vscode:` or
+`smb:` hands its address to the operating system. Rationale blocks become labelled boxes, `[[fact]]` links point at the
+fact's view, and diagram placeholders are replaced by diagrams drawn from facts. Links to the page's own routes get
+its prefix (section 24.7).
 """
 
 from __future__ import annotations
@@ -10,7 +12,7 @@ from __future__ import annotations
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 from markdown_it import MarkdownIt
 from markdown_it.renderer import RendererHTML
@@ -27,9 +29,21 @@ from codetrail.web.diagrams import (
     resources_diagram,
     system_diagram,
 )
+from codetrail.web.links import site_path
 
 FACT_LINK = re.compile(r"\[\[([a-z_]+:[^\]\s]+)\]\]")
 MARKDOWN = MarkdownIt("commonmark", {"html": False, "linkify": False}).enable("table")
+LINK_SCHEMES = ("", "http", "https")
+
+
+def _allowed_link(url: str) -> bool:
+    try:
+        return urlsplit(url).scheme.lower() in LINK_SCHEMES
+    except ValueError:  # an address urllib can't split, such as an unclosed IPv6 bracket
+        return False
+
+
+MARKDOWN.validateLink = _allowed_link  # type: ignore[method-assign]
 
 
 def _aligned_cell(
@@ -44,8 +58,18 @@ def _aligned_cell(
     return renderer.renderToken(tokens, index, options, env)
 
 
+def _local_link(renderer: RendererHTML, tokens: Sequence[Token], index: int, options: OptionsDict, env: EnvType) -> str:
+    """A link to one of the page's routes, such as a path's steps or a fact, under the page's prefix."""
+    token = tokens[index]
+    href = token.attrGet("href")
+    if isinstance(href, str) and href.startswith("/"):
+        token.attrSet("href", site_path(href))
+    return renderer.renderToken(tokens, index, options, env)
+
+
 for cell in ("th_open", "td_open"):
     MARKDOWN.add_render_rule(cell, _aligned_cell)
+MARKDOWN.add_render_rule("link_open", _local_link)
 
 
 @dataclass(frozen=True)
@@ -64,13 +88,25 @@ def render_markdown(text: str) -> Markup:
     return Markup(MARKDOWN.render(linked))  # noqa: S704
 
 
-def render_body(body: str, store: FactStore, max_nodes: int) -> list[Segment]:
-    segments: list[Segment] = []
+@dataclass(frozen=True)
+class BodyPart:
+    """A piece of a page's body that is rendered on its own: Markdown, a rationale block's contents, or a diagram's
+    arguments. Validation that must see what the page renders (section 24.9) parses these same pieces."""
+
+    kind: str  # "markdown", "rationale" or "diagram"
+    text: str
+    label: str = ""  # a rationale block's kind
+    citation: str | None = None
+
+
+def body_parts(body: str) -> list[BodyPart]:
+    """The body split at rationale markers and diagram lines, as the page renders it; empty Markdown is left out."""
+    parts: list[BodyPart] = []
     pending: list[str] = []
 
     def flush() -> None:
         if "".join(pending).strip():
-            segments.append(Segment("html", render_markdown("\n".join(pending))))
+            parts.append(BodyPart("markdown", "\n".join(pending)))
         pending.clear()
 
     lines = body.splitlines()
@@ -86,26 +122,37 @@ def render_body(body: str, store: FactStore, max_nodes: int) -> list[Segment]:
             while index < len(lines) and lines[index].startswith(">") and not MARKER.match(lines[index]):
                 content.append(lines[index][1:].removeprefix(" "))
                 index += 1
-            citation = marker.group(2) or None
-            segments.append(
-                Segment("rationale", render_markdown("\n".join(content)), marker.group(1), citation, _link(citation))
-            )
+            parts.append(BodyPart("rationale", "\n".join(content), marker.group(1), marker.group(2) or None))
             continue
         if diagram:
             flush()
-            drawn = _diagram(diagram.group(1), store, max_nodes)
-            if drawn is not None and drawn.nodes:  # a diagram with nothing to draw is left out, not shown empty
-                segments.append(Segment("diagram", diagram=drawn))
+            parts.append(BodyPart("diagram", diagram.group(1)))
         else:
             pending.append(line)
         index += 1
     flush()
+    return parts
+
+
+def render_body(body: str, store: FactStore | None, max_nodes: int) -> list[Segment]:
+    """The body's segments. Without a store (a card's highlights, the team's overview), diagram lines are dropped."""
+    segments: list[Segment] = []
+    for part in body_parts(body):
+        if part.kind == "markdown":
+            segments.append(Segment("html", render_markdown(part.text)))
+        elif part.kind == "rationale":
+            html = render_markdown(part.text)
+            segments.append(Segment("rationale", html, part.label, part.citation, _link(part.citation)))
+        elif store is not None:
+            drawn = _diagram(part.text, store, max_nodes)
+            if drawn is not None and drawn.nodes:  # a diagram with nothing to draw is left out, not shown empty
+                segments.append(Segment("diagram", diagram=drawn))
     return segments
 
 
 def _link(citation: str | None) -> str | None:
     match = FILE_CITATION.match(citation or "")
-    return f"/source/{quote(match.group('path'))}#L{match.group('start')}" if match else None
+    return site_path(f"/source/{quote(match.group('path'))}#L{match.group('start')}") if match else None
 
 
 def _diagram(arguments: str, store: FactStore, max_nodes: int) -> Diagram | None:

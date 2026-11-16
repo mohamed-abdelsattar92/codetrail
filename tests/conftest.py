@@ -6,7 +6,7 @@ from typing import Any
 
 import pytest
 
-REAL_PROGRAMS = {"claude", "codex"}
+REAL_PROGRAMS = {"claude", "codex", "gh", "az", "glab"}
 
 
 @pytest.fixture
@@ -15,8 +15,21 @@ def anyio_backend() -> str:
 
 
 @pytest.fixture(autouse=True)
+def private_codetrail_folders(tmp_path_factory: pytest.TempPathFactory, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Codetrail's configuration, data and state folders (and the gitleaks scan folders under the state one) point at
+    a temporary folder per test, so no test writes into the real home folder. A test or fixture that sets one of these
+    variables itself runs later, so its value wins."""
+    folder = tmp_path_factory.mktemp("xdg")
+    for variable, name in (("XDG_CONFIG_HOME", "config"), ("XDG_DATA_HOME", "data"), ("XDG_STATE_HOME", "state")):
+        monkeypatch.setenv(variable, str(folder / name))
+
+
+@pytest.fixture(autouse=True)
 def no_real_providers(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
-    """Only tests marked `live` may run the real `claude` or `codex`; elsewhere it fails at once, costing nothing."""
+    """Only tests marked `live` may run a real provider or hosting program (claude, codex, gh, az, glab).
+
+    Elsewhere it fails at once, costing nothing.
+    """
     if request.node.get_closest_marker("live") is None:
         from codetrail.assistant import runner
 
@@ -24,7 +37,7 @@ def no_real_providers(request: pytest.FixtureRequest, monkeypatch: pytest.Monkey
 
         def refuse(command: Any) -> None:
             if Path(str(command[0])).name in REAL_PROGRAMS:
-                raise AssertionError("A test tried to run a real provider; use a fake program or mark it live.")
+                raise AssertionError("A test tried to run a real program; use a fake or mark it live.")
 
         async def program(command: Any, *arguments: Any, **keywords: Any) -> AsyncIterator[str]:
             refuse(command)

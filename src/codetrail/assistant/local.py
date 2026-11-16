@@ -10,6 +10,7 @@ them. Local models cost nothing.
 from __future__ import annotations
 
 import json
+import time
 from collections.abc import AsyncIterator, Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -24,6 +25,8 @@ from codetrail.assistant import (
     DigestDraft,
     DigestRequest,
     GradeRequest,
+    OverviewDraft,
+    OverviewRequest,
     PageDraft,
     PageRequest,
     PlanDraft,
@@ -39,12 +42,15 @@ from codetrail.assistant.prompts import (
     GRADE_RULES,
     GRADE_SCHEMA,
     GROUND_RULES,
+    OVERVIEW_RULES,
+    OVERVIEW_SCHEMA,
     PAGE_SYNTAX,
     PLAN_SCHEMA,
     answer_prompt,
     digest_prompt,
     grade_prompt,
     neutralize,
+    overview_prompt,
     page_task,
     plan_prompt,
 )
@@ -96,12 +102,21 @@ class LocalAssistant:
         data, result = await self._structured(
             "digest", GROUND_RULES + "\n" + PAGE_SYNTAX, digest_prompt(request), DIGEST_SCHEMA
         )
-        return DigestDraft(str(data.get("title", "")), str(data.get("body", "")), result.files_read, 0.0, result.usage)
+        highlights = [str(item) for item in data.get("highlights", [])]
+        return DigestDraft(
+            str(data.get("title", "")), str(data.get("body", "")), highlights, result.files_read, 0.0, result.usage
+        )
 
     async def grade(self, request: GradeRequest) -> Verdict:
         data, result = await self._structured("grade", GRADE_RULES, grade_prompt(request), GRADE_SCHEMA, tools=False)
         missed = [str(item) for item in data.get("missed", [])]
         return Verdict(str(data.get("verdict", "")), missed, str(data.get("feedback", "")), 0.0, result.usage)
+
+    async def write_overview(self, request: OverviewRequest) -> OverviewDraft:
+        data, result = await self._structured(
+            "overview", OVERVIEW_RULES, overview_prompt(request), OVERVIEW_SCHEMA, tools=False
+        )
+        return OverviewDraft(str(data.get("body", "")), 0.0, result.usage)
 
     async def answer(self, request: QuestionRequest) -> AsyncIterator[AnswerChunk]:
         rules = GROUND_RULES + "\n" + PAGE_SYNTAX + "\n" + ANSWER_RULES
@@ -136,6 +151,7 @@ class LocalAssistant:
         ]
         tokens_in = tokens_out = 0
         retried = False
+        deadline = time.monotonic() + self.settings.timeout_seconds  # for the tools' threads, which outlive a cancel
         with anyio.fail_after(self.settings.timeout_seconds):
             for _turn in range(self.settings.max_turns):
                 body: dict[str, Any] = {"model": model, "messages": messages, "temperature": 0}
@@ -155,7 +171,7 @@ class LocalAssistant:
                     messages.append({"role": "assistant", "content": message.get("content") or "", "tool_calls": calls})
                     for index, call in enumerate(calls):
                         content = (
-                            await _run_tool(files, call)
+                            await _run_tool(files, call, deadline)
                             if index < MAX_TOOL_CALLS_PER_TURN
                             else f"Refused: too many tool calls in one turn (at most {MAX_TOOL_CALLS_PER_TURN})."
                         )
@@ -194,7 +210,7 @@ class LocalAssistant:
         return reply
 
 
-async def _run_tool(files: LocalTools, call: Mapping[str, Any]) -> str:
+async def _run_tool(files: LocalTools, call: Mapping[str, Any], deadline: float) -> str:
     function = call.get("function") or {}
     try:
         arguments = json.loads(function.get("arguments") or "{}")
@@ -202,8 +218,10 @@ async def _run_tool(files: LocalTools, call: Mapping[str, Any]) -> str:
         return "Refused: the tool's arguments weren't JSON."
     if not isinstance(arguments, dict):
         return "Refused: the tool's arguments weren't a JSON object."
-    # In a worker thread, so a slow search can't block the event loop or outlast the time limit.
-    return await anyio.to_thread.run_sync(files.run, str(function.get("name", "")), arguments, abandon_on_cancel=True)
+    # In a worker thread, so a slow search can't block the event loop; the time limit abandons the thread, and the
+    # search stops itself at the same deadline.
+    name = str(function.get("name", ""))
+    return await anyio.to_thread.run_sync(files.run, name, arguments, deadline, abandon_on_cancel=True)
 
 
 def _message(reply: Mapping[str, Any]) -> dict[str, Any]:

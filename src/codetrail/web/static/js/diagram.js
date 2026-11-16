@@ -12,7 +12,8 @@ async function draw(figure) {
   if (!source || !target) return;
   try {
     const image = document.createElement("img");
-    image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(await renderD2(source, isDark()))}`;
+    const card = getComputedStyle(figure).getPropertyValue("--card").trim();
+    image.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(await renderD2(source, isDark(), card))}`;
     image.alt = figure.dataset.alt ?? "";
     target.replaceChildren(image);
     target.hidden = false;

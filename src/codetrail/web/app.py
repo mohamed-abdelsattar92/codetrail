@@ -32,7 +32,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from codetrail.assistant import Assistant
 from codetrail.assistant.estimate import CallEstimate, UpdateEstimate, estimate_call, tokens_text, when_text
-from codetrail.assistant.routing import build_assistant
+from codetrail.assistant.routing import build_assistant, call_bound
 from codetrail.assistant.status import require_ready
 from codetrail.assistant.usage import last_update_usage
 from codetrail.bridge import bridge_router
@@ -42,7 +42,7 @@ from codetrail.errors import CodetrailError
 from codetrail.facts import EntityKind
 from codetrail.generate.run import Progress
 from codetrail.generate.scope import sources_changed
-from codetrail.guide import PAGE_ID, GuideRepository, Page, parse_page
+from codetrail.guide import PAGE_ID, GuideRepository, Page, guide_pages, parse_page
 from codetrail.learn import LearningState, page_checks
 from codetrail.learn.routes import learning_router
 from codetrail.lock import TargetBusy, target_in_use
@@ -65,6 +65,7 @@ from codetrail.web.documentation import (
     segments,
 )
 from codetrail.web.i18n import Language, installed_languages
+from codetrail.web.links import BasePathMiddleware, site_path
 from codetrail.web.navigation import (
     PINNABLE,
     Navigation,
@@ -119,8 +120,9 @@ class TargetInUseMiddleware:
         self.name = name
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http" or scope["path"].startswith(OPEN_PATHS):  # no session, and no target data
-            await self.app(scope, receive, send)
+        # Compared as routed: a mounted page sees its full path, and its prefix as the root path.
+        if scope["type"] != "http" or scope["path"].removeprefix(scope.get("root_path", "")).startswith(OPEN_PATHS):
+            await self.app(scope, receive, send)  # no session, and no target data
             return
         held = ExitStack()
         try:
@@ -144,9 +146,29 @@ def create_app(
     updater: Callable[[Callable[[UpdateEstimate], bool], Progress], object] | None = None,
     assistant_for: Callable[[], Assistant] | None = None,
 ) -> ASGIApp:
-    """The page, wrapped in the security middleware outside everything, so every response passes through it.
+    """The target's page at `/`, wrapped in the security middleware outside everything, so every response passes
+    through it."""
+    target_app, _stop = create_target_app(paths, name, session, settings, locales, updater, assistant_for)
+    return SecurityMiddleware(target_app, session=session, port=settings.server.port)  # its lifespan stops the update
 
-    `updater` runs one update; the Update button runs it in a background thread (tests pass a fake one).
+
+def create_target_app(
+    paths: Paths,
+    name: str,
+    session: SessionState,
+    settings: GlobalConfig,
+    locales: Path | None = None,
+    updater: Callable[[Callable[[UpdateEstimate], bool], Progress], object] | None = None,
+    assistant_for: Callable[[], Assistant] | None = None,
+    team: str | None = None,
+) -> tuple[ASGIApp, UpdateJob]:
+    """The target's page without the security middleware, to serve at `/` or mount under `/repos/<target>/`, and
+    its update's job, which whoever stops the server stops. `team` names the team whose server mounts it: its
+    sidebar links back to that team's page, at `/`.
+
+    Whoever serves it wraps it, once, in the security middleware. Every link it builds goes through `site_path`.
+    `updater` runs one update; the Update button runs it in a background thread (tests pass a fake one). Served at
+    `/`, the page's lifespan stops the update; a mount doesn't run it, so whoever mounts the page stops the job.
     """
     stopping = threading.Event()
     job = UpdateJob(
@@ -185,7 +207,7 @@ def create_app(
 
     languages = installed_languages(locales)
     templates = str(files("codetrail.web").joinpath("templates"))
-    environments = {code: _environment(templates, language) for code, language in languages.items()}
+    environments = {code: template_environment(templates, language) for code, language in languages.items()}
     signal_cache: dict[str, tuple[float, Signal | None]] = {}
     index_lock = threading.Lock()
     index_built: dict[str, object] = {"key": None, "index": None}
@@ -276,18 +298,22 @@ def create_app(
         digests = sorted((page for page in pages if page.kind == "digest"), key=lambda page: str(page.meta.get(
             "written_at", "")), reverse=True)  # fmt: skip
         with learning() as state:
-            statuses = {page.id: state.status(page).state for page in pages if page.kind in ("area", "concept")}
+            statuses = {page.id: state.status(page).state for page in guide_pages(pages)}
             return statuses, state.unread_digests([page.id for page in digests])
 
     def navigation(pages: list[Page]) -> Navigation:
         statuses, unread = statuses_of(pages)
         manifest = view.manifest()
         try:
-            branch = load_target(paths, name).branch
+            target = load_target(paths, name)
         except CodetrailError:
-            branch = ""
-        return build_navigation(pages, statuses, unread, branch, manifest.commit if manifest else "",
-                                pinned=read_pins(setting(PINS_SETTING))[: settings.ui.max_pins])  # fmt: skip
+            target = None
+        return build_navigation(
+            pages, statuses, unread, target.branch if target else "", manifest.commit if manifest else "",
+            pinned=read_pins(setting(PINS_SETTING))[: settings.ui.max_pins],
+            repository=target.remote.name if target and target.remote else name,
+            team=(target.team or "") if target else "",
+        )  # fmt: skip
 
     def render(template: str, status_code: int = 200, **context: Any) -> HTMLResponse:
         current = language()
@@ -299,7 +325,7 @@ def create_app(
             environments[current.code]
             .get_template(template)
             .render(language=current, languages=list(languages.values()), token=session.token, target=name,
-                    estimates=call_estimates(), max_pins=settings.ui.max_pins, **context)
+                    estimates=call_estimates(), max_pins=settings.ui.max_pins, mounted_team=team, **context)
         )  # fmt: skip
         return HTMLResponse(html, status_code=status_code)
 
@@ -317,8 +343,12 @@ def create_app(
         cached = signal_cache.get("signal")
         if cached and time.monotonic() - cached[0] < settings.signal.cache_seconds:
             return cached[1]
+        try:  # the commit the guide last covered, which a facts-only update doesn't move (design section 8.5)
+            since = guide.covered_commit()
+        except Exception:  # a page half-written or edited by hand: count from the snapshot instead
+            since = None
         try:
-            result: Signal | None = behind(paths, name)
+            result: Signal | None = behind(paths, name, since)
         except CodetrailError:
             result = None
         signal_cache["signal"] = (time.monotonic(), result)
@@ -358,16 +388,16 @@ def create_app(
                     repository = repository_summary(store.connection, snapshot.id, snapshot.commit)
         pages = guide.pages() if guide.root.exists() else []
         nav = navigation(pages)
-        guide_pages = [page for page in pages if page.kind in ("area", "concept")]
+        written = guide_pages(pages)
         digests = sorted((page for page in pages if page.kind == "digest"), key=lambda page: str(page.meta.get(
             "written_at", "")), reverse=True)  # fmt: skip
         _, unread = statuses_of(pages)
         unread_digests = [page for page in digests if page.id in set(unread)]
-        learned = sum(1 for page in guide_pages if nav.statuses.get(page.id) == "learned")
-        stale = [page for page in guide_pages if nav.statuses.get(page.id) == "stale"]
+        learned = sum(1 for page in written if nav.statuses.get(page.id) == "learned")
+        stale = [page for page in written if nav.statuses.get(page.id) == "stale"]
         return render(
             "home.html", nav=nav, active="home", signal=current_signal(), areas=view.areas(), counts=counts,
-            snapshot=snapshot, guide_pages=guide_pages, latest_digest=digests[0] if digests else None,
+            snapshot=snapshot, guide_pages=written, latest_digest=digests[0] if digests else None,
             unread_digests=unread_digests, stale_pages=stale, learned=learned, last_update=last_update,
             continue_reading=continue_reading(pages, nav.statuses), system=system, has_system=system is not None,
             documentation=documentation, repository=repository,
@@ -461,7 +491,7 @@ def create_app(
     def search_json(q: str = "") -> Response:
         results, available = search_results(q)
         payload = [
-            {"title": result.document.title, "kind": result.document.kind, "link": result.document.link,
+            {"title": result.document.title, "kind": result.document.kind, "link": site_path(result.document.link),
              "snippet": [[text, matched] for text, matched in result.snippet]}
             for result in results
         ]  # fmt: skip
@@ -605,7 +635,7 @@ def create_app(
 
         try:
             summary["first"] = first_commits.get(snapshot_id, first_commit_date)
-        except (CodetrailError, OSError) as error:
+        except (CodetrailError, OSError, ValueError, OverflowError) as error:  # a date no calendar holds, too
             logger.warning("The first commit isn't available: %s", error)
             summary["first"] = None
         return summary
@@ -691,6 +721,8 @@ def create_app(
                 settings.providers.codex.timeout_seconds,
                 settings.providers.local.timeout_seconds,
             ),
+            # what a question may cost, from the configuration the page runs with, as its assistant is built
+            lambda: call_bound(load_target(paths, name).models.answer, settings.bridge.max_budget_usd, settings),
             settings.bridge.max_session_answers,
         )
     )
@@ -707,7 +739,7 @@ def create_app(
         )
     )
     app.mount("/static", StaticFiles(directory=str(files("codetrail.web").joinpath("static"))), name="static")
-    return SecurityMiddleware(TargetInUseMiddleware(app, paths, name), session=session, port=settings.server.port)
+    return BasePathMiddleware(TargetInUseMiddleware(app, paths, name)), job
 
 
 def day_text(seconds: int) -> str:
@@ -718,7 +750,7 @@ def day_text(seconds: int) -> str:
         return "—"
 
 
-def _environment(templates: str, language: Language) -> Environment:
+def template_environment(templates: str, language: Language) -> Environment:
     environment = Environment(
         loader=FileSystemLoader(templates),
         autoescape=select_autoescape(["html"], default=True),
@@ -731,7 +763,27 @@ def _environment(templates: str, language: Language) -> Environment:
     environment.filters["number"] = lambda value: f"{value:,}"
     environment.filters["day"] = day_text
     environment.filters["initials"] = initials
+    environment.globals["site_path"] = site_path
     return environment
+
+
+def wait_for_cleanup(thread: threading.Thread, message: str) -> None:
+    """Waits for a page job's thread to end, logging `message` once if it is still running.
+
+    The thread is a daemon, which the interpreter would kill at exit without running its cleanup, so a further
+    signal (closing the terminal while this waits) doesn't end the wait; it's raised once the thread has ended."""
+    reported = False
+    interrupted: BaseException | None = None
+    while thread.is_alive():
+        try:
+            if not reported:  # inside the try: a signal while the line is written mustn't end the wait
+                reported = True
+                logger.warning(message)
+            thread.join()
+        except BaseException as error:  # raised below, once the thread ended
+            interrupted = error
+    if interrupted is not None:
+        raise interrupted
 
 
 class EstimateDecision(BaseModel):
@@ -838,28 +890,20 @@ class UpdateJob:
             return str
 
     def stop(self) -> None:
-        """Declines a waiting estimate, stops paid work and waits for the update's cleanup (design section 15.5).
+        """Declines a waiting estimate, stops paid work and waits for the update's cleanup (design section 15.5)."""
+        self.request_stop()
+        self.wait_for_stop()
 
-        The worker is a daemon thread, which the interpreter would kill at exit without running its cleanup, so a
-        further signal (closing the terminal while this waits) doesn't end the wait; it's raised once the cleanup ran.
-        """
+    def request_stop(self) -> None:
+        """Declines a waiting estimate and lets no update start; the running one's paid work stops."""
         with self._lock:  # under the lock, so _confirm either sees it before waiting or is woken by it
             self._stopping.set()
             self._decided.set()
-        if self._thread is None:
-            return
-        reported = False
-        interrupted: BaseException | None = None
-        while self._thread.is_alive():
-            try:
-                if not reported:  # inside the try: a signal while the line is written mustn't end the wait
-                    reported = True
-                    logger.warning("Stopping the update started from the page; waiting for its cleanup.")
-                self._thread.join()
-            except BaseException as error:  # raised below, once the update stopped
-                interrupted = error
-        if interrupted is not None:
-            raise interrupted
+
+    def wait_for_stop(self) -> None:
+        """Waits for the update's cleanup once `request_stop()` ran (see `wait_for_cleanup`)."""
+        if self._thread is not None:
+            wait_for_cleanup(self._thread, "Stopping the update started from the page; waiting for its cleanup.")
 
     def _work(self) -> None:
         try:

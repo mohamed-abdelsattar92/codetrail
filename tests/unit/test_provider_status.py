@@ -7,7 +7,7 @@ import httpx
 import pytest
 
 from codetrail.assistant import AssistantError
-from codetrail.assistant.status import provider_status, require_ready
+from codetrail.assistant.status import provider_status, require_provider_ready, require_ready
 from codetrail.config import ClaudeCodeSettings, CodexSettings, GlobalConfig, ProvidersSettings, TargetConfig
 from tests.fixtures.programs import make_program
 
@@ -37,7 +37,7 @@ def settings(claude: Path | None = None, codex: Path | None = None, auth: str = 
 
 
 def test_claude_signed_in_with_a_subscription_is_ready(tmp_path: Path) -> None:
-    program = make_program(tmp_path, "fake-claude", [json.dumps(SUBSCRIBED)])
+    program = make_program(tmp_path, "fake-claude", [json.dumps(SUBSCRIBED)], stderr="A diagnostic warning\n")
     status = provider_status("claude_code", settings(claude=program.path), ENVIRON)
     assert status.ready and status.signed_in
     assert (status.program, status.method) == (str(program.path), "Claude subscription (max)")
@@ -64,8 +64,12 @@ def test_a_missing_program_names_how_to_install_it() -> None:
     assert not status.ready and not status.installed and "Install Claude Code" in status.fix
 
 
-def test_codex_signed_in_with_chatgpt_is_ready(tmp_path: Path) -> None:
-    program = make_program(tmp_path, "fake-codex", ["Logged in using ChatGPT"])
+@pytest.mark.parametrize("stream", ["stdout", "stderr"])
+def test_codex_signed_in_with_chatgpt_is_ready(tmp_path: Path, stream: str) -> None:
+    message = "Logged in using ChatGPT"
+    program = make_program(
+        tmp_path, "fake-codex", [message] if stream == "stdout" else [], stderr=message if stream == "stderr" else ""
+    )
     status = provider_status("codex", settings(codex=program.path), ENVIRON)
     assert status.ready and status.method == "ChatGPT subscription"
     assert program.record["argv"] == ["login", "status"]
@@ -73,14 +77,32 @@ def test_codex_signed_in_with_chatgpt_is_ready(tmp_path: Path) -> None:
     assert "reads outside" in status.warning
 
 
-def test_codex_with_a_stored_api_key_isnt_a_subscription(tmp_path: Path) -> None:
-    program = make_program(tmp_path, "fake-codex", ["Logged in using an API key - sk-***"])
+@pytest.mark.parametrize("stream", ["stdout", "stderr"])
+def test_codex_with_a_stored_api_key_isnt_a_subscription(tmp_path: Path, stream: str) -> None:
+    message = "Logged in using an API key - sk-***"
+    program = make_program(
+        tmp_path, "fake-codex", [message] if stream == "stdout" else [], stderr=message if stream == "stderr" else ""
+    )
     status = provider_status("codex", settings(codex=program.path), ENVIRON)
     assert not status.ready and "codex login" in status.fix
 
 
-def test_codex_signed_out(tmp_path: Path) -> None:
-    program = make_program(tmp_path, "fake-codex", ["Not logged in"], exit_code=1)
+@pytest.mark.parametrize("stream", ["stdout", "stderr"])
+@pytest.mark.parametrize("exit_code", [0, 1])
+def test_codex_signed_out(tmp_path: Path, stream: str, exit_code: int) -> None:
+    message = "Not logged in"
+    program = make_program(
+        tmp_path,
+        "fake-codex",
+        [message] if stream == "stdout" else [],
+        stderr=message if stream == "stderr" else "",
+        exit_code=exit_code,
+    )
+    assert not provider_status("codex", settings(codex=program.path), ENVIRON).ready
+
+
+def test_codex_failed_status_doesnt_accept_a_login_message(tmp_path: Path) -> None:
+    program = make_program(tmp_path, "fake-codex", [], stderr="Logged in using ChatGPT", exit_code=1)
     assert not provider_status("codex", settings(codex=program.path), ENVIRON).ready
 
 
@@ -113,3 +135,11 @@ def test_require_ready_checks_only_the_providers_the_calls_use(tmp_path: Path) -
     ]
     with pytest.raises(AssistantError, match="Install Claude Code"):
         require_ready(target, settings(), ENVIRON)
+
+
+def test_require_provider_ready_checks_one_provider(tmp_path: Path) -> None:
+    program = make_program(tmp_path, "fake-claude", [json.dumps(SUBSCRIBED)])
+    status = require_provider_ready("claude_code", settings(claude=program.path), ENVIRON)
+    assert status.ready and status.method == "Claude subscription (max)"
+    with pytest.raises(AssistantError, match=r"claude_code isn't ready\. Install Claude Code"):
+        require_provider_ready("claude_code", settings(), ENVIRON)

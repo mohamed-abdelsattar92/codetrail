@@ -69,6 +69,7 @@ body {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  margin-inline-start: auto; /* at the end, with or without the search box (the team's pages have none) */
 }
 
 .topbar .menu-button {
@@ -97,7 +98,8 @@ body {
   box-shadow: var(--shadow-card);
 }
 
-.page-area:not(:has(> .outline:not([hidden]))) {
+/* A guide page keeps the outline's column even without an outline, so its text starts where every other one's does. */
+.page-area:not(:has(> .outline:not([hidden]))):not(:has(.reading)) {
   grid-template-columns: minmax(0, var(--wide-width));
 }
 
@@ -263,21 +265,26 @@ body {
   font-size: 0.8rem;
 }
 
-/* With the Ask panel open on a wide screen, the page makes room for it instead of being covered. */
+/* With the Ask panel, or an update's or a catch-up's panel, open on a wide screen, the page makes room for it
+   instead of being covered. */
 @media (min-width: 1201px) {
-  body.ask-open .shell {
+  body.ask-open .shell,
+  body:has(.update-panel:not([hidden])) .shell {
     grid-template-columns: var(--sidebar-width) minmax(0, 1fr) var(--panel-width);
   }
 
-  :root[data-sidebar="hidden"] body.ask-open .shell {
+  :root[data-sidebar="hidden"] body.ask-open .shell,
+  :root[data-sidebar="hidden"] body:has(.update-panel:not([hidden])) .shell {
     grid-template-columns: minmax(0, 1fr) var(--panel-width);
   }
 
-  body.ask-open .page-area {
+  body.ask-open .page-area,
+  body:has(.update-panel:not([hidden])) .page-area {
     grid-template-columns: minmax(0, var(--article-width));
   }
 
-  body.ask-open .outline {
+  body.ask-open .outline,
+  body:has(.update-panel:not([hidden])) .outline {
     display: none;
   }
 }
@@ -319,15 +326,16 @@ body {
     background: var(--sidebar);
     transform: translateX(-100%);
     transition: transform var(--duration) var(--ease);
-    box-shadow: var(--shadow-float);
   }
 
   [dir="rtl"] .sidebar {
     transform: translateX(100%);
   }
 
+  /* Only the open drawer casts a shadow: off screen, its shadow would still fall on the page's edge. */
   body.menu-open .sidebar {
     transform: none;
+    box-shadow: var(--shadow-float);
   }
 
   .page-area {

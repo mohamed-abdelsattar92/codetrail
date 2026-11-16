@@ -261,3 +261,12 @@ def test_a_path_links_only_steps_that_exist(paths: Paths) -> None:
     page = client.get("/pages/paths/start").text.split("<main", 1)[1]
     assert 'href="/pages/areas/app?path=paths/start"' in page
     assert "../source" not in page and "concepts/missing" not in page
+
+
+def test_a_path_lists_its_steps_once_with_its_progress(paths: Paths) -> None:
+    client, _ = signed_in(paths)
+    page = client.get("/pages/paths/start").text.split("<main", 1)[1]
+    assert "Learn the app." in page
+    assert page.count('href="/pages/areas/app') == 1  # the steps' list only, not the goal's too
+    assert "0 of 2 learned" in page
+    assert "Not read yet" not in page  # a path is learned through its steps, never marked read

@@ -8,6 +8,7 @@ if anything fails, the uncommitted changes are discarded (design section 6.8). F
 from __future__ import annotations
 
 import re
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -38,6 +39,14 @@ class Page:
     @property
     def title(self) -> str:
         return str(self.meta.get("title", self.id))
+
+
+GUIDE_KINDS = ("area", "concept")  # the pages that teach the repository; paths, digests and answers build on them
+
+
+def guide_pages(pages: Iterable[Page]) -> list[Page]:
+    """The pages that teach the repository. A guide with none has no guide yet, whatever its facts say."""
+    return [page for page in pages if page.kind in GUIDE_KINDS]
 
 
 def validate_page_id(page_id: str) -> str:
@@ -78,14 +87,17 @@ class GuideRepository:
         file.write_text(render_page(page), encoding="utf-8")
 
     def pages(self, kind: str | None = None) -> list[Page]:
-        found = []
+        return [page for page in self._read_pages() if kind is None or page.kind == kind]
+
+    def has_guide_pages(self) -> bool:
+        """Whether an area or concept page is written: reads the pages in order and stops at the first one."""
+        return any(page.kind in GUIDE_KINDS for page in self._read_pages())
+
+    def _read_pages(self) -> Iterator[Page]:
         for file in sorted(self.root.glob("*/*.md")):
             page_id = f"{file.parent.name}/{file.stem}"
             if PAGE_ID.fullmatch(page_id):
-                page = parse_page(page_id, file.read_text(encoding="utf-8"))
-                if kind is None or page.kind == kind:
-                    found.append(page)
-        return found
+                yield parse_page(page_id, file.read_text(encoding="utf-8"))
 
     def read_outline(self) -> dict[str, Any] | None:
         file = self.root / OUTLINE_FILE
@@ -98,6 +110,13 @@ class GuideRepository:
         self.root.mkdir(parents=True, exist_ok=True)
         text = yaml.safe_dump(outline, sort_keys=False, allow_unicode=True)
         (self.root / OUTLINE_FILE).write_text(text, encoding="utf-8")
+
+    def covered_commit(self) -> str | None:
+        """The target's commit the guide last covered: its newest digest's end, which every paid update with new
+        commits writes and a facts-only update doesn't move (design section 8.5); None without one."""
+        newest = max(self.pages("digest"), key=lambda page: str(page.meta.get("written_at", "")), default=None)
+        covered = newest.meta.get("to_commit") if newest is not None else None
+        return covered if isinstance(covered, str) and COMMIT_ID.fullmatch(covered) else None
 
     def has_uncommitted_changes(self) -> bool:
         # No optional locks: the page checks this while an update may be committing (design 16.3).

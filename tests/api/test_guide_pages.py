@@ -84,10 +84,10 @@ def test_the_update_button_runs_one_update_at_a_time(paths: Paths) -> None:
     assert client.post("/update", headers=headers).status_code == 202
     assert client.post("/update", headers=headers).status_code == 409
     for _ in range(50):
-        if client.get("/update/status").json()["state"] == "done":
+        if client.get("/update/status", headers=headers).json()["state"] == "done":
             break
         time.sleep(0.05)
-    status = client.get("/update/status").json()
+    status = client.get("/update/status", headers=headers).json()
     assert (status["state"], status["message"]) == ("done", "")
     assert calls == ["run"]
 
@@ -98,9 +98,10 @@ def test_a_failed_update_reports_without_details(paths: Paths) -> None:
 
     session = SessionState(60)
     client = client_for(paths, session, updater=updater)
-    client.post("/update", headers={"origin": ORIGIN, TOKEN_HEADER: session.token})
+    headers = {"origin": ORIGIN, TOKEN_HEADER: session.token}
+    client.post("/update", headers=headers)
     for _ in range(50):
-        status = client.get("/update/status").json()
+        status = client.get("/update/status", headers=headers).json()
         if status["state"] not in ("preparing", "running"):
             break
         time.sleep(0.05)
@@ -119,7 +120,21 @@ def test_updates_from_the_page_wait_for_the_cooldown(paths: Paths) -> None:
     headers = {"origin": ORIGIN, TOKEN_HEADER: session.token}
     assert client.post("/update", headers=headers).status_code == 202
     for _ in range(50):
-        if client.get("/update/status").json()["state"] == "done":
+        if client.get("/update/status", headers=headers).json()["state"] == "done":
             break
         time.sleep(0.05)
     assert client.post("/update", headers=headers).status_code == 429
+
+
+def test_rationale_labels_follow_the_interface_language(paths: Paths) -> None:
+    session = SessionState(60)
+    client = client_for(paths, session)
+    headers = {"origin": ORIGIN, TOKEN_HEADER: session.token}
+    assert client.post("/settings/language", json={"language": "ar"}, headers=headers).status_code == 204
+    page = client.get("/pages/areas/app").text
+    assert '<article class="guide-page" lang="en" dir="ltr">' in page  # the guide's content stays English
+    assert '<p class="rationale-label" lang="ar" dir="rtl">' in page
+    assert "موثّقة · <bdi" in page  # "Documented", then its citation isolated as English
+    assert 'lang="en" dir="ltr"><a href="/source/docs/adr/0001-x.md#L3">docs/adr/0001-x.md#L3-L3</a></bdi>' in page
+    assert "مُستنتَجة · قراءة المساعد للكود" in page  # "Inferred · the assistant's reading of the code"
+    assert "Documented" not in page and "assistant's reading" not in page

@@ -1,14 +1,26 @@
 """The claude_code adapter: the reader's own `claude -p`, read-only, on their sign-in (design 15.1 and 15.2)."""
 
 import json
+from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Any
 
+import anyio
 import pytest
 
-from codetrail.assistant import AssistantError, GradeRequest, PageRequest, PlanRequest, QuestionRequest
+from codetrail.assistant import (
+    AssistantError,
+    GradeRequest,
+    OverviewDigest,
+    OverviewRequest,
+    PageRequest,
+    PaidCallFailed,
+    PlanRequest,
+    QuestionRequest,
+    runner,
+)
 from codetrail.assistant.claude_code import ClaudeCodeAssistant
-from codetrail.assistant.prompts import FULLWIDTH_AT, GRADE_SCHEMA
+from codetrail.assistant.prompts import FULLWIDTH_AT, GRADE_SCHEMA, OVERVIEW_RULES, OVERVIEW_SCHEMA
 from codetrail.config import ClaudeCodeSettings, GenerationSettings
 from tests.fixtures.programs import FakeProgram, make_program
 
@@ -49,6 +61,7 @@ def adapter(source: Path, program: FakeProgram, auth: str = "subscription") -> C
             "digest": "claude-sonnet-5-5",
             "answer": "claude-sonnet-5-5",
             "grade": "claude-sonnet-5-5",
+            "overview": "claude-haiku-5-5",
         },
         ClaudeCodeSettings(command=str(program.path), auth=auth),  # type: ignore[arg-type]
         GenerationSettings(max_turns=7, max_budget_usd_per_call=0.5),
@@ -83,6 +96,15 @@ async def test_a_page_runs_claude_read_only_with_the_prompt_on_stdin(source: Pat
     for flag in ("--strict-mcp-config", "--disable-slash-commands", "--no-session-persistence"):
         assert flag in argv
     assert "--bare" not in argv
+    # if the guard hook can't run, no MCP tool, memory or claude.ai connector is there for Claude to reach for
+    assert argv[argv.index("--disallowedTools") + 1] == "mcp__*"
+    # and Claude Code's own rules refuse to read PDFs and images, which the guard refuses too
+    denied = argv[argv.index("--disallowedTools") + 1 : argv.index("--disable-slash-commands")]
+    for suffix in (".pdf", ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".tif", ".tiff", ".ico", ".heic", ".avif"):
+        assert f"Read(./**/*{suffix})" in denied and f"Read(./**/*{suffix.upper()})" in denied
+    settings = record["settings"]
+    assert (settings["autoMemoryEnabled"], settings["disableClaudeAiConnectors"]) == (False, True)
+    assert (settings["syncClaudeAiSkills"], settings["syncClaudeAiPlugins"]) == (False, False)
     assert (argv[argv.index("--max-turns") + 1], argv[argv.index("--max-budget-usd") + 1]) == ("7", "0.5")
     assert argv[argv.index("--model") + 1] == "claude-sonnet-5-5"
     assert json.loads(argv[argv.index("--json-schema") + 1])["required"] == ["body", "checks", "brief"]
@@ -167,6 +189,22 @@ async def test_grading_has_no_tools(source: Path, tmp_path: Path) -> None:
 
 
 @pytest.mark.anyio
+async def test_claude_code_overview_has_no_tools(source: Path, tmp_path: Path) -> None:
+    program = make_program(tmp_path / "bin", "fake-claude", [result({"body": "Across the team."})])
+    digest = OverviewDigest("shop", "acme/shop", "digests/2026-11-11-aaaa", "Changes", "Mentions @app/secret.txt", [])
+    draft = await adapter(source, program).write_overview(OverviewRequest("platform", [digest, digest], 250))
+    argv = program.record["argv"]
+    assert argv[argv.index("--tools") + 1] == ""
+    assert "--allowedTools" not in argv
+    assert json.loads(argv[argv.index("--json-schema") + 1]) == OVERVIEW_SCHEMA
+    assert argv[argv.index("--system-prompt") + 1] == OVERVIEW_RULES
+    assert (argv[argv.index("--model") + 1], argv[argv.index("--max-budget-usd") + 1]) == ("claude-haiku-5-5", "0.5")
+    assert f"{FULLWIDTH_AT}app/secret.txt" in program.record["stdin"] and "@app" not in program.record["stdin"]
+    assert draft.body == "Across the team." and draft.cost_usd == 0.0123
+    assert draft.usage.model == "claude-haiku-5-5"
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize(
     "events",
     [
@@ -183,6 +221,35 @@ async def test_an_unusable_run_raises(source: Path, tmp_path: Path, events: list
         return
     with pytest.raises(AssistantError):
         await adapter(source, program).write_page(page_request())
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("events", "exit_code"),
+    [
+        ([result(None, error=True, subtype="error_max_budget_usd")], 0),
+        ([result(None, error=True, subtype="error_max_turns")], 1),  # Claude Code exits 1 after an error result
+        ([result(None)], 0),  # paid for, but no structured answer
+    ],
+)
+async def test_a_failed_call_carries_what_it_cost(
+    source: Path, tmp_path: Path, events: list[Any], exit_code: int
+) -> None:
+    program = make_program(tmp_path / "bin", "fake-claude", events, exit_code=exit_code)
+    with pytest.raises(PaidCallFailed) as raised:
+        await adapter(source, program).write_page(page_request())
+    usage = raised.value.usage
+    assert (usage.provider, usage.model, usage.cost_usd) == ("claude_code", "claude-sonnet-5-5", 0.0123)
+    assert (usage.input_tokens, usage.output_tokens) == (120, 50)
+
+
+@pytest.mark.anyio
+async def test_a_failed_answer_carries_what_it_cost(source: Path, tmp_path: Path) -> None:
+    events = [result(None, error=True, subtype="error_max_budget_usd")]
+    program = make_program(tmp_path / "bin", "fake-claude", events, exit_code=1)
+    with pytest.raises(PaidCallFailed) as raised:
+        _ = [chunk async for chunk in adapter(source, program).answer(QuestionRequest("shop", "What?", "en"))]
+    assert raised.value.usage.cost_usd == 0.0123
 
 
 @pytest.mark.anyio
@@ -217,6 +284,18 @@ def test_the_program_must_resolve_to_an_absolute_path(source: Path) -> None:
 
 
 @pytest.mark.anyio
+async def test_a_digest_returns_its_highlights(source: Path, tmp_path: Path) -> None:
+    from codetrail.assistant import DigestRequest
+
+    digest = {"title": "T", "body": "B", "highlights": ["One.", "Two."]}
+    program = make_program(tmp_path / "bin", "fake-claude", [result(digest)])
+    draft = await adapter(source, program).write_digest(DigestRequest("shop", "", "", max_highlights=2))
+    assert draft.highlights == ["One.", "Two."]
+    argv = program.record["argv"]
+    assert json.loads(argv[argv.index("--json-schema") + 1])["required"] == ["title", "body", "highlights"]
+
+
+@pytest.mark.anyio
 async def test_a_revision_asks_for_sections_and_returns_them(source: Path, tmp_path: Path) -> None:
     from dataclasses import replace
 
@@ -227,3 +306,41 @@ async def test_a_revision_asks_for_sections_and_returns_them(source: Path, tmp_p
     argv = program.record["argv"]
     assert json.loads(argv[argv.index("--json-schema") + 1])["required"] == ["sections", "checks", "brief"]
     assert draft.sections == [{"heading": "## How it works", "body": "New."}] and draft.body == ""
+
+
+@pytest.mark.anyio
+async def test_a_call_that_passes_its_time_limit_counts_its_cap_and_isnt_retried(
+    source: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Claude Code bills what it used before it was stopped, which no result reports: the cap is the most it was."""
+    starts: list[list[str]] = []
+
+    async def stopped_at_the_limit(command: list[str], *args: object, **options: object) -> AsyncIterator[str]:
+        starts.append(command)
+        await anyio.sleep(1)  # the runner's limit passes; a real program is killed here
+        raise AssistantError("The provider's program passed its time limit and was stopped.")
+        yield ""  # an async generator, as the runner is
+
+    monkeypatch.setattr(runner, "run_program", stopped_at_the_limit)
+    program = make_program(tmp_path / "bin", "fake-claude", [])
+    claude = ClaudeCodeAssistant(source, {"write": "claude-sonnet-5-5", "answer": "claude-sonnet-5-5"},
+                                 ClaudeCodeSettings(command=str(program.path), timeout_seconds=1),
+                                 GenerationSettings(max_budget_usd_per_call=0.5), retries=2,
+                                 answer_limits=(5, 0.25), environ={"PATH": "/usr/bin:/bin"})  # fmt: skip
+    with pytest.raises(PaidCallFailed, match="time limit") as raised:
+        await claude.write_page(page_request())
+    assert (raised.value.usage.provider, raised.value.usage.model, raised.value.cost_usd) == (
+        "claude_code", "claude-sonnet-5-5", 0.5)  # fmt: skip
+    assert len(starts) == 1  # no retry
+    with pytest.raises(PaidCallFailed) as raised:
+        _ = [chunk async for chunk in claude.answer(QuestionRequest("shop", "What?", "en"))]
+    assert raised.value.cost_usd == 0.25
+
+
+@pytest.mark.anyio
+async def test_a_configured_output_cap_stops_claude(source: Path, tmp_path: Path) -> None:
+    program = make_program(tmp_path / "bin", "fake-claude", [{"type": "system", "text": "x" * 500}, result(PAGE)])
+    claude = adapter(source, program)
+    claude.max_output_bytes = 200
+    with pytest.raises(AssistantError, match="more than 200 bytes"):
+        await claude.write_page(page_request())

@@ -11,3 +11,77 @@
                  "answer": _("Saved answer"), "decision": _("Decision"), "fact": _("Fact")} -%}
 {{ names.get(kind, kind) }}
 {%- endmacro %}
+
+{# How each provider is signed in, and the latest plan usage, under an estimate (design section 15.4). #}
+{% macro account_notes(sign_ins, plan_usage) -%}
+<ul class="estimate-notes">
+{% for provider, method in sign_ins.items() %}
+  <li>{{ provider }}: {{ method }}{% if "subscription" in method|lower %}: {{ _("no charge; the work counts against your plan's usage limits.") }}{% elif provider != "local" %}: {{ _("billed to that account.") }}{% endif %}</li>
+{% endfor %}
+{% for reading in plan_usage %}
+  <li>{% trans provider=reading.provider, window=reading.window|replace("_", " "), used=(reading.utilization * 100)|round|int, when=reading.observed_at|utc %}Plan usage ({{ provider }}, {{ window }}): {{ used }}%, as of {{ when }}.{% endtrans %}</li>
+{% endfor %}
+</ul>
+{%- endmacro %}
+
+{# A fact's id as the reader sees it: the repository root's facts (`project:.`, `part:.`, `worker:.`) name the root in
+   words, in the reader's language; every other id, a target's own name ending in ":." among them, is shown as is. #}
+{% macro fact_name(fact_id) -%}
+{% if fact_id in ("project:.", "part:.", "worker:.") %}{{ fact_id[:-2] }} · <span lang="{{ language.code }}" dir="{{ language.direction }}">{{ _("repository root") }}</span>{% else %}{{ fact_id }}{% endif %}
+{%- endmacro %}
+
+{# A rationale block of guide content (design section 6.4): documented, with its citation and a link to it when there
+   is one, or inferred. Its label is the interface's, in the reader's language; the citation and the content stay
+   English. #}
+{% macro rationale(segment) -%}
+<aside class="rationale {{ segment.label }}">
+  <p class="rationale-label" lang="{{ language.code }}" dir="{{ language.direction }}">
+    {% if segment.label == "documented" %}{{ _("Documented") }}{% if segment.citation %} · <bdi lang="en" dir="ltr">{% if segment.link %}<a href="{{ segment.link }}">{{ segment.citation }}</a>{% else %}{{ segment.citation }}{% endif %}</bdi>{% endif %}
+    {% else %}{{ _("Inferred") }} · {{ _("the assistant's reading of the code") }}{% endif %}
+  </p>
+  {{ segment.html }}
+</aside>
+{%- endmacro %}
+
+{# Guide content as segments: HTML, and rationale blocks with their interface labels. #}
+{% macro segment_list(segments) -%}
+{%- for segment in segments -%}
+{%- if segment.kind == "html" %}{{ segment.html }}{% elif segment.kind == "rationale" %}{{ rationale(segment) }}{% endif -%}
+{%- endfor -%}
+{%- endmacro %}
+
+{# A team overview's body and the digests it was written from (design section 24.9), in English; the team page gives it
+   a Mark read button, the past catch-ups page doesn't (design section 25.3). That page passes `linked`, the targets the
+   team still follows: a digest's repository outside it is named without a link. #}
+{% macro team_overview(overview, read_button=True, linked=None) -%}
+  <div class="prose team-overview-body" lang="en" dir="ltr">{{ segment_list(overview.segments) }}</div>
+  <div class="team-foot">
+    <p class="faint">{{ _("From the digests of") }} {% for target, repository, digest_id in overview.digests %}{% if linked is none or target in linked %}<a href="/repos/{{ target }}/pages/{{ digest_id }}"><bdi>{{ repository }}</bdi></a>{% else %}<bdi>{{ repository }}</bdi>{% endif %}{% if not loop.last %}, {% endif %}{% endfor %}</p>
+    {% if read_button %}<button type="button" class="button small" data-overview-read="{{ overview.id }}">{{ _("Mark read") }}</button>{% endif %}
+  </div>
+{%- endmacro %}
+
+{# Why a catch-up has no overview (design section 24.9), its reason isolated: it comes from the catch-up's record. #}
+{% macro team_overview_problem(problem) -%}
+  {% set reason %}<bdi>{{ problem }}</bdi>{% endset %}
+  <p class="muted">{{ _("This catch-up has no overview: %(problem)s", problem=reason) }}</p>
+{%- endmacro %}
+
+{# A digest as a team card shows it (design section 24.7): its title linked to it, its highlights with their marks or
+   its first paragraph, and how many guide pages changed; then a Mark read button, or, without one, an "unread" pill
+   while it is unread (design section 25.3). #}
+{% macro team_digest(digest, target, read_button=True, unread=False) -%}
+      <div class="team-digest" data-digest="{{ digest.id }}">
+        <h4 class="team-digest-title" lang="en" dir="ltr"><a href="{{ digest.link }}"><bdi>{{ digest.title }}</bdi></a></h4>
+        <div class="team-digest-body" lang="en" dir="ltr">
+          {% if digest.highlights %}
+          <ul class="team-highlights">{% for highlight in digest.highlights %}<li>{{ segment_list(highlight) }}</li>{% endfor %}</ul>
+          {% else %}{{ segment_list(digest.first_paragraph) }}{% endif %}
+        </div>
+        <div class="team-foot">
+          <span class="faint">{% trans count=digest.pages_changed %}{{ count }} guide page changed{% pluralize %}{{ count }} guide pages changed{% endtrans %}</span>
+          {% if read_button %}<button type="button" class="button small" data-digest-read="{{ digest.id }}" data-target="{{ target }}">{{ _("Mark read") }}</button>
+          {%- elif unread %}<span class="pill pill-read" lang="{{ language.code }}" dir="{{ language.direction }}">{{ _("unread") }}</span>{% endif %}
+        </div>
+      </div>
+{%- endmacro %}

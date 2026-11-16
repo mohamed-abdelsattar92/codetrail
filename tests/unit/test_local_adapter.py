@@ -8,9 +8,16 @@ from typing import Any
 import httpx
 import pytest
 
-from codetrail.assistant import AssistantError, GradeRequest, PageRequest, QuestionRequest
+from codetrail.assistant import (
+    AssistantError,
+    GradeRequest,
+    OverviewDigest,
+    OverviewRequest,
+    PageRequest,
+    QuestionRequest,
+)
 from codetrail.assistant.local import LocalAssistant
-from codetrail.assistant.prompts import FULLWIDTH_AT
+from codetrail.assistant.prompts import FULLWIDTH_AT, OVERVIEW_RULES
 from codetrail.config import GenerationSettings, LocalSettings
 
 PAGE = {"body": "A page.", "checks": [], "brief": "B"}
@@ -113,6 +120,19 @@ async def test_grading_offers_no_tools(source: Path) -> None:
 
 
 @pytest.mark.anyio
+async def test_overview_offers_no_tools(source: Path) -> None:
+    endpoint = Endpoint([reply(json.dumps({"body": "Across the team."}))])
+    digest = OverviewDigest("shop", "acme/shop", "digests/2026-11-11-aaaa", "Changes", "Mentions @app/x.py", [])
+    draft = await adapter(source, endpoint).write_overview(OverviewRequest("platform", [digest, digest], 250))
+    request = endpoint.requests[0]
+    prompt = request["messages"][1]["content"]
+    assert f"{FULLWIDTH_AT}app/x.py" in prompt and "@app" not in prompt
+    assert "tools" not in request and request["messages"][0]["content"].startswith(OVERVIEW_RULES)
+    assert "read, grep and glob" not in request["messages"][0]["content"]
+    assert draft.body == "Across the team." and draft.cost_usd == 0.0 and draft.usage.provider == "local"
+
+
+@pytest.mark.anyio
 async def test_an_answer_is_buffered_then_finished(source: Path) -> None:
     endpoint = Endpoint([reply("Hello there.")])
     chunks = [chunk async for chunk in adapter(source, endpoint).answer(QuestionRequest("shop", "What?", "en"))]
@@ -181,3 +201,13 @@ async def test_a_revision_returns_its_sections(source: Path) -> None:
     endpoint = Endpoint([reply(json.dumps(sections))])
     request = replace(page_request(), current_body="## A\n\nOld.", changes=["added module module:app/b.py"])
     assert (await adapter(source, endpoint).write_page(request)).sections == [{"heading": "## A", "body": "New."}]
+
+
+@pytest.mark.anyio
+async def test_a_digest_returns_its_highlights(source: Path) -> None:
+    from codetrail.assistant import DigestRequest
+
+    digest = {"title": "T", "body": "B", "highlights": ["One.", "Two."]}
+    endpoint = Endpoint([reply(json.dumps(digest))])
+    draft = await adapter(source, endpoint).write_digest(DigestRequest("shop", "", "", max_highlights=2))
+    assert draft.highlights == ["One.", "Two."]

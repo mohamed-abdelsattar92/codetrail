@@ -12,15 +12,15 @@
       "Bash(gh auth token:*)",
       "Bash(gh auth git-credential:*)",
       "Bash(gh auth setup-git:*)",
+      "Bash(gh pr new:*)",
+      "Bash(gh repo new:*)",
+      "Bash(az account get-access-token:*)",
+      "Bash(glab config get token:*)",
       "Read(./.env)",
-      "Read(./.env.local)",
       "Read(./**/.env)",
-      "Read(./**/.env.local)",
+      "Read(./**/.env.*)",
+      "Read(!**/.env.example)",
       "Read(~/.ssh/**)",
-      "Read(./**/.env.*.local)",
-      "Read(./**/.env.development)",
-      "Read(./**/.env.production)",
-      "Read(./**/.env.test)",
       "Read(./**/.dev.vars)",
       "Read(./**/*.p8)",
       "Read(./**/*.p12)",
@@ -40,15 +40,46 @@
       "Read(~/.git-credentials)",
       "Read(~/.config/git/credentials)",
       "Read(~/.terraform.d/**)",
-      "Read(./**/.env.staging)",
-      "Read(./**/.env.dev)",
-      "Read(./**/.env.prod)",
       "Read(./**/*.tfvars)",
       "Read(./**/*.tfvars.json)",
       "Read(./**/*.key)",
       "Read(~/.pypirc)",
+      "Read(~/.codex/**)",
+      "Read(~/.azure/**)",
+      "Read(~/.config/glab-cli/**)",
+      "Read(~/Library/Application Support/glab-cli/**)",
       "Edit(./.git/**)",
       "Write(./.git/**)"
+    ],
+    "ask": [
+      "Edit(//**/AGENTS.md)",
+      "Edit(//**/CLAUDE.md)",
+      "Edit(//**/CLAUDE.local.md)",
+      "Edit(//**/.mcp.json)",
+      "Edit(//**/.claude/settings.json)",
+      "Edit(//**/.claude/settings.local.json)",
+      "Edit(//**/.claude/hooks/**)",
+      "Edit(//**/.claude/agents/**)",
+      "Edit(//**/.claude/commands/**)",
+      "Edit(//**/.claude/skills/**)",
+      "Edit(//**/.claude/rules/**)",
+      "Edit(//**/.codex/**)",
+      "Edit(//**/docs/security/**)",
+      "Edit(//**/.github/**)",
+      "Edit(//**/commitlint*.mjs)",
+      "Edit(//**/justfile)",
+      "Edit(//**/*lefthook*)",
+      "Edit(//**/*lefthook*/**)",
+      "Edit(//**/*mise*.toml)",
+      "Edit(//**/mise.lock)",
+      "Edit(//**/.mise/**)",
+      "Edit(//**/mise/**)",
+      "Edit(//**/tools/git-hooks/**)",
+      "Edit(//**/tools/hooks/**)",
+      "Edit(//**/tools/tests/**)",
+      "Edit(//**/.gitleaks.toml)",
+      "Edit(//**/.gitleaksignore)",
+      "Edit(~/.claude/settings.json)"
     ]
   },
   "hooks": {
@@ -58,11 +89,13 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/block_push.py\""
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/block_push.py\"",
+            "timeout": 30
           },
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/block_secret_reads.py\""
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/block_secret_reads.py\"",
+            "timeout": 30
           }
         ]
       }

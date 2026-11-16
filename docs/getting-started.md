@@ -4,6 +4,8 @@ This guide takes you from nothing to a running Codetrail guide for one of your r
 
 Codetrail only reads your repository. It never writes to it, and everything it makes lives in its own folders.
 
+For a page per feature, with a screenshot at every step, see the [how-to guides](guides/README.md).
+
 ## 1. What you need
 
 - **macOS or Linux**, with **git**.
@@ -22,14 +24,14 @@ Codetrail runs your own signed-in `claude` or `codex` program and never sees you
 ## 2. Install
 
 ```bash
-uv tool install git+https://github.com/mohamed-abdelsattar92/codetrail@v1.4.1
+uv tool install codetrail-cli
 ```
 
 ```bash
 codetrail --version
 ```
 
-`uv tool install` puts `codetrail` on your `PATH`, as a tool named `codetrail-cli`; to upgrade, run the same command with `--reinstall` and the newer release's tag. If you installed 1.4.0 or earlier, whose tool was named `codetrail`, run `uv tool uninstall codetrail` first: both put a `codetrail` command on your `PATH`. To run the code on `develop`, clone the repository and run `uv tool install .` in it.
+Codetrail is on PyPI as `codetrail-cli`; the command is `codetrail`. PyPI's `codetrail` is an unrelated project, so always name `codetrail-cli`, and use `--from codetrail-cli` with `uvx`. `uv tool install` puts it on your `PATH`, and `uv tool upgrade codetrail-cli` installs a newer release. To try it without installing anything, run each command below as `uvx --from codetrail-cli codetrail …` instead. If you installed 1.4.0 or earlier, whose tool was named `codetrail`, run `uv tool uninstall codetrail` first: both put a `codetrail` command on your `PATH`. To run the code on `develop`, clone the repository and run `uv tool install .` in it.
 
 ## 3. Check your assistant
 
@@ -63,7 +65,7 @@ codetrail target add shop ~/code/shop --branch main
 codetrail files shop
 ```
 
-This lists every file Codetrail can see, then every file it hides and why. Codetrail reads only what is committed on the branch, so files git ignores and never committed don't exist for it. Some files are always hidden, whatever any setting says: `.env` files, Terraform variables, private keys and credential files, anything gitleaks flags, and every symlink. A file that was committed anyway, though `.gitignore` lists it, is visible unless one of those catches it, so list it in your ignore rules too. To hide more, add gitignore-style rules to `~/.config/codetrail/targets/shop.ignore`, or commit a `.codetrailignore` to the repository:
+This lists every file Codetrail can see, then every file it hides and why. Codetrail reads only what is committed on the branch, so files git ignores and never committed don't exist for it. Some files are always hidden, whatever any setting says: `.env` files, Terraform variables, private keys and credential files, anything gitleaks flags, and every symlink. A file that was committed anyway, though `.gitignore` lists it, is visible unless one of those catches it, so list it in your ignore rules too. gitleaks also reads the text that zip, tar, gzip, bzip2 and xz files and PDFs keep compressed (a `.docx`, a `.jar`, a `.tar.gz`); one it can't read whole is hidden as `unscannable`, and a file over 50 MB as `too large`. The assistant never opens a PDF or an image, since text drawn in them escapes the scan; the page lists them but doesn't show what's in them. To hide more, add gitignore-style rules to `~/.config/codetrail/targets/shop.ignore`, or commit a `.codetrailignore` to the repository:
 
 ```gitignore
 # never read the fixtures or anything under legacy/
@@ -99,7 +101,7 @@ Continue? [y/N]
 
 - **Dollars** are what the same work would cost at API prices. On a subscription you pay nothing extra; the work uses your plan's limits, and the estimate shows how much of each limit you've used once Claude Code has reported it.
 - **A starting guess** marks an estimate made before Codetrail has a history of its own calls. After a few updates, estimates use the median of your own recent calls.
-- **"At most"** counts every page being written twice (a failed check gets one retry). The update also stops at its budgets, whichever comes first.
+- **"At most"** counts every page being written twice (a failed check gets one retry), and is capped at the update's budget: each paid call reserves its cap (`max_budget_usd_per_call`, $1.00 by default) before it starts, so no call starts once the budget can't hold it, and a running call can pass its own cap only by its last turn. A local model reserves nothing. The update also stops at its token budget, whichever comes first.
 - **A smaller first update:** the first update writes up to 20 pages. To keep it smaller, add this to `~/.config/codetrail/targets/shop.toml`:
 
   ```toml
@@ -173,7 +175,7 @@ answer = "local:qwen3:14b"          # questions answered by a model on your mach
 grade = "claude_code:claude-sonnet-5-5"
 ```
 
-To use Codex for a target, opt in first. Codex's sandbox stops writes but not reads, and its tools are shell commands. So Codex can read anything you can, including the files Codetrail hides (through Codetrail's own data folder) and your own keys, can run the repository's code inside its sandbox, and sends whatever it reads to OpenAI before Codetrail's scan sees it. Use it only for repositories where that's acceptable:
+To use Codex for a target, opt in first. Codex's sandbox stops writes but not reads, and its tools are shell commands. So Codex can read anything you can, including the files Codetrail hides (through Codetrail's own data folder) and your own keys, can run the repository's code inside its sandbox, and sends whatever it reads to OpenAI before Codetrail's scan sees it. Codetrail turns its web search off, and never uses it to grade a check or write a team's overview, which run with no tools at all. Use it only for repositories where that's acceptable:
 
 ```toml
 [assistant]
@@ -221,11 +223,61 @@ Without the tool server, an agent can still read the map at the start of every t
 
 Run `codetrail update shop` whenever the repository has moved on; the page's home says how far behind the guide is. Each update rewrites only the pages whose facts changed, learned pages first, and writes a digest of what changed and why.
 
+## Following your team's repositories
+
+If your team keeps its repositories on GitHub, Azure DevOps or GitLab, Codetrail can follow several of them at once, each with its own guide, behind one sign-in. Codetrail reads the service through the service's own program and your own git sign-in. It never reads, stores or passes a token, and it only reads from the service.
+
+1. **Install the program and sign in.** For GitHub, install `gh` and run `gh auth login`. For Azure DevOps, install `az` and its extension (`az extension add --name azure-devops`), then run `az login`. For GitLab, install `glab` and run `glab auth login`. Only `gitlab.com` is supported.
+2. **Let git use that sign-in.** Codetrail clones with your git, so git has to be able to read the repositories without asking. Run the command for your service yourself; Codetrail never does:
+   - GitHub: `gh auth setup-git`.
+   - GitLab: `glab auth login`, which offers to set up git.
+   - Azure DevOps: install Git Credential Manager, or use an SSH key.
+
+   If git can't fetch, the update fails and prints the command to run.
+3. **Add the team.**
+
+   ```bash
+   codetrail team add acme
+   ```
+
+   This writes `~/.config/codetrail/teams/acme.toml` and opens the add-repositories screen. Pick a source: a GitHub organization or your own account, an Azure DevOps project, or a GitLab group. Once Azure DevOps is installed and signed in, a field appears where you type the organization, since `az` can't list them. Each service shows whether its program is installed and signed in, and if not, where to get it and the command to run.
+
+   **Follow the whole source** is on by default. It follows the repositories pushed to in the last 90 days, so an organization of 600 repositories with 40 active ones gets 40. Untick a row to leave that repository out. Turn the switch off to pick repositories by hand. Archived, empty and disabled repositories are never followed. Azure DevOps reports no push time, so a whole Azure DevOps project follows all its enabled, non-empty repositories.
+
+   **Add N repositories** (the button names how many; it reads **Save** once nothing new is left to add) then clones each repository, extracts its facts and builds the "you're behind" signal, naming each repository as it goes. This costs nothing. No guide is written yet: open a repository and use **Update the guide** to write its guide, with the estimate first. The list is read again afterwards, so what you added shows as followed.
+
+   `codetrail team add` serves the team just as `codetrail team serve` does, and keeps serving it once the screen is done: the team page is at the same address, at `/`. Stop it with Ctrl-C.
+4. **Serve it again later.** For every run after the first:
+
+   ```bash
+   codetrail team serve acme
+   ```
+
+   The team page lists each source, with how it's followed and how many repositories are left out, and each repository by its own name with its "you're behind" signal, how many merges landed since its guide was updated, and a link to its guide. A repository whose facts are read but whose guide isn't written yet says **No guide yet**, with a link to its guide's home, where **Update the guide** writes it. The team's pages share the guides' header (the theme switch and the language picker) and sidebar, which lists the team page, **Add repositories** and every followed repository. Each guide opens under `/repos/<name>/`, with all the pages of section 7 and **← Team** at the top of its sidebar, and one sign-in covers the team. `codetrail serve <name>` still serves one repository at a time, and its home page says which team it belongs to and how to serve the team.
+
+   `team serve` lists your sources once when it starts, and gives each newly active repository the same free first refresh adding does. A page view writes no settings and lists no source: it may start serving a repository another command added, and it fetches each repository that already has a copy to read its signal, but it never clones one. Restart `team serve` to see repositories added or archived on the service.
+5. **Update a guide.** Each repository is a normal target named `acme-<repository>`. Run `codetrail update acme-web-shop` as in section 6, or use **Update the guide** on that repository's pages. The estimate comes first, as always. Or catch all of them up at once, as the next step describes.
+6. **Catch up.** Press **Catch up** at the top of the team page, or run `codetrail team update acme`. First the free part: Codetrail re-reads the sources, clones new repositories and refreshes every repository's facts. Then it shows one estimate, with a line and a checkbox for each repository (a new repository's first guide is marked as such) and a line for the overview when at least two ticked repositories can write a digest. The totals are capped at the team's budget, and unticking a repository recomputes them. **Go ahead** runs the ticked repositories, `catch_up.concurrency` at a time, within `catch_up.max_budget_usd`; a repository you left out keeps its free part, and its card says it wasn't caught up. Once the team's budget is spent, a repository whose turn hadn't come isn't updated, and its card and the panel say so; a card the last catch-up missed counts its merges from where its guide's newest digest ended. In the terminal, `codetrail team update acme` asks `Continue? [y/N]`, and `--yes` skips the question, as with `codetrail update`; it is all or nothing.
+
+   When it finishes, the team page reads top to bottom:
+   - **Since you last caught up**, how many repositories have new merges, and the **Catch up** button;
+   - **Across the team**, an overview written from this catch-up's digests, until you mark it read;
+   - one card per repository with something new, busiest first: its branch, merges and areas, the unread digest's highlights marked documented or inferred, **Merged by** (the authors' names as git records them, in alphabetical order and never counted), the digest's link and how many guide pages changed, with **Mark read** (which counts on the repository's own guide too). A dashed card says **Not caught up yet** when merges are waiting, and a card says why when its update failed or you left it out;
+   - **Nothing new**, listing the quiet repositories, then the archived ones.
+
+   The settings are `[team] highlights_per_digest` and `max_overview_words` in the global file, `[models] overview` (not Codex), `[catch_up] max_budget_usd`, `concurrency` and `max_budget_usd_per_call` (the overview call's limit, $1.00 by default) in the team's file, and `[estimates] overview`. Digests carry up to three highlights for every target.
+
+`codetrail team list` shows each team with its sources and how many repositories it follows. `codetrail team remove acme` lists what it will delete (the team's settings and every target it created), asks first, and touches nothing on the service. It refuses while the team is served.
+
+To leave a repository out, untick it on the add-repositories screen. That stops following it but keeps its data. To delete its data, stop `codetrail team serve` first (the running server holds every repository's lock, so the removal would be refused), then run `codetrail target remove acme-web-shop`.
+
+A followed repository's branch is its default branch, and it can't be changed on the screen. A source's `clone_over` setting (`"https"` by default, or `"ssh"`) is in the team's file.
+
 ## Where things live
 
 | Path | Holds |
 |---|---|
-| `~/.config/codetrail/` | Settings: `config.toml`, and `targets/<name>.toml` and `.ignore` |
+| `~/.config/codetrail/` | Settings: `config.toml`, `targets/<name>.toml` and `.ignore`, and `teams/<name>.toml` |
 | `~/.local/share/codetrail/<name>/` | A private copy of the repository's allowed files, the facts, the guide (its own git repository), and `agents/`, the context for coding agents |
 | `~/.local/state/codetrail/<name>/` | Logs |
 
@@ -245,6 +297,12 @@ To remove Codetrail, run `uv tool uninstall codetrail-cli` (`codetrail` for 1.4.
 | `mise named … as gitleaks here, which isn't one of mise's own installs` | A mise configuration in the folder you ran Codetrail from names a gitleaks outside mise's installs (a `path:` version, perhaps from a repository you're reading), and Codetrail won't run it. Run Codetrail from another folder, or set `[tools] gitleaks` to a gitleaks you trust |
 | `gitleaks didn't finish within … seconds ([tools] gitleaks_timeout_seconds)` | gitleaks was stopped before it finished scanning, and the update failed. For a large repository, raise `gitleaks_timeout_seconds` under `[tools]` in `config.toml` |
 | `… is a mise shim, and mise didn't say which gitleaks it runs here within … seconds` | mise didn't answer in time, often because a mise configuration in the folder you ran Codetrail from runs a slow command. Check that folder's mise configuration, run Codetrail from another folder, or set `[tools] gitleaks` in `config.toml` to the binary's absolute path |
+| `The target's .codetrailignore has … lines with a pattern` | The repository's own ignore file has more lines than Codetrail reads, since every line is matched against every path. Ask for it to be shortened, or raise `max_ignore_lines` under `[source]` in `config.toml` (200 by default) |
+| `The target's .codetrailignore, line … is … bytes` | A line of the repository's own ignore file is longer than any path Codetrail reads, so it can't match anything. Ask for it to be removed or shortened |
+| `The target's .codetrailignore is too slow to match` | Matching your paths against the repository's own ignore file took longer than `max_ignore_match_seconds` under `[source]` in `config.toml` (60 seconds by default), usually because of lines with several `*` or `**` and very long paths. Ask for those lines to be simplified, or raise the setting |
+| `The target's .codetrailignore is … bytes` | The repository's own ignore file is larger than Codetrail reads. Ask for it to be shortened, or raise `max_ignore_bytes` under `[source]` in `config.toml` (64 KB by default) |
+| `too large` beside a file in `codetrail files` | The file is larger than `max_file_bytes` under `[source]` in `config.toml` (50 MB by default), so Codetrail never read it. Raise the setting if the assistant should see it |
+| `unscannable (…)` beside a file in `codetrail files` | The file keeps text compressed (a zip, tar, gzip, bzip2 or xz file, or a PDF) that gitleaks couldn't read whole, so it stays hidden. The reason in brackets says why: it decodes to more than `max_inflated_bytes` under `[source]` (50 MB by default; raise it for a large archive), or it is encrypted, damaged or encoded in a way Codetrail doesn't read |
 | `gitleaks failed (exit code …)` | The message ends with what gitleaks printed. To run a different gitleaks, set `[tools] gitleaks` in `config.toml` to its absolute path |
 | `claude_code isn't ready. Run claude and sign in with /login` | Run `claude`, then `/login` with your Claude account |
 | `Claude Code isn't signed in with a Claude subscription` | You signed in with an API (Console) account: `/login` again with your Claude account, or set `auth = "api_key"` on purpose |

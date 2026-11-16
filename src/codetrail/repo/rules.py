@@ -6,11 +6,14 @@ target's `.codetrailignore` and the founder's ignore file, in that order.
 
 from __future__ import annotations
 
+import time
 import unicodedata
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from enum import StrEnum
 
 from pathspec import GitIgnoreSpec
+
+from codetrail.errors import CodetrailError
 
 # Environment files, Terraform variables, private keys and credential files: never read, whatever the rules say.
 BUILTIN_FILE_PATTERNS: tuple[str, ...] = (
@@ -41,6 +44,9 @@ EXAMPLE_EXCEPTION = "!*.example"
 BUILTIN_DIRECTORY_PATTERNS: tuple[str, ...] = (".terraform/",)
 # gitleaks obeys these from the folder it scans, so they never reach source/.
 SCANNER_SETTINGS_PATTERNS: tuple[str, ...] = (".gitleaksignore", ".gitleaks.toml")
+TARGET_IGNORE_FILE = ".codetrailignore"
+MAX_NAME_BYTES = 255  # the longest file or folder name APFS, ext4 and NTFS store
+MAX_PATH_BYTES = 4096  # PATH_MAX on Linux; macOS's is 1024, so a longer path fails there when it is written
 
 
 # Code points HFS+ ignores in names, so ".g\u200cit" lands as ".git" (git's is_hfs_dotgit checks the same ones).
@@ -59,25 +65,60 @@ class Reason(StrEnum):
     SCANNER_SETTINGS = "scanner settings"
     NOT_A_FILE = "symlink or submodule"
     UNSAFE_PATH = "unsafe path"
+    TOO_LARGE = "too large"
+    UNSCANNABLE = "unscannable"  # compressed text that can't be inflated whole for the scan
 
 
 class ExclusionRules:
-    """Decides whether a path in a target exists for Codetrail."""
+    """Decides whether a path in a target exists for Codetrail.
 
-    def __init__(self, ignore_lines: Sequence[str]) -> None:
+    With `match_budget_seconds`, the time spent matching paths against the ignore lines adds up, and once it passes
+    the budget the next path fails: within the wildcard limit (repo/refresh.py) a line still costs up to about 30 ms
+    on a crafted 4 KB path, and a target can commit many such paths. The built-in patterns aren't timed. The lines
+    form one pattern list, as gitignore's precedence needs, so the founder's own lines are timed with the target's;
+    the caller sets a budget only when the target has lines of its own."""
+
+    def __init__(
+        self,
+        ignore_lines: Sequence[str],
+        match_budget_seconds: float | None = None,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
         self._secret_files = GitIgnoreSpec.from_lines([*BUILTIN_FILE_PATTERNS, EXAMPLE_EXCEPTION])
         self._secret_directories = GitIgnoreSpec.from_lines(BUILTIN_DIRECTORY_PATTERNS)
         self._scanner_settings = GitIgnoreSpec.from_lines(SCANNER_SETTINGS_PATTERNS)
         # Ignore lines match in any case too, as git's do on macOS.
         self._ignored = GitIgnoreSpec.from_lines([line.lower() for line in ignore_lines])
+        self._match_budget_seconds = match_budget_seconds
+        self._clock = clock
+        self._match_seconds = 0.0
 
     def reason(self, path: str) -> Reason | None:
+        # Longer than a disk allows, so it can't be written anyway; the ignore-line limit (repo/refresh.py) holds for
+        # names up to that length only, and longer ones would only make the patterns slower.
+        encoded = path.encode("utf-8", "surrogateescape")
+        if len(encoded) > MAX_PATH_BYTES or any(len(part) > MAX_NAME_BYTES for part in encoded.split(b"/")):
+            return Reason.UNSAFE_PATH
         # The built-in patterns are lower-case and match in any case: macOS volumes ignore case.
         folded = path.lower()
         if self._secret_directories.match_file(folded) or self._secret_files.match_file(folded):
             return Reason.SECRET_PATTERN
         if self._scanner_settings.match_file(on_disk_key(path)):
             return Reason.SCANNER_SETTINGS
-        if self._ignored.match_file(folded):
+        if self._ignored_with_budget(folded):
             return Reason.IGNORED
         return None
+
+    def _ignored_with_budget(self, folded: str) -> bool:
+        if self._match_budget_seconds is None:
+            return self._ignored.match_file(folded)
+        started = self._clock()
+        ignored = self._ignored.match_file(folded)
+        self._match_seconds += self._clock() - started
+        if self._match_seconds > self._match_budget_seconds:
+            raise CodetrailError(
+                f"The target's {TARGET_IGNORE_FILE} is too slow to match: matching paths against it took more than "
+                f"{self._match_budget_seconds:g} seconds ([source] max_ignore_match_seconds). Ask for its wildcard "
+                "lines to be simplified or fewer, or raise the limit in the configuration."
+            )
+        return ignored

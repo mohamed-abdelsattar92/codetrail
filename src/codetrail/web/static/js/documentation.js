@@ -2,6 +2,7 @@
 // list's folded rest. The server writes every count and label; this sets only hidden, aria-pressed and the live
 // region's words, copied from the chip. Without it, every item shows.
 export function setUpDocumentation() {
+  markWhatFollows(document.querySelector(".doc-overview"));
   for (const area of document.querySelectorAll("[data-filterable]")) {
     const group = area.querySelector("[data-filter]");
     if (!group) continue;
@@ -21,4 +22,13 @@ export function setUpDocumentation() {
       });
     }
   }
+}
+
+// The overview scrolls on its own when it's taller than the window; while tiles wait below its edge, it says so.
+function markWhatFollows(overview) {
+  if (!overview) return;
+  const mark = () =>
+    overview.classList.toggle("more-below", overview.scrollTop + overview.clientHeight < overview.scrollHeight - 1);
+  overview.addEventListener("scroll", mark, { passive: true });
+  new ResizeObserver(mark).observe(overview);
 }

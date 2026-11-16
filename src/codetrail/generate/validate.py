@@ -115,6 +115,25 @@ def validate_brief(brief: str, context: ValidationContext, max_words: int) -> li
     ]
 
 
+def validate_highlights(highlights: Sequence[str], max_highlights: int, context: ValidationContext) -> list[str]:
+    """A digest's highlights (design 24): few enough, each valid as a page is, and none a diagram. A secret finding
+    keeps its own wording, as in the brief."""
+    if len(highlights) > max_highlights:
+        return [f"The digest has {len(highlights)} highlights; keep it to at most {max_highlights}."]
+    problems: list[str] = []
+    for number, highlight in enumerate(highlights, start=1):
+        if not highlight.strip():
+            problems.append(f"Highlight {number} is empty.")
+        elif any(DIAGRAM.match(line.strip()) for line in highlight.splitlines()):
+            problems.append(f"In highlight {number}: a highlight holds no diagram.")
+        else:
+            problems += [
+                problem if problem.startswith(FLAGGED_PROBLEM) else f"In highlight {number}: {problem}"
+                for problem in validate_page(highlight, None, context)
+            ]
+    return problems
+
+
 def _check_documented(block: RationaleBlock, context: ValidationContext) -> list[str]:
     quote = normalize(block.text).strip(QUOTE_MARKS + " ")
     where = f"The documented block at line {block.line}"

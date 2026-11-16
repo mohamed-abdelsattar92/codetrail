@@ -95,3 +95,28 @@ def test_checking_for_uncommitted_changes_never_takes_the_index_lock(
     assert guide.has_uncommitted_changes() is False
     [arguments] = calls
     assert arguments.index("--no-optional-locks") < arguments.index("status")
+
+
+def test_has_guide_pages_stops_at_the_first_area_or_concept(tmp_path: Path) -> None:
+    guide = GuideRepository(tmp_path / "guide")
+    assert not guide.has_guide_pages()  # no folder yet
+    guide.write_page(Page("paths/start", {"kind": "path", "title": "Start"}, "Steps."))
+    assert not guide.has_guide_pages()  # a path alone teaches nothing
+
+    guide.write_page(Page("areas/app", {"kind": "area", "title": "The app"}, "How it works."))
+    (guide.root / "concepts").mkdir()
+    (guide.root / "concepts" / "broken.md").write_bytes(b"---\n\xff\n---\n")  # read after the area: never parsed
+
+    assert guide.has_guide_pages()
+
+
+@pytest.mark.parametrize("end", ["--output=/tmp/x", "HEAD", "c" * 41, None])
+def test_the_covered_commit_is_the_newest_digest_s_end(guide: GuideRepository, end: str | None) -> None:
+    assert guide.covered_commit() is None  # no paid update has written the guide yet
+    for day, to_commit in (("2026-11-10", "a" * 40), ("2026-11-12", end), ("2026-11-11", "b" * 40)):
+        meta = {"kind": "digest", "title": "D", "to_commit": to_commit, "written_at": f"{day}T10:00:00+00:00"}
+        guide.write_page(Page(f"digests/{day}", meta, "Things changed."))
+    assert guide.covered_commit() is None  # the newest end isn't a commit id: nothing, never an option for git
+    guide.write_page(Page("digests/2026-11-13", {"kind": "digest", "title": "D", "to_commit": "c" * 40,
+                                                  "written_at": "2026-11-13T10:00:00+00:00"}, "More."))  # fmt: skip
+    assert guide.covered_commit() == "c" * 40

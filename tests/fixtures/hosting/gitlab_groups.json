@@ -1,0 +1,20 @@
+[
+  {
+    "id": 5001,
+    "name": "example-group",
+    "path": "example-group",
+    "full_name": "example-group",
+    "full_path": "example-group",
+    "web_url": "https://gitlab.com/groups/example-group",
+    "parent_id": null
+  },
+  {
+    "id": 5002,
+    "name": "Tools",
+    "path": "tools",
+    "full_name": "example-group / Tools",
+    "full_path": "example-group/tools",
+    "web_url": "https://gitlab.com/groups/example-group/tools",
+    "parent_id": 5001
+  }
+]

@@ -1,0 +1,14 @@
+[
+  {
+    "name": "refs/heads/main",
+    "objectId": "0123456789abcdef0123456789abcdef01234567",
+    "creator": {"displayName": "Example Person", "uniqueName": "person@example.com"},
+    "url": "https://dev.azure.com/contoso/11111111-1111-4111-8111-111111111111/_apis/git/repositories/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/refs?filter=heads%2Fmain"
+  },
+  {
+    "name": "refs/heads/feature/checkout",
+    "objectId": "89abcdef0123456789abcdef0123456789abcdef",
+    "creator": {"displayName": "Example Person", "uniqueName": "person@example.com"},
+    "url": "https://dev.azure.com/contoso/11111111-1111-4111-8111-111111111111/_apis/git/repositories/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/refs?filter=heads%2Ffeature%2Fcheckout"
+  }
+]

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 import threading
-from collections.abc import Callable, Mapping
+from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, replace
 from datetime import date
 from pathlib import Path
@@ -18,7 +18,7 @@ import anyio
 from codetrail.agents.export import build_export, write_export
 from codetrail.assistant import Assistant
 from codetrail.assistant.estimate import PageToWrite, UpdateEstimate, estimate_update
-from codetrail.assistant.routing import build_assistant
+from codetrail.assistant.routing import build_assistant, update_call_bounds
 from codetrail.assistant.status import require_ready
 from codetrail.assistant.usage import UsageLog
 from codetrail.config import (
@@ -50,6 +50,7 @@ from codetrail.generate.run import (
     GenerationResult,
     PlannedWork,
     Progress,
+    SharedBudget,
     generate_guide,
     no_progress,
     planned_work,
@@ -60,9 +61,7 @@ from codetrail.lock import target_in_use, target_lock
 from codetrail.metrics.history import record_values
 from codetrail.metrics.report import Metric, Value, build_report
 from codetrail.metrics.repository import build_repository_report
-from codetrail.repo.mirror import read_file_at
-from codetrail.repo.refresh import TARGET_IGNORE_FILE, ignore_lines, refresh_while_locked
-from codetrail.repo.rules import ExclusionRules
+from codetrail.repo.refresh import refresh_while_locked, target_rules
 from codetrail.repo.secrets import SecretScanner
 from codetrail.repo.source import SourceManifest, allowed_reader
 from codetrail.system import derive
@@ -149,14 +148,12 @@ def record_metrics(paths: Paths, name: str, settings: GlobalConfig, store: FactS
             logger.warning("The metrics' values weren't recorded: %s", error)
 
 
-async def generate_until_stopped(
-    context: GenerationContext, claude: Assistant, stop: threading.Event
-) -> GenerationResult:
-    """Writes the guide, cancelled once `stop` is set, so its cleanup runs: each program's process group is killed and
-    the guide's uncommitted changes are discarded (design section 15.5)."""
+async def until_stopped[Result](work: Callable[[], Awaitable[Result]], stop: threading.Event) -> Result:
+    """`work`'s result, cancelled once `stop` is set, so its cleanup runs: each program's process group is killed
+    (design section 15.5). Raises `CodetrailError(STOPPED)` when it was stopped."""
     if stop.is_set():  # a confirmation that raced the stop: no program starts
         raise CodetrailError(STOPPED)
-    generation: GenerationResult | None = None
+    finished: list[Result] = []
     try:
         async with anyio.create_task_group() as group:
 
@@ -166,13 +163,21 @@ async def generate_until_stopped(
                 group.cancel_scope.cancel()
 
             group.start_soon(cancel_when_stopped)
-            generation = await generate_guide(context, claude)
+            finished.append(await work())
             group.cancel_scope.cancel()
-    except BaseExceptionGroup as errors:  # only the generation raises, and the group wraps its error
+    except BaseExceptionGroup as errors:  # only the work raises, and the group wraps its error
         raise errors.exceptions[0] from None
-    if generation is None:
+    if not finished:
         raise CodetrailError(STOPPED)
-    return generation
+    return finished[0]
+
+
+async def generate_until_stopped(
+    context: GenerationContext, claude: Assistant, stop: threading.Event
+) -> GenerationResult:
+    """Writes the guide, cancelled once `stop` is set, so its cleanup runs: each program's process group is killed and
+    the guide's uncommitted changes are discarded (design section 15.5)."""
+    return await until_stopped(lambda: generate_guide(context, claude), stop)
 
 
 def run_update(
@@ -184,6 +189,7 @@ def run_update(
     progress: Progress = no_progress,
     stop: threading.Event | None = None,
     retry_failed: bool = False,
+    shared_budget: SharedBudget | None = None,
 ) -> UpdateResult:
     """Refreshes the sources and facts (free), then, unless `facts_only`, estimates the guide's paid work and asks
     `confirm` before doing it (design section 15.4). An update with a real assistant always needs `confirm`.
@@ -191,7 +197,8 @@ def run_update(
     writing. Pages that failed validation wait until their facts change, unless `retry_failed`."""
     with target_in_use(paths, name):  # so the target isn't removed during the update
         target = load_target(paths, name)
-        check_containment(paths, target.repository)  # before the lock creates the data folder
+        if target.repository is not None:  # before the lock creates the data folder
+            check_containment(paths, target.repository)
         settings = load_global(paths)
         sign_ins: dict[str, str] = {}
         if claude is None and not facts_only:  # before any work: the providers this update uses must be ready
@@ -225,9 +232,7 @@ def run_update(
                     return UpdateResult(manifest, snapshot, diff, extraction)
                 previous = store.previous_snapshot(snapshot)
                 mirror = data / "mirror.git"
-                rules = ExclusionRules(
-                    ignore_lines(paths, name, read_file_at(mirror, manifest.commit, TARGET_IGNORE_FILE))
-                )
+                rules = target_rules(paths, name, mirror, manifest.commit, settings.source)
                 excluded = manifest.excluded_paths()
                 context = GenerationContext(
                     target=name,
@@ -241,6 +246,7 @@ def run_update(
                     max_pages=target.generation.max_pages_per_update,
                     concurrency=target.generation.concurrency,
                     max_budget_usd=target.generation.max_budget_usd_per_update,
+                    call_bounds=update_call_bounds(target, settings),
                     max_tokens=target.generation.max_tokens_per_update,
                     previous_commit=previous.commit if previous else None,
                     diff=diff,
@@ -251,6 +257,8 @@ def run_update(
                     retry_failed=retry_failed,
                     revise_max_changes=target.generation.revise_max_changes,
                     max_brief_words=settings.agents.max_brief_words,
+                    max_highlights=settings.team.highlights_per_digest,
+                    shared_budget=shared_budget,
                 )
                 if confirm is not None:
                     work = planned_work(context)

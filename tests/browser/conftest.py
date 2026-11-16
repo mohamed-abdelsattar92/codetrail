@@ -10,11 +10,16 @@ import threading
 import time
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
+from importlib.resources import files
 from pathlib import Path
 
 import pytest
 import uvicorn
 from playwright.sync_api import ConsoleMessage, Page, expect
+from starlette.applications import Starlette
+from starlette.routing import Mount
+from starlette.staticfiles import StaticFiles
+from starlette.types import ASGIApp
 
 from codetrail.assistant import AnswerChunk, PageDraft, PageRequest, PlanDraft
 from codetrail.assistant.estimate import CallEstimate, EstimateLine, UpdateEstimate
@@ -22,8 +27,8 @@ from codetrail.assistant.fake import FakeAssistant
 from codetrail.config import GlobalConfig, Paths, write_target
 from codetrail.errors import CodetrailError
 from codetrail.update import run_update
-from codetrail.web.app import create_app
-from codetrail.web.security import SessionState
+from codetrail.web.app import create_app, create_target_app
+from codetrail.web.security import SecurityMiddleware, SessionState
 from tests.fixtures.catalogs import compiled_locales
 from tests.fixtures.repos import Commit, git, make_repository, write_commit
 
@@ -125,7 +130,20 @@ def site(tmp_path: Path, request: pytest.FixtureRequest) -> Iterator[Site]:
             raise CodetrailError(site.failure)
 
     locales = compiled_locales(tmp_path / "locales")  # English, and the right-to-left test catalog
-    app = create_app(paths, "shop", session, settings, locales, updater=updater, assistant_for=lambda: claude)
+    prefix = ""
+    app: ASGIApp
+    if request.node.get_closest_marker("mounted"):  # as the team's server mounts it, beside the shared static files
+        prefix = "/repos/shop"
+        guide, _stop = create_target_app(paths, "shop", session, settings, locales, updater=updater,
+                                         assistant_for=lambda: claude)  # fmt: skip
+        write_target(paths, "other", target, "develop")  # a second guide on the same origin, never updated
+        other, _stop_other = create_target_app(paths, "other", session, settings, locales)
+        static = StaticFiles(directory=str(files("codetrail.web").joinpath("static")))
+        routes = [Mount(prefix, app=guide), Mount("/repos/other", app=other), Mount("/static", app=static)]
+        mounted = {"shop", "other"}
+        app = SecurityMiddleware(Starlette(routes=routes), session=session, port=port, mounted_targets=mounted)
+    else:
+        app = create_app(paths, "shop", session, settings, locales, updater=updater, assistant_for=lambda: claude)
     server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="warning", access_log=False))
     thread = threading.Thread(target=server.run, daemon=True)
     thread.start()
@@ -135,7 +153,7 @@ def site(tmp_path: Path, request: pytest.FixtureRequest) -> Iterator[Site]:
         time.sleep(0.02)
     # Fail closed: if another process took the port, nothing must be sent to it.
     assert server.started and thread.is_alive(), "The test server didn't start."
-    site.url = f"http://127.0.0.1:{port}"
+    site.url = f"http://127.0.0.1:{port}{prefix}"
     yield site
     site.release.set()
     server.should_exit = True

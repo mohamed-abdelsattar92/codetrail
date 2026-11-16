@@ -8,7 +8,14 @@ import pytest
 
 from codetrail.config import Paths, write_target
 from codetrail.errors import CodetrailError
-from codetrail.lock import TargetBusy, target_in_use, target_lock, target_removal
+from codetrail.lock import (
+    TargetBusy,
+    TeamBusy,
+    target_in_use,
+    target_lock,
+    target_removal,
+    team_catch_up_lock,
+)
 
 
 @pytest.fixture
@@ -53,7 +60,9 @@ def test_commands_can_use_a_target_together(paths: Paths, target: str) -> None:
 def test_a_target_in_use_is_not_removed(paths: Paths, target: str) -> None:
     with (
         target_in_use(paths, target),
-        pytest.raises(TargetBusy, match="in use: stop `codetrail serve` for it"),
+        pytest.raises(
+            TargetBusy, match=r"in use: stop the Codetrail server serving it \(`codetrail serve` or `codetrail te"
+        ),
         target_removal(paths, target),
     ):
         pass
@@ -105,4 +114,15 @@ def test_a_filesystem_without_locks_is_reported(paths: Paths, target: str, monke
 
     monkeypatch.setattr(fcntl, "flock", unsupported)
     with pytest.raises(CodetrailError, match="Can't lock target 'shop'"), target_removal(paths, target):
+        pass
+
+
+def test_a_team_catch_up_is_refused_while_another_runs(paths: Paths) -> None:
+    with (
+        team_catch_up_lock(paths, "acme"),
+        pytest.raises(TeamBusy, match=r"Team 'acme' is already catching up\."),
+        team_catch_up_lock(paths, "acme"),
+    ):
+        pass
+    with team_catch_up_lock(paths, "acme"), team_catch_up_lock(paths, "other"):
         pass

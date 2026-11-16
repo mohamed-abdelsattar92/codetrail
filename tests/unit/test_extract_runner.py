@@ -6,7 +6,15 @@ from pathlib import Path
 import pytest
 import yaml
 
-from codetrail.extract import Extractor, FileFacts, Reference, Resolution, load_yaml_without_aliases, run_extractors
+from codetrail.extract import (
+    Extractor,
+    FileFacts,
+    Reference,
+    Resolution,
+    load_yaml_without_aliases,
+    run_extractors,
+    without_credentials,
+)
 from codetrail.facts import Entity, EntityKind, Relation, RelationKind, Source
 
 
@@ -201,3 +209,49 @@ def test_base_60_integers_stay_text_so_none_costs_quadratic_time() -> None:
     _, data = load_yaml_without_aliases("long: " + "1:" * 200_000 + "1\nshort: 1:30\ntagged: !!int 2:00\nplain: 12\n")
     assert time.process_time() - started < 2
     assert (data["short"], data["tagged"], data["plain"]) == ("1:30", "2:00", 12)
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("git+https://user:s3cret@git.example/org/repo.git#v1", "git+https://git.example/org/repo.git#v1"),
+        ("https://ghtoken@git.example/org/repo.git", "https://git.example/org/repo.git"),
+        ("git@user:token@host:org/repo.git", "host:org/repo.git"),
+        # A user or password holding "/", "?", "#", "@" or "://": everything up to the word's last "@" goes.
+        ("https://user:pa/ss@git.example/org/repo.git", "https://git.example/org/repo.git"),
+        ("https://user:pa?ss@git.example/org/repo.git", "https://git.example/org/repo.git"),
+        ("https://ghp_abc/def@git.example/org/repo.git", "https://git.example/org/repo.git"),
+        ("https://user:123/45@git.example", "https://git.example"),
+        ("https://user:p@ss/w@git.example/x", "https://git.example/x"),
+        ("https://user:pa://ss@git.example/x", "https://git.example/x"),
+        (
+            "lib @ git+https://user:a/b#c@git.example/lib.git ; python_version<'4'",
+            "lib @ git+https://git.example/lib.git ; python_version<'4'",
+        ),
+        ("user:pa/ss@git.example:org/repo.git", "git.example:org/repo.git"),
+        # Several URLs in one word: everything up to the last "@" goes, the second URL's start too.
+        ("a://u:p@h.example/x,b://u2:p2@h2.example/y", "a://h2.example/y"),
+        # Token-like query values go; the other parameters and the fragment stay.
+        ("https://registry.example/x.tgz?token=s3cret", "https://registry.example/x.tgz?token="),
+        (
+            "https://git.example/org/repo.git?private_token=s3cret&ref=v1#main",
+            "https://git.example/org/repo.git?private_token=&ref=v1#main",
+        ),
+        (
+            "https://b.example/f?X-Amz-Signature=abc&X-Amz-Credential=def&api_key=ghi&page=2",
+            "https://b.example/f?X-Amz-Signature=&X-Amz-Credential=&api_key=&page=2",
+        ),
+        ("https://h.example/f?pass=a&pwd=b&pat=c&page=2", "https://h.example/f?pass=&pwd=&pat=&page=2"),
+        # Without "://" too.
+        ("git@git.example:org/repo.git?token=s3cret", "git.example:org/repo.git?token="),
+        ("registry.example/x.tgz?password=s3cret&v=1", "registry.example/x.tgz?password=&v=1"),
+        # Without an "@" or a token-like parameter, unchanged.
+        ("https://registry.example/pkg/-/pkg-1.0.0.tgz?v=1", "https://registry.example/pkg/-/pkg-1.0.0.tgz?v=1"),
+        ("https://git.example:8443/org/repo.git", "https://git.example:8443/org/repo.git"),
+        ("git@github.com:org/repo.git", "github.com:org/repo.git"),
+        ("npm:@scope/pkg@^1.2.3", "npm:@scope/pkg@^1.2.3"),
+        ("^1.2.3", "^1.2.3"),
+    ],
+)
+def test_specifiers_lose_their_credentials(text: str, expected: str) -> None:
+    assert without_credentials(text) == expected

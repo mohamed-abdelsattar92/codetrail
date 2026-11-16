@@ -122,5 +122,6 @@ def test_a_served_target_is_not_removed(
     assert main(["serve", "api", "--no-browser"]) == 0
 
     assert exits == [1]
-    assert "in use: stop `codetrail serve` for it" in capsys.readouterr().err
+    refusal = capsys.readouterr().err
+    assert "in use: stop the Codetrail server serving it (`codetrail serve` or `codetrail team serve`)" in refusal
     assert (environment / "data" / "codetrail" / "api").exists()

@@ -43,3 +43,16 @@ def test_agents_before_any_update_says_what_to_run(environment: Path, capsys: py
     capsys.readouterr()
     assert main(["agents", "api"]) == 1
     assert "Run `codetrail update api` first" in capsys.readouterr().err
+
+
+def test_agents_refuses_a_data_folder_inside_the_repository(
+    environment: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The XDG variables may have changed since the target was added; nothing is created inside the repository."""
+    checkout = add(environment)
+    before = snapshot_tree(checkout)
+    monkeypatch.setenv("XDG_DATA_HOME", str(checkout / "data"))
+    capsys.readouterr()
+    assert main(["agents", "api"]) == 1
+    assert "can't be inside the repository" in capsys.readouterr().err
+    assert snapshot_tree(checkout) == before

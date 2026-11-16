@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from codetrail.assistant import PageDraft, PageRequest, PlanDraft, Usage, Verdict
+from codetrail.assistant import PageDraft, PageRequest, PaidCallFailed, PlanDraft, Usage, Verdict
 from codetrail.assistant.fake import FakeAssistant
 from codetrail.config import GlobalConfig, Paths, write_target
 from codetrail.database import connect
@@ -158,6 +158,19 @@ def test_feedback_holding_a_secret_is_withheld_and_usage_recorded(paths: Paths) 
     assert [tuple(row) for row in rows] == [("grade", 0.01)]
 
 
+def test_a_failed_grades_usage_is_recorded(paths: Paths) -> None:
+    usage = Usage("claude_code", "claude-sonnet-5-5", 300, 0, 40, 0.2)
+    claude = FakeAssistant(verdicts=[PaidCallFailed("Claude Code didn't finish the task (error_max_turns).", usage)])
+    client, headers = make_client(paths, claude)
+    response = client.post(
+        "/learn/checks", json={"page_id": "areas/app", "check_id": "q1", "answer": "db"}, headers=headers
+    )
+    assert response.status_code == 502
+    connection = connect(paths.target_data("t") / "codetrail.db")
+    rows = connection.execute("SELECT kind, cost_usd FROM assistant_calls").fetchall()
+    assert [tuple(row) for row in rows] == [("grade", 0.2)]
+
+
 def test_the_check_button_shows_its_estimate_and_the_grade_its_usage(paths: Paths) -> None:
     usage = Usage("claude_code", "claude-sonnet-5-5", 3_000, 0, 300, 0.01)
     claude = FakeAssistant(verdicts=[Verdict("pass", [], "Right.", 0.01, usage)])
@@ -176,3 +189,17 @@ def test_marking_unread(paths: Paths) -> None:
     assert client.post("/learn/unread", json={"page_id": "areas/app"}, headers=headers).status_code == 204
     assert 'data-status="unread"' in client.get("/pages/areas/app").text
     assert client.post("/learn/unread", json={"page_id": "areas/missing"}, headers=headers).status_code == 404
+
+
+def test_an_ungradeable_answers_usage_is_recorded(paths: Paths) -> None:
+    usage = Usage("claude_code", "claude-sonnet-5-5", 300, 0, 40, 0.05)
+    claude = FakeAssistant(verdicts=[Verdict("maybe", [], "Hmm.", 0.05, usage)])
+    client, headers = make_client(paths, claude)
+    response = client.post(
+        "/learn/checks", json={"page_id": "areas/app", "check_id": "q1", "answer": "db"}, headers=headers
+    )
+    assert response.status_code == 502
+    connection = connect(paths.target_data("t") / "codetrail.db")
+    rows = connection.execute("SELECT kind, cost_usd FROM assistant_calls").fetchall()
+    assert [tuple(row) for row in rows] == [("grade", 0.05)]
+    assert connection.execute("SELECT count(*) FROM check_attempts").fetchone()[0] == 0

@@ -6,17 +6,30 @@ import pytest
 from pydantic import ValidationError
 
 from codetrail.config import (
+    TEAM_NAME,
     AgentSettings,
+    EstimateSettings,
+    GenerationSettings,
     GlobalConfig,
     Paths,
+    RemoteSettings,
+    TargetConfig,
+    TeamSettings,
+    TeamSource,
+    TokenGuess,
     check_containment,
     load_global,
     load_target,
+    load_team,
     model_choice,
     validate_target_name,
+    validate_team_name,
+    write_remote_target,
     write_target,
 )
 from codetrail.errors import CodetrailError
+from codetrail.hosting.names import check_clone_url
+from codetrail.team.names import team_target_name
 
 
 @pytest.fixture
@@ -75,6 +88,29 @@ def test_a_gitleaks_timeout_outside_a_day_is_refused(paths: Paths, timeout: str)
     (paths.config_dir / "config.toml").write_text(f"[tools]\ngitleaks_timeout_seconds = {timeout}\n")
     with pytest.raises(CodetrailError, match="gitleaks_timeout_seconds"):
         load_global(paths)
+
+
+@pytest.mark.parametrize("value", ["inf", "-inf", "nan"])
+@pytest.mark.parametrize(
+    "setting",
+    [
+        "[bridge]\nmax_budget_usd",
+        "[learn]\nmax_budget_usd",
+        '[prices."claude-sonnet-5-5"]\noutput = 1\ninput',
+    ],
+)
+def test_a_number_that_isn_t_finite_is_refused(paths: Paths, setting: str, value: str) -> None:
+    # Infinity would mean no limit at all, and NaN compares false with every limit.
+    paths.config_dir.mkdir(parents=True)
+    (paths.config_dir / "config.toml").write_text(f"{setting} = {value}\n")
+    with pytest.raises(CodetrailError):
+        load_global(paths)
+
+
+@pytest.mark.parametrize("field", ["max_budget_usd_per_call", "max_budget_usd_per_update"])
+def test_a_generation_budget_that_isn_t_finite_is_refused(field: str) -> None:
+    with pytest.raises(ValidationError, match="finite"):
+        GenerationSettings.model_validate({field: float("inf")})
 
 
 def test_unknown_global_keys_are_refused_by_name(paths: Paths) -> None:
@@ -138,7 +174,7 @@ def test_containment_is_checked_again_after_the_target_was_added(paths: Paths, t
     write_target(paths, "shop", tmp_path / "repo", "develop")
     moved = Paths(config_dir=paths.config_dir, data_dir=tmp_path / "repo" / ".cache", state_dir=paths.state_dir)
     with pytest.raises(CodetrailError, match="inside"):
-        check_containment(moved, load_target(paths, "shop").repository)
+        check_containment(moved, tmp_path / "repo")
 
 
 def test_control_characters_survive_the_toml_round_trip(paths: Paths, tmp_path: Path) -> None:
@@ -252,6 +288,14 @@ def test_codex_needs_the_target_to_opt_in(paths: Paths, tmp_path: Path) -> None:
     assert load_target(paths, "shop").assistant.allow_codex
 
 
+def test_grading_with_codex_is_refused_when_the_target_loads(paths: Paths, tmp_path: Path) -> None:
+    write_target(paths, "shop", tmp_path / "repo", "main")
+    file = paths.target_file("shop")
+    file.write_text(file.read_text() + '[assistant]\nallow_codex = true\n[models]\ngrade = "codex:gpt-5.5-codex"\n')
+    with pytest.raises(CodetrailError, match="grade can't use Codex"):  # not at each grade, after the page is open
+        load_target(paths, "shop")
+
+
 def test_search_and_session_answer_defaults(paths: Paths) -> None:
     settings = load_global(paths)
     assert settings.search.max_query_chars == 200
@@ -359,3 +403,327 @@ def test_agent_settings_have_their_defaults_and_ranges() -> None:
 def test_the_estimates_leave_room_for_a_brief() -> None:
     estimates = GlobalConfig().estimates
     assert (estimates.write.output, estimates.revise.output) == (6_500, 2_500)
+
+
+REMOTE = {
+    "service": "github",
+    "source": "acme-org",
+    "id": "R_kgDOExample",
+    "name": "web-shop",
+    "url": "https://github.com/acme-org/web-shop.git",
+}
+
+
+def test_a_target_has_a_repository_or_a_remote_not_both(tmp_path: Path) -> None:
+    assert TargetConfig(repository=tmp_path, branch="main").remote is None
+    assert TargetConfig(remote=REMOTE, branch="main").repository is None  # type: ignore[arg-type]
+    with pytest.raises(ValidationError, match="exactly one"):
+        TargetConfig(branch="main")
+    with pytest.raises(ValidationError, match="exactly one"):
+        TargetConfig(repository=tmp_path, remote=REMOTE, branch="main")  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    ("service", "url"),
+    [
+        ("github", "https://example.com/x.git"),
+        ("github", "https://gitlab.com/acme-org/web-shop.git"),
+        ("github", "http://github.com/acme-org/web-shop.git"),
+        ("github", "https://user@github.com/acme-org/web-shop.git"),
+        ("github", "https://github.com:8443/acme-org/web-shop.git"),
+        ("github", "https://github.com.evil.example/acme-org/web-shop.git"),
+        ("github", "https://github.com/acme-org/web-shop.git#fragment"),
+        ("github", "git@github.com:-oProxyCommand=x"),
+        ("azure_devops", "https://a:b@dev.azure.com/a/p/_git/r"),
+        ("github", "git://github.com/acme-org/web-shop.git"),
+        ("github", "file:///tmp/repo"),
+        ("github", "git@example.com:acme-org/web-shop.git"),
+        ("github", "ssh://git@github.com.example.com/acme-org/web-shop.git"),
+        ("github", "ssh://other@github.com/acme-org/web-shop.git"),
+        ("azure_devops", "https://other@dev.azure.com/contoso/Platform/_git/web-shop"),
+        ("gitlab", "git@ssh.dev.azure.com:v3/contoso/Platform/web-shop"),
+    ],
+)
+def test_a_remote_url_on_another_host_is_refused(service: str, url: str) -> None:
+    with pytest.raises(CodetrailError, match="clone URL"):
+        check_clone_url(service, url)  # type: ignore[arg-type]
+    with pytest.raises(ValidationError):
+        RemoteSettings.model_validate({**REMOTE, "service": service, "url": url})
+
+
+@pytest.mark.parametrize(
+    ("service", "url", "accepted"),
+    [
+        ("github", "https://github.com/acme-org/web-shop.git", None),
+        ("github", "git@github.com:acme-org/web-shop.git", None),
+        ("github", "ssh://git@github.com/acme-org/web-shop.git", None),
+        ("gitlab", "https://gitlab.com/example-group/web-shop.git", None),
+        ("gitlab", "git@gitlab.com:example-group/web-shop.git", None),
+        ("azure_devops", "https://dev.azure.com/contoso/Platform/_git/web-shop", None),
+        ("azure_devops", "git@ssh.dev.azure.com:v3/contoso/Platform/web-shop", None),
+        # The organization as the user name is how Azure DevOps writes it; it is dropped, so git never sees a user.
+        (
+            "azure_devops",
+            "https://contoso@dev.azure.com/contoso/Platform/_git/Payments%20API%20%232",
+            "https://dev.azure.com/contoso/Platform/_git/Payments%20API%20%232",
+        ),
+    ],
+)
+def test_clone_urls_on_the_services_hosts_are_accepted(service: str, url: str, accepted: str | None) -> None:
+    assert check_clone_url(service, url) == (accepted or url)  # type: ignore[arg-type]
+
+
+def test_location_is_the_path_or_the_url(tmp_path: Path) -> None:
+    assert TargetConfig(repository=tmp_path, branch="main").location == str(tmp_path)
+    assert TargetConfig(remote=REMOTE, branch="main").location == REMOTE["url"]  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "[hosting]\ntimeout_seconds = 4",
+        "[hosting]\ntimeout_seconds = 601",
+        "[hosting]\nmax_output_bytes = 99_999",
+        "[hosting]\nmax_output_bytes = 100_000_001",
+        "[hosting]\nmax_repositories_per_source = 0",
+        "[hosting]\nmax_repositories_per_source = 10_001",
+        "[hosting]\nconcurrency = 0",
+        "[hosting]\nconcurrency = 17",
+        "[team]\nactive_days = 0",
+        "[team]\nactive_days = 3651",
+        "[team]\nhighlights_per_digest = -1",
+        "[team]\nhighlights_per_digest = 11",
+        "[team]\nmax_overview_words = 49",
+        "[team]\nmax_overview_words = 1001",
+        "[team]\nhistory_days = 0",
+        "[team]\nhistory_days = 367",
+        "[team]\nmax_history_catch_ups = 0",
+        "[team]\nmax_history_catch_ups = 501",
+    ],
+)
+def test_hosting_and_team_settings_refuse_values_out_of_range(paths: Paths, text: str) -> None:
+    (paths.config_dir).mkdir(parents=True)
+    (paths.config_dir / "config.toml").write_text(text, encoding="utf-8")
+    with pytest.raises(CodetrailError):
+        load_global(paths)
+
+
+def test_hosting_and_team_defaults() -> None:
+    config = GlobalConfig()
+    assert (config.hosting.gh, config.hosting.az, config.hosting.glab) == ("gh", "az", "glab")
+    assert config.hosting.timeout_seconds == 60
+    assert config.hosting.max_output_bytes == 10_000_000
+    assert config.hosting.max_repositories_per_source == 1000
+    assert config.hosting.concurrency == 4
+    assert config.team.active_days == 90
+
+
+def test_team_names() -> None:
+    assert validate_team_name("acme") == "acme"
+    assert TEAM_NAME.fullmatch("a" * 30)
+    for name in ("Acme", "-acme", "a" * 31, "", "ac me"):
+        with pytest.raises(CodetrailError, match="team name"):
+            validate_team_name(name)
+
+
+def test_teams_is_not_a_target_name() -> None:
+    with pytest.raises(CodetrailError, match="reserved"):
+        validate_target_name("teams")
+
+
+def test_a_team_file_is_read_and_checked(paths: Paths) -> None:
+    assert paths.team_file("acme") == paths.config_dir / "teams" / "acme.toml"
+    assert paths.team_data("acme") == paths.data_dir / "teams" / "acme"
+    paths.team_file("acme").parent.mkdir(parents=True)
+    paths.team_file("acme").write_text(
+        '[[sources]]\nservice = "github"\nsource = "acme-org"\nleft_out = ["old-site"]\n', encoding="utf-8"
+    )
+    source = load_team(paths, "acme").sources[0]
+    assert (source.service, source.source, source.follow, source.clone_over) == ("github", "acme-org", "all", "https")
+    assert source.left_out == ["old-site"]
+    paths.team_file("acme").write_text('[[sources]]\nservice = "github"\nsource = "a"\nclone_over = "git"\n')
+    with pytest.raises(CodetrailError):
+        load_team(paths, "acme")
+    with pytest.raises(CodetrailError, match="No team named"):
+        load_team(paths, "missing")
+
+
+def test_write_remote_target_round_trips(paths: Paths) -> None:
+    remote = RemoteSettings.model_validate(REMOTE)
+    file = write_remote_target(paths, "acme-web-shop", remote, "main", "acme")
+    assert file == paths.target_file("acme-web-shop")
+    loaded = load_target(paths, "acme-web-shop")
+    assert loaded.remote is not None
+    assert loaded.remote.id == "R_kgDOExample"
+    assert loaded.branch == "main"
+    assert loaded.team == "acme"
+    with pytest.raises(CodetrailError, match="already exists"):
+        write_remote_target(paths, "acme-web-shop", remote, "main", "acme")
+
+
+def test_target_names_from_awkward_repository_names() -> None:
+    assert team_target_name("acme", "Payments API #2", set()) == "acme-payments-api-2"
+    long_name = team_target_name("acme", "x" * 70, set())
+    assert len(long_name) <= 63
+    assert validate_target_name(long_name) == long_name
+    assert team_target_name("acme", "web-shop", {"acme-web-shop"}, "R_kgDOExample") == "acme-web-shop-rkgdoe"
+    clash_of_long = team_target_name("acme", "x" * 70, {long_name}, "R_kgDOExample")
+    assert clash_of_long.endswith("-rkgdoe")
+    assert len(clash_of_long) <= 63
+    assert clash_of_long != long_name
+
+
+def test_a_clash_with_a_suffixed_name_counts_on() -> None:
+    taken = {"acme-web-shop", "acme-web-shop-rkgdoe"}
+    assert team_target_name("acme", "web-shop", taken, "R_kgDOExample2") == "acme-web-shop-rkgdoe-2"
+    long_name = team_target_name("acme", "x" * 70, set())
+    taken_long = {long_name, team_target_name("acme", "x" * 70, {long_name}, "R_kgDOExample")}
+    third = team_target_name("acme", "x" * 70, taken_long, "R_kgDOExample")
+    assert third.endswith("-rkgdoe-2")
+    assert validate_target_name(third) == third
+    assert third not in taken_long
+
+
+def test_a_clash_without_letters_or_digits_in_the_id_is_numbered() -> None:
+    assert team_target_name("acme", "web-shop", {"acme-web-shop"}, "__") == "acme-web-shop-2"
+
+
+def test_the_model_stores_the_normalized_azure_url() -> None:
+    remote = RemoteSettings.model_validate(
+        {
+            **REMOTE,
+            "service": "azure_devops",
+            "source": "contoso/Platform",
+            "url": "https://contoso@dev.azure.com/contoso/Platform/_git/web-shop",
+        }
+    )
+    assert remote.url == "https://dev.azure.com/contoso/Platform/_git/web-shop"
+
+
+def test_a_team_source_and_a_target_team_are_validated() -> None:
+    assert TeamSource(service="github", source="acme-org").source == "acme-org"
+    with pytest.raises(ValidationError):
+        TeamSource(service="github", source="../x")
+    with pytest.raises(ValidationError):
+        TeamSource(service="azure_devops", source="contoso")
+    assert TargetConfig(remote=REMOTE, branch="main", team="acme").team == "acme"  # type: ignore[arg-type]
+    with pytest.raises(ValidationError):
+        TargetConfig(remote=REMOTE, branch="main", team="Not A Team")  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"name": "<script>alert(1)</script>"},
+        {"name": ".."},
+        {"source": "-acme"},
+        {"source": "acme org"},
+        {"service": "azure_devops", "source": "contoso", "url": "https://dev.azure.com/contoso/Platform/_git/web-shop"},
+    ],
+)
+def test_a_remote_s_names_are_validated_before_they_are_stored(changes: dict[str, str]) -> None:
+    with pytest.raises(ValidationError):
+        RemoteSettings.model_validate({**REMOTE, **changes})
+
+
+def test_a_remote_with_an_awkward_azure_name_loads() -> None:
+    remote = RemoteSettings.model_validate(
+        {
+            **REMOTE,
+            "service": "azure_devops",
+            "source": "contoso/Platform",
+            "name": "Payments API",
+            "url": "https://dev.azure.com/contoso/Platform/_git/Payments%20API",
+        }
+    )
+    assert (remote.source, remote.name) == ("contoso/Platform", "Payments API")
+
+
+def test_a_refused_remote_url_is_not_echoed_in_the_settings_error() -> None:
+    url = "https://reader:secret@github.com/acme-org/web-shop.git"
+    with pytest.raises(ValidationError) as raised:
+        RemoteSettings.model_validate({**REMOTE, "url": url})
+    messages = " ".join(issue["msg"] for issue in raised.value.errors())  # what the settings' error names
+    assert "clone URL" in messages and "secret" not in messages
+
+
+def test_team_settings_defaults() -> None:
+    settings = TeamSettings()
+    assert (settings.highlights_per_digest, settings.max_overview_words) == (3, 250)
+
+
+def test_history_settings_defaults_and_ranges() -> None:
+    settings = TeamSettings()
+    assert (settings.history_days, settings.max_history_catch_ups) == (7, 50)
+    assert TeamSettings(history_days=1).history_days == 1 and TeamSettings(history_days=366).history_days == 366
+    assert TeamSettings(max_history_catch_ups=1).max_history_catch_ups == 1
+    assert TeamSettings(max_history_catch_ups=500).max_history_catch_ups == 500
+    for refused in ({"history_days": 0}, {"history_days": 367}, {"max_history_catch_ups": 0},
+                    {"max_history_catch_ups": 501}):  # fmt: skip
+        with pytest.raises(ValidationError):
+            TeamSettings(**refused)
+
+
+def test_estimate_overview_default() -> None:
+    estimates = EstimateSettings()
+    assert estimates.overview == TokenGuess(input=15_000, output=1_500)
+    assert estimates.digest.output == 3_500
+
+
+def test_team_config_models_and_catch_up(paths: Paths) -> None:
+    paths.team_file("acme").parent.mkdir(parents=True)
+    paths.team_file("acme").write_text(
+        '[models]\noverview = "local:qwen3"\n\n[catch_up]\nmax_budget_usd = 5\nconcurrency = 3\n',
+        encoding="utf-8",
+    )
+    team = load_team(paths, "acme")
+    assert team.models.overview == "local:qwen3"
+    assert (team.catch_up.max_budget_usd, team.catch_up.concurrency) == (5.0, 3)
+    paths.team_file("acme").write_text("", encoding="utf-8")
+    team = load_team(paths, "acme")
+    assert (team.models.overview, team.catch_up.max_budget_usd, team.catch_up.concurrency) == (
+        "claude-sonnet-5-5",
+        20.0,
+        2,
+    )
+
+
+def test_team_overview_refuses_codex(paths: Paths) -> None:
+    paths.team_file("acme").parent.mkdir(parents=True)
+    paths.team_file("acme").write_text('[models]\noverview = "codex:gpt-5"\n', encoding="utf-8")
+    with pytest.raises(CodetrailError, match="Codex"):
+        load_team(paths, "acme")
+    paths.team_file("acme").write_text('[models]\noverview = "gpt:x"\n', encoding="utf-8")
+    with pytest.raises(CodetrailError, match="isn't a provider"):
+        load_team(paths, "acme")
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "max_budget_usd = 0",
+        "concurrency = 0",
+        "concurrency = 9",
+        # Not finite: no limit at all, and a save would write them back as text TOML can't read.
+        "max_budget_usd = inf",
+        "max_budget_usd = nan",
+        "max_budget_usd_per_call = inf",
+        "max_budget_usd_per_call = nan",
+    ],
+)
+def test_catch_up_ranges(paths: Paths, text: str) -> None:
+    paths.team_file("acme").parent.mkdir(parents=True)
+    paths.team_file("acme").write_text(f"[catch_up]\n{text}\n", encoding="utf-8")
+    with pytest.raises(CodetrailError):
+        load_team(paths, "acme")
+
+
+def test_providers_output_is_capped_by_configuration(paths: Paths) -> None:
+    assert load_global(paths).providers.max_output_bytes == 50_000_000
+    paths.config_dir.mkdir(parents=True)
+    config = paths.config_dir / "config.toml"
+    config.write_text("[providers]\nmax_output_bytes = 1000000\n")
+    assert load_global(paths).providers.max_output_bytes == 1_000_000
+    config.write_text("[providers]\nmax_output_bytes = 0\n")
+    with pytest.raises(CodetrailError, match="max_output_bytes"):
+        load_global(paths)

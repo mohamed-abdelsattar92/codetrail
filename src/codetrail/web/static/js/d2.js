@@ -18,11 +18,12 @@ function start() {
   };
 }
 
-export function renderD2(source, dark) {
+// `background`, a colour in hex, is drawn behind the diagram, so it sits on its card without a box of its own.
+export function renderD2(source, dark, background) {
   if (!worker) start();
   return new Promise((resolve, reject) => {
     const id = next++;
     waiting.set(id, { resolve, reject });
-    worker.postMessage({ id, source, dark });
+    worker.postMessage({ id, source, dark, background });
   });
 }

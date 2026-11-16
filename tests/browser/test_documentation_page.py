@@ -93,3 +93,23 @@ def test_a_section_s_arrow_sits_on_its_heading_s_text(page: Page, site: Site) ->
     turned = re.compile(r"matrix\([-0-9.e]+, 1, -1, [-0-9.e]+, 0, 0\)")  # rotate(90deg), as Chrome reports it
     expect(fold(page, "rationale").locator(":scope > summary h2 .icon")).to_have_css("transform", turned)
     expect(fold(page, "commits").locator(":scope > summary h2 .icon")).to_have_css("transform", "none")
+
+
+def test_an_overview_taller_than_the_window_shows_more_follows(page: Page, site: Site) -> None:
+    page.set_viewport_size({"width": 1280, "height": 720})
+    site.sign_in(page, "/documentation")
+    overview = page.locator(".doc-overview")
+    expect(overview).to_have_class(re.compile(r"\bmore-below\b"))  # its last tile fades out at the bottom
+    overview.evaluate("element => element.scrollTo(0, element.scrollHeight)")
+    expect(overview).not_to_have_class(re.compile(r"\bmore-below\b"))
+    page.set_viewport_size({"width": 1280, "height": 1600})
+    expect(overview).not_to_have_class(re.compile(r"\bmore-below\b"))
+
+
+def test_long_fact_ids_wrap_inside_their_lists(page: Page, site: Site) -> None:
+    page.set_viewport_size({"width": 1440, "height": 900})
+    site.sign_in(page, "/documentation")
+    fold(page, "coverage").locator(":scope > summary").click()
+    lists = page.locator("#coverage .list")
+    expect(lists.first).to_be_visible()
+    assert lists.evaluate_all("lists => lists.filter(list => list.scrollWidth > list.clientWidth).length") == 0

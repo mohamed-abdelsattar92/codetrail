@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% from "layout/icons.html" import icon %}
+{% from "macros.html" import team_digest, team_overview, team_overview_problem with context %}
+{# The past catch-ups page (design section 25.3), in the team server's shell: the range and its form, a calendar of the
+   53 weeks ending with `chosen.calendar`'s, drawn by the server as the Repository page's script draws its own (squares
+   of 11 in cells of 14, shaded against the busiest day shown, left to right in every language), and the range's catch-ups, newest first, each folding. A
+   day with a catch-up is a link to that day; no script is needed. Names and reasons come from services and records,
+   so they are autoescaped and isolated in <bdi>; overviews and digests stay in English. #}
+{% block title %}{{ _("Past catch-ups") }}{% endblock %}
+{% block content %}
+{% set cell, left, top = 14, 30, 16 %}
+<div class="wide catch-ups-page">
+<header class="page-head">
+  <p class="card-label">{{ _("Team") }}</p>
+  <h1>{{ _("Past catch-ups") }}</h1>
+  {% if problem %}
+  <p class="notice" role="alert"><bdi>{{ problem }}</bdi></p>
+  {% endif %}
+  {% if ever_caught_up and not problem %}
+  {% set first %}<time datetime="{{ chosen.first.isoformat() }}" dir="ltr">{{ chosen.first.isoformat() }}</time>{% endset %}
+  {% set last %}<time datetime="{{ chosen.last.isoformat() }}" dir="ltr">{{ chosen.last.isoformat() }}</time>{% endset %}
+  <p class="muted">{% if chosen.first == chosen.last %}{{ first }}{% else %}{{ _("From %(start)s to %(end)s", start=first, end=last) }}{% endif %}</p>
+  {# No `calendar`: showing a new range moves the calendar to it. #}
+  {% endif %}
+  {% if problem or ever_caught_up %}
+  {# A refused date comes back in the form as typed (the query allows 10 characters), so the reader can correct it. #}
+  <form class="catch-ups-form" method="get" action="/team/catch-ups">
+    <label class="field">{{ _("From") }}<input type="date" name="from" value="{{ typed_from if problem else chosen.first.isoformat() }}"></label>
+    <label class="field">{{ _("To") }}<input type="date" name="to" value="{{ typed_to if problem else chosen.last.isoformat() }}"></label>
+    <button type="submit" class="button">{{ _("Show") }}</button>
+  </form>
+  {% endif %}
+</header>
+
+{% if problem %}
+{# Nothing else: the range is not known, so there is no calendar or list. #}
+{% elif not ever_caught_up %}
+<div class="empty">
+  <p>{{ _("No catch-ups yet. Catching up from the team page fills this page.") }}</p>
+  <p><a class="button" href="/">{{ _("Back to the team page") }}</a></p>
+</div>
+{% else %}
+<section class="catch-ups-calendar" aria-labelledby="calendar-title">
+  <h2 id="calendar-title">{{ _("Days with a catch-up") }}</h2>
+  <p class="muted">{{ _("53 weeks, a square per day, shaded by its catch-ups. A day with one links to it.") }}</p>
+  <div class="calendar-layout">
+    <div class="calendar" dir="ltr">
+      <svg width="{{ left + weeks|length * cell }}" height="{{ top + 7 * cell }}" role="group" aria-labelledby="calendar-title">
+        {% for weekday in (0, 2, 4) %}<text x="0" y="{{ top + weekday * cell + 10 }}">{{ weekdays[weekday] }}</text>{% endfor %}
+        {%- for week in weeks %}{% set x = left + loop.index0 * cell %}
+        {%- for day in week if not day.future %}
+        {%- if day.day.weekday() == 0 and day.day.day <= 7 %}<text x="{{ x }}" y="10">{{ months[day.day.month - 1] }}</text>{% endif %}
+        {%- set label = day_label(day) %}{# a plain string, escaped like any other #}
+        {%- set square %}<rect class="day heat-{{ ramp_step(day.count, highest) }}{% if day.in_range %} in-range{% endif %}" x="{{ x }}" y="{{ top + day.day.weekday() * cell }}" width="11" height="11" rx="2" aria-hidden="true"><title>{{ label }}</title></rect>{% endset %}
+        {%- if day.count %}<a href="/team/catch-ups{{ history_query(chosen, day.day) }}" aria-label="{{ label }}">{{ square }}</a>{% else %}{{ square }}{% endif %}
+        {%- endfor %}
+        {%- endfor %}
+      </svg>
+    </div>
+    {% if starts_before or ends_after %}
+    <div class="calendar-notes">
+      {% if starts_before %}<p class="muted">{{ _("The range starts before this calendar.") }}</p>{% endif %}
+      {% if ends_after %}<p class="muted">{{ _("The range ends after this calendar.") }}</p>{% endif %}
+    </div>
+    {% endif %}
+  </div>
+  <div class="ramp-legend" aria-hidden="true"><span>{{ _("Fewer") }}</span>{% for step in range(5) %}<span class="ramp-swatch heat-{{ step }}"></span>{% endfor %}<span>{{ _("More") }}</span></div>
+  {% if earlier or later %}
+  <p class="calendar-moves">
+    {%- if earlier %}<a class="button small" href="/team/catch-ups{{ history_query(earlier) }}">{{ _("Earlier") }}</a>{% endif %}
+    {%- if later %}<a class="button small" href="/team/catch-ups{{ history_query(later) }}">{{ _("Later") }}</a>{% endif -%}
+  </p>
+  {% endif %}
+  {% if day_counts %}
+  <details class="more">
+    <summary>{{ _("Days with a catch-up, as a table") }}</summary>
+    <table class="metric-table">
+      <thead><tr><th>{{ _("Day") }}</th><th>{{ _("Catch-ups") }}</th></tr></thead>
+      <tbody>{% for day, count in day_counts %}<tr><td dir="ltr">{{ day.isoformat() }}</td><td>{{ count }}</td></tr>{% endfor %}</tbody>
+    </table>
+  </details>
+  {% endif %}
+</section>
+
+{% if catch_ups %}
+<div class="catch-ups">
+{% for past in catch_ups %}{% set number = past.record.id %}
+<details{% if chosen.first == chosen.last or loop.first %} open{% endif %} class="doc-fold catch-up" data-catch-up="{{ number }}">
+  <summary><h2 id="catch-up-{{ number }}">{{ icon("chevron") }}<time datetime="{{ past.record.finished_at }}" dir="ltr">{{ past.record.finished_at|utc }}</time></h2><span class="doc-todo">{% trans count=past.repositories|length %}{{ count }} repository caught up{% pluralize %}{{ count }} repositories caught up{% endtrans %}</span></summary>
+  <div class="doc-body">
+  {% if past.record.overview_problem %}
+  <section class="team-overview" aria-labelledby="overview-{{ number }}">
+    <h3 id="overview-{{ number }}">{{ _("Across the team") }}</h3>
+    {{ team_overview_problem(past.record.overview_problem) }}
+  </section>
+  {% elif past.overview %}
+  <section class="team-overview" aria-labelledby="overview-{{ number }}">
+    <h3 id="overview-{{ number }}">{{ _("Across the team") }}{% if past.overview_unread %} <span class="pill pill-read">{{ _("unread") }}</span>{% endif %}</h3>
+    {{ team_overview(past.overview, read_button=False, linked=repository_names) }}
+  </section>
+  {% endif %}
+  {% for repository in past.repositories %}
+  <section class="catch-up-repository">
+    <h3>{% if repository.followed %}<a href="/repos/{{ repository.target }}/"><bdi>{{ repository.repository }}</bdi></a>{% else %}<bdi>{{ repository.repository }}</bdi> <span class="faint">{{ _("No longer followed.") }}</span>{% endif %}</h3>
+    {% if repository.followed and not repository.digests %}
+    <p class="muted">{{ _("No digest from this catch-up to show.") }}</p>
+    {% endif %}
+    {% for digest in repository.digests %}
+    {{ team_digest(digest, repository.target, read_button=False, unread=digest.id in repository.unread) }}
+    {% endfor %}
+  </section>
+  {% endfor %}
+  {% if past.failed or past.unticked %}
+  {%- set failed_list %}{% for target, reason in past.failed.items() %}{% set repository %}<bdi>{{ repository_names.get(target, target) }}</bdi>{% endset %}{% set why %}<bdi>{{ reason }}</bdi>{% endset %}{{ _("%(repository)s (%(reason)s)", repository=repository, reason=why) }}{% if not loop.last %}, {% endif %}{% endfor %}{% endset %}
+  {%- set unticked_list %}{% for target in past.unticked %}<bdi>{{ repository_names.get(target, target) }}</bdi>{% if not loop.last %}, {% endif %}{% endfor %}{% endset %}
+  {%- set failed_part = _("Not caught up: %(repositories)s", repositories=failed_list) %}
+  {%- set unticked_part = _("Left out: %(repositories)s", repositories=unticked_list) %}
+  <p class="team-quiet catch-up-rest">
+    {%- if past.failed and past.unticked %}{{ _("%(failed)s · %(left_out)s", failed=failed_part, left_out=unticked_part) }}
+    {%- elif past.failed %}{{ failed_part }}{% else %}{{ unticked_part }}{% endif -%}
+  </p>
+  {% endif %}
+  </div>
+</details>
+{% endfor %}
+</div>
+{% if left_out %}
+<p class="muted">{% trans count=left_out %}{{ count }} more catch-up in this range isn't shown; a narrower range shows it.{% pluralize %}{{ count }} more catch-ups in this range aren't shown; a narrower range shows them.{% endtrans %}</p>
+{% endif %}
+{% else %}
+<div class="empty">
+  <p>{{ _("No catch-ups between these dates. Pick another day in the calendar.") }}</p>
+</div>
+{% endif %}
+{% endif %}
+</div>
+{% endblock %}

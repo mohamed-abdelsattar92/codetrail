@@ -117,7 +117,7 @@ def read_tags(mirror: Path, end: str, scanner: SecretScanner) -> list[Tag]:
             date = date or commit_date  # a tag made before git recorded taggers has no date of its own
             message = f"{subject}\n\n{body.strip()}" if body.strip() else subject
             tags.append(Tag(name, peeled, int(date), message.strip()))
-    flagged = _flagged_indexes([f"{tag.name}\n{tag.message}" for tag in tags], scanner)
+    flagged = scanner.flagged_texts([f"{tag.name}\n{tag.message}" for tag in tags])
     return [Tag(WITHHELD_TAG, tag.commit, tag.date, "") if index in flagged else tag for index, tag in enumerate(tags)]
 
 
@@ -134,10 +134,15 @@ def commit_times(mirror: Path, end: str, limit: int) -> list[int]:
     return [int(line) for line in output.split()]
 
 
+TIME_DIGITS = re.compile(rb"[0-9]{1,12}")
+
+
 def first_commit_time(mirror: Path, end: str) -> int | None:
-    """The earliest author time among the root commits of `end`'s history: a cheap "started on" for the home card."""
-    output = run_git(["log", "--max-parents=0", "--format=%at", "--end-of-options", end], git_dir=mirror)
-    return min((int(line) for line in output.split()), default=None)
+    """The earliest author time in `end`'s whole history: the home card's "started on" and the repository page's first
+    commit, the same date the timeline starts from even when a later commit claims an earlier date than the root."""
+    output = run_git(["log", "--format=%at", "--end-of-options", end], git_dir=mirror)
+    # git prints a stored date's digits as they are: one longer than a time can be is left out, not parsed.
+    return min((int(line) for line in output.split() if TIME_DIGITS.fullmatch(line)), default=None)
 
 
 COMMIT_MARK = "\x01"
@@ -184,6 +189,17 @@ def files_changed_since(mirror: Path, end: str, since: date) -> set[str]:
     return {name for name in output.decode("utf-8", "surrogateescape").split("\0") if name}
 
 
+def authors_between(mirror: Path, start: str, end: str) -> list[str]:
+    """Who merged after `start` up to `end` (design section 24.7): the distinct names of the authors of the merges and
+    direct commits on the branch's first-parent line, not of every commit a merged branch brought, as git records
+    them, sorted case-insensitively. One git call that prints only the names, NUL-separated: no email, message or
+    count; nothing here counts or ranks people."""
+    output = run_git(["log", "-z", "--first-parent", "--format=%an", "--end-of-options", f"{start}..{end}"],
+                     git_dir=mirror)  # fmt: skip
+    names = {name.strip() for name in output.decode("utf-8", "replace").split("\0")} - {""}
+    return sorted(names, key=lambda name: (name.casefold(), name))
+
+
 def merges_between(mirror: Path, start: str, end: str) -> int:
     count = run_git(["rev-list", "--count", "--merges", "--first-parent", "--end-of-options", f"{start}..{end}"],
                     git_dir=mirror)  # fmt: skip
@@ -204,7 +220,7 @@ def diff_between(
         ).decode("utf-8", "replace")
         for _status, path in changes
     ]
-    flagged = _flagged_indexes(patches, scanner)
+    flagged = scanner.flagged_texts(patches)
     return [
         FileDiff(path, status, None if index in flagged else patch)
         for index, ((status, path), patch) in enumerate(zip(changes, patches, strict=True))
@@ -212,27 +228,17 @@ def diff_between(
 
 
 def _withhold_flagged_messages(commits: list[Commit], scanner: SecretScanner) -> list[Commit]:
-    flagged = _flagged_indexes([f"{commit.subject}\n{commit.body}" for commit in commits], scanner)
+    flagged = scanner.flagged_texts([f"{commit.subject}\n{commit.body}" for commit in commits])
     return [
         Commit(c.sha, c.author, c.date, WITHHELD_MESSAGE, "", c.files, c.is_merge) if index in flagged else c
         for index, c in enumerate(commits)
     ]
 
 
-def _flagged_indexes(texts: Sequence[str], scanner: SecretScanner) -> set[int]:
-    """Scans all texts in one gitleaks run and returns the indexes of those holding a finding."""
-    if not texts:
-        return set()
-    first_lines, line = [], 1
-    for text in texts:
-        first_lines.append(line)
-        line += text.count("\n") + 1
-    combined = "\n".join(texts)
-    flagged = set()
-    for finding in scanner.scan_text(combined):
-        index = max(i for i, first in enumerate(first_lines) if first <= finding.line)
-        flagged.add(index)
-    return flagged
+def is_ancestor(mirror: Path, commit: str, end: str) -> bool:
+    """Whether `commit` is in `end`'s history; a commit the mirror doesn't hold isn't."""
+    output = run_git(["merge-base", "--end-of-options", commit, end], git_dir=mirror, allowed_exit_codes=(0, 1, 128))
+    return output.decode().strip() == commit
 
 
 def commit_count(mirror: Path, start: str, end: str) -> int:

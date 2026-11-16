@@ -5,6 +5,7 @@ from dataclasses import replace
 
 from codetrail.assistant import DigestRequest, PageRequest, PlanRequest
 from codetrail.assistant.prompts import (
+    DIGEST_SCHEMA,
     PAGE_SCHEMA,
     REVISE_SCHEMA,
     digest_prompt,
@@ -77,7 +78,8 @@ def test_a_revision_gets_its_page_checks_changes_and_history_fenced() -> None:
     assert "drawn from the current facts" in prompt
     assert schema["required"] == ["sections", "checks", "brief"]
     plain, page_schema = page_task(PageRequest("areas/x", "area", "X", ["x"], "facts", "", ""))
-    assert plain.startswith('Write the guide\'s page "X"') and page_schema["required"] == ["body", "checks", "brief"]
+    assert plain.startswith("Write the guide's page") and "Title: X" in plain
+    assert page_schema["required"] == ["body", "checks", "brief"]
 
 
 def test_a_page_must_come_with_a_brief() -> None:
@@ -96,3 +98,54 @@ def test_a_revision_shows_the_brief_or_asks_for_one() -> None:
                           changes=["added module m"], current_brief="Key files: app/main.py.")  # fmt: skip
     assert "Key files: app/main.py." in revise_prompt(request)
     assert "has no brief yet" in revise_prompt(replace(request, current_brief=""))
+
+
+def test_digest_schema_requires_highlights() -> None:
+    assert DIGEST_SCHEMA["required"] == ["title", "body", "highlights"]
+    assert DIGEST_SCHEMA["properties"]["highlights"] == {"type": "array", "items": {"type": "string"}}
+
+
+def test_digest_prompt_asks_for_highlights() -> None:
+    assert "at most 3 highlights" in digest_prompt(DigestRequest("shop", "", "", max_highlights=3))
+    assert "empty list" in digest_prompt(DigestRequest("shop", "", "", max_highlights=0))
+
+
+def outside_fences(prompt: str) -> str:
+    return FENCED.sub("", prompt)
+
+
+def test_every_page_field_from_the_plan_and_every_retry_problem_is_fenced() -> None:
+    request = PageRequest("areas/x", "area", f"X {INJECTED}", [f"x {INJECTED}"], "", "", "",
+                          problems=[f"the quote {INJECTED} isn't in the file"])  # fmt: skip
+    for prompt in (page_prompt(request), revise_prompt(replace(request, changes=["added module m"]))):
+        assert INJECTED in prompt
+        assert INJECTED not in outside_fences(prompt)
+
+
+def test_the_outline_and_its_uncovered_fact_ids_are_fenced() -> None:
+    request = PlanRequest("shop", "facts", f"pages: [{INJECTED}]", [f"module:{INJECTED}"])
+    for prompt in (plan_prompt(request), plan_prompt(replace(request, paths_only=True))):
+        assert INJECTED in prompt
+        assert INJECTED not in outside_fences(prompt)
+
+
+def test_an_answer_fences_the_page_title_its_facts_and_the_diagrams() -> None:
+    from codetrail.assistant import QuestionRequest
+    from codetrail.assistant.prompts import answer_prompt
+
+    request = QuestionRequest("shop", "Why?", "en", page_title=f"T {INJECTED}", page_body="body",
+                              page_facts=[f"module:{INJECTED}"],
+                              diagrams=[f"{{{{diagram imports scope={INJECTED}}}}}"])  # fmt: skip
+    prompt = answer_prompt(request)
+    assert prompt.count(INJECTED) == 3
+    assert INJECTED not in outside_fences(prompt)
+
+
+def test_grading_fences_the_question_the_rubric_and_the_page_title() -> None:
+    from codetrail.assistant import GradeRequest
+    from codetrail.assistant.prompts import grade_prompt
+
+    request = GradeRequest(f"Q {INJECTED}", [{"point": f"P {INJECTED}"}], f"T {INJECTED}", "body", "answer", "en")
+    prompt = grade_prompt(request)
+    assert prompt.count(INJECTED) == 3
+    assert INJECTED not in outside_fences(prompt)

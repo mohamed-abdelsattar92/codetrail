@@ -16,11 +16,20 @@ from pathlib import Path
 from typing import Any, Literal
 from urllib.parse import urlsplit
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, ValidationInfo, field_validator, model_validator
 
 from codetrail.errors import CodetrailError
+from codetrail.hosting.names import (
+    Service,
+    check_clone_url,
+    require_safe_id,
+    validate_repository_name,
+    validate_source,
+)
 
 TARGET_NAME = re.compile(r"[a-z0-9][a-z0-9-]{0,62}")
+TEAM_NAME = re.compile(r"[a-z0-9][a-z0-9-]{0,29}")
+RESERVED_TARGET_NAMES = {"teams"}  # a team's data lives in <data>/teams/<team>
 
 
 @dataclass(frozen=True)
@@ -58,14 +67,34 @@ class Paths:
     def target_state(self, name: str) -> Path:
         return self.state_dir / name
 
+    def team_file(self, name: str) -> Path:
+        return self.config_dir / "teams" / f"{name}.toml"
+
+    def team_data(self, name: str) -> Path:
+        return self.data_dir / "teams" / name
+
 
 class Settings(BaseModel):
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    # No setting takes infinity or NaN: a limit of infinity is none, NaN compares false with every limit, and the team
+    # file is rewritten from its loaded values, where neither would be valid TOML.
+    model_config = ConfigDict(extra="forbid", frozen=True, allow_inf_nan=False)
 
 
 class ToolsSettings(Settings):
     gitleaks: str = "gitleaks"
     gitleaks_timeout_seconds: float = Field(default=600, gt=0, le=86_400)  # each gitleaks and `mise which` run
+
+
+class SourceSettings(Settings):
+    """What a refresh reads from a target (design sections 3.2 and 3.3)."""
+
+    max_file_bytes: int = Field(default=50_000_000, gt=0)  # a larger committed file is excluded as too large
+    max_inflated_bytes: int = Field(default=50_000_000, gt=0)  # text decoded from one compressed file for the scan
+    max_ignore_lines: int = Field(default=200, gt=0)  # lines with a pattern in a target's own .codetrailignore
+    max_ignore_bytes: int = Field(default=64 * 1024, gt=0)  # the size of a target's own .codetrailignore
+    # Time spent matching paths against the ignore rules while the target has its own .codetrailignore, per refresh,
+    # update or "behind" check.
+    max_ignore_match_seconds: float = Field(default=60, gt=0, allow_inf_nan=False)
 
 
 class BridgeSettings(Settings):
@@ -208,10 +237,32 @@ class MetricsSettings(Settings):
         return {name.lower(): language for name, language in languages.items()}
 
 
+class HostingSettings(Settings):
+    """The hosting services' programs and the limits on what they return (design section 24.3)."""
+
+    gh: str = "gh"
+    az: str = "az"
+    glab: str = "glab"
+    timeout_seconds: int = Field(default=60, ge=5, le=600)  # each program run
+    max_output_bytes: int = Field(default=10_000_000, ge=100_000, le=100_000_000)  # of one program's output
+    max_repositories_per_source: int = Field(default=1000, ge=1, le=10_000)
+    concurrency: int = Field(default=4, ge=1, le=16)  # a team's signal fetches, and first refreshes, at once
+
+
+class TeamSettings(Settings):
+    active_days: int = Field(default=90, ge=1, le=3650)  # a source's repositories pushed to within this are followed
+    highlights_per_digest: int = Field(default=3, ge=0, le=10)
+    max_overview_words: int = Field(default=250, ge=50, le=1000)
+    history_days: int = Field(default=7, ge=1, le=366)  # the past catch-ups page lists this many days at first
+    max_history_catch_ups: int = Field(default=50, ge=1, le=500)  # the most catch-ups it lists for a range
+
+
 class ProvidersSettings(Settings):
     claude_code: ClaudeCodeSettings = ClaudeCodeSettings()
     codex: CodexSettings = CodexSettings()
     local: LocalSettings = LocalSettings()
+    # A provider program writing more than this to its output, or to its error output, is stopped (design 15.5).
+    max_output_bytes: int = Field(default=50_000_000, gt=0)
 
 
 class Price(Settings):
@@ -242,13 +293,15 @@ class EstimateSettings(Settings):
     plan: TokenGuess = TokenGuess(input=60_000, output=8_000)
     write: TokenGuess = TokenGuess(input=120_000, output=6_500)
     revise: TokenGuess = TokenGuess(input=40_000, output=2_500)
-    digest: TokenGuess = TokenGuess(input=40_000, output=3_000)
+    digest: TokenGuess = TokenGuess(input=40_000, output=3_500)
     answer: TokenGuess = TokenGuess(input=30_000, output=1_500)
     grade: TokenGuess = TokenGuess(input=4_000, output=500)
+    overview: TokenGuess = TokenGuess(input=15_000, output=1_500)
 
 
 class GlobalConfig(Settings):
     tools: ToolsSettings = ToolsSettings()
+    source: SourceSettings = SourceSettings()
     assistant: AssistantSettings = AssistantSettings()
     providers: ProvidersSettings = ProvidersSettings()
     prices: dict[str, Price] = DEFAULT_PRICES
@@ -269,6 +322,8 @@ class GlobalConfig(Settings):
     diagrams: DiagramSettings = DiagramSettings()
     agents: AgentSettings = AgentSettings()
     metrics: MetricsSettings = MetricsSettings()
+    hosting: HostingSettings = HostingSettings()
+    team: TeamSettings = TeamSettings()
 
 
 class AdrSettings(Settings):
@@ -361,6 +416,14 @@ class ModelSettings(Settings):
             raise ValueError(f"{provider!r} isn't a provider; use one of {', '.join(PROVIDERS)}.")
         return value
 
+    @field_validator("grade")
+    @classmethod
+    def grading_without_codex(cls, value: str) -> str:
+        # The Codex adapter refuses every grade (design section 15.5), so the choice is refused here, when it loads.
+        if model_choice(value)[0] == "codex":
+            raise ValueError("grade can't use Codex, which always has its shell; choose another provider for grade.")
+        return value
+
     def uses(self, provider: str) -> bool:
         return any(model_choice(getattr(self, kind))[0] == provider for kind in type(self).model_fields)
 
@@ -370,8 +433,96 @@ class TargetAssistantSettings(Settings):
     allow_codex: bool = False
 
 
+class RemoteSettings(Settings):
+    """A repository fetched from a hosting service (design section 24.4). Its names are checked against the
+    service's patterns whenever they are read, so a hand-edited file can't bring others to the page or to git."""
+
+    service: Service
+    source: str
+    id: str
+    name: str
+    url: str
+
+    @model_validator(mode="after")
+    def names_are_the_services(self) -> RemoteSettings:
+        try:
+            validate_source(self.service, self.source)
+            validate_repository_name(self.service, self.name)
+        except CodetrailError as error:
+            raise ValueError(str(error)) from error
+        return self
+
+    @field_validator("url")
+    @classmethod
+    def host_is_the_services(cls, url: str, info: ValidationInfo) -> str:
+        # The checked URL (Azure DevOps's user name dropped) replaces the written one.
+        if "service" not in info.data:  # the service itself was refused
+            return url
+        try:
+            return check_clone_url(info.data["service"], url)
+        except CodetrailError as error:
+            raise ValueError(str(error)) from error
+
+
+class TeamSource(Settings):
+    service: Service
+    source: str
+    follow: Literal["all", "chosen"] = "all"
+    clone_over: Literal["https", "ssh"] = "https"
+    left_out: list[str] = []
+    chosen: list[str] = []
+
+    @field_validator("left_out", "chosen")
+    @classmethod
+    def ids_are_safe(cls, identifiers: list[str]) -> list[str]:
+        for identifier in identifiers:
+            try:
+                require_safe_id(identifier)
+            except CodetrailError as error:
+                raise ValueError(str(error)) from error
+        return identifiers
+
+    @model_validator(mode="after")
+    def source_is_valid_for_the_service(self) -> TeamSource:
+        try:
+            validate_source(self.service, self.source)
+        except CodetrailError as error:
+            raise ValueError(str(error)) from error
+        return self
+
+
+class TeamModels(Settings):
+    """The provider and model of the team's own call, as `provider:model` (design section 24.9)."""
+
+    overview: str = "claude-sonnet-5-5"
+
+    @field_validator("overview")
+    @classmethod
+    def known_provider_without_codex(cls, value: str) -> str:
+        provider = ModelSettings.known_provider(value).partition(":")[0]
+        if provider == "codex":
+            raise ValueError(
+                "The team's overview can't use Codex: Codex can't be confined to read-only work (design section 15.5)."
+            )
+        return value
+
+
+class CatchUpSettings(Settings):
+    max_budget_usd: float = Field(default=20.0, gt=0)  # the whole catch-up's spend, across its repositories
+    concurrency: int = Field(default=2, ge=1, le=8)  # repositories updated at once
+    max_budget_usd_per_call: float = Field(default=1.0, gt=0)  # the overview's one call
+
+
+class TeamConfig(Settings):
+    sources: list[TeamSource] = []
+    models: TeamModels = TeamModels()
+    catch_up: CatchUpSettings = CatchUpSettings()
+
+
 class TargetConfig(Settings):
-    repository: Path
+    repository: Path | None = None
+    remote: RemoteSettings | None = None
+    team: str | None = None
     branch: str
     extractors: list[Literal["python", "adr", "openapi", "terraform", "swift", "typescript", "github_actions"]] = [
         "python",
@@ -390,6 +541,17 @@ class TargetConfig(Settings):
     metrics: TargetMetricsSettings = TargetMetricsSettings()
 
     @model_validator(mode="after")
+    def one_location(self) -> TargetConfig:
+        if (self.repository is None) == (self.remote is None):
+            raise ValueError("set exactly one of repository and remote.")
+        return self
+
+    @property
+    def location(self) -> str:
+        """The repository's path, or the remote's URL."""
+        return str(self.repository) if self.remote is None else self.remote.url
+
+    @model_validator(mode="after")
     def codex_needs_consent(self) -> TargetConfig:
         if self.models.uses("codex") and not self.assistant.allow_codex:
             raise ValueError(
@@ -398,17 +560,38 @@ class TargetConfig(Settings):
             )
         return self
 
+    @field_validator("team")
+    @classmethod
+    def team_is_valid(cls, team: str | None) -> str | None:
+        if team is not None:
+            try:
+                validate_team_name(team)
+            except CodetrailError as error:
+                raise ValueError(str(error)) from error
+        return team
+
     @field_validator("repository")
     @classmethod
-    def expand_home(cls, repository: Path) -> Path:
-        return repository.expanduser()
+    def expand_home(cls, repository: Path | None) -> Path | None:
+        return repository.expanduser() if repository else None
 
 
 def validate_target_name(name: str) -> str:
+    if name in RESERVED_TARGET_NAMES:
+        raise CodetrailError(f"{name!r} is reserved: a team's data lives in a folder of that name.")
     if not TARGET_NAME.fullmatch(name):
         raise CodetrailError(
             f"{name!r} isn't a valid target name: use lower-case letters, digits and hyphens, starting with a letter "
             "or digit, at most 63 characters."
+        )
+    return name
+
+
+def validate_team_name(name: str) -> str:
+    if not TEAM_NAME.fullmatch(name):
+        raise CodetrailError(
+            f"{name!r} isn't a valid team name: use lower-case letters, digits and hyphens, starting with a letter "
+            "or digit, at most 30 characters."
         )
     return name
 
@@ -427,6 +610,13 @@ def load_target(paths: Paths, name: str) -> TargetConfig:
     return _validate(TargetConfig, _read_toml(file), file)
 
 
+def load_team(paths: Paths, name: str) -> TeamConfig:
+    file = paths.team_file(validate_team_name(name))
+    if not file.exists():
+        raise CodetrailError(f"No team named {name!r}.")
+    return _validate(TeamConfig, _read_toml(file), file)
+
+
 def check_containment(paths: Paths, repository: Path) -> None:
     """Codetrail's folders and the repository must not contain each other (AGENTS.md, Never do, rule 6)."""
     repository = repository.expanduser().resolve()
@@ -438,17 +628,46 @@ def check_containment(paths: Paths, repository: Path) -> None:
             )
 
 
+def toml_string(value: str) -> str:
+    """A TOML basic string. Characters stay as they are (JSON's surrogate pairs aren't valid TOML), and the controls
+    JSON leaves alone, DEL, are escaped."""
+    return json.dumps(value, ensure_ascii=False).replace("\x7f", "\\u007f")
+
+
 def write_target(paths: Paths, name: str, repository: Path, branch: str) -> Path:
     """Writes a new target's configuration file and returns its path."""
     file = paths.target_file(validate_target_name(name))
     repository = repository.expanduser().resolve()
     check_containment(paths, repository)
     validate_branch_name(branch)
-    # json.dumps with ASCII escapes writes a valid TOML basic string for any text.
     text = (
         f"# Codetrail target {name!r}, written by `codetrail target add`.\n"
-        f"repository = {json.dumps(str(repository))}\n"
-        f"branch = {json.dumps(branch)}\n"
+        f"repository = {toml_string(str(repository))}\n"
+        f"branch = {toml_string(branch)}\n"
+    )
+    file.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with file.open("x", encoding="utf-8") as handle:
+            handle.write(text)
+    except FileExistsError as error:
+        raise CodetrailError(f"A target named {name!r} already exists: {file}") from error
+    return file
+
+
+def write_remote_target(paths: Paths, name: str, remote: RemoteSettings, branch: str, team: str) -> Path:
+    """Writes a team's new remote target and returns its path. There is no checkout to check."""
+    file = paths.target_file(validate_target_name(name))
+    validate_branch_name(branch)
+    text = (
+        f"# Codetrail target {name!r}, written for team {team!r}.\n"
+        f"team = {toml_string(validate_team_name(team))}\n"
+        f"branch = {toml_string(branch)}\n"
+        "\n[remote]\n"
+        f"service = {toml_string(remote.service)}\n"
+        f"source = {toml_string(remote.source)}\n"
+        f"id = {toml_string(remote.id)}\n"
+        f"name = {toml_string(remote.name)}\n"
+        f"url = {toml_string(remote.url)}\n"
     )
     file.parent.mkdir(parents=True, exist_ok=True)
     try:

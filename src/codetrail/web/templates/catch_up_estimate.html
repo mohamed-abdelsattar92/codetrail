@@ -1,0 +1,50 @@
+{% from "macros.html" import account_notes %}
+{# The catch-up's one estimate (design section 24.8), rendered by the server in the reader's language. Each row
+   carries its figures, and the overview's row its own, so the page's script recomputes the totals exactly as
+   `CatchUpEstimate.totals` does while rows are unticked. Repository names and reasons come from the hosting service
+   and git, so they are only ever autoescaped text. #}
+{% macro amount(tokens, usd) -%}
+<span class="nowrap"><bdi dir="ltr">~{{ tokens|tokens }}</bdi> {{ _("tokens") }}{% if usd is not none %} · <bdi dir="ltr">~{{ usd|dollars }}</bdi>{% endif %}</span>
+{%- endmacro %}
+{% macro attribute(value) -%}{{ "" if value is none else value }}{%- endmacro %}
+<h2 id="catch-up-estimate-title">{{ _("Before catching up") }}</h2>
+<p>{{ _("Every repository’s facts are refreshed. Writing the ticked repositories’ guides will call:") }}</p>
+<table class="estimate">
+  <thead>
+    <tr><th>{{ _("Repository") }}</th><th>{{ _("Expected") }}</th><th>{{ _("At most") }}</th></tr>
+  </thead>
+  <tbody>
+  {% for line in estimate.lines %}
+    <tr data-catch-up-line data-expected-tokens="{{ line.estimate.expected_tokens }}" data-maximum-tokens="{{ line.estimate.maximum_tokens }}" data-expected-usd="{{ attribute(line.estimate.expected_usd) }}" data-maximum-usd="{{ attribute(line.estimate.maximum_usd) }}" data-digest="{{ 'true' if line.digest_possible else 'false' }}" data-digest-expected="{{ 'true' if line.digest_expected else 'false' }}">
+      <td><label class="estimate-target"><input type="checkbox" name="target" value="{{ line.target }}" checked> <bdi>{{ line.repository }}</bdi></label>{% if line.first_guide %} <span class="chip">{{ _("first guide") }}</span>{% endif %}</td>
+      <td>{{ amount(line.estimate.expected_tokens, line.estimate.expected_usd) }}</td>
+      <td>{{ amount(line.estimate.maximum_tokens, line.estimate.maximum_usd) }}</td>
+    </tr>
+  {% endfor %}
+  {% if estimate.overview %}
+    <tr data-overview data-tokens="{{ estimate.overview.tokens_each }}" data-cost-usd="{{ attribute(estimate.overview.cost_each_usd) }}">
+      <td>{{ _("The team overview, while two ticked repositories may write a digest") }}</td>
+      <td colspan="2">{{ amount(estimate.overview.tokens_each, estimate.overview.cost_each_usd) }}</td>
+    </tr>
+  {% endif %}
+  </tbody>
+</table>
+{% set totals = estimate.totals %}
+{% set expected_tokens %}<bdi dir="ltr" data-total="expected-tokens">{{ totals.expected_tokens|tokens }}</bdi>{% endset %}
+{% set maximum_tokens %}<bdi dir="ltr" data-total="maximum-tokens">{{ totals.maximum_tokens|tokens }}</bdi>{% endset %}
+{% set expected_usd %}<bdi dir="ltr" data-total="expected-usd">{{ totals.expected_usd|dollars }}</bdi>{% endset %}
+{% set maximum_usd %}<bdi dir="ltr" data-total="maximum-usd">{{ totals.maximum_usd|dollars }}</bdi>{% endset %}
+<p class="estimate-total" data-catch-up-totals data-budget-usd="{{ estimate.budget_usd }}">
+  {% trans expected=expected_tokens, maximum=maximum_tokens %}Expected: ~{{ expected }} tokens; at most ~{{ maximum }}.{% endtrans %}
+  <span data-total-prices{% if totals.expected_usd is none or totals.maximum_usd is none %} hidden{% endif %}>{% trans expected=expected_usd, maximum=maximum_usd %}At API prices: ~{{ expected }}, at most {{ maximum }}.{% endtrans %}</span>
+  {% trans budget=estimate.budget_usd|dollars %}The catch-up stops starting calls at the team’s budget of {{ budget }}.{% endtrans %}
+</p>
+{% if estimate.failed %}
+<p>{{ _("These repositories won’t be caught up, since their refresh failed:") }}</p>
+<ul class="estimate-pages">
+{% for failure in estimate.failed %}
+  <li><bdi>{{ failure.repository }}</bdi>: <bdi>{{ failure.reason }}</bdi></li>
+{% endfor %}
+</ul>
+{% endif %}
+{{ account_notes(estimate.sign_ins, estimate.plan_usage) }}

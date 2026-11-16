@@ -9,7 +9,7 @@
 {% if answers %}
 <ul class="list">
   {% for answer, changed in answers %}
-  <li><a class="grow" href="/pages/{{ answer.id }}" dir="auto">{{ answer.title }}</a>
+  <li><a class="grow" href="{{ site_path('/pages/') }}{{ answer.id }}" dir="auto">{{ answer.title }}</a>
     {% if changed %}<span class="pill pill-changed">{{ _("sources changed") }}</span>{% endif %}
     <span class="faint">{{ (answer.meta.get("asked_at") if answer.meta.get("asked_at") is string else "")[:10] }}</span></li>
   {% endfor %}

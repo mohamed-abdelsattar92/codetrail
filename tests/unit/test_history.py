@@ -12,6 +12,7 @@ from codetrail.config import ToolsSettings
 from codetrail.errors import CodetrailError
 from codetrail.repo.history import (
     WITHHELD_TAG,
+    authors_between,
     changed_files,
     changed_paths,
     commit_count,
@@ -215,12 +216,35 @@ def test_commit_totals_and_times_count_the_whole_history(tmp_path: Path) -> None
     assert commit_times(mirror, end, 2) == times[:2]
 
 
-def test_the_first_commit_time_is_the_earliest_root_commit(tmp_path: Path) -> None:
+def test_the_first_commit_time_counts_every_root_commit(tmp_path: Path) -> None:
     checkout = make_repository(tmp_path / "t", [{"a": "1"}, {"a": "2"}])
     git(checkout, "checkout", "-q", "--orphan", "imported")
     git(checkout, "commit", "-q", "--allow-empty", "-m", "Imported", date=9)
     git(checkout, "checkout", "-q", "develop")
     git(checkout, "merge", "-q", "--allow-unrelated-histories", "imported", "-m", "Merge", date=10)
+    mirror, end = mirror_of(checkout, tmp_path)
+    assert first_commit_time(mirror, end) == 1_790_000_000
+
+
+def test_the_first_commit_time_is_the_earliest_author_time_even_after_the_root(tmp_path: Path) -> None:
+    checkout = make_repository(tmp_path / "t", [{"a": "1"}, {"a": "2"}])
+    git(checkout, "commit", "-q", "--allow-empty", "-m", "Back-dated", date=-60)  # a rebase or an imported patch
+    mirror, end = mirror_of(checkout, tmp_path)
+    assert first_commit_time(mirror, end) == 1_790_000_000 - 3600
+
+
+@pytest.mark.parametrize("digits", [13, 5000])
+def test_a_commit_date_too_long_to_be_a_time_is_left_out_of_the_first_commit(tmp_path: Path, digits: int) -> None:
+    checkout = make_repository(tmp_path / "t", [{"a": "1"}])
+    tree, parent = git(checkout, "rev-parse", "HEAD^{tree}"), git(checkout, "rev-parse", "HEAD")
+    content = (
+        f"tree {tree}\nparent {parent}\nauthor A <a@example.com> {'1' * digits} +0000\n"
+        f"committer A <a@example.com> 1790000000 +0000\n\nA crafted date\n"
+    )  # git stores it unparsed
+    command = ["git", "-C", str(checkout), "hash-object", "-t", "commit", "--literally", "-w", "--stdin"]
+    crafted = subprocess.run(command, input=content, env={**os.environ, **GIT_ENVIRONMENT}, capture_output=True,
+                             text=True, check=True).stdout.strip()  # fmt: skip
+    git(checkout, "update-ref", "refs/heads/develop", crafted)
     mirror, end = mirror_of(checkout, tmp_path)
     assert first_commit_time(mirror, end) == 1_790_000_000
 
@@ -324,3 +348,32 @@ def test_files_changed_since_keep_a_leading_newline(tmp_path: Path) -> None:
     write_commit(checkout, {"\nlead": "1\n"}, "Later", date=60 * 24 * 40)
     mirror, end = mirror_of(checkout, tmp_path)
     assert files_changed_since(mirror, end, date(2026, 10, 1)) == {"\nlead"}
+
+
+def commit_by(checkout: Path, author: str) -> str:
+    git(checkout, "commit", "-q", "--allow-empty", "--author", f"{author} <someone@example.com>", "-m", "Work")
+    return git(checkout, "rev-parse", "HEAD")
+
+
+def test_authors_between_distinct_sorted(tmp_path: Path) -> None:
+    checkout = make_repository(tmp_path / "t", [{"a.md": "a\n"}])
+    start = git(checkout, "rev-parse", "HEAD")
+    for author in ("Bob", "alice", "Bob"):
+        commit_by(checkout, author)
+    mirror, end = mirror_of(checkout, tmp_path)
+    assert authors_between(mirror, start, end) == ["alice", "Bob"]  # names only, no counts, in alphabetical order
+    assert authors_between(mirror, end, end) == []
+
+
+def test_authors_between_follows_the_first_parent(tmp_path: Path) -> None:
+    """Who merged: the authors of the merges and direct commits on the branch, not of the merged branch's commits."""
+    checkout = make_repository(tmp_path / "t", [{"a.md": "a\n"}])
+    start = git(checkout, "rev-parse", "HEAD")
+    commit_by(checkout, "Ann")
+    git(checkout, "switch", "-q", "-c", "feature/x")
+    commit_by(checkout, "Bob")
+    git(checkout, "switch", "-q", "develop")
+    git(checkout, "merge", "-q", "--no-ff", "--no-commit", "feature/x")
+    git(checkout, "commit", "-q", "--author", "Cat <cat@example.com>", "-m", "Merge feature/x")
+    mirror, end = mirror_of(checkout, tmp_path)
+    assert authors_between(mirror, start, end) == ["Ann", "Cat"]

@@ -7,7 +7,7 @@
     {% if arrow.evidence == "matched" %}
       <span class="faint">{{ _("matched by name:") }} <span lang="en" dir="ltr">{{ arrow.names | join(" · ") }}</span>{% if arrow.link %} (<a href="{{ arrow.link }}" lang="en" dir="ltr">{{ _("source") }}</a>){% endif %}</span>
     {% elif arrow.link %}
-      <a class="faint" href="{{ arrow.link }}" lang="en" dir="ltr">{{ arrow.link.removeprefix("/source/") }}</a>
+      <a class="faint" href="{{ arrow.link }}" lang="en" dir="ltr">{{ arrow.link.removeprefix(site_path("/source/")) }}</a>
     {% endif %}
   </li>
   {% endfor %}
