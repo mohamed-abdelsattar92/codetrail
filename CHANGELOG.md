@@ -4,6 +4,10 @@ Every notable change to Codetrail, newest first. The format follows [Keep a Chan
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-11-16
+
+Release notes: [docs/releases/v1.5.0.md](docs/releases/v1.5.0.md).
+
 ### Added
 - Past catch-ups: a page at `/team/catch-ups`, linked from the team page and its sidebar, reads any earlier catch-up again at no cost, with its overview and digests, by day from a calendar of 53 weeks or by a range of dates (`[team] history_days`, `max_history_catch_ups`). Each catch-up now records the digests it wrote.
 - Catching up across a team. **Catch up** on the team page and `codetrail team update <name> [--yes]` re-read the sources, clone new repositories and refresh every repository's facts for free, then show one estimate with a line and checkbox per repository, capped at the team's budget (`[catch_up] max_budget_usd`, `concurrency`, and `max_budget_usd_per_call` for the overview). Once the budget is spent, a repository whose turn hadn't come isn't updated, and its card and the panel say why; a repository the last catch-up missed, first guides included, says why on its card or row, and its card counts the merges its guide hasn't taken in. `codetrail team update` asks the same `Continue? [y/N]` as `codetrail update`. The team page shows one card per repository with something new, busiest first: its unread digests' highlights marked documented or inferred, who merged (never counted), and a link to the digest, with **Mark read**. "Across the team" is an overview written in one call with no tools, which may only copy documented blocks from the digests (`[team] max_overview_words`, `[models] overview`, no Codex).
@@ -225,7 +229,8 @@ The first public release. Release notes: [docs/releases/v1.0.0.md](docs/releases
 - The page and the bridge listen on 127.0.0.1 only, check `Host`, `Origin` and `Sec-Fetch-Site`, need a single-use login code and a per-session token, and send a strict content security policy.
 - The assistant gets read-only tools (Read, Grep, Glob) confined to the filtered sources: for Claude Code through two independent guards, and for local models through Codetrail's own tools. Codex can't be confined the same way, so it stays off unless a target opts in. Every provider gets an allowlisted environment: Codetrail never reads, stores or passes a key or token, unless you set `auth = "api_key"`, when the provider's key variable is handed to its program by name.
 
-[Unreleased]: https://github.com/mohamed-abdelsattar92/codetrail/compare/v1.4.1...develop
+[Unreleased]: https://github.com/mohamed-abdelsattar92/codetrail/compare/v1.5.0...develop
+[1.5.0]: https://github.com/mohamed-abdelsattar92/codetrail/compare/v1.4.1...v1.5.0
 [1.4.1]: https://github.com/mohamed-abdelsattar92/codetrail/compare/v1.4.0...v1.4.1
 [1.4.0]: https://github.com/mohamed-abdelsattar92/codetrail/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/mohamed-abdelsattar92/codetrail/compare/v1.2.0...v1.3.0
